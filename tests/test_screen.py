@@ -194,3 +194,61 @@ def test_same_company_different_role_is_not_a_duplicate():
 def test_name_key_collapses_whitespace_and_ampersands():
     assert name_key("Rocco  Forte  &  Co", "Head of  Strategy") == \
            name_key("Rocco Forte & Co", "Head of Strategy")
+
+
+# --------------------------------------------------------------------------
+# Containment — the second layer under the admission guard.
+#
+# `assert_no_conflicts` protects a user who already HAS pursue history. On day
+# one that history is empty, so containment must be detectable structurally.
+# --------------------------------------------------------------------------
+def test_containment_is_flagged_for_review_on_a_brand_new_user():
+    table = RuleTable(unsupported_titles=["office manager"])
+    r = screen_one(job("Assistant Front Office Manager", company="Grand Hotel"),
+                   table.compiled())
+    assert r.verdict is Verdict.UNLIKELY      # still killed: cheap + predictable
+    assert r.contained and r.needs_review
+    assert "INSIDE a longer role name" in r.reason
+
+
+def test_a_clean_kill_is_not_flagged():
+    table = RuleTable(unsupported_titles=["office manager"])
+    r = screen_one(job("Office Manager"), table.compiled())
+    assert r.verdict is Verdict.UNLIKELY and not r.contained
+
+
+def test_a_trailing_segment_does_not_look_like_containment():
+    table = RuleTable(unsupported_titles=["kitchen porter"])
+    r = screen_one(job("Kitchen Porter - Full Time - Central London"),
+                   table.compiled())
+    assert not r.contained, "words AFTER the role name are not modifiers"
+
+
+def test_a_linking_word_means_the_term_is_the_head_noun():
+    """'Head of Operations' IS an operations role, so an `operations` kill
+    there is correct and must not be flagged as noise."""
+    fam = KillFamily(name="qsr", employers=("Burgerly",),
+                     kill_titles=("operations",), saves_titles=("strategy",),
+                     precedents=(("Burgerly", "Ops"), ("Burgerly", "Shift")),
+                     adopted=True)
+    r = screen_one(job("Head of Operations", company="Burgerly"),
+                   RuleTable(kill_families=[fam]).compiled())
+    assert r.verdict is Verdict.UNLIKELY and not r.contained
+
+
+def test_kill_families_are_containment_checked_too():
+    fam = KillFamily(name="qsr", employers=("Burgerly",),
+                     kill_titles=("office manager",), saves_titles=("strategy",),
+                     precedents=(("Burgerly", "A"), ("Burgerly", "B")),
+                     adopted=True)
+    r = screen_one(job("Assistant Front Office Manager", company="Burgerly"),
+                   RuleTable(kill_families=[fam]).compiled())
+    assert r.contained
+
+
+def test_report_surfaces_contained_kills_in_the_counts():
+    table = RuleTable(unsupported_titles=["office manager"])
+    rep = screen_all([job("Office Manager", jid="a"),
+                      job("Assistant Front Office Manager", jid="b")], table)
+    assert rep.counts["contained_needs_review"] == 1
+    assert len(rep.contained) == 1

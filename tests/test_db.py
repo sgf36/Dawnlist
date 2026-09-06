@@ -234,3 +234,23 @@ def test_completing_a_task_frees_the_slot_and_needs_evidence(conn):
     live = conn.execute("SELECT count(*) c FROM tasks WHERE status IN"
                         " ('open','waiting')").fetchone()
     assert live["c"] == 1
+
+
+# -- spec 8.2: a bounce clears the address, structurally --------------------
+def test_a_bounced_contact_cannot_retain_an_address(conn):
+    o = _opp(conn)
+    conn.execute("INSERT INTO contacts(opportunity_id, name, email, created_at)"
+                 " VALUES(?, 'Jo', 'jo@dead.example', 'x')", (o,))
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute("UPDATE contacts SET email_bounced = 1")
+
+
+def test_record_bounce_clears_and_flags_together(conn):
+    o = _opp(conn)
+    cid = conn.execute("INSERT INTO contacts(opportunity_id, name, email,"
+                       " created_at) VALUES(?, 'Jo', 'jo@dead.example', 'x')",
+                       (o,)).lastrowid
+    db.record_bounce(conn, cid)
+    row = conn.execute("SELECT email, email_bounced FROM contacts WHERE id=?",
+                       (cid,)).fetchone()
+    assert row["email"] is None and row["email_bounced"] == 1

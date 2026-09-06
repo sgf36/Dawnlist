@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from app.core.rules import CompiledRules, RuleTable
+from app.core.rules import CompiledRules, RuleTable, is_contained_match
 from app.feed.models import Job
 
 
@@ -37,10 +37,20 @@ class ScreenResult:
     verdict: Verdict
     tier: Tier
     reason: str
+    #: The kill term matched INSIDE a longer role name — "office manager"
+    #: firing on "Assistant Front Office Manager". Still killed, so the screen
+    #: stays cheap and predictable, but surfaced for review: this is the
+    #: failure mode that removes roles the user wanted, and it is invisible
+    #: unless something names it.
+    contained: bool = False
 
     @property
     def is_likely(self) -> bool:
         return self.verdict is Verdict.LIKELY
+
+    @property
+    def needs_review(self) -> bool:
+        return self.contained and not self.is_likely
 
 
 def screen_one(job: Job, rules: CompiledRules) -> ScreenResult:
@@ -52,17 +62,26 @@ def screen_one(job: Job, rules: CompiledRules) -> ScreenResult:
     if rules.unsupported:
         m = rules.unsupported.search(title)
         if m:
-            return ScreenResult(
-                job, Verdict.UNLIKELY, Tier.UNSUPPORTED_TITLE,
-                f"unsupported title term {m.group(0)!r}",
-            )
+            contained = is_contained_match(title, m.start())
+            reason = f"unsupported title term {m.group(0)!r}"
+            if contained:
+                reason += (" — matched INSIDE a longer role name; "
+                           "review before trusting this kill")
+            return ScreenResult(job, Verdict.UNLIKELY, Tier.UNSUPPORTED_TITLE,
+                                reason, contained=contained)
 
     # --- Tier 1b: kill families (employer + wrong function) ------------------
     # SAVES is evaluated inside the family, before KILL.
     for fam in rules.families:
-        why = fam.verdict(company, title)
-        if why:
-            return ScreenResult(job, Verdict.UNLIKELY, Tier.KILL_FAMILY, why)
+        hit = fam.match(company, title)
+        if hit:
+            why, start = hit
+            contained = is_contained_match(title, start)
+            if contained:
+                why += (" — matched INSIDE a longer role name; "
+                        "review before trusting this kill")
+            return ScreenResult(job, Verdict.UNLIKELY, Tier.KILL_FAMILY, why,
+                                contained=contained)
 
     # --- Tier 2: known employer ---------------------------------------------
     hit = rules.known_employer(company)
@@ -109,10 +128,20 @@ class ScreenReport:
         return [r for r in self.results if not r.is_likely]
 
     @property
+    def contained(self) -> list[ScreenResult]:
+        """Kills where the term matched inside a longer role name.
+
+        Surface these every run. A term that keeps landing here is reaching
+        further than the user meant it to, and this is the only signal before
+        it costs them a role they wanted."""
+        return [r for r in self.results if r.needs_review]
+
+    @property
     def counts(self) -> dict[str, int]:
         out: dict[str, int] = {"screened": len(self.results),
                                "likely": len(self.likely),
-                               "unlikely": len(self.unlikely)}
+                               "unlikely": len(self.unlikely),
+                               "contained_needs_review": len(self.contained)}
         for r in self.results:
             out[f"tier:{r.tier.value}"] = out.get(f"tier:{r.tier.value}", 0) + 1
         return out

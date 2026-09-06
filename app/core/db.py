@@ -200,11 +200,18 @@ CREATE TABLE IF NOT EXISTS contacts (
     email         TEXT,
     -- spec 8.2: on a confirmed bounce the address is cleared so no later run
     -- uses it, and the channel pivots. The bounce does not advance the cadence.
+    -- The CHECK is what makes "cleared" real: a bounced contact CANNOT retain
+    -- an address, so no later run can read one and try again. Flagging alone
+    -- left the dead address sitting there for anything that forgot to look.
     email_bounced INTEGER NOT NULL DEFAULT 0,
     -- spec 9.6: a mutual connection who never replied is not a warm route.
     ever_replied  INTEGER NOT NULL DEFAULT 0,
     do_not_contact INTEGER NOT NULL DEFAULT 0,
-    created_at    TEXT NOT NULL
+    created_at    TEXT NOT NULL,
+    -- Makes "cleared" real. A bounced contact CANNOT retain an address, so no
+    -- later run can read one and try again. Flagging alone left the dead
+    -- address sitting there for anything that forgot to check the flag.
+    CHECK (email_bounced = 0 OR email IS NULL)
 );
 
 -- The evidence log. spec 8.1: the cadence interval is computed from ACTUAL
@@ -407,3 +414,17 @@ def prune_seen(conn: sqlite3.Connection, days: int = SEEN_RETENTION_DAYS) -> int
     cur = conn.execute("DELETE FROM seen_jobs WHERE seen_at < ?", (cutoff,))
     conn.commit()
     return cur.rowcount
+
+
+def record_bounce(conn: sqlite3.Connection, contact_id: int) -> None:
+    """Mark a contact bounced AND clear the dead address, atomically.
+
+    spec 8.2. Doing these as two statements is how one of them gets skipped:
+    the flag lands, the address stays, and a later run reads it and sends to a
+    mailbox that does not exist. The schema CHECK refuses that state, so this
+    is the only way to get there.
+    """
+    conn.execute(
+        "UPDATE contacts SET email = NULL, email_bounced = 1 WHERE id = ?",
+        (contact_id,))
+    conn.commit()

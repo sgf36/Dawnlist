@@ -91,8 +91,8 @@ class KillFamily:
         c = (company or "").casefold()
         return any(e.casefold() in c for e in self.employers)
 
-    def verdict(self, company: str, title: str) -> str | None:
-        """Return a kill reason, or None if this family does not kill it.
+    def match(self, company: str, title: str) -> tuple[str, int] | None:
+        """Return (reason, match offset), or None if this family does not kill.
 
         SAVES is checked BEFORE kill: the whole point of the family is that the
         right function at a rejected employer survives.
@@ -104,8 +104,13 @@ class KillFamily:
         if self._kill_re:
             m = self._kill_re.search(title or "")
             if m:
-                return f"kill family {self.name!r}: {company} + title term {m.group(0)!r}"
+                return (f"kill family {self.name!r}: {company} + title term "
+                        f"{m.group(0)!r}"), m.start()
         return None
+
+    def verdict(self, company: str, title: str) -> str | None:
+        hit = self.match(company, title)
+        return hit[0] if hit else None
 
 
 @dataclass
@@ -224,3 +229,62 @@ def assert_no_conflicts(table: "RuleTable",
     conflicts = find_conflicts(table, pursued)
     if conflicts:
         raise RuleConflictError(conflicts)
+
+
+# ---------------------------------------------------------------------------
+# Containment detection — the second layer under the admission guard.
+#
+# `assert_no_conflicts` only protects a user who ALREADY has pursue history.
+# On day one that history is empty, so the "office manager" class of failure
+# would be silent again. This makes it visible instead.
+#
+# The linguistic rule, which is what makes this reliable rather than a guess:
+#
+#   "X of Y"  -> the role IS Y. "Head of Operations" is an operations role, so
+#               a kill term `operations` is firing on the head noun. Correct.
+#   "A B Y"   -> Y modified by A B, which is often a DIFFERENT role. "Assistant
+#               Front Office Manager" is not an office manager, so a kill term
+#               `office manager` is firing inside a longer role name.
+#
+# So: significant words immediately before the match, not joined by a linking
+# word, mean the term matched inside a longer title. The kill still happens —
+# the screen stays cheap and predictable — but the row is FLAGGED so an
+# over-reaching term shows up in review rather than as months of silence.
+# ---------------------------------------------------------------------------
+
+#: Words that link a head noun to its qualifier. "Head **of** Operations".
+LINKING_WORDS = frozenset({
+    "of", "for", "in", "at", "to", "and", "or", "&", "the", "a", "an",
+    "on", "with", "de", "des", "du",
+})
+
+#: Characters that end a title segment. "Kitchen Porter - Full Time" is two.
+SEGMENT_BREAKS = "-–—,|/()[]:;·"
+
+
+def is_contained_match(title: str, match_start: int) -> bool:
+    """True when the matched term sits INSIDE a longer role name.
+
+    >>> is_contained_match("Office Manager", 0)
+    False
+    >>> is_contained_match("Assistant Front Office Manager", 16)
+    True
+    >>> is_contained_match("Head of Operations", 8)      # "of" links
+    False
+    """
+    if match_start <= 0:
+        return False
+
+    segment_start = 0
+    for i, ch in enumerate(title[:match_start]):
+        if ch in SEGMENT_BREAKS:
+            segment_start = i + 1
+
+    prefix = title[segment_start:match_start].strip()
+    if not prefix:
+        return False
+
+    words = prefix.split()
+    if not words:
+        return False
+    return words[-1].strip(".,").casefold() not in LINKING_WORDS
