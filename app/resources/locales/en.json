@@ -31,5 +31,12 @@
   "voice.no_profile": "No tone profile yet — add some of your own sent emails",
   "draft.needs_evidence": "Needs evidence",
   "draft.send_ready": "Ready to send from your mail app",
-  "draft.never_sends": "Dawnlist never sends. You send it yourself."
+  "draft.never_sends": "Dawnlist never sends. You send it yourself.",
+  "board.title": "Dawnlist — your board",
+  "board.col.company": "Company",
+  "board.col.status": "Status",
+  "board.col.next_step": "Next step",
+  "board.col.open_task": "Open task",
+  "board.repair_mirror": "Correct the status",
+  "board.repair_stage": "Correct the stage"
 }
