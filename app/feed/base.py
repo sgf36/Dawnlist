@@ -67,17 +67,50 @@ class RateLimiter:
     """spec 10.1: a rate-limit error and a gateway timeout need OPPOSITE
     remedies. Retry a 504 immediately; for a 429 an instant retry just re-hits
     the limit, so read retryAfter, sleep it out, then retry once.
+
+    **The binding cap is the HOURLY one, not the per-minute headline.** Measured
+    in P0: TheirStack's free tier is 4/second, 10/minute, 50/hour, 400/day, and
+    a limiter that only enforces 6-second spacing satisfies 10/minute while
+    sailing past 50/hour after eight minutes of steady work. Every window is
+    enforced here, and `wait()` sleeps for whichever binds.
     """
 
-    def __init__(self, per_minute: int = 10, per_second: int = 4):
-        self.min_interval = max(60.0 / per_minute, 1.0 / per_second)
-        self._last = 0.0
+    def __init__(self, per_second: int = 4, per_minute: int = 10,
+                 per_hour: int = 50, per_day: int = 400):
+        # (window seconds, max calls, timestamps)
+        self._windows: list[tuple[float, int, list[float]]] = [
+            (1.0, per_second, []),
+            (60.0, per_minute, []),
+            (3600.0, per_hour, []),
+            (86400.0, per_day, []),
+        ]
+
+    def _sleep_needed(self, now: float) -> float:
+        wait = 0.0
+        for span, cap, hits in self._windows:
+            if cap <= 0:
+                continue
+            hits[:] = [t for t in hits if now - t < span]
+            if len(hits) >= cap:
+                # The oldest call in this window has to age out first.
+                wait = max(wait, span - (now - hits[0]))
+        return wait
 
     def wait(self) -> None:
-        gap = time.monotonic() - self._last
-        if gap < self.min_interval:
-            time.sleep(self.min_interval - gap)
-        self._last = time.monotonic()
+        while True:
+            now = time.monotonic()
+            needed = self._sleep_needed(now)
+            if needed <= 0:
+                break
+            time.sleep(needed)
+        now = time.monotonic()
+        for _span, _cap, hits in self._windows:
+            hits.append(now)
+
+    def would_wait(self) -> float:
+        """Seconds the next call would block for. Never sleeps — for planning
+        a run and for telling the user why a sweep is slow."""
+        return self._sleep_needed(time.monotonic())
 
 
 def parse_date(value) -> date | None:

@@ -57,6 +57,9 @@ class RunOutcome:
     assessment: AssessmentReport | None = None
     fetch_errors: list[str] = field(default_factory=list)
     per_query_yield: dict[str, float] = field(default_factory=dict)
+    #: Queries whose fetch failed, so no yield rate was computed for them.
+    #: Named rather than silently absent - "not measured" is not "0%".
+    unscored_queries: list[str] = field(default_factory=list)
 
     @property
     def complete(self) -> bool:
@@ -149,8 +152,19 @@ def run_morning(
                           screened_out=len(outcome.screen.unlikely))
 
         # Per-query yield, measured on what each query actually contributed.
+        #
+        # A query whose fetch FAILED is excluded entirely rather than scored on
+        # its partial rows. Scoring it would report a transport fault as a
+        # loose query - the same error that made a P0 run print 58.1% coverage
+        # by counting rate-limit failures as misses (spec 6.2). A yield rate
+        # that silently mixes the two is worse than no yield rate.
         likely_ids = {j.dedup_key for j in likely}
+        failed = {q.label for q in queries
+                  if outcome.fetch.get(q.label) and not outcome.fetch[q.label].ok}
         for label, jobs in per_query.items():
+            if label in failed:
+                outcome.unscored_queries.append(label)
+                continue
             hits = sum(1 for j in jobs if j.dedup_key in likely_ids)
             outcome.per_query_yield[label] = yield_rate(len(jobs), hits)
 

@@ -63,3 +63,49 @@ def test_recovery_dedups_by_job_id_not_name():
     ]
     out = recover_stranded(rows, decided_ids={("theirstack", "1")})
     assert [r["provider_job_id"] for r in out] == ["2"]
+
+
+# --------------------------------------------------------------------------
+# Measured in P0: a naive company+title matcher produced at least one false
+# negative in six. Because a name key can only ever RAISE a flag, folding these
+# variants together is safe — a missed flag is the expensive direction.
+# --------------------------------------------------------------------------
+from app.feed.models import name_key  # noqa: E402
+
+
+def test_a_single_plural_no_longer_splits_the_key():
+    """The real case: live title 'Analyst, Investment and Portfolio Oversight'
+    vs a search for 'analyst investments portfolio'."""
+    assert name_key("Round Hill", "Analyst, Investment and Portfolio Oversight") \
+        == name_key("Round Hill", "Analyst Investments Portfolio Oversight")
+
+
+def test_company_suffix_variants_fold_together():
+    """A company-name variant returned n=0 for a whole employer over 365 days."""
+    assert name_key("Staycity Group Ltd", "Revenue Manager") \
+        == name_key("StayCity", "Revenue Manager")
+
+
+def test_word_order_and_connecting_words_do_not_split_a_role():
+    assert name_key("Acme", "Head of Revenue and Strategy") \
+        == name_key("Acme", "Strategy & Revenue Head")
+
+
+def test_over_stemming_is_avoided():
+    """'analysis' and 'business' must not be stemmed into something else."""
+    assert name_key("Acme", "Business Analysis Lead") \
+        != name_key("Acme", "Busines Analysi Lead")
+
+
+def test_same_company_different_role_still_differs_after_folding():
+    """The worse failure must stay impossible."""
+    assert name_key("Acme", "Strategy Lead") != name_key("Acme", "Revenue Lead")
+    assert name_key("Acme", "Analyst") != name_key("Acme", "Analysts Manager")
+
+
+def test_plural_variants_are_flagged_as_near_duplicates_not_dropped():
+    a = j("1", company="Round Hill", title="Analyst, Investment and Portfolio")
+    b = j("2", company="Round Hill Ltd", title="Analyst Investments Portfolio")
+    r = dedup([a, b])
+    assert len(r.unique) == 2, "a near-duplicate is never silently dropped"
+    assert len(r.near_duplicates) == 1, "but it must be FLAGGED for judgement"

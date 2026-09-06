@@ -11,13 +11,19 @@ pricing page:
     with a nonsense company name. That is what makes a narrow probe affordable.
   * `job_title_or` matches LOOSELY — "Product Manager" returned "Senior Product
     Manager, EG Advertising Marketplace". Substring, not exact.
-  * Free tier: 4/second, 10/minute, 50/hour, 400/day. The per-minute cap binds.
+  * Free tier: 4/second, 10/minute, 50/hour, 400/day. **The HOURLY cap is the
+    one that binds**, not the per-minute headline — a limiter spacing calls 6
+    seconds apart satisfies 10/minute and blows 50/hour after eight minutes.
   * Descriptions are full text (7,426 chars on the probe) and URLs are
     ATS-canonical (a Workday link for Expedia, not a LinkedIn mirror) — the
     description feeds the assessment prompt and the canonical URL is what the
     user should apply through.
 
-P0 coverage result: cohort A 23/23 (the gate), cohort B 18/22 (indicative).
+P0 coverage result: cohort A 23/23 = 100% (the gate); cohort B 28/31 answered
+= 82% (23 hit, 5 miss, 3 rate-limited and therefore NOT TESTED). The three
+untested entries are excluded from the denominator on purpose: counting a
+rate-limit failure as a coverage miss is what made the first run print 58.1%,
+and it is precisely what spec 6.2 forbids.
 """
 from __future__ import annotations
 
@@ -48,11 +54,14 @@ if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
 class TheirStackProvider(FeedProvider):
     name = "theirstack"
 
-    def __init__(self, api_key: str, *, per_minute: int = 10, timeout: int = 60):
+    def __init__(self, api_key: str, *, per_second: int = 4, per_minute: int = 10,
+                 per_hour: int = 50, per_day: int = 400, timeout: int = 60):
         if not api_key:
             raise ValueError("TheirStack API key is required")
         self._key = api_key
-        self._limiter = RateLimiter(per_minute=per_minute)
+        # All four windows, because the hourly one is what actually binds.
+        self._limiter = RateLimiter(per_second=per_second, per_minute=per_minute,
+                                    per_hour=per_hour, per_day=per_day)
         self._timeout = timeout
 
     # -- transport ---------------------------------------------------------
@@ -161,6 +170,9 @@ class TheirStackProvider(FeedProvider):
 
     # -- metering ----------------------------------------------------------
     def credits_used(self) -> int | None:
+        """Costs a REQUEST against the hourly cap, so never call this inside a
+        fetch loop. Polling the counter before every probe doubles request
+        consumption and was what blew the 50/hour limit during P0."""
         status, payload = self._call(CREDITS_PATH)
         if status == 200 and isinstance(payload, list):
             return sum(d.get("api_credits_consumed", 0) for d in payload)

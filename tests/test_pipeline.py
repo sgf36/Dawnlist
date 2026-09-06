@@ -218,3 +218,25 @@ def test_a_run_output_written_but_not_registered_is_caught(conn, tmp_path):
     stranded = out_dir / "shortlist-2026-09-06 (1).xlsx"
     stranded.write_text("rows including a strong match")
     assert db.orphan_outputs(conn, out_dir) == [stranded]
+
+
+def test_a_failed_query_gets_no_yield_rate(conn):
+    """The 58.1% bug: a P0 run counted rate-limit failures as coverage misses.
+
+    A query whose fetch failed has partial rows. Scoring it would report a
+    transport fault as a loose query — "not measured" is not "0%".
+    """
+    provider = StubProvider({
+        "strategy": ok([job("a")]),
+        "revenue": FetchResult(jobs=[job("b")], pages_fetched=1,
+                               exhausted=False, error="HTTP 429 rate limited"),
+    })
+    qs = [Q, SearchQuery(label="revenue", titles=["revenue"])]
+    out = run_morning(conn, provider, qs, RULES, fit_brief="b", factsheet="f",
+                      send=strong_send)
+
+    assert "revenue" not in out.per_query_yield
+    assert "revenue" in out.unscored_queries
+    assert "revenue" not in out.loose_queries(), (
+        "a rate-limited query must never be reported as a loose query")
+    assert "strategy" in out.per_query_yield
