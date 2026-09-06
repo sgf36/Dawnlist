@@ -18,10 +18,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QFontMetrics
 from app.i18n import is_rtl, tr
-from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QMainWindow,
-                               QPushButton, QSplitter, QTabWidget, QTextBrowser,
+from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel,
+                               QMainWindow,
+                               QPushButton, QSizePolicy, QSplitter,
+                               QTabWidget, QTextBrowser,
                                QTreeWidget, QTreeWidgetItem, QVBoxLayout,
                                QWidget)
 
@@ -33,6 +35,9 @@ GOLD = "#C98A3F"
 GOLD_DEEP = "#B07A2E"
 CREAM = "#F0ECE4"
 INK = "#16212A"
+
+#: The warning chip must never push the funnel counts off the bar.
+WARNING_MAX_WIDTH = 420
 
 BUCKET_ORDER = {"strong": 0, "possible": 1, "judgement-call": 2, "rejected": 3}
 
@@ -55,17 +60,140 @@ class ReviewRow:
     contained: bool = False
 
 
-class FunnelBar(QWidget):
+#: One stylesheet, every selector scoped by object name or class.
+#:
+#: Qt stylesheets CASCADE to child widgets. Setting `background` on a container
+#: silently repaints every label inside it, and `border-radius` turns each one
+#: into its own little box with no padding — which is exactly how the funnel
+#: bar ended up as a row of chips with the text jammed against the edges.
+#: Scope every rule, and give anything with a background explicit padding.
+STYLESHEET = f"""
+QFrame#funnelBar {{
+    background: {TEAL};
+    border-radius: 8px;
+}}
+/* Transparent, so the panel above is the only thing drawing a background. */
+QFrame#funnelBar QWidget {{
+    background: transparent;
+    color: {CREAM};
+}}
+QFrame#funnelBar QLabel#funnelWarning {{
+    background: {GOLD_DEEP};
+    color: {CREAM};
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-weight: 600;
+}}
+
+/* Rows need vertical padding or the text sits taller than the row it is in. */
+QTreeWidget {{
+    border: 1px solid #d8d4cc;
+    border-radius: 6px;
+    outline: none;
+}}
+QTreeWidget::item {{
+    padding: 7px 6px;
+    border-bottom: 1px solid #efece6;
+}}
+QTreeWidget::item:selected {{
+    background: {TEAL};
+    color: {CREAM};
+}}
+QHeaderView::section {{
+    background: #f4f1ea;
+    color: #45505a;
+    padding: 8px 6px;
+    border: none;
+    border-bottom: 1px solid #d8d4cc;
+    font-weight: 600;
+}}
+
+/* All three buttons styled together: styling ONE of them drops Qt's native
+   metrics for that one only, which is what made the heights disagree. */
+QPushButton#decisionButton {{
+    min-height: 34px;
+    padding: 8px 20px;
+    border-radius: 6px;
+    border: 1px solid #cfcabf;
+    background: #ffffff;
+    color: {INK};
+}}
+QPushButton#decisionButton:hover {{ background: #f4f1ea; }}
+QPushButton#decisionButtonPrimary {{
+    min-height: 34px;
+    padding: 8px 20px;
+    border-radius: 6px;
+    border: 1px solid {TEAL};
+    background: {TEAL};
+    color: {CREAM};
+    font-weight: 600;
+}}
+QPushButton#decisionButtonPrimary:hover {{ background: {TEAL_LIFTED}; }}
+QPushButton#decisionButtonDanger {{
+    min-height: 34px;
+    padding: 8px 20px;
+    border-radius: 6px;
+    border: 1px solid {GOLD_DEEP};
+    background: {GOLD_DEEP};
+    color: {CREAM};
+    font-weight: 600;
+}}
+QPushButton#decisionButtonDanger:hover {{ background: {GOLD}; }}
+
+QTextBrowser#detailPane {{
+    border: 1px solid #d8d4cc;
+    border-radius: 6px;
+    padding: 4px 10px;
+}}
+QTabBar::tab {{ padding: 8px 14px; }}
+"""
+
+
+class FunnelBar(QFrame):
     """swept -> deduped -> gated -> screened -> assessed, always on screen."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setObjectName("funnelBar")
         self._layout = QHBoxLayout(self)
-        self._layout.setContentsMargins(12, 8, 12, 8)
-        self._layout.setSpacing(18)
-        self.setStyleSheet(
-            f"background:{TEAL}; color:{CREAM}; border-radius:6px;")
-        self._labels: dict[str, QLabel] = {}
+        # Generous inner margins: this panel has a background, so its contents
+        # must not touch its edges.
+        self._layout.setContentsMargins(18, 12, 18, 12)
+        self._layout.setSpacing(26)
+        self._labels: dict[str, QWidget] = {}
+
+    @staticmethod
+    def _stat(value: int, caption: str) -> QWidget:
+        """One stat, as two PLAIN-TEXT labels in a column.
+
+        Deliberately not one rich-text label: an HTML `line-height` renders
+        taller than the sizeHint Qt reports for it, so the caption clipped
+        against the panel edge and no minimum-height guess fixed it reliably.
+        Two real labels let Qt measure both lines exactly, and the column sizes
+        itself correctly in every locale — including scripts far taller than
+        Latin, which is where a hand-tuned height would break first.
+        """
+        box = QWidget()
+        col = QVBoxLayout(box)
+        col.setContentsMargins(0, 0, 0, 0)
+        col.setSpacing(2)
+
+        number = QLabel(str(value))
+        nf = QFont()
+        nf.setPointSizeF(QFont().pointSizeF() + 4)
+        nf.setBold(True)
+        number.setFont(nf)
+        number.setAlignment(Qt.AlignCenter)
+
+        text = QLabel(caption)
+        cf = QFont()
+        cf.setPointSizeF(max(QFont().pointSizeF() - 1.5, 7.0))
+        text.setFont(cf)
+        text.setAlignment(Qt.AlignCenter)
+
+        col.addWidget(number)
+        col.addWidget(text)
+        return box
 
     def set_counts(self, counts: dict[str, int], *, incomplete_note: str = "") -> None:
         while self._layout.count():
@@ -82,9 +210,7 @@ class FunnelBar(QWidget):
         for key, label in stages:
             if key not in counts:
                 continue
-            w = QLabel(f"<b>{counts[key]}</b><br><span style='font-size:11px'>{label}</span>")
-            w.setTextFormat(Qt.RichText)
-            w.setAlignment(Qt.AlignCenter)
+            w = self._stat(counts[key], label)
             self._layout.addWidget(w)
             self._labels[key] = w
 
@@ -99,8 +225,15 @@ class FunnelBar(QWidget):
                 text = "⚠ " + tr("funnel.incomplete")
             if incomplete_note:
                 text += f" — {incomplete_note}"
-            warn = QLabel(text)
-            warn.setStyleSheet(f"color:{GOLD}; font-weight:600;")
+            warn = QLabel()
+            warn.setObjectName("funnelWarning")
+            warn.setToolTip(text)
+            warn.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+            warn.setMaximumWidth(WARNING_MAX_WIDTH)
+            # QLabel clips rather than elides, so elide the string ourselves.
+            metrics = QFontMetrics(warn.font())
+            warn.setText(metrics.elidedText(
+                text, Qt.ElideRight, WARNING_MAX_WIDTH - 28))
             self._layout.addWidget(warn)
 
 
@@ -150,18 +283,24 @@ class ReviewWindow(QMainWindow):
         self.btn_pursue = QPushButton(tr("btn.pursue"))
         self.btn_later = QPushButton(tr("btn.later"))
         self.btn_reject = QPushButton(tr("btn.reject"))
-        self.btn_pursue.setStyleSheet(
-            f"background:{TEAL}; color:{CREAM}; padding:8px 16px; border-radius:5px;")
-        self.btn_reject.setStyleSheet(
-            f"background:{GOLD_DEEP}; color:{CREAM}; padding:8px 16px; border-radius:5px;")
+        self.btn_pursue.setObjectName("decisionButtonPrimary")
+        self.btn_later.setObjectName("decisionButton")
+        self.btn_reject.setObjectName("decisionButtonDanger")
+        buttons.setSpacing(10)
+        buttons.setContentsMargins(0, 10, 0, 0)
         for b in (self.btn_pursue, self.btn_later, self.btn_reject):
+            # A translated label is often much longer than the English one, so
+            # the button sizes to its text rather than to a fixed width.
+            b.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
             buttons.addWidget(b)
         buttons.addStretch(1)
         rl.addLayout(buttons)
         splitter.addWidget(right)
-        splitter.setSizes([520, 660])
+        splitter.setSizes([620, 560])
         outer.addWidget(splitter, 1)
 
+        self.detail.setObjectName("detailPane")
+        self.setStyleSheet(STYLESHEET)
         self.setCentralWidget(root)
 
         for tree in (self.shortlist, self.rejected, self.screened_out, self.contained):
@@ -175,8 +314,8 @@ class ReviewWindow(QMainWindow):
     def _make_tree() -> QTreeWidget:
         t = QTreeWidget()
         t.setHeaderLabels([tr("col.title"), tr("col.company"), tr("col.why")])
-        t.setColumnWidth(0, 230)
-        t.setColumnWidth(1, 140)
+        t.setColumnWidth(0, 215)
+        t.setColumnWidth(1, 130)
         t.setRootIsDecorated(False)
         t.setAlternatingRowColors(True)
         # "Why" carries the verdict reason and the screen reason — the column
@@ -188,6 +327,9 @@ class ReviewWindow(QMainWindow):
         header.setMinimumSectionSize(90)
         t.setTextElideMode(Qt.ElideRight)
         t.setWordWrap(False)
+        # Uniform row heights: without this Qt measures every row and a single
+        # tall glyph (Arabic, Devanagari) stretches one row out of line.
+        t.setUniformRowHeights(True)
         return t
 
     def load(self, rows: list[ReviewRow], counts: dict[str, int], *,

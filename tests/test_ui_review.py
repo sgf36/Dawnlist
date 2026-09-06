@@ -55,26 +55,57 @@ def test_screened_out_rows_are_browsable_not_deleted(win):
     assert "9" in win.tabs.tabText(2)
 
 
+def bar_text(win):
+    """Every label in the funnel bar, at any depth.
+
+    The stats are QWidget columns of two plain QLabels rather than one
+    rich-text label, so this walks rather than reading the top level.
+    """
+    from PySide6.QtWidgets import QLabel
+    return " ".join(lbl.text() for lbl in win.funnel.findChildren(QLabel))
+
+
 def test_the_funnel_bar_shows_every_stage(win):
     counts = {"swept": 1143, "deduped": 1088, "gated_out": 213,
               "screened_likely": 118, "screened_out": 757, "assessed": 112}
     win.load([], counts)
-    texts = [win.funnel._layout.itemAt(i).widget().text()
-             for i in range(win.funnel._layout.count())
-             if win.funnel._layout.itemAt(i).widget()]
-    joined = " ".join(texts)
+    joined = bar_text(win)
     for value in counts.values():
         assert str(value) in joined, "a count is never shown without its siblings"
+
+
+def test_every_funnel_caption_is_labelled(win):
+    """A bare number with no caption is a count without what it excludes."""
+    win.load([], {"swept": 10, "deduped": 9, "gated_out": 1,
+                  "screened_likely": 5, "screened_out": 3, "assessed": 5})
+    joined = bar_text(win)
+    for caption in ("Swept", "Deduped", "Gated", "Screened in",
+                    "Screened out", "Assessed"):
+        assert caption in joined
 
 
 def test_an_incomplete_run_is_announced_in_the_bar(win):
     win.load([], {"swept": 10, "assessed": 4, "left_unread": 6},
              incomplete_note="context exhausted")
-    texts = " ".join(
-        win.funnel._layout.itemAt(i).widget().text()
-        for i in range(win.funnel._layout.count())
-        if win.funnel._layout.itemAt(i).widget())
-    assert "6 left unread" in texts and "context exhausted" in texts
+    assert "6 left unread" in bar_text(win)
+    # The visible text is elided to fit the chip, so the FULL note lives on the
+    # tooltip - it must never be lost, only shortened.
+    from PySide6.QtWidgets import QLabel
+    tips = " ".join(l.toolTip() for l in win.funnel.findChildren(QLabel))
+    assert "context exhausted" in tips
+
+
+def test_a_very_long_note_is_elided_not_allowed_to_overflow(win):
+    from PySide6.QtWidgets import QLabel
+    note = "context exhausted after " + ("a very long explanation " * 12)
+    win.load([], {"swept": 10, "assessed": 4, "left_unread": 6},
+             incomplete_note=note)
+    warn = [l for l in win.funnel.findChildren(QLabel)
+            if l.objectName() == "funnelWarning"][0]
+    assert warn.width() <= 420 or warn.sizeHint().width() <= 420
+    assert warn.text() != note, "the label must elide rather than clip"
+    assert note in warn.toolTip(), "the whole note is still available"
+
 
 
 def test_strong_verdicts_sort_above_rejections(win):
@@ -114,3 +145,59 @@ def test_no_dangling_dash_when_there_is_no_reason(win):
     win.tabs.setCurrentIndex(2)
     win.screened_out.setCurrentItem(win.screened_out.topLevelItem(0))
     assert "screened-out —" not in win.detail.toPlainText()
+
+
+# --------------------------------------------------------------------------
+# Layout regressions. Both of these shipped once and were only visible by
+# rendering the window and looking at it.
+# --------------------------------------------------------------------------
+def test_all_three_decision_buttons_share_a_height(win):
+    """Styling ONE QPushButton drops Qt's native metrics for that one only.
+
+    btn_later had no stylesheet while the other two did, so the row of buttons
+    came out at mismatched heights with the text tight against the edges.
+    All three are now styled together by object name.
+    """
+    win.show()
+    heights = {b.sizeHint().height() for b in
+               (win.btn_pursue, win.btn_later, win.btn_reject)}
+    assert len(heights) == 1, f"button heights disagree: {heights}"
+    assert heights.pop() >= 34, "buttons need room for their padding"
+
+
+def test_no_widget_paints_its_own_background(win):
+    """Qt stylesheets CASCADE to children.
+
+    A `background` set on a container repaints every label inside it, and a
+    `border-radius` turns each one into its own box with no padding — which is
+    how the funnel bar became a row of chips with clipped text. The window owns
+    the one stylesheet; nothing below it sets its own.
+    """
+    import pathlib
+    import re
+
+    src = pathlib.Path(win.__class__.__module__.replace(".", "/") + ".py")
+    if not src.exists():
+        import app.ui.review as mod
+        src = pathlib.Path(mod.__file__)
+    text = src.read_text(encoding="utf-8")
+    calls = re.findall(r"(\w+)\.setStyleSheet\(", text)
+    assert calls == ["self"], (
+        f"only the window may set a stylesheet; found {calls}")
+
+
+def test_the_funnel_captions_fit_their_labels(win):
+    """The captions clipped when they were one rich-text label: an HTML
+    line-height renders taller than the sizeHint Qt reports. They are two
+    plain-text labels now, so Qt measures both lines exactly."""
+    from PySide6.QtWidgets import QLabel
+    win.load([], {"swept": 1143, "deduped": 1088, "gated_out": 213,
+                  "screened_likely": 118, "screened_out": 757, "assessed": 112})
+    win.show()
+    for label in win.funnel.findChildren(QLabel):
+        if label.objectName() == "funnelWarning":
+            continue
+        hint = label.sizeHint().height()
+        assert hint > 0
+        assert label.height() == 0 or label.height() >= hint, (
+            f"{label.text()!r} is allotted less height than it needs")
