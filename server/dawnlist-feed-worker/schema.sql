@@ -114,3 +114,11 @@ CREATE TABLE IF NOT EXISTS licence_roles (
     role        TEXT NOT NULL,
     from_code   TEXT
 );
+
+-- Managed inference is metered in TOKENS as well as postings, because the two
+-- costs move independently: a day with few postings but long descriptions can
+-- cost more than a day with many short ones. Added by ALTER below for databases
+-- that predate this.
+ALTER TABLE usage_daily ADD COLUMN input_tokens INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE usage_daily ADD COLUMN output_tokens INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE licences ADD COLUMN max_tokens_per_day INTEGER;

@@ -17,9 +17,17 @@ none of that is the model any more.
 - **Store builds are entitled by possession.** The Store does not hand the binary to someone who
   has not bought it, so there is nothing to check. No IAP, no receipt, no add-on.
 - **Direct download needs a licence key** from Paddle, or an override code.
-- **The user brings their own Anthropic key.** Reading and drafting bill to them, at
-  console.anthropic.com, with no cut and no markup. This is what makes a one-time price viable:
-  inference is the cost that scales with use, so it sits with the person using it.
+- **The user brings their own Anthropic key — and this is a DATA decision first.** Job
+  descriptions, the fit brief and the background factsheet are the user's employment history.
+  Routing them through Spencer's infrastructure would make him a processor of every buyer's
+  career record, with the retention, breach-notification and international-transfer duties that
+  follow, in exchange for saving them one setup step. The app calls Anthropic directly on the
+  user's key, so none of it touches Dawnlist's own services. It also happens to make a one-time
+  price viable, because inference is the cost that scales with use — but the data argument is the
+  one that decided it.
+- **There is no managed inference route, and no fallback to one.** A proxy was built and removed
+  on 2026-09-06. A fallback is how data starts crossing infrastructure nobody decided it should
+  cross, so a test asserts no such path exists in the app and the Worker route is gone.
 - **Spencer still pays for the feed**, metered and capped per licence in the Worker. Affordable
   because a job search is finite — the handoff models a 2–4 month working life per user.
 - **Only the morning run is gated.** Onboarding, the board and every screen stay open on an

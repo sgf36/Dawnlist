@@ -110,6 +110,12 @@ def system_prefix(fit_brief: str, factsheet: str) -> list[dict]:
 
     The cache breakpoint goes on the LAST block, so everything above it is
     reused across every batch and every run until the user edits their brief.
+
+    The factsheet is included because assessment genuinely uses it — a stated
+    years floor is only judgeable against how long the person has actually
+    worked. It travels to the user's OWN Anthropic account, on their own key,
+    because Dawnlist is bring-your-own-key and no career data crosses Spencer's
+    infrastructure at all.
     """
     return [
         {"type": "text", "text": ASSESSMENT_RULES},

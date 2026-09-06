@@ -115,19 +115,36 @@ def test_the_run_never_falls_back_to_ambient_credentials():
     from app import main
 
     source = inspect.getsource(main.build_send)
-    # Check the CODE, not the prose. The docstring names ANTHROPIC_API_KEY
-    # precisely to explain why it is not used, and a naive grep fails on that.
+    # Check the CODE, not the prose: the docstring names ANTHROPIC_API_KEY
+    # precisely to explain why it is not used.
     tree = ast.parse(source.lstrip())
     fn = tree.body[0]
     if (fn.body and isinstance(fn.body[0], ast.Expr)
             and isinstance(fn.body[0].value, ast.Constant)):
-        fn.body = fn.body[1:]          # drop the docstring
+        fn.body = fn.body[1:]
     code = ast.unparse(ast.Module(body=fn.body, type_ignores=[]))
 
     assert "api_key.require()" in code
     assert "ANTHROPIC_API_KEY" not in code, "no ambient-credential fallback"
     assert "getenv" not in code and "environ" not in code
     assert "Anthropic()" not in code, "no zero-arg client: it reads the env"
+
+
+def test_there_is_no_managed_route_to_fall_back_to():
+    """BYO ONLY. A managed route would make Spencer a processor of every
+    buyer's employment record; a FALLBACK to one is how data starts crossing
+    infrastructure nobody decided it should cross."""
+    import pathlib
+
+    app_dir = pathlib.Path(__file__).resolve().parents[1] / "app"
+    assert not (app_dir / "core" / "transport.py").exists()
+
+    offenders = []
+    for path in app_dir.rglob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        if "/v1/messages" in text or "workers.dev/v1/messages" in text:
+            offenders.append(path.name)
+    assert offenders == [], f"a managed inference path survives in {offenders}"
 
 
 # -- honesty about cost -----------------------------------------------------

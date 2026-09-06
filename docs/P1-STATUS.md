@@ -1,7 +1,7 @@
 # Build status
 
 **Repo:** `C:\Users\SpencerFields\dawnlist`, deliberately **off OneDrive** per handoff Part 9.
-**Tests:** 390, all passing — `.venv/Scripts/python -m pytest -q`
+**Tests:** 391 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
 **Last updated:** 2026-09-06 — P1 engine complete; a frozen build runs
 
 ## Done
@@ -78,8 +78,19 @@ consequences already in code: `entitlement.py` treats store builds as entitled b
 `api_key.py` requires the user's own key with no fallback to ambient credentials, and the store
 listing discloses the key requirement in the description rather than the small print.
 
+**BYO is the ONLY route** (decided 2026-09-06, on data risk rather than cost). No career data
+crosses Dawnlist's own infrastructure; the Worker handles job searches and licence metering and
+nothing else. A managed inference proxy was built, then removed — the endpoint 404s and a test
+asserts no path back to one survives in the app.
+
+Two consequences worth holding:
+- **The market narrows to people willing to hold an API key.** That is a real cost and it is
+  accepted deliberately. The listing says so before the buy button.
+- `dawnlist-anthropic-managed` **is now unused.** Revoke it — an unused key with no purpose is
+  only a liability.
+
 Still open: the **direct-download price**, and whether a Paddle subscription exists at all now
-that there is no managed inference tier to fund.
+there is no managed tier to fund.
 
 ## What only Spencer can do
 

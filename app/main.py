@@ -153,11 +153,17 @@ def build_provider(conn):
 def build_send(conn):
     """The assessment transport, on the USER's own Anthropic key.
 
-    Dawnlist is bring-your-own-key: reading and drafting bill to the person
-    using it. The key is required rather than optional, and there is
-    deliberately no fallback to ambient credentials — falling back to
-    ANTHROPIC_API_KEY would bill whoever's key happened to be in the
-    environment, which on a developer machine is Spencer's.
+    Dawnlist is bring-your-own-key, and that is a DATA decision before it is a
+    pricing one. Job descriptions, the fit brief and the background factsheet
+    are the user's career history. Routing them through Spencer's own
+    infrastructure would make him a processor of every buyer's employment
+    record — with the retention, breach-notification and international-transfer
+    duties that follow — in exchange for saving them one setup step.
+
+    So the call goes straight from the user's machine to Anthropic on the
+    user's key. There is no managed route to fall back to, deliberately: a
+    fallback is how data starts crossing infrastructure nobody decided it
+    should cross.
     """
     import anthropic
 
@@ -366,10 +372,12 @@ def _doctor(conn) -> int:
 
     from app.core import api_key as user_key
 
+    from app.core import api_key as user_key
+
     stored = user_key.get()
     print(f"anthropic key : {'present' if stored else 'MISSING'}")
     if not stored:
-        print("  Dawnlist is bring-your-own-key. Add one in Settings.",
+        print("  Dawnlist uses your own Anthropic key. Add one in Settings.",
               file=sys.stderr)
 
     ent = check_entitlement(conn)

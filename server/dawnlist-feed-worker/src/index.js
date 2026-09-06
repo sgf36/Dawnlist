@@ -17,6 +17,19 @@
  * wren comp-codes Worker. READ WEBHOOK-RUNBOOK.md before touching anything
  * Paddle-related; that Worker broke four times and the runbook says why.
  *
+ * WHAT THIS WORKER DELIBERATELY DOES NOT DO: run inference.
+ *
+ * Dawnlist is bring-your-own-key. Job descriptions, the fit brief and the
+ * background factsheet are the user's employment history, and proxying them
+ * through here would make Spencer a processor of every buyer's career record —
+ * with the retention, breach-notification and international-transfer duties
+ * that follow. The app calls Anthropic directly on the user's own key, so none
+ * of that data touches this service at all. An inference proxy was built and
+ * removed on 2026-09-06; do not reintroduce it as a convenience.
+ *
+ * What DOES pass through here is a job search (query terms) and licence
+ * metering. That is the whole of it.
+ *
  * Logging rule, and it is load-bearing for the store privacy labels: log
  * COUNTS, never CONTENT. No job descriptions, no CVs, no queries with personal
  * text are ever written to a log line.
