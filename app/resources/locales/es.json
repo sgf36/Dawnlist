@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "¿Qué frase, añadida a tu perfil, habría dado el resultado correcto?",
   "onboarding.finish": "Finalizar y empezar a ejecutar a diario",
   "onboarding.ready": "Listo — tu perfil se actualizará con lo que le has enseñado.",
-  "onboarding.low_signal": "Estuviste de acuerdo con todo, lo cual suele significar que esta muestra era sencilla, no que el perfil esté completo."
+  "onboarding.low_signal": "Estuviste de acuerdo con todo, lo cual suele significar que esta muestra era sencilla, no que el perfil esté completo.",
+  "onboarding.your_verdict": "Tú dices:",
+  "onboarding.disagreement": "No estás de acuerdo: Dawnlist dijo {app}, tú dices {user}.",
+  "onboarding.app.strong": "encaje sólido",
+  "onboarding.app.possible": "posible",
+  "onboarding.app.rejected": "no encaja",
+  "onboarding.title": "Dawnlist — configuración",
+  "onboarding.next": "Siguiente",
+  "onboarding.back": "Atrás"
 }

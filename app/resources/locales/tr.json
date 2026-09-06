@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "Özetinize eklendiğinde bunu doğru gösterecek cümle ne olurdu?",
   "onboarding.finish": "Bitir ve günlük çalıştırmaya başla",
   "onboarding.ready": "Hazır — özetiniz, ona öğrettiklerinizle güncellendi.",
-  "onboarding.low_signal": "Her şeye katıldınız, bu genellikle özetin tamamlandığı değil, bu örneğin kolay olduğu anlamına gelir."
+  "onboarding.low_signal": "Her şeye katıldınız, bu genellikle özetin tamamlandığı değil, bu örneğin kolay olduğu anlamına gelir.",
+  "onboarding.your_verdict": "Sizin görüşünüz:",
+  "onboarding.disagreement": "Aynı fikirde değilsiniz — Dawnlist {app} dedi, siz {user} diyorsunuz.",
+  "onboarding.app.strong": "güçlü aday",
+  "onboarding.app.possible": "olası",
+  "onboarding.app.rejected": "uygun değil",
+  "onboarding.title": "Dawnlist — kurulum yapılıyor",
+  "onboarding.next": "İleri",
+  "onboarding.back": "Geri"
 }

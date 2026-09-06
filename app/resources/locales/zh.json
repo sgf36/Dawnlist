@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "加入筛选简报中的哪句话，才能得出正确判断？",
   "onboarding.finish": "完成设置，开始每日运行",
   "onboarding.ready": "已就绪 — 您的筛选简报已根据所教内容更新。",
-  "onboarding.low_signal": "您对所有结果均表示认可，这通常说明本次样本较为简单，而非筛选简报已经完善。"
+  "onboarding.low_signal": "您对所有结果均表示认可，这通常说明本次样本较为简单，而非筛选简报已经完善。",
+  "onboarding.your_verdict": "您的判断：",
+  "onboarding.disagreement": "您不同意 — Dawnlist 认为{app}，您认为{user}。",
+  "onboarding.app.strong": "非常合适",
+  "onboarding.app.possible": "可能合适",
+  "onboarding.app.rejected": "不合适",
+  "onboarding.title": "Dawnlist — 正在设置",
+  "onboarding.next": "下一步",
+  "onboarding.back": "上一步"
 }

@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "Jakie zdanie, dodane do briefu, dałoby właściwą ocenę?",
   "onboarding.finish": "Zakończ i uruchom codzienne działanie",
   "onboarding.ready": "Gotowe — Twój brief zostanie zaktualizowany o to, czego go nauczyłeś/aś.",
-  "onboarding.low_signal": "Zgodziłeś/aś się ze wszystkim, co zwykle oznacza, że ta próbka była łatwa, a nie że brief jest już kompletny."
+  "onboarding.low_signal": "Zgodziłeś/aś się ze wszystkim, co zwykle oznacza, że ta próbka była łatwa, a nie że brief jest już kompletny.",
+  "onboarding.your_verdict": "Twoja ocena:",
+  "onboarding.disagreement": "Nie zgadzasz się — Dawnlist ocenił: {app}, Ty: {user}.",
+  "onboarding.app.strong": "dobre dopasowanie",
+  "onboarding.app.possible": "możliwe dopasowanie",
+  "onboarding.app.rejected": "brak dopasowania",
+  "onboarding.title": "Dawnlist — konfiguracja",
+  "onboarding.next": "Dalej",
+  "onboarding.back": "Wstecz"
 }

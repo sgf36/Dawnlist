@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "ನಿಮ್ಮ ಬ್ರೀಫ್‌ಗೆ ಸೇರಿಸಿದರೆ, ಯಾವ ವಾಕ್ಯ ಇದನ್ನು ಸರಿಯಾಗಿ ಗ್ರಹಿಸುವಂತೆ ಮಾಡುತ್ತಿತ್ತು?",
   "onboarding.finish": "ಪೂರ್ಣಗೊಳಿಸಿ ಮತ್ತು ದೈನಂದಿನ ರನ್ ಪ್ರಾರಂಭಿಸಿ",
   "onboarding.ready": "ಸಿದ್ಧ — ನೀವು ಕಲಿಸಿದ್ದರ ಆಧಾರದ ಮೇಲೆ ನಿಮ್ಮ ಬ್ರೀಫ್ ಅನ್ನು ನವೀಕರಿಸಲಾಗುತ್ತದೆ.",
-  "onboarding.low_signal": "ನೀವು ಎಲ್ಲದಕ್ಕೂ ಒಪ್ಪಿಕೊಂಡಿರಿ, ಇದರ ಅರ್ಥ ಸಾಮಾನ್ಯವಾಗಿ ಈ ಮಾದರಿ ಸುಲಭವಾಗಿತ್ತು ಎಂದಷ್ಟೇ, ಬ್ರೀಫ್ ಪೂರ್ಣಗೊಂಡಿದೆ ಎಂದಲ್ಲ."
+  "onboarding.low_signal": "ನೀವು ಎಲ್ಲದಕ್ಕೂ ಒಪ್ಪಿಕೊಂಡಿರಿ, ಇದರ ಅರ್ಥ ಸಾಮಾನ್ಯವಾಗಿ ಈ ಮಾದರಿ ಸುಲಭವಾಗಿತ್ತು ಎಂದಷ್ಟೇ, ಬ್ರೀಫ್ ಪೂರ್ಣಗೊಂಡಿದೆ ಎಂದಲ್ಲ.",
+  "onboarding.your_verdict": "ನೀವು ಹೇಳುವುದು:",
+  "onboarding.disagreement": "ನಿಮ್ಮ ಅಭಿಪ್ರಾಯ ಭಿನ್ನವಾಗಿದೆ — Dawnlist {app} ಎಂದಿತು, ನೀವು {user} ಎಂದಿದ್ದೀರಿ.",
+  "onboarding.app.strong": "ಸೂಕ್ತವಾದ ಆಯ್ಕೆ",
+  "onboarding.app.possible": "ಸಾಧ್ಯವಿದೆ",
+  "onboarding.app.rejected": "ಸೂಕ್ತವಲ್ಲ",
+  "onboarding.title": "Dawnlist — ಸಿದ್ಧತೆ ನಡೆಯುತ್ತಿದೆ",
+  "onboarding.next": "ಮುಂದೆ",
+  "onboarding.back": "ಹಿಂದೆ"
 }

@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "کون سا جملہ، بریف میں شامل کرنے پر، اسے درست کر دیتا؟",
   "onboarding.finish": "مکمل کریں اور روزانہ چلانا شروع کریں",
   "onboarding.ready": "تیار — آپ کا بریف اس چیز سے اپ ڈیٹ کر دیا جائے گا جو آپ نے اسے سکھایا۔",
-  "onboarding.low_signal": "آپ ہر چیز سے متفق رہے، جس کا عام طور پر مطلب یہ ہے کہ یہ نمونہ آسان تھا نہ کہ یہ کہ بریف مکمل ہو چکا ہے۔"
+  "onboarding.low_signal": "آپ ہر چیز سے متفق رہے، جس کا عام طور پر مطلب یہ ہے کہ یہ نمونہ آسان تھا نہ کہ یہ کہ بریف مکمل ہو چکا ہے۔",
+  "onboarding.your_verdict": "آپ کی رائے:",
+  "onboarding.disagreement": "آپ متفق نہیں ہیں — ڈان لسٹ نے کہا {app}، آپ نے کہا {user}۔",
+  "onboarding.app.strong": "موزوں امیدوار",
+  "onboarding.app.possible": "ممکنہ",
+  "onboarding.app.rejected": "غیر موزوں",
+  "onboarding.title": "ڈان لسٹ — ترتیب دی جا رہی ہے",
+  "onboarding.next": "اگلا",
+  "onboarding.back": "پیچھے"
 }

@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "ወደ መመሪያዎ ቢጨመር ይህንን ትክክል የሚያደርገው ዓረፍተ ነገር ምንድን ነው?",
   "onboarding.finish": "ጨርስና በየቀኑ መስራት ጀምር",
   "onboarding.ready": "ዝግጁ ነው — መመሪያዎ ባስተማሩት መሠረት ይዘምናል።",
-  "onboarding.low_signal": "ከሁሉም ጋር ተስማምተዋል፣ ይህ ብዙውን ጊዜ ናሙናው ቀላል እንደነበር እንጂ መመሪያው እንደተጠናቀቀ አያመለክትም።"
+  "onboarding.low_signal": "ከሁሉም ጋር ተስማምተዋል፣ ይህ ብዙውን ጊዜ ናሙናው ቀላል እንደነበር እንጂ መመሪያው እንደተጠናቀቀ አያመለክትም።",
+  "onboarding.your_verdict": "እርስዎ ይላሉ፦",
+  "onboarding.disagreement": "አልተስማሙም — ዳውንሊስት {app} ብሏል፣ እርስዎ ግን {user} ብለዋል።",
+  "onboarding.app.strong": "በጣም ተስማሚ",
+  "onboarding.app.possible": "ሊሆን የሚችል",
+  "onboarding.app.rejected": "ተስማሚ አይደለም",
+  "onboarding.title": "ዳውንሊስት — በማዋቀር ላይ",
+  "onboarding.next": "ቀጣይ",
+  "onboarding.back": "ተመለስ"
 }

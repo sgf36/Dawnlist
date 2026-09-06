@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "మీ బ్రీఫ్‌కు జోడిస్తే, దీన్ని సరిగ్గా చేసే వాక్యం ఏమిటి?",
   "onboarding.finish": "పూర్తి చేసి రోజువారీ నడపడం మొదలుపెట్టండి",
   "onboarding.ready": "సిద్ధం — మీరు నేర్పించిన దానితో మీ బ్రీఫ్ నవీకరించబడుతుంది.",
-  "onboarding.low_signal": "మీరు అన్నింటితో ఏకీభవించారు, ఇది సాధారణంగా ఈ నమూనా సులభమైనదని సూచిస్తుంది, బ్రీఫ్ పూర్తయిందని కాదు."
+  "onboarding.low_signal": "మీరు అన్నింటితో ఏకీభవించారు, ఇది సాధారణంగా ఈ నమూనా సులభమైనదని సూచిస్తుంది, బ్రీఫ్ పూర్తయిందని కాదు.",
+  "onboarding.your_verdict": "మీరు చెప్పేది:",
+  "onboarding.disagreement": "మీరు విభేదిస్తున్నారు — Dawnlist {app} అని చెప్పింది, మీరు {user} అని చెప్పారు.",
+  "onboarding.app.strong": "సరిగ్గా సరిపోతుంది",
+  "onboarding.app.possible": "సాధ్యమే",
+  "onboarding.app.rejected": "సరిపోదు",
+  "onboarding.title": "Dawnlist — సెటప్ చేస్తోంది",
+  "onboarding.next": "తదుపరి",
+  "onboarding.back": "వెనుకకు"
 }

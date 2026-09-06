@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "Ukara apa, yen ditambahaké ing brief sampeyan, bakal marahi iki bener?",
   "onboarding.finish": "Rampung lan wiwiti mlaku saben dina",
   "onboarding.ready": "Siyap — brief sampeyan bakal dianyari kanthi apa sing wis sampeyan wulangaké.",
-  "onboarding.low_signal": "Sampeyan sarujuk karo kabèh, sing biasané tegesé conto iki gampang, dudu amarga brief wis rampung."
+  "onboarding.low_signal": "Sampeyan sarujuk karo kabèh, sing biasané tegesé conto iki gampang, dudu amarga brief wis rampung.",
+  "onboarding.your_verdict": "Panjenengan matur:",
+  "onboarding.disagreement": "Panjenengan boten sarujuk — Dawnlist ngendika {app}, panjenengan ngendika {user}.",
+  "onboarding.app.strong": "cocog sanget",
+  "onboarding.app.possible": "mbok menawi cocog",
+  "onboarding.app.rejected": "boten cocog",
+  "onboarding.title": "Dawnlist — nyetel",
+  "onboarding.next": "Salajengipun",
+  "onboarding.back": "Wangsul"
 }

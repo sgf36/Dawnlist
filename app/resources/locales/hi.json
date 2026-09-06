@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "आपके ब्रीफ़ में कौन-सा वाक्य जोड़ने से यह सही होता?",
   "onboarding.finish": "समाप्त करें और रोज़ाना चलाना शुरू करें",
   "onboarding.ready": "तैयार — आपके सिखाए अनुसार ब्रीफ़ अपडेट कर दिया जाएगा।",
-  "onboarding.low_signal": "आप हर बात से सहमत रहे, जिसका आमतौर पर मतलब है कि यह नमूना आसान था, न कि यह कि ब्रीफ़ पूरा हो गया है।"
+  "onboarding.low_signal": "आप हर बात से सहमत रहे, जिसका आमतौर पर मतलब है कि यह नमूना आसान था, न कि यह कि ब्रीफ़ पूरा हो गया है।",
+  "onboarding.your_verdict": "आपकी राय:",
+  "onboarding.disagreement": "आप सहमत नहीं हैं — डॉनलिस्ट ने कहा {app}, आपने कहा {user}।",
+  "onboarding.app.strong": "उपयुक्त उम्मीदवार",
+  "onboarding.app.possible": "संभावित",
+  "onboarding.app.rejected": "अनुपयुक्त",
+  "onboarding.title": "डॉनलिस्ट — सेटअप हो रहा है",
+  "onboarding.next": "आगे",
+  "onboarding.back": "पीछे"
 }

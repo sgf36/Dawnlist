@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "କେଉଁ ବାକ୍ୟ, ଆପଣଙ୍କ ବ୍ରିଫ୍‌ରେ ଯୋଡ଼ାଗଲେ, ଏହାକୁ ଠିକ୍ କରିଥାନ୍ତା?",
   "onboarding.finish": "ସମାପ୍ତ କରନ୍ତୁ ଏବଂ ଦୈନିକ ଚଲାଚଳ ଆରମ୍ଭ କରନ୍ତୁ",
   "onboarding.ready": "ପ୍ରସ୍ତୁତ — ଆପଣ ଯାହା ଶିଖାଇଲେ ତାହା ସହିତ ଆପଣଙ୍କ ବ୍ରିଫ୍ ଅପଡେଟ୍ ହେବ।",
-  "onboarding.low_signal": "ଆପଣ ସବୁକିଛି ସହିତ ସହମତ ହେଲେ, ଯାହା ସାଧାରଣତଃ ଅର୍ଥ ଏହି ନମୁନା ସହଜ ଥିଲା, ବ୍ରିଫ୍ ସମ୍ପୂର୍ଣ୍ଣ ହେବା ନୁହେଁ।"
+  "onboarding.low_signal": "ଆପଣ ସବୁକିଛି ସହିତ ସହମତ ହେଲେ, ଯାହା ସାଧାରଣତଃ ଅର୍ଥ ଏହି ନମୁନା ସହଜ ଥିଲା, ବ୍ରିଫ୍ ସମ୍ପୂର୍ଣ୍ଣ ହେବା ନୁହେଁ।",
+  "onboarding.your_verdict": "ଆପଣ କହନ୍ତି:",
+  "onboarding.disagreement": "ଆପଣ ଅସହମତ — ଡନଲିଷ୍ଟ କହିଥିଲା {app}, ଆପଣ କହୁଛନ୍ତି {user}।",
+  "onboarding.app.strong": "ଏକ ଉପଯୁକ୍ତ ମେଳ",
+  "onboarding.app.possible": "ସମ୍ଭାବ୍ୟ",
+  "onboarding.app.rejected": "ଉପଯୁକ୍ତ ନୁହେଁ",
+  "onboarding.title": "ଡନଲିଷ୍ଟ — ସେଟଅପ୍ ହେଉଛି",
+  "onboarding.next": "ପରବର୍ତ୍ତୀ",
+  "onboarding.back": "ପଛକୁ"
 }

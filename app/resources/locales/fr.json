@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "Quelle phrase, ajoutée à votre brief, aurait permis d'obtenir la bonne réponse ?",
   "onboarding.finish": "Terminer et démarrer l'exécution quotidienne",
   "onboarding.ready": "Prêt — votre brief sera mis à jour avec ce que vous lui avez appris.",
-  "onboarding.low_signal": "Vous avez été d'accord sur tout, ce qui signifie généralement que cet échantillon était facile plutôt que le brief est achevé."
+  "onboarding.low_signal": "Vous avez été d'accord sur tout, ce qui signifie généralement que cet échantillon était facile plutôt que le brief est achevé.",
+  "onboarding.your_verdict": "Vous dites :",
+  "onboarding.disagreement": "Vous n'êtes pas d'accord — Dawnlist a indiqué {app}, vous avez indiqué {user}.",
+  "onboarding.app.strong": "une correspondance forte",
+  "onboarding.app.possible": "possible",
+  "onboarding.app.rejected": "pas une correspondance",
+  "onboarding.title": "Dawnlist — configuration",
+  "onboarding.next": "Suivant",
+  "onboarding.back": "Retour"
 }

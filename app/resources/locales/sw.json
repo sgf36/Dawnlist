@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "Ni sentensi gani, ikiongezwa kwenye maelezo yako, ingesahihisha hili?",
   "onboarding.finish": "Maliza na anza kuendesha kila siku",
   "onboarding.ready": "Tayari — maelezo yako yatasasishwa na ulichomfundisha.",
-  "onboarding.low_signal": "Umekubaliana na kila kitu, jambo ambalo mara nyingi humaanisha kuwa sampuli hii ilikuwa rahisi, wala si kwamba maelezo yamekamilika."
+  "onboarding.low_signal": "Umekubaliana na kila kitu, jambo ambalo mara nyingi humaanisha kuwa sampuli hii ilikuwa rahisi, wala si kwamba maelezo yamekamilika.",
+  "onboarding.your_verdict": "Wewe unasema:",
+  "onboarding.disagreement": "Hukubaliani — Dawnlist ilisema {app}, wewe unasema {user}.",
+  "onboarding.app.strong": "inafaa sana",
+  "onboarding.app.possible": "inawezekana",
+  "onboarding.app.rejected": "haifai",
+  "onboarding.title": "Dawnlist — inasanidiwa",
+  "onboarding.next": "Endelea",
+  "onboarding.back": "Rudi"
 }

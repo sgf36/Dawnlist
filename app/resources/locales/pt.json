@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "Que frase, adicionada ao seu briefing, teria levado à resposta certa?",
   "onboarding.finish": "Concluir e começar a executar diariamente",
   "onboarding.ready": "Pronto — o seu briefing foi atualizado com o que lhe ensinou.",
-  "onboarding.low_signal": "Concordou com tudo, o que geralmente significa que esta amostra foi fácil, e não que o briefing esteja concluído."
+  "onboarding.low_signal": "Concordou com tudo, o que geralmente significa que esta amostra foi fácil, e não que o briefing esteja concluído.",
+  "onboarding.your_verdict": "Você diz:",
+  "onboarding.disagreement": "Você discorda — o Dawnlist disse {app}, você diz {user}.",
+  "onboarding.app.strong": "uma boa correspondência",
+  "onboarding.app.possible": "possível",
+  "onboarding.app.rejected": "não é adequado",
+  "onboarding.title": "Dawnlist — configurando",
+  "onboarding.next": "Avançar",
+  "onboarding.back": "Voltar"
 }

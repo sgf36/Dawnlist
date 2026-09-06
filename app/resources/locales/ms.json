@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "Apakah ayat yang, jika ditambah ke ringkasan anda, akan menghasilkan jawapan yang betul?",
   "onboarding.finish": "Selesai dan mula berjalan setiap hari",
   "onboarding.ready": "Sedia — ringkasan anda telah dikemas kini dengan apa yang anda ajarkan.",
-  "onboarding.low_signal": "Anda bersetuju dengan semuanya, yang biasanya bermakna sampel ini mudah dan bukannya ringkasan sudah lengkap."
+  "onboarding.low_signal": "Anda bersetuju dengan semuanya, yang biasanya bermakna sampel ini mudah dan bukannya ringkasan sudah lengkap.",
+  "onboarding.your_verdict": "Pendapat anda:",
+  "onboarding.disagreement": "Anda tidak bersetuju — Dawnlist mengatakan {app}, anda mengatakan {user}.",
+  "onboarding.app.strong": "sangat sesuai",
+  "onboarding.app.possible": "mungkin sesuai",
+  "onboarding.app.rejected": "tidak sesuai",
+  "onboarding.title": "Dawnlist — persediaan",
+  "onboarding.next": "Seterusnya",
+  "onboarding.back": "Kembali"
 }

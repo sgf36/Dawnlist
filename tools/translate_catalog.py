@@ -75,6 +75,86 @@ def verify(english: dict, translated: dict) -> list[str]:
     return problems
 
 
+def translate(client, language: str, code: str, keys: dict) -> dict | None:
+    """One request. Returns the catalogue, or None if it did not verify."""
+    resp = client.messages.create(
+        model=MODEL, max_tokens=16000,
+        messages=[{"role": "user", "content": PROMPT.format(
+            language=language, code=code,
+            catalogue=json.dumps(keys, ensure_ascii=False, indent=2))}],
+        output_config={"format": {
+            "type": "json_schema",
+            "schema": {
+                "type": "object",
+                "properties": {k: {"type": "string"} for k in keys},
+                "required": list(keys),
+                "additionalProperties": False,
+            },
+        }},
+    )
+    text = "".join(b.text for b in resp.content if b.type == "text")
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return None
+
+
+def fill(english: dict, wanted: set | None, *, dry_run: bool) -> int:
+    """Top up catalogues that are BEHIND the source.
+
+    A catalogue can never drift ahead — the generator only ever emits keys that
+    exist in en.json — but it drifts behind every time a string is added to the
+    app after the catalogues were generated. That shows up as an English string
+    in the middle of a translated screen, which looks like a bug in the
+    translation rather than a missing key.
+    """
+    behind = {}
+    for code, name, _native in SUPPORTED_LOCALES:
+        if code == DEFAULT_LOCALE or (wanted and code not in wanted):
+            continue
+        path = LOCALES / f"{code}.json"
+        if not path.exists():
+            continue
+        existing = json.loads(path.read_text("utf-8"))
+        missing = {k: v for k, v in english.items() if k not in existing}
+        if missing:
+            behind[code] = (name, existing, missing)
+
+    print(f"{len(behind)} catalogues are behind the source")
+    if dry_run:
+        for code, (name, _e, missing) in behind.items():
+            print(f"  {code} ({name}): {len(missing)} keys")
+        return 0
+    if not behind:
+        return 0
+
+    import anthropic
+    client = anthropic.Anthropic()
+
+    failures = []
+    for code, (name, existing, missing) in behind.items():
+        translated = translate(client, name, code, missing)
+        if translated is None:
+            failures.append(f"{code}: unparseable response")
+            continue
+        problems = verify(missing, translated)
+        if problems:
+            failures.append(f"{code}: " + "; ".join(problems))
+            continue
+        existing.update(translated)
+        # Written back in the SOURCE's key order, so a diff between two
+        # catalogues is readable and a missing key is visible by position.
+        ordered = {k: existing[k] for k in english if k in existing}
+        (LOCALES / f"{code}.json").write_text(
+            json.dumps(ordered, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8")
+        print(f"  filled {code}.json (+{len(missing)})")
+
+    for f in failures:
+        print("  NOT filled: " + f, file=sys.stderr)
+    return 1 if failures else 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", help="comma-separated locale codes")
@@ -82,6 +162,9 @@ def main() -> int:
                     help="overwrite catalogues that already exist")
     ap.add_argument("--dry-run", action="store_true",
                     help="list what would be generated; makes no API calls")
+    ap.add_argument("--fill", action="store_true",
+                    help="top up existing catalogues with keys added since "
+                         "they were generated, instead of writing new ones")
     args = ap.parse_args()
 
     english = json.loads((LOCALES / f"{DEFAULT_LOCALE}.json").read_text("utf-8"))
@@ -96,6 +179,9 @@ def main() -> int:
         if (LOCALES / f"{code}.json").exists() and not args.force:
             continue
         targets.append((code, name))
+
+    if args.fill:
+        return fill(english, wanted, dry_run=args.dry_run)
 
     print(f"{len(english)} keys; {len(targets)} locales to generate")
     if args.dry_run:

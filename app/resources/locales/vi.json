@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "Câu nào, nếu thêm vào bản tóm tắt của bạn, sẽ giúp đánh giá này đúng?",
   "onboarding.finish": "Hoàn tất và bắt đầu chạy hằng ngày",
   "onboarding.ready": "Sẵn sàng — bản tóm tắt của bạn đã được cập nhật theo những gì bạn vừa hướng dẫn.",
-  "onboarding.low_signal": "Bạn đồng ý với mọi đánh giá, điều này thường có nghĩa là mẫu này dễ chứ không phải bản tóm tắt đã hoàn thiện."
+  "onboarding.low_signal": "Bạn đồng ý với mọi đánh giá, điều này thường có nghĩa là mẫu này dễ chứ không phải bản tóm tắt đã hoàn thiện.",
+  "onboarding.your_verdict": "Bạn nói:",
+  "onboarding.disagreement": "Bạn không đồng ý — Dawnlist đánh giá {app}, còn bạn đánh giá {user}.",
+  "onboarding.app.strong": "phù hợp cao",
+  "onboarding.app.possible": "có thể phù hợp",
+  "onboarding.app.rejected": "không phù hợp",
+  "onboarding.title": "Dawnlist — đang thiết lập",
+  "onboarding.next": "Tiếp theo",
+  "onboarding.back": "Quay lại"
 }

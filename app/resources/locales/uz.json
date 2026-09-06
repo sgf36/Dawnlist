@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "Brifingiзга qo'shilsa, qaysi jumla buni to'g'ri qilardi?",
   "onboarding.finish": "Yakunlash va kunlik ishlashni boshlash",
   "onboarding.ready": "Tayyor — brifingiz o'rgatilganlaringiz bilan yangilanadi.",
-  "onboarding.low_signal": "Siz hamma narsaga rozi bo'ldingiz, bu odatda brifing tugagani emas, balki namuna oson bo'lganini anglatadi."
+  "onboarding.low_signal": "Siz hamma narsaga rozi bo'ldingiz, bu odatda brifing tugagani emas, balki namuna oson bo'lganini anglatadi.",
+  "onboarding.your_verdict": "Sizning fikringiz:",
+  "onboarding.disagreement": "Siz rozi emassiz — Dawnlist {app} deb hisobladi, siz esa {user} deysiz.",
+  "onboarding.app.strong": "yaxshi mos keladi",
+  "onboarding.app.possible": "mos kelishi mumkin",
+  "onboarding.app.rejected": "mos kelmaydi",
+  "onboarding.title": "Dawnlist — sozlanmoqda",
+  "onboarding.next": "Keyingi",
+  "onboarding.back": "Orqaga"
 }

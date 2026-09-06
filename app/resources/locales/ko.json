@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "브리프에 어떤 문장을 추가하면 올바르게 판단했을까요?",
   "onboarding.finish": "완료하고 매일 실행 시작",
   "onboarding.ready": "준비 완료 — 학습된 내용으로 브리프가 업데이트됩니다.",
-  "onboarding.low_signal": "모든 항목에 동의하셨습니다. 이는 대개 브리프가 완성되었다기보다 이 샘플이 쉬웠다는 의미입니다."
+  "onboarding.low_signal": "모든 항목에 동의하셨습니다. 이는 대개 브리프가 완성되었다기보다 이 샘플이 쉬웠다는 의미입니다.",
+  "onboarding.your_verdict": "내 의견:",
+  "onboarding.disagreement": "의견이 다릅니다 — Dawnlist는 {app}(으)로 판단했지만, 회원님은 {user}(으)로 판단했습니다.",
+  "onboarding.app.strong": "적합함",
+  "onboarding.app.possible": "가능성 있음",
+  "onboarding.app.rejected": "적합하지 않음",
+  "onboarding.title": "Dawnlist — 설정 중",
+  "onboarding.next": "다음",
+  "onboarding.back": "이전"
 }

@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "Wace jimla, idan aka ƙara wa taƙaitaccen bayaninka, za ta yi daidai a nan?",
   "onboarding.finish": "Kammala kuma fara gudu kowace rana",
   "onboarding.ready": "A shirye — an sabunta taƙaitaccen bayaninka da abin da ka koya masa.",
-  "onboarding.low_signal": "Ka yarda da komai, wanda yawanci yana nufin wannan samfurin ya kasance mai sauƙi maimakon cewa taƙaitaccen bayanin ya cika."
+  "onboarding.low_signal": "Ka yarda da komai, wanda yawanci yana nufin wannan samfurin ya kasance mai sauƙi maimakon cewa taƙaitaccen bayanin ya cika.",
+  "onboarding.your_verdict": "Kai ka ce:",
+  "onboarding.disagreement": "Ba ku yarda ba — Dawnlist ya ce {app}, ku kuma kuka ce {user}.",
+  "onboarding.app.strong": "ya dace sosai",
+  "onboarding.app.possible": "yana yiwuwa",
+  "onboarding.app.rejected": "bai dace ba",
+  "onboarding.title": "Dawnlist — saiti",
+  "onboarding.next": "Gaba",
+  "onboarding.back": "Baya"
 }

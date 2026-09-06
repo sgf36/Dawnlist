@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "ブリーフに追加すればこの判定が正しくなる文言は？",
   "onboarding.finish": "完了して毎日の実行を開始",
   "onboarding.ready": "準備完了 ― 学習した内容でブリーフが更新されます。",
-  "onboarding.low_signal": "すべてに同意されましたが、これは通常、ブリーフが完成したというより、このサンプルが単に判定しやすかったことを意味します。"
+  "onboarding.low_signal": "すべてに同意されましたが、これは通常、ブリーフが完成したというより、このサンプルが単に判定しやすかったことを意味します。",
+  "onboarding.your_verdict": "あなたの評価:",
+  "onboarding.disagreement": "評価が異なります — Dawnlistは「{app}」、あなたは「{user}」と評価しました。",
+  "onboarding.app.strong": "強い適合",
+  "onboarding.app.possible": "可能性あり",
+  "onboarding.app.rejected": "適合しない",
+  "onboarding.title": "Dawnlist — セットアップ",
+  "onboarding.next": "次へ",
+  "onboarding.back": "戻る"
 }

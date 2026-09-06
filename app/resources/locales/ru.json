@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "Какая формулировка, добавленная в бриф, дала бы верный результат?",
   "onboarding.finish": "Завершить и начать ежедневный запуск",
   "onboarding.ready": "Готово — ваш бриф будет обновлён с учётом внесённых правок.",
-  "onboarding.low_signal": "Вы согласились со всем, а это обычно означает, что выборка была простой, а не то, что бриф уже завершён."
+  "onboarding.low_signal": "Вы согласились со всем, а это обычно означает, что выборка была простой, а не то, что бриф уже завершён.",
+  "onboarding.your_verdict": "Вы говорите:",
+  "onboarding.disagreement": "Вы не согласны — Dawnlist оценил как «{app}», а вы — как «{user}».",
+  "onboarding.app.strong": "отлично подходит",
+  "onboarding.app.possible": "возможно подходит",
+  "onboarding.app.rejected": "не подходит",
+  "onboarding.title": "Dawnlist — настройка",
+  "onboarding.next": "Далее",
+  "onboarding.back": "Назад"
 }

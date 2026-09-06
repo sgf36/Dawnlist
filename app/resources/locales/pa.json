@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "ਕਿਹੜਾ ਵਾਕ, ਤੁਹਾਡੇ ਬ੍ਰੀਫ ਵਿੱਚ ਸ਼ਾਮਲ ਕੀਤਾ ਗਿਆ, ਇਸਨੂੰ ਸਹੀ ਕਰ ਸਕਦਾ ਸੀ?",
   "onboarding.finish": "ਪੂਰਾ ਕਰੋ ਅਤੇ ਰੋਜ਼ਾਨਾ ਚਲਾਉਣਾ ਸ਼ੁਰੂ ਕਰੋ",
   "onboarding.ready": "ਤਿਆਰ — ਤੁਹਾਡਾ ਬ੍ਰੀਫ ਉਸ ਨਾਲ ਅੱਪਡੇਟ ਕੀਤਾ ਜਾਵੇਗਾ ਜੋ ਤੁਸੀਂ ਇਸਨੂੰ ਸਿਖਾਇਆ।",
-  "onboarding.low_signal": "ਤੁਸੀਂ ਹਰ ਚੀਜ਼ ਨਾਲ ਸਹਿਮਤ ਹੋਏ, ਜਿਸਦਾ ਆਮ ਤੌਰ 'ਤੇ ਮਤਲਬ ਹੁੰਦਾ ਹੈ ਕਿ ਇਹ ਨਮੂਨਾ ਆਸਾਨ ਸੀ, ਨਾ ਕਿ ਬ੍ਰੀਫ ਪੂਰਾ ਹੋ ਗਿਆ ਹੈ।"
+  "onboarding.low_signal": "ਤੁਸੀਂ ਹਰ ਚੀਜ਼ ਨਾਲ ਸਹਿਮਤ ਹੋਏ, ਜਿਸਦਾ ਆਮ ਤੌਰ 'ਤੇ ਮਤਲਬ ਹੁੰਦਾ ਹੈ ਕਿ ਇਹ ਨਮੂਨਾ ਆਸਾਨ ਸੀ, ਨਾ ਕਿ ਬ੍ਰੀਫ ਪੂਰਾ ਹੋ ਗਿਆ ਹੈ।",
+  "onboarding.your_verdict": "ਤੁਸੀਂ ਕਹਿੰਦੇ ਹੋ:",
+  "onboarding.disagreement": "ਤੁਸੀਂ ਸਹਿਮਤ ਨਹੀਂ ਹੋ — Dawnlist ਨੇ {app} ਕਿਹਾ, ਤੁਸੀਂ {user} ਕਹਿੰਦੇ ਹੋ।",
+  "onboarding.app.strong": "ਬਿਲਕੁਲ ਢੁਕਵਾਂ",
+  "onboarding.app.possible": "ਸੰਭਵ",
+  "onboarding.app.rejected": "ਢੁਕਵਾਂ ਨਹੀਂ",
+  "onboarding.title": "Dawnlist — ਸੈੱਟਅੱਪ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ",
+  "onboarding.next": "ਅੱਗੇ",
+  "onboarding.back": "ਪਿੱਛੇ"
 }

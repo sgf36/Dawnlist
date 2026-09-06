@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "Kalimat apa, jika ditambahkan ke brief Anda, yang akan membuat ini benar?",
   "onboarding.finish": "Selesai dan mulai jalankan harian",
   "onboarding.ready": "Siap — brief Anda akan diperbarui dengan apa yang Anda ajarkan.",
-  "onboarding.low_signal": "Anda setuju dengan semuanya, yang biasanya berarti sampel ini mudah, bukan berarti brief sudah selesai."
+  "onboarding.low_signal": "Anda setuju dengan semuanya, yang biasanya berarti sampel ini mudah, bukan berarti brief sudah selesai.",
+  "onboarding.your_verdict": "Anda mengatakan:",
+  "onboarding.disagreement": "Anda tidak setuju — Dawnlist mengatakan {app}, Anda mengatakan {user}.",
+  "onboarding.app.strong": "sangat sesuai",
+  "onboarding.app.possible": "mungkin sesuai",
+  "onboarding.app.rejected": "tidak sesuai",
+  "onboarding.title": "Dawnlist — penyiapan",
+  "onboarding.next": "Berikutnya",
+  "onboarding.back": "Kembali"
 }

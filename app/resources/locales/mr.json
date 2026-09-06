@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "कोणते वाक्य, तुमच्या ब्रीफमध्ये जोडल्यास, हे बरोबर ठरले असते?",
   "onboarding.finish": "पूर्ण करा आणि दररोज चालवणे सुरू करा",
   "onboarding.ready": "तयार — तुम्ही शिकवलेल्या गोष्टींसह तुमचा ब्रीफ अद्ययावत होईल.",
-  "onboarding.low_signal": "तुम्ही सर्वांशी सहमत होता, याचा सहसा अर्थ असा होतो की हा नमुना सोपा होता, ब्रीफ पूर्ण झाला असे नव्हे."
+  "onboarding.low_signal": "तुम्ही सर्वांशी सहमत होता, याचा सहसा अर्थ असा होतो की हा नमुना सोपा होता, ब्रीफ पूर्ण झाला असे नव्हे.",
+  "onboarding.your_verdict": "तुम्ही म्हणता:",
+  "onboarding.disagreement": "तुमचे मत वेगळे आहे — डॉनलिस्टने {app} म्हटले, तुम्ही {user} म्हणता.",
+  "onboarding.app.strong": "योग्य जुळणी",
+  "onboarding.app.possible": "शक्य",
+  "onboarding.app.rejected": "जुळत नाही",
+  "onboarding.title": "डॉनलिस्ट — सेटअप सुरू आहे",
+  "onboarding.next": "पुढे",
+  "onboarding.back": "मागे"
 }

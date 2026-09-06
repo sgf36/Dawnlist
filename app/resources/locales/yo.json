@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "Ọ̀rọ̀ wo, tí a bá fi kún ìwé ìtọ́ni rẹ, ì bá ti mú kí èyí tọ́?",
   "onboarding.finish": "Parí kí o sì bẹ̀rẹ̀ iṣẹ́ ojoojúmọ́",
   "onboarding.ready": "Ó ti ṣetán — a ó ṣàtúnṣe ìwé ìtọ́ni rẹ pẹ̀lú ohun tí o kọ́ ọ.",
-  "onboarding.low_signal": "O gbà pẹ̀lú ohun gbogbo, èyí tí ó sábà máa ń fi hàn pé àpẹẹrẹ yìí rọrùn ju pé ìwé ìtọ́ni náà ti parí."
+  "onboarding.low_signal": "O gbà pẹ̀lú ohun gbogbo, èyí tí ó sábà máa ń fi hàn pé àpẹẹrẹ yìí rọrùn ju pé ìwé ìtọ́ni náà ti parí.",
+  "onboarding.your_verdict": "O sọ pé:",
+  "onboarding.disagreement": "O kò fohùn ṣọ̀kan — Dawnlist sọ pé {app}, ìwọ sì sọ pé {user}.",
+  "onboarding.app.strong": "ìbáramu tó lágbára",
+  "onboarding.app.possible": "ó ṣeéṣe",
+  "onboarding.app.rejected": "kì í ṣe ìbáramu",
+  "onboarding.title": "Dawnlist — ìṣètò ń lọ",
+  "onboarding.next": "Tẹ̀síwájú",
+  "onboarding.back": "Padà"
 }

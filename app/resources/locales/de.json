@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "Welcher Satz, zu Ihrem Briefing hinzugefügt, hätte dies richtig eingeschätzt?",
   "onboarding.finish": "Abschließen und tägliche Ausführung starten",
   "onboarding.ready": "Bereit — Ihr Briefing wurde mit dem Gelernten aktualisiert.",
-  "onboarding.low_signal": "Sie haben allem zugestimmt, was meist bedeutet, dass diese Stichprobe einfach war, nicht dass das Briefing fertig ist."
+  "onboarding.low_signal": "Sie haben allem zugestimmt, was meist bedeutet, dass diese Stichprobe einfach war, nicht dass das Briefing fertig ist.",
+  "onboarding.your_verdict": "Ihre Einschätzung:",
+  "onboarding.disagreement": "Sie sind anderer Meinung — Dawnlist sagte {app}, Sie sagen {user}.",
+  "onboarding.app.strong": "gut geeignet",
+  "onboarding.app.possible": "möglich",
+  "onboarding.app.rejected": "nicht geeignet",
+  "onboarding.title": "Dawnlist — Einrichtung",
+  "onboarding.next": "Weiter",
+  "onboarding.back": "Zurück"
 }

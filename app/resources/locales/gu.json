@@ -50,5 +50,13 @@
   "onboarding.sentence_placeholder": "તમારા બ્રીફમાં કયું વાક્ય ઉમેરવાથી આ સાચું થાત?",
   "onboarding.finish": "પૂર્ણ કરો અને દૈનિક ચલાવવાનું શરૂ કરો",
   "onboarding.ready": "તૈયાર — તમે જે શીખવ્યું તેનાથી તમારું બ્રીફ અપડેટ થશે.",
-  "onboarding.low_signal": "તમે બધા સાથે સહમત થયા, જેનો સામાન્ય રીતે અર્થ એ થાય કે આ નમૂનો સરળ હતો, બ્રીફ પૂર્ણ છે એવું નહીં."
+  "onboarding.low_signal": "તમે બધા સાથે સહમત થયા, જેનો સામાન્ય રીતે અર્થ એ થાય કે આ નમૂનો સરળ હતો, બ્રીફ પૂર્ણ છે એવું નહીં.",
+  "onboarding.your_verdict": "તમે કહો છો:",
+  "onboarding.disagreement": "તમે અસહમત છો — Dawnlistએ કહ્યું {app}, તમે કહો છો {user}.",
+  "onboarding.app.strong": "ઉત્તમ મેળ",
+  "onboarding.app.possible": "શક્ય",
+  "onboarding.app.rejected": "મેળ ખાતું નથી",
+  "onboarding.title": "Dawnlist — સેટઅપ થઈ રહ્યું છે",
+  "onboarding.next": "આગળ",
+  "onboarding.back": "પાછળ"
 }
