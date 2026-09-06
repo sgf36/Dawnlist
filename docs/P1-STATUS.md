@@ -1,8 +1,8 @@
 # Build status
 
 **Repo:** `C:\Users\SpencerFields\dawnlist`, deliberately **off OneDrive** per handoff Part 9.
-**Tests:** 301, all passing — `.venv/Scripts/python -m pytest -q`
-**Last updated:** 2026-09-06
+**Tests:** 302, all passing — `.venv/Scripts/python -m pytest -q`
+**Last updated:** 2026-09-06 — P1 engine complete; a frozen build runs
 
 ## Done
 
@@ -60,16 +60,20 @@ is now an actionable row.
 
 ## Next
 
-1. **Onboarding UI** — the onboarding *logic* is done (corpus warnings, factsheet and brief
-   drafting rules, the calibration gate, all enforced) but it has no screens yet. The gate is
-   enforced in `morning_run`, so nothing can run around it in the meantime; it simply refuses.
-2. **CV text extraction** — `Corpus` takes text; nothing yet reads a PDF or `.docx`. Add `pypdf`
-   and `python-docx`, and treat an image-only scan as unreadable *by name* rather than as empty.
-3. **Alert-email drag-and-drop** (handoff 0.2) — the universal zero-cost feed supplement. The
-   `.eml` parsing already exists in `outreach/voice.py`; it needs a job-card parser and a drop
-   target.
-4. **Packaging (P4)** — PyInstaller onedir, MSIX, notarised macOS, MAS. Reuse the EasyPost specs.
+1. **Onboarding UI.** The onboarding *logic* is done and enforced — corpus warnings, factsheet and
+   brief drafting rules, the calibration gate — but it has no screens. Nothing can run around the
+   gate meanwhile: `morning_run` refuses, so the app is safe, just not yet usable end to end by a
+   real user.
+2. **CV text extraction.** `Corpus` takes text; nothing reads a PDF or `.docx` yet. Add `pypdf` and
+   `python-docx`, and treat an image-only scan as unreadable **by name** rather than as empty.
+3. **Alert-email drag-and-drop** (handoff 0.2) — the universal zero-cost feed supplement, and the
+   thing that replaces the LinkedIn digest coverage. The `.eml` parsing already exists in
+   `outreach/voice.py`; it needs a job-card parser and a drop target.
+4. **MSIX + notarisation + MAS.** The PyInstaller build works and produces a running 124MB onedir.
+   Store packaging and signing need credentials and are outward-facing decisions. Reuse EasyPost's
+   `build_msix.py`, `sign_msix.ps1`, `run_wack.ps1` and `CI-MAS-SETUP.md`.
 5. **Generate the 48 locale catalogues** — one API run, needs your go-ahead.
+6. **Worker deploy** — needs Cloudflare credentials.
 
 ## Blocked, deliberately
 
