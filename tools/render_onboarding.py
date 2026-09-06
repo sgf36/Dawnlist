@@ -26,6 +26,9 @@ SAMPLE = [
     ("Operations Analyst", "Greene King", "rejected", "pub estate operations"),
 ]
 
+# Microsoft Store: 1366x768 or larger, 16:9.
+STORE_SIZE = (1366, 768)
+
 app = QApplication(sys.argv)
 page = CalibrationPage()
 page.load([CalibrationItem(job_key=str(i), title=t, company=c, description="d",
@@ -41,7 +44,7 @@ for btn in page._widgets[1].group.buttons():
     if btn.property("verdict") == "strong":
         btn.setChecked(True)
 
-page.resize(860, 780)
+page.resize(*STORE_SIZE)
 page.show()
 for _ in range(8):
     app.processEvents()

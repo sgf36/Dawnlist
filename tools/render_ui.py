@@ -22,7 +22,15 @@ ROWS = [
               reason="Operational real estate, explicitly welcomes hospitality background"),
     ReviewRow("2", "General Manager Events", "Landmark Venues", "London",
               "https://ats.example/2",
-              "Running 147 boxes and 350+ events a year at a landmark venue.",
+              "Running 147 boxes and 350+ events a year at a landmark venue. "
+              "You will own the commercial performance of the events business, "
+              "from pricing and yield through to the client relationships that "
+              "drive repeat bookings, working alongside the venue's operations "
+              "and catering teams.\n\nThe role reports to the Managing Director "
+              "and carries full P&L responsibility for the events division. "
+              "Candidates will have run a comparable operation at scale, and "
+              "will be comfortable moving between commercial strategy and the "
+              "detail of delivery on a matchday.",
               bucket="strong",
               reason="Tagged Entertainment Providers, but the substance is premium hospitality"),
     ReviewRow("3", "Senior Project Manager", "Kier", "Reading",
@@ -54,23 +62,56 @@ ROWS = [
     ReviewRow("8", "Kitchen Porter", "Acme Hotels", "London", "",
               "Washing up.", bucket="screened-out",
               screen_reason="unsupported title term 'Kitchen Porter'"),
+    ReviewRow("9", "Head of Commercial Strategy", "Rocco Forte Hotels",
+              "London", "https://ats.example/9",
+              "Owning commercial strategy across a luxury European portfolio.",
+              bucket="strong",
+              reason="Strategy at a luxury operator, squarely in the brief"),
+    ReviewRow("10", "Cluster Revenue Manager", "Accor", "Manchester",
+              "https://ats.example/10",
+              "Revenue management across six properties in the North West.",
+              bucket="possible",
+              reason="Multi-property revenue, a step below the stated band"),
+    ReviewRow("11", "Asset Management Associate", "Aviva Investors",
+              "London", "https://ats.example/11",
+              "Supporting the operational real estate team.",
+              bucket="possible",
+              reason="Operational real estate, but associate-level"),
+    ReviewRow("12", "Director of Operations", "Landmark Trust", "Bristol",
+              "https://ats.example/12",
+              "CEO-reporting strategic mandate across a heritage portfolio.",
+              bucket="strong",
+              reason="Generic title over a strategic mandate; substance decides"),
+    ReviewRow("13", "Development Manager", "Whitbread", "Dunstable",
+              "https://ats.example/13",
+              "Hotel development pipeline across the UK estate.",
+              bucket="possible",
+              reason="Development rather than asset management, adjacent"),
 ]
 
 COUNTS = {"swept": 1143, "deduped": 1088, "gated_out": 213,
           "screened_likely": 118, "screened_out": 757, "assessed": 112,
           "left_unread": 6}
 
+# Microsoft Store: 1366x768 or larger, 16:9.
+STORE_SIZE = (1366, 768)
+
 app = QApplication(sys.argv)
 w = ReviewWindow()
 w.load(ROWS, COUNTS, incomplete_note="context exhausted")
-w.resize(1180, 760)
+w.resize(*STORE_SIZE)
 w.show()
 # Select the first shortlist row so the detail pane renders real content -
 # an empty pane in a screenshot proves nothing about the pane.
 docs = Path(__file__).resolve().parents[1] / "docs"
 
-w.shortlist.setCurrentItem(w.shortlist.topLevelItem(0))
 w.tabs.setCurrentIndex(0)
+# Select by TITLE, not by position: the sort order changes whenever the sample
+# does, and row 0 is not reliably the row worth showing.
+for _i in range(w.shortlist.topLevelItemCount()):
+    if w.shortlist.topLevelItem(_i).text(0) == "General Manager Events":
+        w.shortlist.setCurrentItem(w.shortlist.topLevelItem(_i))
+        break
 for _ in range(8):
     app.processEvents()
 w.grab().save(str(docs / "review-window.png"))
@@ -86,7 +127,7 @@ i18n.set_locale("ar")
 i18n.clear_cache()
 rtl = ReviewWindow()
 rtl.load(ROWS, COUNTS, incomplete_note="نفد السياق")
-rtl.resize(1180, 760)
+rtl.resize(*STORE_SIZE)
 rtl.show()
 rtl.tabs.setCurrentIndex(0)
 rtl.shortlist.setCurrentItem(rtl.shortlist.topLevelItem(0))

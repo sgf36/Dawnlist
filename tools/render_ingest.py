@@ -8,6 +8,9 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from app.ui.onboarding import IngestPage  # noqa: E402
 
+# Microsoft Store: 1366x768 or larger, 16:9.
+STORE_SIZE = (1366, 768)
+
 app = QApplication(sys.argv)
 docs = Path(__file__).resolve().parents[1] / "docs"
 
@@ -20,7 +23,7 @@ page.show_corpus(
      "from the original document, or add the .docx instead",
      "resume.doc: old .doc files cannot be read — open it and save as .docx first"],
 )
-page.resize(860, 700)
+page.resize(*STORE_SIZE)
 page.show()
 for _ in range(8):
     app.processEvents()

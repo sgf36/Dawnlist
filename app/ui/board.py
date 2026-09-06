@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from datetime import date
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton,
                                QSizePolicy, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
@@ -174,8 +174,21 @@ class BoardWindow(QWidget):
         self.tree.setColumnWidth(1, 150)
         self.tree.setColumnWidth(2, 190)
         self.tree.header().setStretchLastSection(True)
-        self.tree.setAlternatingRowColors(True)
+        # Alternating row colours OFF. With setFirstColumnSpanned group headers
+        # they made a non-selected row paint as if selected — the widget state
+        # said one row was selected while two were painted. The stylesheet's
+        # per-item bottom border already separates rows, so nothing is lost.
+        self.tree.setAlternatingRowColors(False)
         self.tree.setUniformRowHeights(True)
+        # The ::item:selected stylesheet rule paints the item, not the strip
+        # beyond the last column, so the default highlight shows through there
+        # and a selected row comes out two colours. Set the palette too.
+        palette = self.tree.palette()
+        palette.setColor(QPalette.Highlight, QColor(TEAL))
+        palette.setColor(QPalette.HighlightedText, QColor(CREAM))
+        palette.setColor(QPalette.Inactive, QPalette.Highlight, QColor(TEAL))
+        palette.setColor(QPalette.Inactive, QPalette.HighlightedText, QColor(CREAM))
+        self.tree.setPalette(palette)
         outer.addWidget(self.tree, 1)
 
         actions = QHBoxLayout()

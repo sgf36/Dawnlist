@@ -16,6 +16,9 @@ from app.ui.board import BoardWindow  # noqa: E402
 from app.ui.board_adapter import board_rows  # noqa: E402
 
 TUE = date(2026, 9, 8)
+# Microsoft Store: 1366x768 or larger, 16:9.
+STORE_SIZE = (1366, 768)
+
 app = QApplication(sys.argv)
 
 conn = db.connect(":memory:")
@@ -50,8 +53,20 @@ conn.commit()
 win = BoardWindow()
 rows, findings = board_rows(conn, today=TUE)
 win.load(rows, findings)
-win.resize(1000, 720)
+win.resize(*STORE_SIZE)
 win.show()
+
+# Select the bounced opportunity, so the screenshot shows the audit doing its
+# job rather than whatever row Qt happened to land on.
+# clearSelection first: setCurrentItem moves the CURRENT item but does not
+# clear a selection Qt already made, so two rows end up highlighted.
+win.tree.clearSelection()
+for i in range(win.tree.topLevelItemCount()):
+    group = win.tree.topLevelItem(i)
+    for j in range(group.childCount()):
+        if group.child(j).text(0) == "Landmark Venues":
+            win.tree.setCurrentItem(group.child(j))
+            group.child(j).setSelected(True)
 for _ in range(8):
     app.processEvents()
 out = Path(__file__).resolve().parents[1] / "docs" / "board-window.png"
