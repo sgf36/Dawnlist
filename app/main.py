@@ -241,6 +241,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="print the board audit and exit")
     parser.add_argument("--doctor", action="store_true",
                         help="print environment diagnostics and exit")
+    parser.add_argument("--onboard", action="store_true",
+                        help="open the setup flow, even if already calibrated")
     parser.add_argument("--db", type=Path, default=None,
                         help="database path (defaults to the app data dir)")
     parser.add_argument("--locale", default=None, help="UI locale, e.g. fr")
@@ -276,6 +278,11 @@ def main(argv: list[str] | None = None) -> int:
         # fetched nothing because the endpoint failed must never look like a
         # quiet morning.
         return 0 if outcome.complete else 1
+
+    if args.onboard:
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        return _launch_onboarding(app, conn)
 
     return _launch_ui(conn, open_board=args.board)
 
@@ -325,15 +332,59 @@ def _doctor(conn) -> int:
     return 0 if shipped else 1
 
 
+def _launch_onboarding(app, conn) -> int:
+    """The setup flow. Opened automatically when the gate has not been passed.
+
+    Routing here rather than to an empty shortlist is the honest thing to show
+    a new user: the shortlist would be empty anyway, and an empty screen with
+    no explanation reads as a broken app rather than an unfinished setup.
+    """
+    from app.onboarding.calibration import complete_calibration
+    from app.onboarding.extract import extract_corpus
+    from app.ui.onboarding import OnboardingWizard
+
+    def extract(paths):
+        result = extract_corpus(list(paths))
+        return [d.name for d in result.corpus.documents], result.warnings
+
+    def sample():
+        # The calibration sample comes from a real feed pull. Until a feed
+        # credential is configured there is nothing honest to show, so the
+        # wizard says so rather than inventing postings to practise on.
+        from app.onboarding.calibration import CalibrationItem
+        return [CalibrationItem(
+            job_key="setup", title="No live postings yet",
+            company="", description="",
+            app_verdict="possible",
+            app_reason=("a feed credential is needed before Dawnlist can "
+                        "fetch the postings you calibrate against"))]
+
+    wizard = OnboardingWizard(extract=extract, sample=sample)
+
+    def finished(result):
+        brief = load_document(conn, "fit_brief") or "# Fit brief"
+        complete_calibration(conn, brief, result)
+        wizard.close()
+
+    wizard.completed.connect(finished)
+    wizard.resize(900, 780)
+    wizard.show()
+    return app.exec()
+
+
 def _launch_ui(conn, *, open_board: bool) -> int:
     from PySide6.QtWidgets import QApplication
 
+    from app.onboarding.calibration import is_calibrated
     from app.ui.adapter import connect_window
     from app.ui.board import BoardWindow
     from app.ui.board_adapter import board_rows, connect_board
     from app.ui.review import ReviewWindow
 
     app = QApplication.instance() or QApplication(sys.argv)
+
+    if not is_calibrated(conn) and not open_board:
+        return _launch_onboarding(app, conn)
 
     if open_board:
         window = BoardWindow()

@@ -21,7 +21,8 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel,
                                QLineEdit, QListWidget, QPushButton,
                                QRadioButton, QScrollArea, QSizePolicy,
-                               QSplitter, QTextBrowser, QVBoxLayout, QWidget)
+                               QSplitter, QStackedWidget, QTextBrowser,
+                               QVBoxLayout, QWidget)
 
 from app.i18n import tr
 from app.onboarding.calibration import CalibrationItem, CalibrationResult
@@ -450,3 +451,83 @@ class CalibrationPage(QWidget):
         self.blockers.style().polish(self.blockers)
         self.btn_finish.setEnabled(result.passed)
         self.changed.emit()
+
+
+class OnboardingWizard(QWidget):
+    """Ingest, then the gate.
+
+    The wizard exists so the gate is reachable, but it is NOT what enforces the
+    gate — `morning_run` does. A gate enforced only by the screen that presents
+    it is a gate the scheduled run walks straight past, so this window can be
+    closed at any point and the app simply refuses to run until the gate is
+    passed properly.
+    """
+
+    completed = Signal(object)     # CalibrationResult
+
+    def __init__(self, *, extract, sample, parent=None):
+        """`extract(paths) -> (names, warnings)` and `sample() -> [items]` are
+        injected, so the wizard neither reads disks nor calls a model itself."""
+        super().__init__(parent)
+        self._extract = extract
+        self._sample = sample
+
+        self.setWindowTitle(tr("onboarding.title"))
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        self.stack = QStackedWidget()
+        self.ingest = IngestPage()
+        self.calibration = CalibrationPage()
+        self.stack.addWidget(self.ingest)
+        self.stack.addWidget(self.calibration)
+        layout.addWidget(self.stack, 1)
+
+        nav = QHBoxLayout()
+        nav.setContentsMargins(16, 0, 16, 16)
+        self.btn_back = QPushButton(tr("onboarding.back"))
+        self.btn_back.setObjectName("secondary")
+        self.btn_next = QPushButton(tr("onboarding.next"))
+        self.btn_next.setObjectName("primary")
+        self.btn_back.setEnabled(False)
+        self.btn_next.setEnabled(False)      # nothing ingested yet
+        nav.addWidget(self.btn_back)
+        nav.addStretch(1)
+        nav.addWidget(self.btn_next)
+        layout.addLayout(nav)
+
+        self.setStyleSheet(ONBOARDING_STYLESHEET)
+
+        self.ingest.files_added.connect(self._on_files)
+        self.btn_next.clicked.connect(self._next)
+        self.btn_back.clicked.connect(self._back)
+        self.calibration.finished.connect(self._finish)
+        self._show_step(0)
+
+    def _on_files(self, paths) -> None:
+        names, warnings = self._extract(paths)
+        self.ingest.show_corpus(names, warnings)
+        # Warnings never block: an unreadable file is the user's to fix or
+        # ignore, and refusing to continue over one would strand someone whose
+        # only copy of an old CV is a scan.
+        self.btn_next.setEnabled(bool(names))
+
+    def _show_step(self, index: int) -> None:
+        self.stack.setCurrentIndex(index)
+        self.btn_back.setEnabled(index > 0)
+        # The gate has its own Finish button, so the wizard's Next is hidden
+        # there — two buttons that mean different things is how people click
+        # the wrong one.
+        self.btn_next.setVisible(index == 0)
+
+    def _next(self) -> None:
+        if self.stack.currentIndex() == 0:
+            self.calibration.load(self._sample())
+            self._show_step(1)
+
+    def _back(self) -> None:
+        self._show_step(max(0, self.stack.currentIndex() - 1))
+
+    def _finish(self) -> None:
+        self.completed.emit(self.calibration.result())

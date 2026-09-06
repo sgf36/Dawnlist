@@ -55,5 +55,8 @@
   "onboarding.disagreement": "You disagree — Dawnlist said {app}, you say {user}.",
   "onboarding.app.strong": "a strong fit",
   "onboarding.app.possible": "possible",
-  "onboarding.app.rejected": "not a fit"
+  "onboarding.app.rejected": "not a fit",
+  "onboarding.title": "Dawnlist — setting up",
+  "onboarding.next": "Next",
+  "onboarding.back": "Back"
 }

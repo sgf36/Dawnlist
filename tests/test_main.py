@@ -243,3 +243,38 @@ def test_doctor_reports_the_locale_catalogues(dbfile, capsys):
     assert "locales exist : True" in out
     assert "catalogues" in out and "en" in out
     assert "calibrated    : False" in out
+
+
+def test_an_uncalibrated_launch_routes_to_onboarding(dbfile, monkeypatch):
+    """An empty shortlist with no explanation reads as a broken app rather
+    than an unfinished setup."""
+    import app.main as main_mod
+
+    c = db.connect(dbfile)
+    db.migrate(c)
+
+    routed = []
+    monkeypatch.setattr(main_mod, "_launch_onboarding",
+                        lambda app, conn: routed.append("onboarding") or 0)
+    monkeypatch.setattr("PySide6.QtWidgets.QApplication.exec", lambda self: 0)
+    main_mod._launch_ui(c, open_board=False)
+    assert routed == ["onboarding"]
+    c.close()
+
+
+def test_a_calibrated_launch_goes_straight_to_the_shortlist(dbfile, monkeypatch):
+    import app.main as main_mod
+
+    c = db.connect(dbfile)
+    db.migrate(c)
+    c.execute("INSERT INTO settings(key, value) "
+              "VALUES('calibration_passed_at','2026-09-06T00:00:00+00:00')")
+    c.commit()
+
+    routed = []
+    monkeypatch.setattr(main_mod, "_launch_onboarding",
+                        lambda app, conn: routed.append("onboarding") or 0)
+    monkeypatch.setattr("PySide6.QtWidgets.QApplication.exec", lambda self: 0)
+    main_mod._launch_ui(c, open_board=False)
+    assert routed == [], "a calibrated user must not be sent back through setup"
+    c.close()
