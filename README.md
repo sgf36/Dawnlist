@@ -136,6 +136,9 @@ app/outreach/compose.py  language + voice + factsheet, assembled
 app/ui/review.py         the morning review window
 app/feed/models.py       the normalised Job — the only shape the app ever sees
 app/feed/base.py         provider adapter contract + rate limiting
+app/feed/alert_email.py  job-alert digests the user drags in — no scraping
+app/onboarding/          CV extraction, factsheet rules, the calibration gate
+app/main.py              entry point: --run-once, --board, --audit, --doctor
 app/feed/theirstack.py   the P0-validated adapter, with delta pulls
 server/                  the Cloudflare feed proxy: metering, cache, failover
 tools/render_ui.py       renders the window to PNG — look at it, don't trust the test
