@@ -188,6 +188,13 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
             "brief, and without it the shortlist is a guess that looks like an "
             "answer.")
 
+    # The entitlement gate sits HERE, next to the calibration gate, for the
+    # same reason: a gate enforced in a screen is one the scheduled run walks
+    # straight past. Only the run is gated — onboarding, the board and every
+    # screen stay open whether or not anyone has paid.
+    from app.core.entitlement import require as require_entitlement
+    require_entitlement(conn)
+
     queries = load_queries(conn)
     if not queries:
         raise NotConfigured("No saved queries. Add at least one before running.")
@@ -268,8 +275,15 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.run_once:
+        from app.core.entitlement import NotEntitled
+
         try:
             outcome = morning_run(conn)
+        except NotEntitled as exc:
+            # Exit 3, distinct from 2: "not paid" and "not set up" want
+            # different responses from whatever is running this.
+            print(f"not entitled: {exc}", file=sys.stderr)
+            return 3
         except NotConfigured as exc:
             print(f"not configured: {exc}", file=sys.stderr)
             return 2
@@ -334,6 +348,16 @@ def _doctor(conn) -> int:
         except ImportError:
             print(f"{what + ' reading':<14}: MISSING ({module} not bundled)",
                   file=sys.stderr)
+
+    from app.core.entitlement import check as check_entitlement
+
+    ent = check_entitlement(conn)
+    state = ent.source if ent.entitled else "NOT ENTITLED"
+    print(f"entitlement   : {state}")
+    if not ent.entitled:
+        print(f"  {ent.reason}", file=sys.stderr)
+    elif ent.source in ("trial", "grace"):
+        print(f"  {ent.reason}")
 
     print(f"calibrated    : {is_calibrated(conn)}")
     print(f"queries       : {len(load_queries(conn))}")

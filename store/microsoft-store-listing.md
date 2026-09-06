@@ -20,7 +20,7 @@ LinkedIn code and the marketing must not imply otherwise.
 | Package identity | `SFields.Dawnlist` *(confirm against what Partner Center actually reserved, and correct `packaging/msix/AppxManifest.xml` if it differs — a mismatch fails ingestion, not certification)* |
 | Category | Productivity |
 | Subcategory | Personal finance & productivity → Productivity |
-| Pricing | Free, with a licence for production use |
+| Pricing | **Paid.** One price, bought up front. No in-app purchase, no free tier, no trial gate inside the app. |
 
 ---
 
@@ -37,6 +37,9 @@ LinkedIn code and the marketing must not imply otherwise.
 *(Max 10,000 characters. Plain text; Partner Center strips most markup.)*
 
 ```
+Dawnlist is a paid app. You buy it once, and it is yours — there is nothing to
+unlock inside it and nothing held back.
+
 Dawnlist reads the world's job feeds every morning, judges every posting against
 a fit brief it builds with you, and hands you a ranked shortlist before you have
 finished your coffee.
@@ -108,6 +111,15 @@ GETTING STARTED
 Setting up takes about half an hour: add your CVs, answer some questions about
 what you are looking for, then correct Dawnlist on ten real postings. After
 that it runs every morning.
+
+
+WHAT YOU PAY FOR
+
+One purchase, and the whole app. No subscription inside it, nothing locked
+behind a second payment, and no features held back from the version you bought.
+
+Dawnlist calls a language model to read postings and draft messages, and that
+costs a little to run. Which is why it is a paid app rather than a free one.
 ```
 
 ---
@@ -130,6 +142,7 @@ that it runs every morning.
 13. Never sends anything — you send it yourself
 14. No mailbox access and no passwords to hand over
 15. Your CVs and tracker stay on your machine
+16. One purchase, the whole app — no in-app unlocks
 
 ---
 
@@ -163,8 +176,13 @@ export proves the file was written, nothing more.
 | 5 | Calibration gate | It learns your judgement before it runs |
 | 6 | A draft | It writes the follow-up. You send it |
 
-`tools/render_ui.py`, `tools/render_board.py` and `tools/render_onboarding.py`
-produce 1–5 today at 1180×760, so **re-render at 1366×768 for the Store**.
+`tools/render_ui.py`, `tools/render_board.py`, `tools/render_onboarding.py` and
+`tools/render_ingest.py` produce these at **1708×960** (1366×768 logical at 1.25
+display scaling), which is above the minimum and the right ratio. The finished
+files are in `docs/`.
+
+`review-window-ar.png` is proof that right-to-left mirrors the whole window —
+it is not a listing asset, and the listing is en-GB.
 
 ---
 
