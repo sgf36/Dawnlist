@@ -4,6 +4,7 @@
   "board.col.next_step": "Следующий шаг",
   "board.col.open_task": "Открытая задача",
   "board.col.status": "Статус",
+  "board.mark_sent": "Я отправил(а) это",
   "board.repair_mirror": "Исправить статус",
   "board.repair_stage": "Исправить этап",
   "board.title": "Dawnlist — ваша доска",

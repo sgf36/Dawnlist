@@ -155,6 +155,23 @@ class CompiledRules:
                 return e
         return None
 
+    @property
+    def has_positive_signal(self) -> bool:
+        """Whether this table can say YES to anything at all.
+
+        Tiers 2, 3 and 4 are an ALLOWLIST: a posting survives only because
+        something matched it. The table is seeded empty and every entry is
+        earned — but an empty allowlist rejects the entire world, and entries
+        are earned by deciding on postings the user has to be shown first.
+
+        So an empty table means NO OPINION, not a universal no. Without this
+        the app screened out 100% of every sweep, assessed nothing, and showed
+        an empty shortlist every morning with no error at all: the funnel read
+        swept N, screened out N, assessed 0 — indistinguishable from a quiet
+        day in the market.
+        """
+        return bool(self.employers or self.strong or self.contextual)
+
 
 # ---------------------------------------------------------------------------
 # spec 5.3 rules 3 and 4 — the admission-time guard.

@@ -187,3 +187,49 @@ def test_a_bounce_pivots_off_email_and_blocks_the_email_draft(conn, tmp_path):
     assert len(items) == 1
     assert not items[0].actionable, "the address is dead; email is not the channel"
     assert Channel.EMAIL not in items[0].step.channels
+
+
+# -- a follow-up must know it is one -----------------------------------------
+def test_a_first_contact_says_so_in_the_request():
+    from app.outreach.compose import DraftBrief, build_drafting_request
+    req = build_drafting_request(
+        DraftBrief(recipient_name="Jo", recipient_role="", company="Acme",
+                   posting_title="Asset Manager"), FACTS, VOICE)
+    assert "FIRST message" in req["messages"][0]["content"]
+
+
+def test_a_follow_up_is_told_not_to_reintroduce():
+    """Without this every follow-up was drafted as a cold approach, so a real
+    recipient got "I am an individual exploring roles" a second and third
+    time — which reads as though the sender forgot writing."""
+    from app.outreach.compose import DraftBrief, build_drafting_request
+    req = build_drafting_request(
+        DraftBrief(recipient_name="Jo", recipient_role="", company="Acme",
+                   posting_title="Asset Manager", rung=1,
+                   last_contacted_on=TUE), FACTS, VOICE)
+    content = req["messages"][0]["content"]
+    assert "FOLLOW-UP" in content
+    assert "Do NOT reintroduce" in content
+    assert TUE.isoformat() in content, "the date lets it cite the real message"
+
+
+def test_the_rung_reaches_the_draft(conn):
+    """The rung was computed, carried as far as `prepare_drafts`, and then
+    dropped — so a third approach used the same instructions as the first."""
+    from app.core.board_repo import record_outbound
+    seen = {}
+
+    def capture(request):
+        seen["content"] = request["messages"][0]["content"]
+        return GOOD_BODY
+
+    oid = create_opportunity(conn, "Acme")
+    add_contact(conn, oid)
+    record_outbound(conn, str(oid), Channel.EMAIL, TUE)
+
+    items = due_today(conn, today=LATER)
+    assert items, "nothing due, so nothing to check"
+    prepare_drafts(conn, items, folder=Path("."), factsheet=FACTS,
+                   voice=VOICE, send=capture, today=LATER)
+    assert "FOLLOW-UP" in seen["content"]
+    assert TUE.isoformat() in seen["content"]

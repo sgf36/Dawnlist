@@ -27,6 +27,25 @@ from urllib.parse import quote
 #: spec 9.1: if a claim is not on the factsheet, do not make it.
 PLACEHOLDER = re.compile(r"\[\[([^\]]+)\]\]")
 
+#: The SINGLE-bracket form, which the prompt never asks for and the model
+#: produces anyway. Observed live: the same request that ended a follow-up with
+#: `[[Sender's name]]` ended the first contact with `[Your name]` — and only
+#: the first was caught, so a draft reading "Best regards, [Your name]" was
+#: marked send-ready and would have gone to a real person.
+#:
+#: Blocking is the safe direction here. A false positive stops a draft and asks
+#: the user to look; a false negative is unrecoverable the moment they press
+#: send. Numerics and the handful of genuine editorial marks are excluded so a
+#: citation or a `[sic]` does not block anything.
+LOOSE_PLACEHOLDER = re.compile(r"\[([^\[\]]{2,60})\]")
+EDITORIAL_MARKS = frozenset({"sic", "…", "...", "etc"})
+
+
+def _is_editorial(text: str) -> bool:
+    stripped = text.strip()
+    return (stripped.casefold() in EDITORIAL_MARKS
+            or stripped.replace(".", "").replace(",", "").isdigit())
+
 
 class NotSendReady(ValueError):
     """Raised when a draft still carries unresolved placeholders."""
@@ -48,7 +67,21 @@ class Draft:
 
     @property
     def placeholders(self) -> list[str]:
-        return PLACEHOLDER.findall(self.body) + PLACEHOLDER.findall(self.subject)
+        """Every unresolved gap, in either bracket form.
+
+        Double brackets are what the prompt asks for. Single brackets are what
+        the model sometimes writes instead, and a guard that only recognises
+        the form it requested is not a guard.
+        """
+        found: list[str] = []
+        for text in (self.body, self.subject):
+            found.extend(PLACEHOLDER.findall(text))
+            # Strip the double-bracket hits first, or `[[x]]` is also seen as
+            # a single-bracket `[x]` and reported twice.
+            remainder = PLACEHOLDER.sub("", text)
+            found.extend(m for m in LOOSE_PLACEHOLDER.findall(remainder)
+                         if not _is_editorial(m))
+        return found
 
     @property
     def send_ready(self) -> bool:

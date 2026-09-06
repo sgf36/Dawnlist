@@ -252,3 +252,50 @@ def test_report_surfaces_contained_kills_in_the_counts():
                       job("Assistant Front Office Manager", jid="b")], table)
     assert rep.counts["contained_needs_review"] == 1
     assert len(rep.contained) == 1
+
+
+# -- the unconfigured table -------------------------------------------------
+def test_an_empty_table_reads_everything_rather_than_killing_it():
+    """Tiers 2-4 are an allowlist, so an EMPTY allowlist used to reject the
+    whole world. The shipped app screened out 100% of every sweep, assessed
+    nothing, and showed an empty shortlist each morning with no error — the
+    funnel read swept N, screened out N, assessed 0, which is exactly what a
+    quiet day in the market looks like."""
+    jobs = [Job(provider="t", provider_job_id=str(i), title=t, company="Acme",
+                description_text="A role.")
+            for i, t in enumerate(["Head of Strategy", "Night Auditor",
+                                   "Sous Chef"])]
+    report = screen_all(jobs, RuleTable())
+    assert len(report.likely) == 3, "an unconfigured screen has no opinion"
+    assert report.unlikely == []
+
+
+def test_the_reason_says_why_everything_got_through():
+    """Otherwise a 100% pass rate reads as a broken screen."""
+    job = Job(provider="t", provider_job_id="a", title="Anything",
+              company="Acme", description_text="")
+    result = screen_all([job], RuleTable()).results[0]
+    assert "no screening rules yet" in result.reason
+
+
+def test_one_earned_term_switches_the_screen_back_on():
+    """The moment the table can say yes to anything, it can say no to the
+    rest. This is the boundary the empty case turns on."""
+    jobs = [Job(provider="t", provider_job_id=str(i), title=t, company="Acme",
+                description_text="A role.")
+            for i, t in enumerate(["Head of Strategy", "Night Auditor"])]
+    report = screen_all(jobs, RuleTable(strong_terms=["strategy"]))
+    assert [r.job.title for r in report.likely] == ["Head of Strategy"]
+    assert [r.job.title for r in report.unlikely] == ["Night Auditor"]
+
+
+def test_a_kill_term_alone_is_not_a_positive_signal():
+    """`unsupported_titles` can only say NO. A table holding nothing but kill
+    terms still cannot say yes to anything, so it must not start rejecting
+    everything it fails to match."""
+    jobs = [Job(provider="t", provider_job_id=str(i), title=t, company="Acme",
+                description_text="A role.")
+            for i, t in enumerate(["Head of Strategy", "Night Auditor"])]
+    report = screen_all(jobs, RuleTable(unsupported_titles=["night auditor"]))
+    assert [r.job.title for r in report.likely] == ["Head of Strategy"]
+    assert [r.job.title for r in report.unlikely] == ["Night Auditor"]

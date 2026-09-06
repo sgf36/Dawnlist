@@ -4,6 +4,7 @@
   "board.col.next_step": "次のステップ",
   "board.col.open_task": "未完了タスク",
   "board.col.status": "ステータス",
+  "board.mark_sent": "送信済みにする",
   "board.repair_mirror": "ステータスを修正",
   "board.repair_stage": "段階を修正",
   "board.title": "Dawnlist ― マイボード",

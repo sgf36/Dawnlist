@@ -110,6 +110,17 @@ def screen_one(job: Job, rules: CompiledRules) -> ScreenResult:
                 f"contextual term {m.group(0)!r} in title/company",
             )
 
+    # --- nothing matched -----------------------------------------------------
+    # An UNCONFIGURED table has no opinion, so the posting is read rather than
+    # killed by an allowlist that could never have matched anything. This is
+    # the expensive direction deliberately: paying to assess a posting is
+    # recoverable, and a role lost to a rule the user was never shown is not.
+    if not rules.has_positive_signal:
+        return ScreenResult(
+            job, Verdict.LIKELY, Tier.NO_SIGNAL,
+            "no screening rules yet — every posting is read until enough "
+            "decisions exist for the screen to have a pattern to apply")
+
     return ScreenResult(job, Verdict.UNLIKELY, Tier.NO_SIGNAL, "no matching term")
 
 

@@ -109,3 +109,44 @@ def test_blocked_drafts_are_counted_and_named():
     s = DraftSet([draft(), draft(body="[[gap]]", thread_key="b")])
     assert s.counts == {"drafted": 2, "send_ready": 1, "needs_evidence": 1}
     assert s.blocked[0].thread_key == "b"
+
+
+# -- the single-bracket hole ------------------------------------------------
+def a_draft(body, subject="Acme"):
+    return Draft(to_name="Jo", to_email="jo@example.com", subject=subject,
+                 body=body, thread_key="t")
+
+
+def test_a_single_bracket_stand_in_blocks_the_send():
+    """Observed live: the same request that ended a follow-up with
+    `[[Sender's name]]` ended the first contact with `[Your name]`. Only the
+    first was caught, so a draft reading "Best regards, [Your name]" was marked
+    send-ready and would have gone to a real person exactly like that."""
+    draft = a_draft("Thanks for your time.\n\nBest regards,\n[Your name]")
+    assert not draft.send_ready
+    assert "Your name" in draft.placeholders
+
+
+def test_the_double_bracket_form_still_blocks():
+    assert not a_draft("I [[what to say here]] hope.").send_ready
+
+
+def test_a_double_bracket_gap_is_reported_once():
+    """`[[x]]` also matches the single-bracket pattern as `[x]`."""
+    draft = a_draft("A [[missing detail]] here.")
+    assert draft.placeholders == ["missing detail"]
+
+
+def test_a_clean_draft_is_still_send_ready():
+    assert a_draft("Thanks for your time.\n\nBest regards,").send_ready
+
+
+def test_editorial_brackets_do_not_block():
+    """A citation or a [sic] is not an unfilled gap, and blocking one would
+    train the user to ignore the warning."""
+    assert a_draft("They wrote 'recieve' [sic] in the posting.").send_ready
+    assert a_draft("As reported [1] last year.").send_ready
+
+
+def test_a_placeholder_in_the_subject_blocks_too():
+    assert not a_draft("Clean body.", subject="Role at [company]").send_ready

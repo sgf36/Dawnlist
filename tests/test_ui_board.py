@@ -178,3 +178,123 @@ def test_group_headers_are_not_selectable(conn, win):
     group = win.tree.topLevelItem(0)
     assert not (group.flags() & Qt.ItemIsSelectable)
     assert group.child(0).flags() & Qt.ItemIsSelectable
+
+
+# -- closing the loop -------------------------------------------------------
+def test_recording_a_send_advances_the_cadence(conn):
+    """Dawnlist never sends, so it cannot observe that a message went out.
+    Until the user says so the cadence sits at rung zero and the same first
+    contact is redrafted every week, with no follow-up ever scheduled."""
+    from app.core.cadence import next_step
+    from app.core.board_repo import load_touches
+    from app.ui.board_adapter import record_sent
+
+    oid = create_opportunity(conn, "Acme")
+    assert load_touches(conn, str(oid)) == []
+
+    record_sent(conn, str(oid), today=TUE)
+    touches = load_touches(conn, str(oid))
+    assert len(touches) == 1
+    assert touches[0].is_evidenced_outbound
+
+    step = next_step(touches, today=TUE)
+    assert step.due_on is not None and step.due_on > TUE, (
+        "the next touch must move into the future, or it is due again today")
+
+
+def test_recording_a_send_moves_identified_to_contacted(conn):
+    """A stage that lags the evidence is exactly the drift the parity audit
+    then reports."""
+    from app.core.board_repo import load_board
+    from app.ui.board_adapter import record_sent
+
+    oid = create_opportunity(conn, "Acme", stage=Stage.IDENTIFIED)
+    record_sent(conn, str(oid), today=TUE)
+    assert load_board(conn)[0].stage is Stage.CONTACTED
+
+
+def test_a_later_stage_is_not_dragged_backwards(conn):
+    """Sending a note to someone already in dialogue does not un-progress
+    them."""
+    from app.core.board_repo import load_board
+    from app.ui.board_adapter import record_sent
+
+    oid = create_opportunity(conn, "Acme", stage=Stage.IN_DIALOGUE)
+    record_sent(conn, str(oid), today=TUE)
+    assert load_board(conn)[0].stage is Stage.IN_DIALOGUE
+
+
+def test_the_touch_is_attributed_to_the_drafted_contact(conn):
+    """A touch recorded against the wrong person schedules the chase against
+    someone who was never written to."""
+    from app.core.board_repo import load_touches
+    from app.ui.board_adapter import record_sent
+
+    oid = create_opportunity(conn, "Acme")
+    first = conn.execute(
+        "INSERT INTO contacts(opportunity_id,name,email,created_at) "
+        "VALUES(?,?,?,?)", (oid, "Alex", "alex@example.com", "x")).lastrowid
+    drafted = conn.execute(
+        "INSERT INTO contacts(opportunity_id,name,email,created_at) "
+        "VALUES(?,?,?,?)", (oid, "Jo", "jo@example.com", "x")).lastrowid
+    conn.execute(
+        "INSERT INTO drafts(opportunity_id,contact_id,thread_key,path,created_at)"
+        " VALUES(?,?,?,?,?)", (oid, drafted, "t", "p.eml", "x"))
+    conn.commit()
+
+    record_sent(conn, str(oid), today=TUE)
+    # `Touch` carries no contact — read the stored row, which does.
+    stored = conn.execute(
+        "SELECT contact_id FROM touches WHERE opportunity_id=?",
+        (oid,)).fetchone()
+    assert stored["contact_id"] == drafted, (
+        f"attributed to {stored['contact_id']}, not the drafted contact "
+        f"{drafted} (the first contact is {first})")
+
+
+def test_a_message_sent_by_hand_still_counts(conn):
+    """No draft on file is not the same as no message sent."""
+    from app.core.board_repo import load_touches
+    from app.ui.board_adapter import record_sent
+
+    oid = create_opportunity(conn, "Acme")
+    record_sent(conn, str(oid), today=TUE)
+    assert len(load_touches(conn, str(oid))) == 1
+
+
+def test_the_button_is_offered_only_on_a_live_stage(qapp):
+    """Recording a send against a Won, Lost or On Hold record would schedule a
+    chase on a closed pursuit."""
+    from app.ui.board import BoardRow, BoardWindow
+    w = BoardWindow()
+    rows = [BoardRow(opportunity_id="1", company="Live", stage=Stage.CONTACTED,
+                     status="Contacted"),
+            BoardRow(opportunity_id="2", company="Done", stage=Stage.WON,
+                     status="Won")]
+    w.load(rows, {"scanned": [], "parity_defects": [],
+                  "bounce_corrections": [], "duplicate_open_children": []})
+
+    seen = {}
+    for oid in ("1", "2"):
+        # Drive the real selection path rather than calling the handler with a
+        # row of our own: what is being tested is that selecting a closed
+        # record disables the button.
+        item = _find_item(w, oid)
+        assert item is not None, f"no row for {oid}"
+        w.tree.setCurrentItem(item)
+        seen[oid] = w.btn_sent.isEnabled()
+
+    assert seen == {"1": True, "2": False}
+    w.close()
+
+
+def _find_item(window, opportunity_id):
+    from PySide6.QtCore import Qt
+    stack = [window.tree.topLevelItem(i)
+             for i in range(window.tree.topLevelItemCount())]
+    while stack:
+        item = stack.pop()
+        if item.data(0, Qt.UserRole) == opportunity_id:
+            return item
+        stack.extend(item.child(i) for i in range(item.childCount()))
+    return None

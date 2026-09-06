@@ -151,6 +151,7 @@ class BoardWindow(QWidget):
 
     repair_requested = Signal(str)        # opportunity_id — fix the MIRROR
     bounce_repair_requested = Signal(str)  # opportunity_id — fix the STAGE
+    sent_recorded = Signal(str)           # opportunity_id — a message went out
     opportunity_selected = Signal(str)
 
     def __init__(self, parent=None):
@@ -193,9 +194,14 @@ class BoardWindow(QWidget):
 
         actions = QHBoxLayout()
         actions.setSpacing(10)
+        # Dawnlist never sends, so it cannot observe that a message went out —
+        # only the user can say so. Without this the cadence sits at rung zero
+        # for ever: the same first-contact letter is redrafted every Tuesday
+        # and no follow-up is ever scheduled.
+        self.btn_sent = QPushButton(tr("board.mark_sent"))
         self.btn_repair = QPushButton(tr("board.repair_mirror"))
         self.btn_repair_bounce = QPushButton(tr("board.repair_stage"))
-        for b in (self.btn_repair, self.btn_repair_bounce):
+        for b in (self.btn_sent, self.btn_repair, self.btn_repair_bounce):
             b.setObjectName("boardAction")
             b.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
             b.setEnabled(False)
@@ -206,6 +212,7 @@ class BoardWindow(QWidget):
         self.setStyleSheet(BOARD_STYLESHEET)
 
         self.tree.currentItemChanged.connect(self._on_select)
+        self.btn_sent.clicked.connect(self._emit_sent)
         self.btn_repair.clicked.connect(self._emit_repair)
         self.btn_repair_bounce.clicked.connect(self._emit_bounce_repair)
 
@@ -268,10 +275,18 @@ class BoardWindow(QWidget):
 
     def _on_select(self, *_):
         row = self._current()
+        # Only a live stage carries a cadence. Recording a send against a Won,
+        # Lost or On Hold record would schedule a chase on a closed pursuit.
+        self.btn_sent.setEnabled(bool(row and row.stage.is_live))
         self.btn_repair.setEnabled(bool(row and row.parity_defect))
         self.btn_repair_bounce.setEnabled(bool(row and row.bounce_defect))
         if row:
             self.opportunity_selected.emit(row.opportunity_id)
+
+    def _emit_sent(self):
+        row = self._current()
+        if row and row.stage.is_live:
+            self.sent_recorded.emit(row.opportunity_id)
 
     def _emit_repair(self):
         row = self._current()

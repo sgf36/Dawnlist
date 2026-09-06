@@ -270,3 +270,83 @@ def test_settings_is_reachable_without_a_working_key(qapp_or_skip):
     window = open_settings()
     assert window.key is not None and window.licence is not None
     window.close()
+
+
+# -- rules can now be earned ------------------------------------------------
+def test_a_pursued_employer_becomes_a_known_employer(conn):
+    """`rule_terms` and `kill_families` had NO writer anywhere in the app, so
+    the rule table was empty forever rather than only on day one — and "every
+    entry is earned" was a design with no way to earn one."""
+    from app.main import load_rules
+    a_run(conn, [Job(provider="theirstack", provider_job_id="a",
+                     title="Head of Strategy", company="Meridian Group",
+                     description_text="Strategy.")])
+    assert load_rules(conn).known_employers == []
+
+    record_decision(conn, "theirstack:a", "pursue")
+    assert load_rules(conn).known_employers == ["Meridian Group"]
+
+
+def test_a_rejected_employer_is_not_learned(conn):
+    from app.main import load_rules
+    a_run(conn, [Job(provider="theirstack", provider_job_id="a",
+                     title="Head of Strategy", company="Acme",
+                     description_text="Strategy.")])
+    record_decision(conn, "theirstack:a", "reject")
+    assert load_rules(conn).known_employers == []
+
+
+def test_revising_a_decision_unlearns_the_employer(conn):
+    """Derived, never copied: a stored duplicate would keep an employer known
+    after the decision that made it known was withdrawn."""
+    from app.main import load_rules
+    a_run(conn, [Job(provider="theirstack", provider_job_id="a",
+                     title="Head of Strategy", company="Acme",
+                     description_text="Strategy.")])
+    record_decision(conn, "theirstack:a", "pursue")
+    assert load_rules(conn).known_employers == ["Acme"]
+    record_decision(conn, "theirstack:a", "reject")
+    assert load_rules(conn).known_employers == []
+
+
+def test_a_saved_term_survives_a_reload(conn):
+    from app.main import load_rules, save_rule_term
+    save_rule_term(conn, "strong_terms", "asset management")
+    assert load_rules(conn).strong_terms == ["asset management"]
+
+
+def test_a_term_that_would_kill_a_pursued_role_is_refused(conn):
+    """spec 5.3. A kill term that would have removed a role the user actually
+    chased is not a rule — it is a mistake about to repeat itself."""
+    from app.core.rules import RuleConflictError
+    from app.main import load_rules, save_rule_term
+
+    a_run(conn, [Job(provider="theirstack", provider_job_id="a",
+                     title="Head of Operations", company="Acme",
+                     description_text="Strategy.")])
+    record_decision(conn, "theirstack:a", "pursue")
+
+    with pytest.raises(RuleConflictError):
+        save_rule_term(conn, "unsupported_titles", "operations")
+    assert load_rules(conn).unsupported_titles == [], "nothing was stored"
+
+
+def test_known_employers_cannot_be_typed_in(conn):
+    """It is derived from decisions. A hand-typed copy would drift the moment
+    one was revised."""
+    from app.main import save_rule_term
+    with pytest.raises(ValueError, match="unknown rule field"):
+        save_rule_term(conn, "known_employers", "Acme")
+
+
+def test_a_term_can_be_taken_back(conn):
+    from app.main import forget_rule_term, load_rules, save_rule_term
+    save_rule_term(conn, "contextual_terms", "portfolio")
+    forget_rule_term(conn, "contextual_terms", "portfolio")
+    assert load_rules(conn).contextual_terms == []
+
+
+def test_an_empty_term_is_refused(conn):
+    from app.main import save_rule_term
+    with pytest.raises(ValueError, match="cannot be empty"):
+        save_rule_term(conn, "strong_terms", "   ")

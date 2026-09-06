@@ -163,12 +163,19 @@ def prepare_drafts(conn: sqlite3.Connection, items: list[DueItem], *,
             continue
 
         opp, contact = item.opportunity, item.contact
+        touches = load_touches(conn, opp.id)
+        sent = [t.occurred_on for t in touches if t.is_evidenced_outbound]
         brief = DraftBrief(
             recipient_name=contact.name,
             recipient_role="",
             company=opp.company,
             posting_title="",
             locale=locale,
+            # The rung was already computed and carried this far, and was then
+            # dropped on the floor — so a third approach was drafted with the
+            # same instructions as the first.
+            rung=item.step.rung,
+            last_contacted_on=max(sent) if sent else None,
         )
         request = build_drafting_request(brief, factsheet, voice)
 
