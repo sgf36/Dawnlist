@@ -75,5 +75,13 @@
   "settings.licence_stored": "保存済み: {key}",
   "settings.licence_none": "ライセンスが未保存です。",
   "settings.licence_saved": "ライセンスを保存しました。",
-  "settings.code_redeemed": "コードが承認されました — ライセンスが保存されました。"
+  "settings.code_redeemed": "コードが承認されました — ライセンスが保存されました。",
+  "onboarding.interview_heading": "Dawnlistが理解した内容",
+  "onboarding.interview_body": "Dawnlistはあなたの職務経歴書を読み込み、2つの文書を作成しました。内容を確認し、必要に応じて修正してください——これらは最終結論ではなく、あくまで出発点です。左側のファクトシートは、あなたに関してアウトリーチで主張できる唯一の内容です。右側のブリーフは、毎朝どの情報を表示するかを決定します。",
+  "onboarding.factsheet_label": "経歴ファクトシート — 主張してよい内容",
+  "onboarding.brief_label": "適合ブリーフ — 表示される内容",
+  "onboarding.drafting": "職務経歴書を読み込んでいます…",
+  "onboarding.drafted": "作成が完了しました。続行する前に、誤りがあれば修正してください。",
+  "onboarding.draft_failed": "職務経歴書からの作成に失敗しました：{reason}。両方の文書をご自身で作成して続行することもできます。",
+  "onboarding.open_questions": "Dawnlistが判断できず、未確定のままにした項目です："
 }

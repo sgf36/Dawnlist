@@ -233,9 +233,66 @@ def test_onboarding_has_a_key_step_before_calibration(qapp, monkeypatch):
 
     monkeypatch.setattr(api_key, "get", lambda: None)
     w = OnboardingWizard(extract=lambda p: ([], []), sample=lambda: items(1))
-    assert w.stack.count() == 3
+    assert w.stack.count() == 4, "ingest, key, interview, calibration"
     assert isinstance(w.stack.widget(1), KeyPanel)
     w.close()
+
+
+def test_the_interview_runs_after_the_key_and_before_calibration(qapp, monkeypatch):
+    """It is a model call, so it needs the key. Calibration corrects verdicts
+    made against the brief this step produces, so without it there is nothing
+    to correct."""
+    from app.core import api_key
+    from app.ui.onboarding import InterviewPage, OnboardingWizard
+
+    monkeypatch.setattr(api_key, "get", lambda: "sk-ant-stored")
+    w = OnboardingWizard(extract=lambda p: (["cv.docx"], []), sample=lambda: items(1))
+    assert isinstance(w.stack.widget(2), InterviewPage)
+    w.close()
+
+
+def test_the_interview_drafts_both_documents(qapp, monkeypatch):
+    from app.core import api_key
+    from app.ui.onboarding import InterviewPage
+
+    monkeypatch.setattr(api_key, "get", lambda: "sk-ant-stored")
+    page = InterviewPage(drafter=lambda corpus: (
+        "# Background factsheet\n\nAcme Hotels.",
+        "# Fit brief\n\nHospitality strategy.",
+        ["Did the 2019 role include line management?"]))
+    page.run_draft(["cv.docx"])
+
+    assert "Acme Hotels" in page.factsheet.toPlainText()
+    assert "Hospitality strategy" in page.brief.toPlainText()
+    assert page.has_content
+    assert "line management" in page.questions.text()
+    page.close()
+
+
+def test_a_failed_draft_is_not_a_dead_end(qapp):
+    """It must not look like an empty draft either."""
+    from app.ui.onboarding import InterviewPage
+
+    def boom(corpus):
+        raise RuntimeError("Anthropic rejected that key")
+
+    page = InterviewPage(drafter=boom)
+    page.run_draft(["cv.docx"])
+    assert "Could not draft" in page.status.text()
+    assert "rejected that key" in page.status.text()
+    assert not page.has_content
+    page.close()
+
+
+def test_the_two_documents_are_kept_apart(qapp):
+    """The factsheet governs what may be SAID; the brief what gets SURFACED.
+    Merging them is how an ambition quietly becomes a claim."""
+    from app.ui.onboarding import InterviewPage
+    page = InterviewPage(drafter=lambda c: ("FACTS", "BRIEF", []))
+    page.run_draft(["cv"])
+    factsheet, brief = page.documents()
+    assert factsheet == "FACTS" and brief == "BRIEF"
+    page.close()
 
 
 def test_next_is_disabled_on_the_key_step_without_a_key(qapp, monkeypatch):

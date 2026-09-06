@@ -75,5 +75,13 @@
   "settings.licence_stored": "Disimpan: {key}",
   "settings.licence_none": "Belum ada lesen disimpan.",
   "settings.licence_saved": "Lesen disimpan.",
-  "settings.code_redeemed": "Kod diterima — lesen anda telah disimpan."
+  "settings.code_redeemed": "Kod diterima — lesen anda telah disimpan.",
+  "onboarding.interview_heading": "Apa yang Dawnlist telah fahami",
+  "onboarding.interview_body": "Dawnlist telah membaca CV anda dan merangka dua dokumen. Betulkan kandungannya — ia adalah titik permulaan, bukan penilaian muktamad. Helaian fakta di sebelah kiri adalah satu-satunya perkara yang dibenarkan untuk dinyatakan dalam usaha jangkauan anda. Ringkasan kesesuaian di sebelah kanan menentukan apa yang akan dipaparkan setiap pagi.",
+  "onboarding.factsheet_label": "Helaian fakta latar belakang — apa yang boleh dinyatakan",
+  "onboarding.brief_label": "Ringkasan kesesuaian — apa yang dipaparkan",
+  "onboarding.drafting": "Membaca CV anda…",
+  "onboarding.drafted": "Rangka siap. Betulkan sebarang kesilapan sebelum meneruskan.",
+  "onboarding.draft_failed": "Tidak dapat merangka daripada CV anda: {reason}. Anda boleh menulis kedua-dua dokumen sendiri dan meneruskan.",
+  "onboarding.open_questions": "Dawnlist tidak dapat menentukan, dan telah membiarkan perkara berikut terbuka:"
 }

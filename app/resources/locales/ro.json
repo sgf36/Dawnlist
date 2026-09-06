@@ -75,5 +75,13 @@
   "settings.licence_stored": "Salvată: {key}",
   "settings.licence_none": "Nicio licență salvată încă.",
   "settings.licence_saved": "Licență salvată.",
-  "settings.code_redeemed": "Cod acceptat — licența dumneavoastră a fost salvată."
+  "settings.code_redeemed": "Cod acceptat — licența dumneavoastră a fost salvată.",
+  "onboarding.interview_heading": "Ce a înțeles Dawnlist",
+  "onboarding.interview_body": "Dawnlist ți-a citit CV-urile și a redactat două documente. Corectează-le — sunt un punct de plecare, nu un verdict. Fișa de prezentare din stânga este singurul lucru pe care candidatura ta are voie să îl afirme despre tine. Rezumatul de potrivire din dreapta decide ce este scos în evidență în fiecare dimineață.",
+  "onboarding.factsheet_label": "Fișă de prezentare — ce poate fi afirmat",
+  "onboarding.brief_label": "Rezumat de potrivire — ce este scos în evidență",
+  "onboarding.drafting": "Se citesc CV-urile…",
+  "onboarding.drafted": "Redactare finalizată. Corectează orice este greșit înainte de a continua.",
+  "onboarding.draft_failed": "Nu s-a putut redacta pornind de la CV-urile tale: {reason}. Poți scrie ambele documente manual și continua.",
+  "onboarding.open_questions": "Dawnlist nu a putut stabili și a lăsat deschise următoarele:"
 }

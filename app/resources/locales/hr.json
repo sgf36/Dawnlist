@@ -75,5 +75,13 @@
   "settings.licence_stored": "Pohranjeno: {key}",
   "settings.licence_none": "Licenca još nije pohranjena.",
   "settings.licence_saved": "Licenca je spremljena.",
-  "settings.code_redeemed": "Kôd prihvaćen — vaša licenca je spremljena."
+  "settings.code_redeemed": "Kôd prihvaćen — vaša licenca je spremljena.",
+  "onboarding.interview_heading": "Što je Dawnlist shvatio",
+  "onboarding.interview_body": "Dawnlist je pročitao vaše životopise i sastavio dva dokumenta. Ispravite ih — oni su polazna točka, a ne konačna procjena. Sažetak s podacima lijevo je jedino što se u vašim kontaktima smije tvrditi o vama. Profil podobnosti desno određuje što se prikazuje svako jutro.",
+  "onboarding.factsheet_label": "Sažetak podataka — što se smije reći",
+  "onboarding.brief_label": "Profil podobnosti — što se prikazuje",
+  "onboarding.drafting": "Čitanje vaših životopisa…",
+  "onboarding.drafted": "Nacrt je izrađen. Ispravite sve što je netočno prije nego što nastavite.",
+  "onboarding.draft_failed": "Nije bilo moguće izraditi nacrt iz vaših životopisa: {reason}. Oba dokumenta možete sami napisati i nastaviti.",
+  "onboarding.open_questions": "Dawnlist nije mogao utvrditi sljedeće, pa je ostalo otvoreno:"
 }

@@ -20,7 +20,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel,
                                QLineEdit, QListWidget, QPushButton,
-                               QRadioButton, QScrollArea, QSizePolicy,
+                               QPlainTextEdit, QRadioButton, QScrollArea, QSizePolicy,
                                QSplitter, QStackedWidget, QTextBrowser,
                                QVBoxLayout, QWidget)
 
@@ -453,6 +453,107 @@ class CalibrationPage(QWidget):
         self.changed.emit()
 
 
+class InterviewPage(QWidget):
+    """Step three: the factsheet and the fit brief, drafted from the CVs.
+
+    The user CORRECTS a draft rather than composing from a blank page. That is
+    the whole design: people under-report their own experience when asked to
+    write it out, and over-claim when asked to justify it. A draft they can
+    argue with produces a better factsheet than either.
+
+    The two documents are kept apart on screen as well as in storage, because
+    they answer different questions. The factsheet governs what may be SAID;
+    the brief governs what gets SURFACED. Merging them is how an ambition
+    quietly becomes a claim.
+    """
+
+    drafted = Signal()
+
+    def __init__(self, *, drafter=None, parent=None):
+        super().__init__(parent)
+        self._draft = drafter          # (corpus) -> (factsheet_md, brief_md, questions)
+        self._questions: list[str] = []
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
+
+        heading = QLabel(tr("onboarding.interview_heading"))
+        heading.setObjectName("stepHeading")
+        layout.addWidget(heading)
+
+        body = QLabel(reflow(tr("onboarding.interview_body")))
+        body.setObjectName("stepBody")
+        body.setWordWrap(True)
+        layout.addWidget(body)
+
+        self.questions = QLabel()
+        self.questions.setObjectName("disagreement")
+        self.questions.setWordWrap(True)
+        self.questions.hide()
+        layout.addWidget(self.questions)
+
+        self.status = QLabel()
+        self.status.setObjectName("stepBody")
+        layout.addWidget(self.status)
+
+        split = QHBoxLayout()
+        split.setSpacing(12)
+        for title, attr in ((tr("onboarding.factsheet_label"), "factsheet"),
+                            (tr("onboarding.brief_label"), "brief")):
+            column = QVBoxLayout()
+            label = QLabel(title)
+            f = QFont()
+            f.setBold(True)
+            label.setFont(f)
+            column.addWidget(label)
+            editor = QPlainTextEdit()
+            editor.setObjectName("docEditor")
+            column.addWidget(editor, 1)
+            setattr(self, attr, editor)
+            split.addLayout(column, 1)
+        layout.addLayout(split, 1)
+
+        self.setStyleSheet(ONBOARDING_STYLESHEET + """
+QPlainTextEdit#docEditor {
+    border: 1px solid #cfcabf;
+    border-radius: 6px;
+    padding: 8px;
+    font-family: Consolas, monospace;
+}
+""")
+
+    def run_draft(self, corpus) -> None:
+        """Draft both documents. Failures are shown, never swallowed."""
+        self.status.setText(tr("onboarding.drafting"))
+        self.status.repaint()
+        try:
+            factsheet, brief, questions = self._draft(corpus)
+        except Exception as exc:  # noqa: BLE001
+            # The user can still write their own; a failed draft must not be a
+            # dead end, and it must not look like an empty one either.
+            self.status.setText(tr("onboarding.draft_failed", reason=str(exc)[:200]))
+            return
+
+        self.factsheet.setPlainText(factsheet)
+        self.brief.setPlainText(brief)
+        self._questions = questions
+        if questions:
+            self.questions.setText(
+                tr("onboarding.open_questions") + "\n• " + "\n• ".join(questions))
+            self.questions.show()
+        self.status.setText(tr("onboarding.drafted"))
+        self.drafted.emit()
+
+    def documents(self) -> tuple[str, str]:
+        return self.factsheet.toPlainText(), self.brief.toPlainText()
+
+    @property
+    def has_content(self) -> bool:
+        return bool(self.factsheet.toPlainText().strip()
+                    and self.brief.toPlainText().strip())
+
+
 class OnboardingWizard(QWidget):
     """Ingest, then the gate.
 
@@ -463,14 +564,16 @@ class OnboardingWizard(QWidget):
     passed properly.
     """
 
-    completed = Signal(object)     # CalibrationResult
+    completed = Signal(object)          # CalibrationResult
+    documents_ready = Signal(str, str)  # factsheet, brief
 
-    def __init__(self, *, extract, sample, parent=None):
+    def __init__(self, *, extract, sample, drafter=None, parent=None):
         """`extract(paths) -> (names, warnings)` and `sample() -> [items]` are
         injected, so the wizard neither reads disks nor calls a model itself."""
         super().__init__(parent)
         self._extract = extract
         self._sample = sample
+        self._corpus = None
 
         self.setWindowTitle(tr("onboarding.title"))
         layout = QVBoxLayout(self)
@@ -485,9 +588,14 @@ class OnboardingWizard(QWidget):
         # before they reach it.
         from app.ui.settings import KeyPanel
         self.keys = KeyPanel()
+        # The interview runs AFTER the key, because it is a model call. It runs
+        # BEFORE calibration, because calibration corrects verdicts made against
+        # the brief this step produces — without it there is nothing to correct.
+        self.interview = InterviewPage(drafter=drafter)
         self.calibration = CalibrationPage()
         self.stack.addWidget(self.ingest)
         self.stack.addWidget(self.keys)
+        self.stack.addWidget(self.interview)
         self.stack.addWidget(self.calibration)
         layout.addWidget(self.stack, 1)
 
@@ -519,6 +627,7 @@ class OnboardingWizard(QWidget):
 
     def _on_files(self, paths) -> None:
         names, warnings = self._extract(paths)
+        self._corpus = paths
         self.ingest.show_corpus(names, warnings)
         # Warnings never block: an unreadable file is the user's to fix or
         # ignore, and refusing to continue over one would strand someone whose
@@ -531,7 +640,7 @@ class OnboardingWizard(QWidget):
         # The gate has its own Finish button, so the wizard's Next is hidden
         # there — two buttons that mean different things is how people click
         # the wrong one.
-        self.btn_next.setVisible(index < 2)
+        self.btn_next.setVisible(index < 3)
         if index == 1:
             # Cannot leave the key step without a key: the next screen spends
             # money on the user's account, and an app with no key is inert.
@@ -543,8 +652,14 @@ class OnboardingWizard(QWidget):
         if index == 0:
             self._show_step(1)
         elif index == 1:
-            self.calibration.load(self._sample())
             self._show_step(2)
+            if self._corpus is not None and not self.interview.has_content:
+                self.interview.run_draft(self._corpus)
+        elif index == 2:
+            factsheet, brief = self.interview.documents()
+            self.documents_ready.emit(factsheet, brief)
+            self.calibration.load(self._sample())
+            self._show_step(3)
 
     def _back(self) -> None:
         self._show_step(max(0, self.stack.currentIndex() - 1))

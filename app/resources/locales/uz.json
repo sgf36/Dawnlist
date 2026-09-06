@@ -75,5 +75,13 @@
   "settings.licence_stored": "Saqlangan: {key}",
   "settings.licence_none": "Hali litsenziya saqlanmagan.",
   "settings.licence_saved": "Litsenziya saqlandi.",
-  "settings.code_redeemed": "Kod qabul qilindi — litsenziyangiz saqlandi."
+  "settings.code_redeemed": "Kod qabul qilindi — litsenziyangiz saqlandi.",
+  "onboarding.interview_heading": "Dawnlist nimani tushundi",
+  "onboarding.interview_body": "Dawnlist rezyumelaringizni o'qib chiqdi va ikkita hujjat tayyorladi. Ularni tuzating — bu boshlang'ich nuqta, xolos, yakuniy xulosa emas. Chapdagi ma'lumotlar varaqasi sizning murojaatlaringizda o'zingiz haqingizda ayta oladigan yagona narsadir. O'ngdagi moslik xulosasi har kuni ertalab nima ko'rsatilishini belgilaydi.",
+  "onboarding.factsheet_label": "Ma'lumotlar varaqasi — nima deyish mumkin",
+  "onboarding.brief_label": "Moslik xulosasi — nima ko'rsatiladi",
+  "onboarding.drafting": "Rezyumelaringiz o'qilmoqda…",
+  "onboarding.drafted": "Tayyorlandi. Davom etishdan oldin xato joylarini tuzating.",
+  "onboarding.draft_failed": "Rezyumelaringiz asosida tuzib bo'lmadi: {reason}. Ikkala hujjatni o'zingiz yozib, davom etishingiz mumkin.",
+  "onboarding.open_questions": "Dawnlist aniqlay olmadi va quyidagilarni ochiq qoldirdi:"
 }

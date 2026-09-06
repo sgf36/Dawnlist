@@ -242,3 +242,86 @@ def verb_is_upgrade(recorded: str, used: str) -> bool:
     if recorded not in VERB_STRENGTH or used not in VERB_STRENGTH:
         return False
     return VERB_STRENGTH[used] > VERB_STRENGTH[recorded]
+
+
+# ---------------------------------------------------------------------------
+# From the model's structured draft to something a person can correct
+# ---------------------------------------------------------------------------
+
+def render_factsheet(data: dict) -> str:
+    """Turn the structured factsheet into markdown the user edits.
+
+    Rendered rather than shown as JSON, because the user is being asked to
+    CORRECT it, and nobody corrects JSON carefully. The verb stays attached to
+    its figure in the rendered line — "identified £4.2m" — so the distinction
+    the schema protects survives into the document people actually read.
+    """
+    lines = ["# Background factsheet", ""]
+
+    for role in data.get("roles", []):
+        titles = role.get("title_variants", [])
+        primary = titles[0]["title"] if titles else "[[title]]"
+        started = role.get("started") or "[[start date]]"
+        ended = role.get("ended") or "present"
+        lines.append(f"## {role.get('employer', '[[employer]]')}")
+        lines.append(f"**{primary}** · {started} to {ended}")
+
+        if len(titles) > 1:
+            # Kept because they are evidence, not noise: a title may only be
+            # claimed verbatim, paired with the variant it came from.
+            others = ", ".join(f"{t['title']} ({t['source_document']})"
+                               for t in titles[1:])
+            lines.append(f"*Also appears as:* {others}")
+        lines.append("")
+
+        for claim in role.get("claims", []):
+            figure = claim.get("figure")
+            verb = claim.get("verb", "")
+            statement = claim.get("statement", "")
+            bullet = f"- {statement}"
+            if figure:
+                bullet += f"  \n  *{verb} {figure}* — this verb may not be strengthened"
+            lines.append(bullet)
+        lines.append("")
+
+    never = data.get("must_never_claim", [])
+    if never:
+        lines += ["## Must never be claimed", "",
+                  "*As valuable as the claims themselves: these look supportable "
+                  "and are not.*", ""]
+        lines += [f"- {item}" for item in never]
+        lines.append("")
+
+    questions = data.get("open_questions", [])
+    if questions:
+        lines += ["## Open questions", "",
+                  "*Answer these in the text above; each one is a gap that would "
+                  "otherwise become a [[placeholder]] in a real message.*", ""]
+        lines += [f"- {q}" for q in questions]
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def open_questions(data: dict) -> list[str]:
+    return list(data.get("open_questions", []))
+
+
+def save_document(conn, kind: str, body: str) -> int:
+    """Store a new version. Never updates in place.
+
+    The history is what makes a later correction traceable: being able to see
+    when a sentence arrived is how a wrong one gets found again.
+    """
+    from datetime import datetime, timezone
+
+    row = conn.execute(
+        "SELECT COALESCE(MAX(version), 0) v FROM documents WHERE kind=?",
+        (kind,)).fetchone()
+    version = row["v"] + 1
+    conn.execute(
+        "INSERT INTO documents(kind, version, body, created_at) VALUES(?,?,?,?)",
+        (kind, version, body,
+         datetime.now(timezone.utc).isoformat(timespec="seconds")))
+    conn.commit()
+    return version

@@ -75,5 +75,13 @@
   "settings.licence_stored": "Tersimpan: {key}",
   "settings.licence_none": "Belum ada lisensi tersimpan.",
   "settings.licence_saved": "Lisensi tersimpan.",
-  "settings.code_redeemed": "Kode diterima — lisensi Anda telah disimpan."
+  "settings.code_redeemed": "Kode diterima — lisensi Anda telah disimpan.",
+  "onboarding.interview_heading": "Apa yang telah dipahami Dawnlist",
+  "onboarding.interview_body": "Dawnlist telah membaca CV Anda dan menyusun dua dokumen. Koreksi jika perlu — ini adalah titik awal, bukan keputusan akhir. Lembar fakta di sebelah kiri adalah satu-satunya hal yang boleh diklaim oleh outreach Anda tentang diri Anda. Ringkasan kecocokan di sebelah kanan menentukan apa yang akan ditampilkan setiap pagi.",
+  "onboarding.factsheet_label": "Lembar fakta latar belakang — apa yang boleh disampaikan",
+  "onboarding.brief_label": "Ringkasan kecocokan — apa yang akan ditampilkan",
+  "onboarding.drafting": "Membaca CV Anda…",
+  "onboarding.drafted": "Selesai disusun. Koreksi bagian yang keliru sebelum melanjutkan.",
+  "onboarding.draft_failed": "Tidak dapat menyusun dari CV Anda: {reason}. Anda dapat menulis kedua dokumen sendiri dan melanjutkan.",
+  "onboarding.open_questions": "Dawnlist tidak dapat memastikan, dan membiarkan hal-hal berikut terbuka:"
 }

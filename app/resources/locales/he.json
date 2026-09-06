@@ -75,5 +75,13 @@
   "settings.licence_stored": "נשמר: {key}",
   "settings.licence_none": "טרם נשמר רישיון.",
   "settings.licence_saved": "הרישיון נשמר.",
-  "settings.code_redeemed": "הקוד התקבל — הרישיון שלך נשמר."
+  "settings.code_redeemed": "הקוד התקבל — הרישיון שלך נשמר.",
+  "onboarding.interview_heading": "מה דונליסט הבינה",
+  "onboarding.interview_body": "דונליסט קראה את קורות החיים שלך וניסחה טיוטה לשני מסמכים. תקן/י אותם — הם נקודת פתיחה, לא פסק דין. גיליון הרקע משמאל הוא הדבר היחיד שהפנייה שלך רשאית לטעון עליך. תקציר ההתאמה מימין קובע מה יעלה על פני השטח בכל בוקר.",
+  "onboarding.factsheet_label": "גיליון רקע — מה מותר לומר",
+  "onboarding.brief_label": "תקציר התאמה — מה יעלה על פני השטח",
+  "onboarding.drafting": "קוראת את קורות החיים שלך…",
+  "onboarding.drafted": "הטיוטה מוכנה. תקן/י כל דבר שגוי לפני שממשיכים.",
+  "onboarding.draft_failed": "לא ניתן היה לנסח טיוטה מקורות החיים שלך: {reason}. באפשרותך לכתוב את שני המסמכים בעצמך ולהמשיך.",
+  "onboarding.open_questions": "דונליסט לא הצליחה לקבוע, והשאירה שאלות פתוחות אלו:"
 }

@@ -75,5 +75,13 @@
   "settings.licence_stored": "Kugciniwe: {key}",
   "settings.licence_none": "Akukho layisensi egciniwe okwamanje.",
   "settings.licence_saved": "Ilayisensi ilondoloziwe.",
-  "settings.code_redeemed": "Ikhodi yamukelwe — ilayisensi yakho ilondoloziwe."
+  "settings.code_redeemed": "Ikhodi yamukelwe — ilayisensi yakho ilondoloziwe.",
+  "onboarding.interview_heading": "Okuqondwe yi-Dawnlist",
+  "onboarding.interview_body": "I-Dawnlist ifunde ama-CV akho futhi yabhala imibhalo emibili yohlaka. Ilungise — kuyisiqalo, hhayi isinqumo sokugcina. Iphepha lemininingwane ngakwesokunxele yiyona nto kuphela evunyelwe ukusetshenziswa ekufinyeleleni kwakho. Isifinyezo sokufaneleka ngakwesokudla sinquma ukuthi yini ekhonjiswayo njalo ekuseni.",
+  "onboarding.factsheet_label": "Iphepha lemininingwane — okuvunyelwe ukushiwo",
+  "onboarding.brief_label": "Isifinyezo sokufaneleka — okukhonjiswayo",
+  "onboarding.drafting": "Kufundwa ama-CV akho…",
+  "onboarding.drafted": "Kubhaliwe uhlaka. Lungisa noma yini engalungile ngaphambi kokuqhubeka.",
+  "onboarding.draft_failed": "Akukwazekanga ukubhala uhlaka kusuka kuma-CV akho: {reason}. Ungayibhala yomibili imibhalo wena ngokwakho bese uqhubeka.",
+  "onboarding.open_questions": "I-Dawnlist ayikwazanga ukuthola, futhi ishiye lezi zivuliwe:"
 }

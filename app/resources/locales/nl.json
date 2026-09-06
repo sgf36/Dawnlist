@@ -75,5 +75,13 @@
   "settings.licence_stored": "Opgeslagen: {key}",
   "settings.licence_none": "Nog geen licentie opgeslagen.",
   "settings.licence_saved": "Licentie opgeslagen.",
-  "settings.code_redeemed": "Code geaccepteerd — uw licentie is opgeslagen."
+  "settings.code_redeemed": "Code geaccepteerd — uw licentie is opgeslagen.",
+  "onboarding.interview_heading": "Wat Dawnlist heeft begrepen",
+  "onboarding.interview_body": "Dawnlist heeft uw cv's gelezen en twee documenten opgesteld. Corrigeer ze — het zijn een startpunt, geen oordeel. De factsheet links is het enige dat uw sollicitatiecommunicatie over u mag claimen. Het profiel rechts bepaalt wat elke ochtend wordt getoond.",
+  "onboarding.factsheet_label": "Achtergrondfactsheet — wat mag worden gesteld",
+  "onboarding.brief_label": "Profielschets — wat wordt getoond",
+  "onboarding.drafting": "Cv's worden gelezen…",
+  "onboarding.drafted": "Opgesteld. Corrigeer eventuele fouten voordat u verdergaat.",
+  "onboarding.draft_failed": "Kon geen concept opstellen op basis van uw cv's: {reason}. U kunt beide documenten zelf schrijven en verdergaan.",
+  "onboarding.open_questions": "Dawnlist kon dit niet bepalen en laat het volgende open:"
 }

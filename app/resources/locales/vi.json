@@ -75,5 +75,13 @@
   "settings.licence_stored": "Đã lưu: {key}",
   "settings.licence_none": "Chưa có giấy phép nào được lưu.",
   "settings.licence_saved": "Đã lưu giấy phép.",
-  "settings.code_redeemed": "Mã đã được chấp nhận — giấy phép của bạn đã được lưu."
+  "settings.code_redeemed": "Mã đã được chấp nhận — giấy phép của bạn đã được lưu.",
+  "onboarding.interview_heading": "Những gì Dawnlist đã hiểu được",
+  "onboarding.interview_body": "Dawnlist đã đọc CV của bạn và soạn thảo hai tài liệu. Hãy chỉnh sửa lại — đây chỉ là điểm khởi đầu, không phải kết luận cuối cùng. Bảng thông tin bên trái là điều duy nhất hoạt động tiếp cận của bạn được phép khẳng định về bạn. Bản tóm tắt phù hợp bên phải quyết định những gì sẽ được hiển thị mỗi sáng.",
+  "onboarding.factsheet_label": "Bảng thông tin nền tảng — những gì được phép nói",
+  "onboarding.brief_label": "Bản tóm tắt phù hợp — những gì được hiển thị",
+  "onboarding.drafting": "Đang đọc CV của bạn…",
+  "onboarding.drafted": "Đã soạn thảo xong. Hãy sửa lại những chỗ chưa đúng trước khi tiếp tục.",
+  "onboarding.draft_failed": "Không thể soạn thảo từ CV của bạn: {reason}. Bạn có thể tự viết cả hai tài liệu và tiếp tục.",
+  "onboarding.open_questions": "Dawnlist chưa thể xác định, và để lại những câu hỏi mở sau:"
 }

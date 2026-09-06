@@ -75,5 +75,13 @@
   "settings.licence_stored": "Umehifadhiwa: {key}",
   "settings.licence_none": "Hakuna leseni iliyohifadhiwa bado.",
   "settings.licence_saved": "Leseni imehifadhiwa.",
-  "settings.code_redeemed": "Msimbo umekubaliwa — leseni yako imehifadhiwa."
+  "settings.code_redeemed": "Msimbo umekubaliwa — leseni yako imehifadhiwa.",
+  "onboarding.interview_heading": "Dawnlist imeelewa nini",
+  "onboarding.interview_body": "Dawnlist imesoma wasifu wako (CVs) na kuandaa hati mbili. Zisahihishe — ni mwanzo tu, si hukumu ya mwisho. Karatasi ya taarifa upande wa kushoto ndiyo pekee inayoruhusiwa kudai kukuhusu wakati wa mawasiliano yako. Muhtasari wa ulinganifu upande wa kulia ndio unaoamua nini kinaonyeshwa kila asubuhi.",
+  "onboarding.factsheet_label": "Karatasi ya taarifa za usuli — kinachoruhusiwa kusemwa",
+  "onboarding.brief_label": "Muhtasari wa ulinganifu — kinachoonyeshwa",
+  "onboarding.drafting": "Inasoma wasifu wako (CVs)…",
+  "onboarding.drafted": "Imeandaliwa. Sahihisha lolote lisilo sahihi kabla ya kuendelea.",
+  "onboarding.draft_failed": "Imeshindwa kuandaa kutoka kwa wasifu wako (CVs): {reason}. Unaweza kuandika hati zote mbili mwenyewe na kuendelea.",
+  "onboarding.open_questions": "Dawnlist haikuweza kubaini, na imeacha maswali haya wazi:"
 }

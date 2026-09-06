@@ -75,5 +75,13 @@
   "settings.licence_stored": "Salvata: {key}",
   "settings.licence_none": "Nessuna licenza salvata.",
   "settings.licence_saved": "Licenza salvata.",
-  "settings.code_redeemed": "Codice accettato — la tua licenza è stata salvata."
+  "settings.code_redeemed": "Codice accettato — la tua licenza è stata salvata.",
+  "onboarding.interview_heading": "Cosa ha compreso Dawnlist",
+  "onboarding.interview_body": "Dawnlist ha letto i tuoi CV e redatto due documenti. Correggili — sono un punto di partenza, non un verdetto. La scheda anagrafica a sinistra è l'unica cosa che il tuo outreach può affermare su di te. Il brief a destra determina cosa viene proposto ogni mattina.",
+  "onboarding.factsheet_label": "Scheda anagrafica — cosa si può dichiarare",
+  "onboarding.brief_label": "Brief di compatibilità — cosa viene proposto",
+  "onboarding.drafting": "Lettura dei CV in corso…",
+  "onboarding.drafted": "Bozza pronta. Correggi eventuali errori prima di continuare.",
+  "onboarding.draft_failed": "Impossibile creare la bozza dai tuoi CV: {reason}. Puoi scrivere entrambi i documenti manualmente e continuare.",
+  "onboarding.open_questions": "Dawnlist non è riuscito a determinare i seguenti punti, che restano aperti:"
 }

@@ -75,5 +75,13 @@
   "settings.licence_stored": "Kayıtlı: {key}",
   "settings.licence_none": "Henüz kayıtlı bir lisans yok.",
   "settings.licence_saved": "Lisans kaydedildi.",
-  "settings.code_redeemed": "Kod kabul edildi — lisansınız kaydedildi."
+  "settings.code_redeemed": "Kod kabul edildi — lisansınız kaydedildi.",
+  "onboarding.interview_heading": "Dawnlist'in anladıkları",
+  "onboarding.interview_body": "Dawnlist özgeçmişlerinizi inceledi ve iki belge taslağı hazırladı. Bunları düzeltin — bir başlangıç noktasıdır, kesin bir hüküm değil. Soldaki bilgi formu, iletişimlerinizde sizin hakkınızda öne sürülebilecek tek şeydir. Sağdaki özet ise her sabah size ne sunulacağını belirler.",
+  "onboarding.factsheet_label": "Geçmiş bilgi formu — neler söylenebilir",
+  "onboarding.brief_label": "Uygunluk özeti — neler öne çıkarılır",
+  "onboarding.drafting": "Özgeçmişleriniz okunuyor…",
+  "onboarding.drafted": "Taslak hazırlandı. Devam etmeden önce hatalı olan kısımları düzeltin.",
+  "onboarding.draft_failed": "Özgeçmişlerinizden taslak oluşturulamadı: {reason}. Her iki belgeyi de kendiniz yazıp devam edebilirsiniz.",
+  "onboarding.open_questions": "Dawnlist bunları belirleyemedi ve açık bıraktı:"
 }

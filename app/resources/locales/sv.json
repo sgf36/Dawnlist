@@ -75,5 +75,13 @@
   "settings.licence_stored": "Lagrad: {key}",
   "settings.licence_none": "Ingen licens har lagrats ännu.",
   "settings.licence_saved": "Licensen har sparats.",
-  "settings.code_redeemed": "Koden godkändes – din licens har sparats."
+  "settings.code_redeemed": "Koden godkändes – din licens har sparats.",
+  "onboarding.interview_heading": "Vad Dawnlist har förstått",
+  "onboarding.interview_body": "Dawnlist har läst dina CV:n och tagit fram två dokument. Korrigera dem — de är en utgångspunkt, inte ett facit. Faktabladet till vänster är det enda som din uppsökande kommunikation får hävda om dig. Sammanfattningen till höger avgör vad som lyfts fram varje morgon.",
+  "onboarding.factsheet_label": "Bakgrundsfaktablad — vad som får sägas",
+  "onboarding.brief_label": "Matchningssammanfattning — vad som lyfts fram",
+  "onboarding.drafting": "Läser dina CV:n…",
+  "onboarding.drafted": "Utkast klart. Korrigera det som är felaktigt innan du fortsätter.",
+  "onboarding.draft_failed": "Kunde inte skapa utkast från dina CV:n: {reason}. Du kan skriva båda dokumenten själv och fortsätta.",
+  "onboarding.open_questions": "Dawnlist kunde inte avgöra följande och har lämnat dem öppna:"
 }

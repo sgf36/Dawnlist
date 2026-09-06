@@ -421,13 +421,51 @@ def _launch_onboarding(app, conn) -> int:
             app_reason=("a feed credential is needed before Dawnlist can "
                         "fetch the postings you calibrate against"))]
 
-    wizard = OnboardingWizard(extract=extract, sample=sample)
+    def drafter(paths):
+        """CVs in, factsheet and brief out, on the user's own key."""
+        import json
+
+        from app.core import api_key
+        from app.onboarding.extract import extract_corpus
+        from app.onboarding.interview import (build_brief_request,
+                                              build_factsheet_request,
+                                              open_questions, render_factsheet)
+
+        import anthropic
+        client = anthropic.Anthropic(api_key=api_key.require())
+
+        def call(request):
+            response = client.messages.create(**request)
+            return "".join(b.text for b in response.content if b.type == "text")
+
+        corpus = extract_corpus(list(paths)).corpus
+        if not corpus.usable:
+            raise RuntimeError("no readable CV text was found")
+
+        raw = call(build_factsheet_request(corpus))
+        data = json.loads(raw)
+        factsheet = render_factsheet(data)
+        brief = call(build_brief_request(corpus, ""))
+        return factsheet, brief, open_questions(data)
+
+    wizard = OnboardingWizard(extract=extract, sample=sample, drafter=drafter)
+
+    def save_documents(factsheet, brief):
+        # Saved when the user leaves the interview, not when the model returns.
+        # What is stored is what they CORRECTED, which is the whole point of
+        # showing them a draft rather than a result.
+        from app.onboarding.interview import save_document
+        if factsheet.strip():
+            save_document(conn, "factsheet", factsheet)
+        if brief.strip():
+            save_document(conn, "fit_brief", brief)
 
     def finished(result):
         brief = load_document(conn, "fit_brief") or "# Fit brief"
         complete_calibration(conn, brief, result)
         wizard.close()
 
+    wizard.documents_ready.connect(save_documents)
     wizard.completed.connect(finished)
     wizard.resize(900, 780)
     wizard.show()

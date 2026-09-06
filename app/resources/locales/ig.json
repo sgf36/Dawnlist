@@ -75,5 +75,13 @@
   "settings.licence_stored": "Echekwara: {key}",
   "settings.licence_none": "Enweghị ikike echekwara.",
   "settings.licence_saved": "Echekwala ikike.",
-  "settings.code_redeemed": "Anabatara koodu — echekwala ikike gị."
+  "settings.code_redeemed": "Anabatara koodu — echekwala ikike gị.",
+  "onboarding.interview_heading": "Ihe Dawnlist ghọtara",
+  "onboarding.interview_body": "Dawnlist agụọla CV gị ma dee akwụkwọ abụọ. Doziee ha — ha bụ naanị mmalite, ọ bụghị ikpe ikpeazụ. Akwụkwọ ọmụmụ ihe dị n'aka ekpe bụ naanị ihe ọbịbịa gị nwere ikike ikwu banyere gị. Nchịkọta nkwekọ dị n'aka nri na-ekpebi ihe a na-egosi ụtụtụ ọ bụla.",
+  "onboarding.factsheet_label": "Akwụkwọ ọmụmụ ihe gbasara gị — ihe enwere ike ikwu",
+  "onboarding.brief_label": "Nchịkọta nkwekọ — ihe a na-egosipụta",
+  "onboarding.drafting": "Na-agụ CV gị…",
+  "onboarding.drafted": "Edeworo ya. Doziee ihe ọ bụla na-ezighị ezi tupu ị gaa n'ihu.",
+  "onboarding.draft_failed": "Enweghị ike ide site na CV gị: {reason}. Ị nwere ike ide akwụkwọ abụọ ahụ n'onwe gị wee gaa n'ihu.",
+  "onboarding.open_questions": "Dawnlist enweghị ike ịchọpụta, ọ hapụrụ ndị a ka ha bụrụ ihe a jụghị ajụjụ ya:"
 }

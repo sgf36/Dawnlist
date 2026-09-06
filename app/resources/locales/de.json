@@ -75,5 +75,13 @@
   "settings.licence_stored": "Gespeichert: {key}",
   "settings.licence_none": "Noch keine Lizenz gespeichert.",
   "settings.licence_saved": "Lizenz gespeichert.",
-  "settings.code_redeemed": "Code akzeptiert — Ihre Lizenz wurde gespeichert."
+  "settings.code_redeemed": "Code akzeptiert — Ihre Lizenz wurde gespeichert.",
+  "onboarding.interview_heading": "Was Dawnlist verstanden hat",
+  "onboarding.interview_body": "Dawnlist hat Ihre Lebensläufe gelesen und zwei Dokumente entworfen. Korrigieren Sie sie – sie sind ein Ausgangspunkt, kein Urteil. Das Kurzprofil links ist das Einzige, was Ihre Kontaktaufnahmen über Sie behaupten dürfen. Das Anforderungsprofil rechts entscheidet, was jeden Morgen angezeigt wird.",
+  "onboarding.factsheet_label": "Hintergrund-Kurzprofil — was gesagt werden darf",
+  "onboarding.brief_label": "Eignungsprofil — was angezeigt wird",
+  "onboarding.drafting": "Lebensläufe werden gelesen …",
+  "onboarding.drafted": "Entwurf erstellt. Korrigieren Sie alles Fehlerhafte, bevor Sie fortfahren.",
+  "onboarding.draft_failed": "Entwurf aus Ihren Lebensläufen nicht möglich: {reason}. Sie können beide Dokumente selbst verfassen und fortfahren.",
+  "onboarding.open_questions": "Dawnlist konnte dies nicht ermitteln und hat es offengelassen:"
 }

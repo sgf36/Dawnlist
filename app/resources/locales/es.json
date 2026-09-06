@@ -75,5 +75,13 @@
   "settings.licence_stored": "Guardada: {key}",
   "settings.licence_none": "Aún no se ha guardado ninguna licencia.",
   "settings.licence_saved": "Licencia guardada.",
-  "settings.code_redeemed": "Código aceptado — tu licencia se ha guardado."
+  "settings.code_redeemed": "Código aceptado — tu licencia se ha guardado.",
+  "onboarding.interview_heading": "Lo que Dawnlist ha entendido",
+  "onboarding.interview_body": "Dawnlist ha leído tus CV y ha redactado dos documentos. Corrígelos: son un punto de partida, no un veredicto. La ficha de la izquierda es lo único que tu prospección puede afirmar sobre ti. El resumen de la derecha decide qué se muestra cada mañana.",
+  "onboarding.factsheet_label": "Ficha de antecedentes — qué se puede afirmar",
+  "onboarding.brief_label": "Resumen de idoneidad — qué se muestra",
+  "onboarding.drafting": "Leyendo tus CV…",
+  "onboarding.drafted": "Redactado. Corrige cualquier error antes de continuar.",
+  "onboarding.draft_failed": "No se pudo redactar a partir de tus CV: {reason}. Puedes escribir ambos documentos tú mismo y continuar.",
+  "onboarding.open_questions": "Dawnlist no pudo determinarlo y ha dejado estas preguntas abiertas:"
 }

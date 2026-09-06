@@ -75,5 +75,13 @@
   "settings.licence_stored": "Guardada: {key}",
   "settings.licence_none": "Ainda não há licença guardada.",
   "settings.licence_saved": "Licença guardada.",
-  "settings.code_redeemed": "Código aceite — a sua licença foi guardada."
+  "settings.code_redeemed": "Código aceite — a sua licença foi guardada.",
+  "onboarding.interview_heading": "O que o Dawnlist entendeu",
+  "onboarding.interview_body": "O Dawnlist leu os seus currículos e redigiu dois documentos. Corrija-os — são um ponto de partida, não um veredito. A ficha à esquerda é a única coisa que a sua prospeção pode afirmar sobre si. O resumo à direita decide o que é apresentado todas as manhãs.",
+  "onboarding.factsheet_label": "Ficha de antecedentes — o que pode ser dito",
+  "onboarding.brief_label": "Resumo de adequação — o que é apresentado",
+  "onboarding.drafting": "A ler os seus currículos…",
+  "onboarding.drafted": "Rascunho concluído. Corrija o que estiver incorreto antes de continuar.",
+  "onboarding.draft_failed": "Não foi possível gerar o rascunho a partir dos seus currículos: {reason}. Pode escrever ambos os documentos você mesmo e continuar.",
+  "onboarding.open_questions": "O Dawnlist não conseguiu determinar e deixou estas questões em aberto:"
 }

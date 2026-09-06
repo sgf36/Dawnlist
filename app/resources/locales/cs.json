@@ -75,5 +75,13 @@
   "settings.licence_stored": "Uloženo: {key}",
   "settings.licence_none": "Zatím není uložena žádná licence.",
   "settings.licence_saved": "Licence byla uložena.",
-  "settings.code_redeemed": "Kód byl přijat — vaše licence je uložena."
+  "settings.code_redeemed": "Kód byl přijat — vaše licence je uložena.",
+  "onboarding.interview_heading": "Co Dawnlist pochopil",
+  "onboarding.interview_body": "Dawnlist si přečetl vaše životopisy a vypracoval dva dokumenty. Opravte je — jsou výchozím bodem, nikoli konečným verdiktem. Faktografický přehled vlevo je jediné, co váš outreach smí o vás tvrdit. Profil shody vpravo určuje, co se každé ráno zobrazí.",
+  "onboarding.factsheet_label": "Faktografický přehled — co lze uvést",
+  "onboarding.brief_label": "Profil shody — co se zobrazí",
+  "onboarding.drafting": "Čtu vaše životopisy…",
+  "onboarding.drafted": "Návrh vytvořen. Než budete pokračovat, opravte vše, co není správně.",
+  "onboarding.draft_failed": "Nepodařilo se vytvořit návrh z vašich životopisů: {reason}. Oba dokumenty můžete napsat sami a pokračovat.",
+  "onboarding.open_questions": "Dawnlist nedokázal určit a ponechal otevřené tyto body:"
 }

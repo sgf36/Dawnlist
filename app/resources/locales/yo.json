@@ -75,5 +75,13 @@
   "settings.licence_stored": "Ó ti fi pamọ́: {key}",
   "settings.licence_none": "Kò sí ìwé àṣẹ tí a fi pamọ́ síbẹ̀.",
   "settings.licence_saved": "A ti fi ìwé àṣẹ pamọ́.",
-  "settings.code_redeemed": "A tẹ́wọ́ gba àmì náà — ìwé àṣẹ rẹ ti fi pamọ́."
+  "settings.code_redeemed": "A tẹ́wọ́ gba àmì náà — ìwé àṣẹ rẹ ti fi pamọ́.",
+  "onboarding.interview_heading": "Ohun tí Dawnlist ti lóye",
+  "onboarding.interview_body": "Dawnlist ti ka àwọn CV rẹ ó sì ti kọ àkọsílẹ̀ ìwé méjì. Ṣàtúnṣe wọn — ìbẹ̀rẹ̀ ni wọ́n, kì í ṣe ìdájọ́ tí a ti pinnu. Ìwé ìdámọ̀ràn tó wà ní apá òsì nìkan ni ó lè lo láti sọ̀rọ̀ nípa rẹ nínú ìfarahàn rẹ. Àkọsílẹ̀ ìbámu tó wà ní apá ọ̀tún ni yóò pinnu ohun tí a máa ń fihàn ní àárọ̀ kọ̀ọ̀kan.",
+  "onboarding.factsheet_label": "Ìwé ìdámọ̀ràn ìtàn ẹ̀yìn — ohun tí a lè sọ",
+  "onboarding.brief_label": "Àkọsílẹ̀ ìbámu — ohun tí a máa fihàn",
+  "onboarding.drafting": "Ń ka àwọn CV rẹ…",
+  "onboarding.drafted": "Ti parí kíkọ. Ṣàtúnṣe ohunkóhun tó bá jẹ́ àṣìṣe kí o tó tẹ̀síwájú.",
+  "onboarding.draft_failed": "A kò lè kọ àkọsílẹ̀ láti inú àwọn CV rẹ: {reason}. O lè fúnra rẹ kọ àwọn ìwé méjèèjì kí o sì tẹ̀síwájú.",
+  "onboarding.open_questions": "Dawnlist kò lè mọ̀, ó sì ti fi àwọn ìbéèrè wọ̀nyí sílẹ̀ láìdáhùn:"
 }

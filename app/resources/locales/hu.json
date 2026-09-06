@@ -75,5 +75,13 @@
   "settings.licence_stored": "Tárolva: {key}",
   "settings.licence_none": "Még nincs tárolt licenc.",
   "settings.licence_saved": "Licenc elmentve.",
-  "settings.code_redeemed": "A kód elfogadva — a licenc elmentve."
+  "settings.code_redeemed": "A kód elfogadva — a licenc elmentve.",
+  "onboarding.interview_heading": "Amit a Dawnlist megértett",
+  "onboarding.interview_body": "A Dawnlist elolvasta az önéletrajzait, és elkészített két dokumentumot. Javítsa ki őket – ezek egy kiindulópontot jelentenek, nem egy végleges ítéletet. A bal oldali adatlap az egyetlen dolog, amit a megkeresések során Önről állítani lehet. A jobb oldali profil dönti el, hogy mi kerül elő minden reggel.",
+  "onboarding.factsheet_label": "Háttér-adatlap — amit ki szabad jelenteni",
+  "onboarding.brief_label": "Illeszkedési profil — ami előkerül",
+  "onboarding.drafting": "Az önéletrajzok beolvasása…",
+  "onboarding.drafted": "Elkészült. Javítson ki mindent, ami hibás, mielőtt folytatja.",
+  "onboarding.draft_failed": "Nem sikerült elkészíteni az önéletrajzai alapján: {reason}. Mindkét dokumentumot saját kezűleg is megírhatja, majd folytathatja.",
+  "onboarding.open_questions": "A Dawnlist nem tudta megállapítani, és nyitva hagyta a következőket:"
 }

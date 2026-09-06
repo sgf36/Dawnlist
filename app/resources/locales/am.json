@@ -75,5 +75,13 @@
   "settings.licence_stored": "የተቀመጠ፦ {key}",
   "settings.licence_none": "እስካሁን ምንም ፈቃድ አልተቀመጠም።",
   "settings.licence_saved": "ፈቃድ ተቀምጧል።",
-  "settings.code_redeemed": "ኮድ ተቀባይነት አግኝቷል — ፈቃድዎ ተቀምጧል።"
+  "settings.code_redeemed": "ኮድ ተቀባይነት አግኝቷል — ፈቃድዎ ተቀምጧል።",
+  "onboarding.interview_heading": "ዳውንሊስት የተረዳው ነገር",
+  "onboarding.interview_body": "ዳውንሊስት የእርስዎን ሲቪዎች አንብቦ ሁለት ሰነዶችን አዘጋጅቷል። እባክዎ ያርሟቸው — እነዚህ የመነሻ ነጥብ እንጂ የመጨረሻ ፍርድ አይደሉም። በግራ በኩል ያለው መረጃ ሉህ ስለ እርስዎ በስም ማንሳት ሊነገር የሚችለው ብቸኛ ነገር ነው። በቀኝ በኩል ያለው ብሪፍ በየጠዋቱ ምን እንደሚቀርብ ይወስናል።",
+  "onboarding.factsheet_label": "የዳራ መረጃ ሉህ — ሊነገር የሚችለው",
+  "onboarding.brief_label": "የተስማሚነት ብሪፍ — የሚቀርበው",
+  "onboarding.drafting": "ሲቪዎችዎን በማንበብ ላይ…",
+  "onboarding.drafted": "ተዘጋጅቷል። ከመቀጠልዎ በፊት የተሳሳተውን ነገር ያርሙ።",
+  "onboarding.draft_failed": "ከሲቪዎችዎ ማዘጋጀት አልተቻለም፦ {reason}። ሁለቱንም ሰነዶች እራስዎ መጻፍ እና መቀጠል ይችላሉ።",
+  "onboarding.open_questions": "ዳውንሊስት ማወቅ ያልቻለው እና ክፍት ትቶት ያለፈው፦"
 }

@@ -75,5 +75,13 @@
   "settings.licence_stored": "Enregistrée : {key}",
   "settings.licence_none": "Aucune licence enregistrée.",
   "settings.licence_saved": "Licence enregistrée.",
-  "settings.code_redeemed": "Code accepté — votre licence est enregistrée."
+  "settings.code_redeemed": "Code accepté — votre licence est enregistrée.",
+  "onboarding.interview_heading": "Ce que Dawnlist a compris",
+  "onboarding.interview_body": "Dawnlist a analysé vos CV et rédigé deux documents. Corrigez-les — ils constituent un point de départ, pas un verdict. La fiche de synthèse à gauche est la seule chose que votre prospection est autorisée à affirmer à votre sujet. Le profil de correspondance à droite détermine ce qui est mis en avant chaque matin.",
+  "onboarding.factsheet_label": "Fiche de synthèse — ce qui peut être affirmé",
+  "onboarding.brief_label": "Profil de correspondance — ce qui est mis en avant",
+  "onboarding.drafting": "Lecture de vos CV en cours…",
+  "onboarding.drafted": "Rédaction terminée. Corrigez toute erreur avant de continuer.",
+  "onboarding.draft_failed": "Impossible de générer un brouillon à partir de vos CV : {reason}. Vous pouvez rédiger les deux documents vous-même et continuer.",
+  "onboarding.open_questions": "Dawnlist n'a pas pu déterminer les points suivants, restés en suspens :"
 }

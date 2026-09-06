@@ -75,5 +75,13 @@
   "settings.licence_stored": "Kesimpen: {key}",
   "settings.licence_none": "Dereng wonten lisensi kesimpen.",
   "settings.licence_saved": "Lisensi sampun kesimpen.",
-  "settings.code_redeemed": "Kode katampi — lisensi panjenengan sampun kesimpen."
+  "settings.code_redeemed": "Kode katampi — lisensi panjenengan sampun kesimpen.",
+  "onboarding.interview_heading": "Ingkang Sampun Dipunmangertosi Dawnlist",
+  "onboarding.interview_body": "Dawnlist sampun maos CV panjenengan lan damel kalih dokumen. Mangga dipunbenakaken — punika namung titik wiwitan, sanes putusan pungkasan. Factsheet ing sisih kiwa punika satunggal-satunggalipun bab ingkang kenging dipunandharaken bab panjenengan nalika njangkau. Brief ing sisih tengen nemtokaken menapa ingkang badhe dipuntampilaken saben enjing.",
+  "onboarding.factsheet_label": "Factsheet Latar Mburi — menapa ingkang kenging dipunandharaken",
+  "onboarding.brief_label": "Brief Kacocogan — menapa ingkang dipuntampilaken",
+  "onboarding.drafting": "Nembe maos CV panjenengan…",
+  "onboarding.drafted": "Sampun dipundamel. Mangga dipunbenakaken menawi wonten ingkang lepat sadèrèngipun nglajengaken.",
+  "onboarding.draft_failed": "Boten saged damel saking CV panjenengan: {reason}. Panjenengan saged nyerat piyambak kekalih dokumen wau lan nglajengaken.",
+  "onboarding.open_questions": "Dawnlist boten saged mangertos, saha ninggalaken pitakenan-pitakenan menika mbukak:"
 }

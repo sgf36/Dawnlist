@@ -75,5 +75,13 @@
   "settings.licence_stored": "An ajiye: {key}",
   "settings.licence_none": "Babu lasisin da aka ajiye tukuna.",
   "settings.licence_saved": "An ajiye lasisin.",
-  "settings.code_redeemed": "An karɓi lambar — an ajiye lasisinka."
+  "settings.code_redeemed": "An karɓi lambar — an ajiye lasisinka.",
+  "onboarding.interview_heading": "Abin da Dawnlist ta fahimta",
+  "onboarding.interview_body": "Dawnlist ta karanta CV ɗinku kuma ta zayyana takardu biyu. Gyara su — su ne farkon tafiya, ba hukunci ba. Takardar bayanai a hagu ita ce kaɗai abin da neman aikinku zai iya faɗa game da ku. Taƙaitaccen dacewa a dama shi ke tantance abin da za a nuna kowace safiya.",
+  "onboarding.factsheet_label": "Takardar bayanan baya — abin da za a iya faɗa",
+  "onboarding.brief_label": "Taƙaitaccen dacewa — abin da za a nuna",
+  "onboarding.drafting": "Ana karanta CV ɗinku…",
+  "onboarding.drafted": "An zayyana. Gyara duk wani kuskure kafin ci gaba.",
+  "onboarding.draft_failed": "An kasa zayyanawa daga CV ɗinku: {reason}. Kuna iya rubuta takardu biyun da kanku sannan ku ci gaba.",
+  "onboarding.open_questions": "Dawnlist ba ta iya tantancewa ba, kuma ta bar waɗannan tambayoyin a buɗe:"
 }

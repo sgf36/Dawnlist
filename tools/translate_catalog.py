@@ -54,6 +54,23 @@ Catalogue:
 {catalogue}"""
 
 
+def make_client():
+    """`ANTHROPIC_API_KEY` if the shell has it, else the same keyring entry the
+    app uses. A background shell inherits neither the profile nor an `export`,
+    and the SDK's failure there is a TypeError about headers that says nothing
+    about a missing key."""
+    import anthropic
+    import os
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return anthropic.Anthropic()
+    import keyring
+    key = keyring.get_password("anthropic-api", "spencer")
+    if not key:
+        raise SystemExit("No API key: set ANTHROPIC_API_KEY, or store one under "
+                         "keyring service 'anthropic-api', account 'spencer'.")
+    return anthropic.Anthropic(api_key=key)
+
+
 def placeholders(text: str) -> set[str]:
     return set(PLACEHOLDER.findall(text))
 
@@ -128,8 +145,7 @@ def fill(english: dict, wanted: set | None, *, dry_run: bool) -> int:
     if not behind:
         return 0
 
-    import anthropic
-    client = anthropic.Anthropic()
+    client = make_client()
 
     failures = []
     for code, (name, existing, missing) in behind.items():
@@ -191,8 +207,7 @@ def main() -> int:
     if not targets:
         return 0
 
-    import anthropic
-    client = anthropic.Anthropic()
+    client = make_client()
 
     failures = []
     for code, name in targets:

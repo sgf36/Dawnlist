@@ -75,5 +75,13 @@
   "settings.licence_stored": "Stored: {key}",
   "settings.licence_none": "No licence stored yet.",
   "settings.licence_saved": "Licence saved.",
-  "settings.code_redeemed": "Code accepted — your licence is saved."
+  "settings.code_redeemed": "Code accepted — your licence is saved.",
+  "onboarding.interview_heading": "What Dawnlist has understood",
+  "onboarding.interview_body": "Dawnlist has read your CVs and drafted two documents. Correct them — they are a starting point, not a verdict. The factsheet on the left is the only thing your outreach is allowed to claim about you. The brief on the right decides what gets surfaced each morning.",
+  "onboarding.factsheet_label": "Background factsheet — what may be said",
+  "onboarding.brief_label": "Fit brief — what gets surfaced",
+  "onboarding.drafting": "Reading your CVs…",
+  "onboarding.drafted": "Drafted. Correct anything that is wrong before continuing.",
+  "onboarding.draft_failed": "Could not draft from your CVs: {reason}. You can write both documents yourself and continue.",
+  "onboarding.open_questions": "Dawnlist could not tell, and has left these open:"
 }

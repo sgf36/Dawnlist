@@ -75,5 +75,13 @@
   "settings.licence_stored": "La kaydiyay: {key}",
   "settings.licence_none": "Weli ma jiro shati la kaydiyay.",
   "settings.licence_saved": "Shatiga waa la kaydiyay.",
-  "settings.code_redeemed": "Xeerka waa la aqbalay — shatigaaga waa la kaydiyay."
+  "settings.code_redeemed": "Xeerka waa la aqbalay — shatigaaga waa la kaydiyay.",
+  "onboarding.interview_heading": "Waxa uu Dawnlist fahmay",
+  "onboarding.interview_body": "Dawnlist wuxuu akhriyay CV-yadaada oo diyaariyay laba dukumeenti. Saxee — waa bilow, mana aha go'aan kama dambays ah. Xaqiiqda dhinaca bidix ah waa waxa kaliya ee wixii soo saarista shaqadaadu (outreach) ay ku sheegi karto ku saabsan adiga. Warbixinta ku habboon ee dhinaca midig ayaa go'aamisa waxa la soo bandhigo subax kasta.",
+  "onboarding.factsheet_label": "Xaqiiqda asalka — waxa la sheegi karo",
+  "onboarding.brief_label": "Warbixinta ku habboonaanta — waxa la soo bandhigo",
+  "onboarding.drafting": "Waa la akhrinayaa CV-yadaada…",
+  "onboarding.drafted": "Waa la diyaariyay. Sax wax kasta oo qalad ah ka hor inta aadan sii socon.",
+  "onboarding.draft_failed": "Lama diyaarin karin CV-yadaada: {reason}. Waxaad qofkeenu ku qori kartaa labada dukumeenti oo aad sii socoto.",
+  "onboarding.open_questions": "Dawnlist ma garanin, oo wuxuu ka tagay su'aalahan furan:"
 }

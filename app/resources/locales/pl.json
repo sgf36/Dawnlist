@@ -75,5 +75,13 @@
   "settings.licence_stored": "Zapisano: {key}",
   "settings.licence_none": "Nie zapisano jeszcze licencji.",
   "settings.licence_saved": "Licencja zapisana.",
-  "settings.code_redeemed": "Kod zaakceptowany — Twoja licencja została zapisana."
+  "settings.code_redeemed": "Kod zaakceptowany — Twoja licencja została zapisana.",
+  "onboarding.interview_heading": "Co Dawnlist zrozumiał",
+  "onboarding.interview_body": "Dawnlist przeanalizował Twoje CV i przygotował dwa dokumenty. Popraw je — to punkt wyjścia, a nie ostateczna ocena. Karta informacyjna po lewej to jedyne informacje o Tobie, na które może powoływać się Twój przekaz. Profil dopasowania po prawej decyduje o tym, co pojawi się każdego ranka.",
+  "onboarding.factsheet_label": "Karta informacyjna — co można stwierdzić",
+  "onboarding.brief_label": "Profil dopasowania — co zostanie wyświetlone",
+  "onboarding.drafting": "Analizowanie Twoich CV…",
+  "onboarding.drafted": "Przygotowano. Popraw wszelkie błędy przed kontynuowaniem.",
+  "onboarding.draft_failed": "Nie udało się przygotować dokumentów na podstawie Twoich CV: {reason}. Możesz samodzielnie napisać oba dokumenty i kontynuować.",
+  "onboarding.open_questions": "Dawnlist nie potrafił tego ustalić i pozostawił te kwestie otwarte:"
 }
