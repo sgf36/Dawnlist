@@ -1,7 +1,7 @@
 # Build status
 
 **Repo:** `C:\Users\SpencerFields\dawnlist`, deliberately **off OneDrive** per handoff Part 9.
-**Tests:** 349, all passing — `.venv/Scripts/python -m pytest -q`
+**Tests:** 361, all passing — `.venv/Scripts/python -m pytest -q`
 **Last updated:** 2026-09-06 — P1 engine complete; a frozen build runs
 
 ## Done
@@ -61,27 +61,52 @@ is now an actionable row.
 - `tests/test_bounce_integration.py` pins the tracker and the cadence to the same meaning, so the
   board cannot read "waiting on them" while the engine chases a dead mailbox.
 
-## Next
+## Done since
 
-Everything buildable without your credentials or spend is done. What remains needs a decision
-from you:
+- **All 50 locale catalogues**, at 100% coverage, verified for placeholder parity. `--fill` tops
+  up catalogues that fall behind the source.
+- **The Worker is deployed** — https://dawnlist-feed-worker.sgf36.workers.dev with D1 `dawnlist`.
+  Inert: no licences exist and no secrets are installed.
+- **MSIX builds** — `dist/Dawnlist.msix`, 73MB, validated by opening the package.
+- **A new user is routed to onboarding** rather than to an empty shortlist.
 
-1. **Generate the 48 locale catalogues** — `tools/translate_catalog.py`. One API run; it spends
-   money, so it is not automatic. `en` and `ar` are written and the rest fall back to English
-   cleanly meanwhile.
-2. **Worker deploy** — needs Cloudflare credentials. `server/dawnlist-feed-worker/README.md` has
-   the sequence; verify by behaviour, never by the deploy message.
-3. **MSIX, notarisation, MAS** — the PyInstaller build works and produces a running 124MB onedir.
-   Store packaging and signing are outward-facing and need certificates. Reuse EasyPost's
-   `build_msix.py`, `sign_msix.ps1`, `run_wack.ps1` and `CI-MAS-SETUP.md`.
-4. **TheirStack tier** — blocked on the licensing reply. Do not purchase before it lands.
-5. **Trademark clearance on "Dawnlist"** — free first-pass across UKIPO, EUIPO, USPTO and both
-   stores, re-run immediately before submission. September's search found nothing, but registers
-   move and a clean result has a shelf life.
+## What only Spencer can do
 
-Smaller things worth doing when convenient: wiring the onboarding pages into a wizard flow in
-`main.py` (the pages exist and are tested; nothing routes to them yet), and a drop target for
-alert emails on the review window (the parser is done).
+Nothing below is blocked on engineering. Each needs an account, a credential, a payment, or a
+machine I do not have.
+
+**Before a Store submission**
+1. **Reserve the app name in Partner Center.** `packaging/msix/AppxManifest.xml` carries
+   `SFields.Dawnlist` as the expected identity; it is **not reserved**. A mismatch fails
+   *ingestion*, not certification, so it surfaces late and confusingly.
+2. **Sign the MSIX.** A self-signed certificate is enough — the Store re-signs on publish.
+   Azure Trusted Signing is already live for the sibling app.
+3. **macOS builds** — notarised `.dmg` and the MAS variant. These need a Mac; the spec already
+   carries the `BUNDLE` block and the StoreKit hidden imports.
+4. **Store listing copy, screenshots and the privacy policy.** Write the labels honestly: CVs and
+   career data are processed via the Anthropic API and the feed proxy. Make the Worker keep
+   behaving that way — it logs counts, never content.
+5. **Trademark clearance on "Dawnlist"** across UKIPO, EUIPO, USPTO and both stores. I attempted
+   this and **could not get a trustworthy answer**: TMview returned "No rows found" for a control
+   term with known live registrations, so any clean result from it would be a false negative.
+
+**Commercial**
+6. **The TheirStack licensing reply**, then the tier decision. Do not purchase before it lands —
+   it decides API versus a self-hosted dataset index.
+7. **A feed credential**, once the tier is settled: `wrangler secret put THEIRSTACK_API_KEY` for
+   the Worker, and a key in Credential Manager under `dawnlist-feed` / `api-key` for the desktop
+   app.
+8. **A separate Anthropic org or workspace with spend caps** for the managed proxy key, before
+   any beta.
+9. **Paddle products and prices**, and the licence-issuance path into the Worker's `licences`
+   table.
+10. **Confirm the pricing hypothesis** — two-tier, or managed-only until the subscriber base
+    clears the feed tier threshold.
+
+**Product**
+11. **Your own CVs.** The factsheet and fit brief are built from them, and nothing can stand in
+    for that. It is also the fastest way to find out whether the onboarding flow actually works.
+12. **Sean's pilot**, if it is doubling as the onboarding test.
 
 ## Blocked, deliberately
 
