@@ -4,7 +4,7 @@
   "compatibility_date": "2026-09-06",
   "observability": { "enabled": true },
   "d1_databases": [
-    { "binding": "DB", "database_name": "dawnlist", "database_id": "PLACEHOLDER-set-after-d1-create" }
+    { "binding": "DB", "database_name": "dawnlist", "database_id": "8c272845-1e82-4660-ab71-01bef14c897e" }
   ]
   // Secrets (wrangler secret put <NAME> — the command takes the secret's NAME,
   // never its value; the value goes at the interactive prompt only):

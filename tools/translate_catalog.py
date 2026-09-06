@@ -117,7 +117,7 @@ def main() -> int:
             model=MODEL, max_tokens=16000,
             messages=[{"role": "user", "content": prompt}],
             output_config={"format": {
-                "type": "json_schema", "name": "catalogue",
+                "type": "json_schema",
                 "schema": {
                     "type": "object",
                     "properties": {k: {"type": "string"} for k in english},

@@ -28,6 +28,37 @@ from app.onboarding.calibration import CalibrationItem, CalibrationResult
 from app.onboarding.interview import INGEST_GUIDANCE
 from app.ui.review import CREAM, GOLD, GOLD_DEEP, INK, TEAL, TEAL_LIFTED
 
+def VERDICT_CHOICES() -> list[tuple[str, str]]:
+    """(stored value, label the user sees). Called rather than computed once,
+    so switching locale re-reads the catalogue."""
+    return [("strong", tr("onboarding.v.strong")),
+            ("possible", tr("onboarding.v.possible")),
+            ("rejected", tr("onboarding.v.rejected"))]
+
+
+def verdict_label(value: str | None) -> str:
+    """The label the user actually clicked, never the internal bucket value.
+
+    "you say strong" leaks the storage vocabulary into a sentence the user
+    reads; they clicked a button that said "Strong fit".
+    """
+    if not value:
+        return ""
+    return dict(VERDICT_CHOICES()).get(value, value)
+
+
+def app_verdict_label(value: str | None) -> str:
+    """How the APP's verdict is described, which is not how the user's is.
+
+    The user's buttons are written in their voice ("Not for me"), and putting
+    that phrasing in the app's mouth — "Dawnlist said not for me" — reads as
+    nonsense. The two vocabularies are deliberately separate.
+    """
+    if not value:
+        return ""
+    return tr(f"onboarding.app.{value}")
+
+
 def reflow(text: str) -> str:
     """Undo hard line breaks inside paragraphs, keep the paragraph breaks.
 
@@ -127,6 +158,11 @@ QLineEdit#sentence {{
     padding: 7px 9px;
 }}
 QLineEdit#sentence[needed="true"] {{ border: 1px solid {GOLD_DEEP}; }}
+QLabel#yourVerdict {{ color: #6b7480; }}
+QLabel#disagreement {{
+    color: {GOLD_DEEP};
+    font-weight: 600;
+}}
 """
 
 
@@ -229,6 +265,7 @@ class _ItemWidgets:
     item: CalibrationItem
     group: QButtonGroup
     sentence: QLineEdit
+    disagreement: QLabel
 
 
 class CalibrationPage(QWidget):
@@ -319,17 +356,19 @@ class CalibrationPage(QWidget):
         layout.addWidget(title)
 
         verdict = QLabel(tr("onboarding.app_said",
-                            verdict=item.app_verdict, reason=item.app_reason))
+                            verdict=app_verdict_label(item.app_verdict),
+                            reason=item.app_reason))
         verdict.setWordWrap(True)
         verdict.setStyleSheet("color:#45505a;")
         layout.addWidget(verdict)
 
         row = QHBoxLayout()
         row.setSpacing(14)
+        yours = QLabel(tr("onboarding.your_verdict"))
+        yours.setObjectName("yourVerdict")
+        row.addWidget(yours)
         group = QButtonGroup(card)
-        for value, label in (("strong", tr("onboarding.v.strong")),
-                             ("possible", tr("onboarding.v.possible")),
-                             ("rejected", tr("onboarding.v.rejected"))):
+        for value, label in VERDICT_CHOICES():
             btn = QRadioButton(label)
             btn.setProperty("verdict", value)
             if item.user_verdict == value:
@@ -339,6 +378,12 @@ class CalibrationPage(QWidget):
         row.addStretch(1)
         layout.addLayout(row)
 
+        disagreement = QLabel()
+        disagreement.setObjectName("disagreement")
+        disagreement.setWordWrap(True)
+        disagreement.hide()
+        layout.addWidget(disagreement)
+
         sentence = QLineEdit(item.brief_sentence)
         sentence.setObjectName("sentence")
         # The spec's own phrasing. It stops the user editing the conversation —
@@ -346,7 +391,8 @@ class CalibrationPage(QWidget):
         sentence.setPlaceholderText(tr("onboarding.sentence_placeholder"))
         layout.addWidget(sentence)
 
-        widgets = _ItemWidgets(item=item, group=group, sentence=sentence)
+        widgets = _ItemWidgets(item=item, group=group, sentence=sentence,
+                               disagreement=disagreement)
         self._widgets.append(widgets)
 
         group.buttonToggled.connect(lambda *_: self._sync(widgets))
@@ -368,6 +414,17 @@ class CalibrationPage(QWidget):
         widgets.sentence.style().unpolish(widgets.sentence)
         widgets.sentence.style().polish(widgets.sentence)
         widgets.sentence.setVisible(widgets.item.disagreed)
+
+        # Naming the disagreement is what makes the sentence box make sense.
+        # Without it the box reads as "justify your answer", which is not what
+        # it is for: the app and the user disagree, and the sentence is how the
+        # brief learns the difference.
+        if widgets.item.disagreed:
+            widgets.disagreement.setText(tr(
+                "onboarding.disagreement",
+                app=app_verdict_label(widgets.item.app_verdict),
+                user=verdict_label(widgets.item.user_verdict)))
+        widgets.disagreement.setVisible(widgets.item.disagreed)
 
         if refresh:
             self._refresh()

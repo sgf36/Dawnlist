@@ -174,3 +174,50 @@ def test_reflow_preserves_the_wording(qapp):
     assert "Do not tidy them up first" in out
     assert "Early roles are often cut from a senior CV" in out
     assert "\n" not in out.split("\n\n")[0], "no hard breaks inside a paragraph"
+
+
+def test_the_disagreement_is_named_so_the_sentence_box_makes_sense(page):
+    """Without this the box reads as 'justify your answer'. It is not that:
+    the app and the user disagree, and the sentence is how the brief learns
+    the difference."""
+    page.load(items())                      # every card: app said "rejected"
+    assert not page._widgets[0].disagreement.isVisibleTo(page)
+
+    choose(page, 0, "strong")
+    w = page._widgets[0]
+    assert w.disagreement.isVisibleTo(page)
+    assert "You disagree" in w.disagreement.text()
+    assert "not a fit" in w.disagreement.text()
+
+
+def test_the_disagreement_uses_the_label_not_the_stored_value(page):
+    """'you say strong' leaks the storage vocabulary; they clicked a button
+    that said 'Strong fit'."""
+    page.load(items())
+    choose(page, 0, "strong")
+    text = page._widgets[0].disagreement.text()
+    assert "strong fit" in text.lower()
+
+
+def test_the_verdict_row_is_labelled_as_the_users_answer(page, qapp):
+    """Unlabelled radios read as a restatement of the app's verdict."""
+    from PySide6.QtWidgets import QLabel
+    page.load(items())
+    labels = [l.text() for l in page.findChildren(QLabel)
+              if l.objectName() == "yourVerdict"]
+    assert labels and labels[0] == "You say:"
+
+
+def test_agreeing_shows_no_disagreement_line(page):
+    page.load(items())
+    choose(page, 0, "rejected")
+    assert not page._widgets[0].disagreement.isVisibleTo(page)
+
+
+def test_the_app_verdict_has_its_own_vocabulary(page):
+    """The user's buttons are in their voice ("Not for me"). Putting that in
+    the app's mouth - "Dawnlist said not for me" - reads as nonsense."""
+    from app.ui.onboarding import app_verdict_label, verdict_label
+    assert verdict_label("rejected") == "Not for me"
+    assert app_verdict_label("rejected") == "not a fit"
+    assert app_verdict_label("strong") == "a strong fit"

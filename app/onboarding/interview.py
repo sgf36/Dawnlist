@@ -210,7 +210,6 @@ def build_factsheet_request(corpus: Corpus, *,
         "system": [{"type": "text", "text": FACTSHEET_RULES}],
         "messages": [{"role": "user", "content": corpus.as_prompt()}],
         "output_config": {"format": {"type": "json_schema",
-                                     "name": "factsheet",
                                      "schema": FACTSHEET_SCHEMA}},
     }
 

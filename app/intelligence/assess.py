@@ -165,7 +165,6 @@ def build_request(jobs: list[Job], fit_brief: str, factsheet: str, *,
         "output_config": {
             "format": {
                 "type": "json_schema",
-                "name": "verdicts",
                 "schema": VERDICT_SCHEMA,
             }
         },

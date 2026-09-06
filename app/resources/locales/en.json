@@ -50,5 +50,10 @@
   "onboarding.sentence_placeholder": "What sentence, added to your brief, would have got this right?",
   "onboarding.finish": "Finish and start running daily",
   "onboarding.ready": "Ready — your brief will be updated with what you taught it.",
-  "onboarding.low_signal": "You agreed with everything, which usually means this sample was easy rather than that the brief is finished."
+  "onboarding.low_signal": "You agreed with everything, which usually means this sample was easy rather than that the brief is finished.",
+  "onboarding.your_verdict": "You say:",
+  "onboarding.disagreement": "You disagree — Dawnlist said {app}, you say {user}.",
+  "onboarding.app.strong": "a strong fit",
+  "onboarding.app.possible": "possible",
+  "onboarding.app.rejected": "not a fit"
 }
