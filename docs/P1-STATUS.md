@@ -1,7 +1,7 @@
 # Build status
 
 **Repo:** `C:\Users\SpencerFields\dawnlist`, deliberately **off OneDrive** per handoff Part 9.
-**Tests:** 419 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
+**Tests:** 445 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
 **Last updated:** 2026-09-07 — P1 engine complete; a frozen build runs
 
 ## Done
@@ -72,6 +72,23 @@ is now an actionable row.
 - **An end-to-end smoke test** — `tests/test_smoke_end_to_end.py` walks one database from the
   saved documents to a written `.eml` with only the two network boundaries stubbed. The pieces
   were each tested; the seams between them were not.
+- **Five capabilities that had no way in.** `tools/audit_wiring.py` asks a question no test
+  asks — is there any route from a person to this code — by reporting every definition that
+  NOTHING in `app/` names, its own module included, and deliberately not counting tests as
+  callers. What it found:
+
+  | Was | Now |
+  |---|---|
+  | the review window opened with a literal empty list, so the morning after a run showed nothing | `rows_from_db` rebuilds the rows from what `persist` wrote, minus anything already decided |
+  | outreach had no entry point — the app could not produce its own output | `--draft`, verified through the CLI against a real database |
+  | Pursue wrote a `decisions` row and stopped; nothing reached the board, so nothing came due | Pursue opens the opportunity, one live record per employer |
+  | Settings had no menu and no flag, so a key could never be changed | a menu on the review window, plus `--settings` reachable without a working key |
+  | a stored key could not be removed | a Remove button, shown only when there is one |
+
+  None was a logic fault, so no unit test could have caught any of them. `tests/test_entry_points.py`
+  now covers the routes, and the smoke test no longer opens the opportunity on the app's behalf —
+  which is how it passed over a severed chain in the first place.
+
 - **All 50 locale catalogues**, at 100% coverage, verified for placeholder parity. `--fill` tops
   up catalogues that fall behind the source, and now falls back to the keyring when
   `ANTHROPIC_API_KEY` is absent from the shell.
