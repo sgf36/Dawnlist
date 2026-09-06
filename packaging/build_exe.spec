@@ -106,6 +106,23 @@ a = Analysis(
     noarchive=False,
 )
 
+# --------------------------------------------------------------------------
+# python-docx ships a blank .docx template, and a .docx is an OPC zip whose
+# members include `[Content_Types].xml`. PyInstaller unpacks that template as
+# loose payload files, so the bundle ends up containing a file literally named
+# `[Content_Types].xml` — which is a RESERVED package-metadata name in MSIX.
+# makeappx then fails with 0x8007007b ("filename, directory name, or volume
+# label syntax is incorrect") AFTER processing every other file, which points
+# at nothing useful.
+#
+# Dawnlist only ever READS Word documents; it never creates one, so the
+# template is dead weight as well as a packaging hazard. Dropping it fixes the
+# MSIX build and makes the download smaller.
+# --------------------------------------------------------------------------
+a.datas = [entry for entry in a.datas
+           if "docx" not in entry[0].replace("\\", "/").lower()
+           or "templates" not in entry[0].replace("\\", "/").lower()]
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(

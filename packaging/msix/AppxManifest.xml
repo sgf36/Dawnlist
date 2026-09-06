@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap rescap">
+
+  <!--
+    Identity.Name MUST match the name reserved in Partner Center for this app.
+    "SFields.Dawnlist" is the expected value but is NOT yet reserved — reserve
+    it before submitting, and correct this line if Partner Center hands back
+    anything different. A mismatch fails ingestion, not certification, so it
+    surfaces late and confusingly.
+
+    Publisher is the account-wide publisher ID, the same value Easy-Post
+    Desktop uses. It is not app-specific and does not change per product.
+  -->
+  <Identity
+    Name="SFields.Dawnlist"
+    Publisher="CN=A7D4B6C0-27D4-4F66-82EB-82F5DD466788"
+    Version="1.0.0.0"
+    ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Dawnlist — Job Search</DisplayName>
+    <PublisherDisplayName>SFields</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <!--
+    ONE language, deliberately. The package carries no MRT (.pri) language
+    resources: the app localises itself at runtime from its own
+    app/resources/locales/*.json, so at the package level every file is
+    language-neutral and en-US is simply the default. Declaring the full
+    50-language set here without a resources.pri to back it is what failed
+    Store certification on the sibling app — the languages are a property of
+    the running app, not of the package.
+  -->
+  <Resources>
+    <Resource Language="en-US" />
+  </Resources>
+
+  <Applications>
+    <Application Id="Dawnlist" Executable="Dawnlist.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="Dawnlist — Job Search"
+        Description="Reads the world's job feeds every morning, judges every posting against your fit brief, and writes your follow-ups as drafts you send yourself."
+        BackgroundColor="#1E4B45"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Square310x310Logo="Assets\LargeTile.png" Wide310x150Logo="Assets\Wide310x150Logo.png" Square71x71Logo="Assets\SmallTile.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <!--
+      internetClient only. The app makes outbound HTTPS calls to the feed proxy
+      and to Anthropic, and nothing else: no broadFileSystemAccess (files are
+      opened through the user's own picker or dropped onto the window), no
+      runFullTrust beyond the FullTrustApplication entry point that a packaged
+      desktop app requires. Every capability declared here has to be justified
+      at certification, and one you do not use is a rejection.
+    -->
+    <Capability Name="internetClient" />
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>
