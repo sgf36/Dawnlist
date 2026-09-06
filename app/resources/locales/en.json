@@ -38,5 +38,17 @@
   "board.col.next_step": "Next step",
   "board.col.open_task": "Open task",
   "board.repair_mirror": "Correct the status",
-  "board.repair_stage": "Correct the stage"
+  "board.repair_stage": "Correct the stage",
+  "onboarding.ingest_heading": "Your CVs",
+  "onboarding.drop_hint": "Drop your CV files here — PDF, Word or plain text",
+  "onboarding.calibration_heading": "Before the first run",
+  "onboarding.calibration_body": "Here are ten live postings, with what Dawnlist made of each one. Correct anything it got wrong. Where you disagree, tell it what sentence would have got it right — that sentence goes into your brief, so the same mistake is not made again tomorrow.",
+  "onboarding.app_said": "Dawnlist said {verdict} — {reason}",
+  "onboarding.v.strong": "Strong fit",
+  "onboarding.v.possible": "Possible",
+  "onboarding.v.rejected": "Not for me",
+  "onboarding.sentence_placeholder": "What sentence, added to your brief, would have got this right?",
+  "onboarding.finish": "Finish and start running daily",
+  "onboarding.ready": "Ready — your brief will be updated with what you taught it.",
+  "onboarding.low_signal": "You agreed with everything, which usually means this sample was easy rather than that the brief is finished."
 }

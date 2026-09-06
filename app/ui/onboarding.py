@@ -1,0 +1,378 @@
+"""The onboarding screens: ingest, then the calibration gate.
+
+The calibration screen is the one that matters, and it is designed against one
+temptation: making the gate easy to get past. It is not a form to complete, it
+is the step where the user's judgement is transferred into the brief, and a
+user who clicks through it without disagreeing with anything has taught the
+brief nothing.
+
+So the Finish button stays disabled and **every** blocking reason is listed at
+once, permanently visible — not revealed one at a time as each is cleared,
+which makes a five-minute step feel endless and trains people to guess.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel,
+                               QLineEdit, QListWidget, QPushButton,
+                               QRadioButton, QScrollArea, QSizePolicy,
+                               QSplitter, QTextBrowser, QVBoxLayout, QWidget)
+
+from app.i18n import tr
+from app.onboarding.calibration import CalibrationItem, CalibrationResult
+from app.onboarding.interview import INGEST_GUIDANCE
+from app.ui.review import CREAM, GOLD, GOLD_DEEP, INK, TEAL, TEAL_LIFTED
+
+ONBOARDING_STYLESHEET = f"""
+QLabel#stepHeading {{
+    font-size: 19px;
+    font-weight: 700;
+    color: {TEAL};
+}}
+QLabel#stepBody {{ color: #45505a; }}
+
+QFrame#dropZone {{
+    border: 2px dashed #b9b3a6;
+    border-radius: 10px;
+    background: #faf8f4;
+}}
+QFrame#dropZoneActive {{
+    border: 2px dashed {TEAL};
+    border-radius: 10px;
+    background: #eef4f2;
+}}
+QFrame#dropZone QLabel, QFrame#dropZoneActive QLabel {{
+    background: transparent;
+    color: #45505a;
+}}
+
+QFrame#blockers {{
+    background: {GOLD_DEEP};
+    border-radius: 6px;
+}}
+QFrame#blockers QLabel {{
+    background: transparent;
+    color: {CREAM};
+}}
+QFrame#blockersClear {{
+    background: {TEAL};
+    border-radius: 6px;
+}}
+QFrame#blockersClear QLabel {{
+    background: transparent;
+    color: {CREAM};
+}}
+
+QFrame#warnings {{
+    background: #fdf6e9;
+    border: 1px solid #e6d3ac;
+    border-radius: 6px;
+}}
+QFrame#warnings QLabel {{ background: transparent; color: #6b5426; }}
+
+QPushButton#primary {{
+    min-height: 34px;
+    padding: 8px 22px;
+    border-radius: 6px;
+    border: 1px solid {TEAL};
+    background: {TEAL};
+    color: {CREAM};
+    font-weight: 600;
+}}
+QPushButton#primary:hover {{ background: {TEAL_LIFTED}; }}
+QPushButton#primary:disabled {{
+    background: #d5d1c8;
+    border-color: #c8c3b8;
+    color: #8b8578;
+}}
+QPushButton#secondary {{
+    min-height: 34px;
+    padding: 8px 18px;
+    border-radius: 6px;
+    border: 1px solid #cfcabf;
+    background: #ffffff;
+    color: {INK};
+}}
+QPushButton#secondary:hover {{ background: #f4f1ea; }}
+
+QFrame#verdictCard {{
+    border: 1px solid #d8d4cc;
+    border-radius: 8px;
+    background: #ffffff;
+}}
+QLineEdit#sentence {{
+    border: 1px solid #cfcabf;
+    border-radius: 5px;
+    padding: 7px 9px;
+}}
+QLineEdit#sentence[needed="true"] {{ border: 1px solid {GOLD_DEEP}; }}
+"""
+
+
+class DropZone(QFrame):
+    """Drag CVs onto the app. The same gesture the alert-email import uses."""
+
+    files_dropped = Signal(list)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("dropZone")
+        self.setAcceptDrops(True)
+        self.setMinimumHeight(120)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        label = QLabel(tr("onboarding.drop_hint"))
+        label.setAlignment(Qt.AlignCenter)
+        label.setWordWrap(True)
+        layout.addWidget(label)
+
+    def _set_active(self, active: bool) -> None:
+        self.setObjectName("dropZoneActive" if active else "dropZone")
+        self.style().unpolish(self)
+        self.style().polish(self)
+
+    def dragEnterEvent(self, event):  # noqa: N802 - Qt naming
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+            self._set_active(True)
+
+    def dragLeaveEvent(self, event):  # noqa: N802
+        self._set_active(False)
+
+    def dropEvent(self, event):  # noqa: N802
+        self._set_active(False)
+        paths = [Path(u.toLocalFile()) for u in event.mimeData().urls()
+                 if u.isLocalFile()]
+        if paths:
+            self.files_dropped.emit(paths)
+            event.acceptProposedAction()
+
+
+class IngestPage(QWidget):
+    """Step one: the CV corpus."""
+
+    files_added = Signal(list)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        heading = QLabel(tr("onboarding.ingest_heading"))
+        heading.setObjectName("stepHeading")
+        layout.addWidget(heading)
+
+        # The guidance is shown VERBATIM. Both sentences are load-bearing:
+        # users hand over a single tidied CV and lose exactly the history the
+        # screen needs.
+        body = QLabel(INGEST_GUIDANCE.replace("**", ""))
+        body.setObjectName("stepBody")
+        body.setWordWrap(True)
+        layout.addWidget(body)
+
+        self.drop = DropZone()
+        self.drop.files_dropped.connect(self.files_added)
+        layout.addWidget(self.drop)
+
+        self.files = QListWidget()
+        self.files.setMaximumHeight(140)
+        layout.addWidget(self.files)
+
+        self.warnings = QFrame()
+        self.warnings.setObjectName("warnings")
+        wl = QVBoxLayout(self.warnings)
+        wl.setContentsMargins(14, 10, 14, 10)
+        self.warnings_label = QLabel()
+        self.warnings_label.setWordWrap(True)
+        wl.addWidget(self.warnings_label)
+        self.warnings.hide()
+        layout.addWidget(self.warnings)
+
+        layout.addStretch(1)
+        self.setStyleSheet(ONBOARDING_STYLESHEET)
+
+    def show_corpus(self, names: list[str], warnings: list[str]) -> None:
+        self.files.clear()
+        self.files.addItems(names)
+        if warnings:
+            # Named files, so the user knows WHICH document was not read.
+            self.warnings_label.setText("• " + "\n• ".join(warnings))
+            self.warnings.show()
+        else:
+            self.warnings.hide()
+
+
+@dataclass
+class _ItemWidgets:
+    item: CalibrationItem
+    group: QButtonGroup
+    sentence: QLineEdit
+
+
+class CalibrationPage(QWidget):
+    """Step two: the gate.
+
+    Ten live postings, the app's verdict on each, and the user's correction —
+    with the sentence that would have got it right.
+    """
+
+    changed = Signal()
+    finished = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._widgets: list[_ItemWidgets] = []
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        heading = QLabel(tr("onboarding.calibration_heading"))
+        heading.setObjectName("stepHeading")
+        layout.addWidget(heading)
+
+        body = QLabel(tr("onboarding.calibration_body"))
+        body.setObjectName("stepBody")
+        body.setWordWrap(True)
+        layout.addWidget(body)
+
+        self.blockers = QFrame()
+        self.blockers.setObjectName("blockers")
+        bl = QVBoxLayout(self.blockers)
+        bl.setContentsMargins(14, 10, 14, 10)
+        self.blockers_label = QLabel()
+        self.blockers_label.setWordWrap(True)
+        bl.addWidget(self.blockers_label)
+        layout.addWidget(self.blockers)
+
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.NoFrame)
+        self._holder = QWidget()
+        self._holder_layout = QVBoxLayout(self._holder)
+        self._holder_layout.setContentsMargins(0, 0, 8, 0)
+        self._holder_layout.setSpacing(10)
+        self.scroll.setWidget(self._holder)
+        layout.addWidget(self.scroll, 1)
+
+        actions = QHBoxLayout()
+        # Separated from the scrolling list, so the button does not read as
+        # floating over the last card.
+        actions.setContentsMargins(0, 8, 0, 0)
+        self.btn_finish = QPushButton(tr("onboarding.finish"))
+        self.btn_finish.setObjectName("primary")
+        self.btn_finish.setEnabled(False)
+        self.btn_finish.clicked.connect(self.finished)
+        actions.addStretch(1)
+        actions.addWidget(self.btn_finish)
+        layout.addLayout(actions)
+
+        self.setStyleSheet(ONBOARDING_STYLESHEET)
+
+    # -- population --------------------------------------------------------
+    def load(self, items: list[CalibrationItem]) -> None:
+        while self._holder_layout.count():
+            entry = self._holder_layout.takeAt(0)
+            if entry.widget():
+                entry.widget().deleteLater()
+        self._widgets.clear()
+
+        for item in items:
+            self._holder_layout.addWidget(self._card(item))
+        self._holder_layout.addStretch(1)
+        self._refresh()
+
+    def _card(self, item: CalibrationItem) -> QFrame:
+        card = QFrame()
+        card.setObjectName("verdictCard")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(8)
+
+        title = QLabel(f"{item.title} — {item.company}")
+        tf = QFont()
+        tf.setBold(True)
+        title.setFont(tf)
+        title.setWordWrap(True)
+        layout.addWidget(title)
+
+        verdict = QLabel(tr("onboarding.app_said",
+                            verdict=item.app_verdict, reason=item.app_reason))
+        verdict.setWordWrap(True)
+        verdict.setStyleSheet("color:#45505a;")
+        layout.addWidget(verdict)
+
+        row = QHBoxLayout()
+        row.setSpacing(14)
+        group = QButtonGroup(card)
+        for value, label in (("strong", tr("onboarding.v.strong")),
+                             ("possible", tr("onboarding.v.possible")),
+                             ("rejected", tr("onboarding.v.rejected"))):
+            btn = QRadioButton(label)
+            btn.setProperty("verdict", value)
+            if item.user_verdict == value:
+                btn.setChecked(True)
+            group.addButton(btn)
+            row.addWidget(btn)
+        row.addStretch(1)
+        layout.addLayout(row)
+
+        sentence = QLineEdit(item.brief_sentence)
+        sentence.setObjectName("sentence")
+        # The spec's own phrasing. It stops the user editing the conversation —
+        # a fix that evaporates — and makes them edit the brief, which persists.
+        sentence.setPlaceholderText(tr("onboarding.sentence_placeholder"))
+        layout.addWidget(sentence)
+
+        widgets = _ItemWidgets(item=item, group=group, sentence=sentence)
+        self._widgets.append(widgets)
+
+        group.buttonToggled.connect(lambda *_: self._sync(widgets))
+        sentence.textChanged.connect(lambda *_: self._sync(widgets))
+        self._sync(widgets, refresh=False)
+        return card
+
+    # -- state -------------------------------------------------------------
+    def _sync(self, widgets: _ItemWidgets, *, refresh: bool = True) -> None:
+        checked = widgets.group.checkedButton()
+        widgets.item.user_verdict = (checked.property("verdict")
+                                     if checked else None)
+        widgets.item.brief_sentence = widgets.sentence.text()
+
+        # The sentence box only matters when the user has disagreed — showing
+        # it as required on every card would be noise.
+        needed = widgets.item.needs_sentence
+        widgets.sentence.setProperty("needed", "true" if needed else "false")
+        widgets.sentence.style().unpolish(widgets.sentence)
+        widgets.sentence.style().polish(widgets.sentence)
+        widgets.sentence.setVisible(widgets.item.disagreed)
+
+        if refresh:
+            self._refresh()
+
+    def result(self) -> CalibrationResult:
+        return CalibrationResult(items=[w.item for w in self._widgets])
+
+    def _refresh(self) -> None:
+        result = self.result()
+        reasons = result.blocking_reasons()
+        if reasons:
+            self.blockers.setObjectName("blockers")
+            # Every reason at once. Revealing them one at a time makes a
+            # five-minute step feel endless and trains people to guess.
+            self.blockers_label.setText("• " + "\n• ".join(reasons))
+        else:
+            self.blockers.setObjectName("blockersClear")
+            text = tr("onboarding.ready")
+            if result.low_signal:
+                text += " " + tr("onboarding.low_signal")
+            self.blockers_label.setText(text)
+        self.blockers.style().unpolish(self.blockers)
+        self.blockers.style().polish(self.blockers)
+        self.btn_finish.setEnabled(result.passed)
+        self.changed.emit()
