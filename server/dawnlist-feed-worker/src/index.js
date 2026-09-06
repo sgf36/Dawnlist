@@ -22,6 +22,10 @@
  * text are ever written to a log line.
  */
 
+import { newLicenceKey } from './paddle.js';
+import { handlePaddleWebhook } from './paddle.js';
+import { handleAdmin, handleRedeem } from './codes.js';
+
 const SEARCH_TTL_SECONDS = 6 * 60 * 60;   // 6h on search results
 const DETAIL_TTL_SECONDS = 7 * 24 * 60 * 60;
 
@@ -273,6 +277,15 @@ export default {
     try {
       if (url.pathname === '/v1/search' && request.method === 'POST') {
         return await handleSearch(request, env, ctx);
+      }
+      if (url.pathname === '/redeem' && request.method === 'POST') {
+        return await handleRedeem(request, env, newLicenceKey);
+      }
+      if (url.pathname.startsWith('/admin/')) {
+        return await handleAdmin(request, env);
+      }
+      if (url.pathname === '/paddle/webhook' && request.method === 'POST') {
+        return await handlePaddleWebhook(request, env);
       }
       if (url.pathname === '/health') {
         return await handleHealth(env);

@@ -299,8 +299,17 @@ def _doctor(conn) -> int:
     from app.i18n import LOCALE_CODES, LOCALES_DIR, coverage
     from app.onboarding.calibration import is_calibrated
 
+    from app.core.build_variant import variant
+
     frozen = getattr(sys, "frozen", False)
     print(f"dawnlist      : {'frozen' if frozen else 'source'}")
+    # A Store package that is silently the direct-download build is exactly
+    # what the flags exist to prevent, so the variant is reported.
+    v = variant()
+    print(f"build variant : {v}")
+    if v in ("none", "ambiguous"):
+        print(f"  WARNING: variant is {v} — this build carries no usable "
+              f"variant flag.", file=sys.stderr)
     print(f"database      : {conn.execute('PRAGMA database_list').fetchone()[2]}")
     print(f"locales dir   : {LOCALES_DIR}")
     print(f"locales exist : {LOCALES_DIR.exists()}")

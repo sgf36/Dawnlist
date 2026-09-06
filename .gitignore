@@ -10,3 +10,11 @@ dist/
 .env
 node_modules/
 .wrangler/
+
+# Build-variant flags are written by tools/set_build_variant.py before each
+# build and must NEVER be committed: a stray flag makes every later build that
+# variant, silently.
+app/resources/*.flag
+
+# Issued override codes — credentials, never committed.
+secrets/

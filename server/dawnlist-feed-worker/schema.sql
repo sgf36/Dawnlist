@@ -42,3 +42,75 @@ CREATE TABLE IF NOT EXISTS providers (
 INSERT INTO providers (name, enabled, priority, note) VALUES
     ('theirstack', 1, 10, 'Primary. P0 gate: cohort A 23/23, cohort B 18/22.')
 ON CONFLICT(name) DO NOTHING;
+
+-- Webhook idempotency. Paddle retries on any non-2xx, and a retry that issues a
+-- SECOND licence for one payment is worse than a missed one: the customer holds
+-- two keys, the usage meter is split across them, and nothing looks wrong from
+-- either side.
+CREATE TABLE IF NOT EXISTS webhook_events (
+    event_id    TEXT PRIMARY KEY,
+    event_type  TEXT NOT NULL,
+    action      TEXT NOT NULL,
+    received_at TEXT NOT NULL
+);
+
+-- ---------------------------------------------------------------------------
+-- Override codes and the admin console.
+--
+-- Design carried over from the Wren comp-codes Worker, including its two
+-- load-bearing decisions:
+--
+--  1. There is deliberately NO `uses` counter on `codes`. A counter is a second
+--     source of truth that drifts the first time an increment succeeds and the
+--     matching insert does not, and it turns "is this code spent?" into a
+--     question with two possible answers. Usage is counted from `redemptions`,
+--     which is the only place a redemption is recorded, so the two cannot
+--     disagree.
+--
+--  2. The `role` column here — NOT a claim inside the issued licence — decides
+--     what the server will do. The licence says what the app should show; the
+--     table says what the server permits. Keeping the decision here is what
+--     makes withdrawing an administrator take effect immediately, on a machine
+--     already holding a perfectly valid licence.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS codes (
+    code       TEXT PRIMARY KEY,
+    note       TEXT,                          -- who it went to, in plain words
+    -- 1 for a normal comp code. The STORE REVIEW code is deliberately NOT
+    -- single-use: a reviewer may test on several machines, or re-test after a
+    -- rejection, and a spent code turns that into a failed review.
+    max_uses   INTEGER NOT NULL DEFAULT 1,
+    revoked    INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    expires_at TEXT,                          -- NULL means never
+    -- A ladder, not a set: 'admin' presumes 'managed', which presumes 'byo'.
+    role       TEXT NOT NULL DEFAULT 'byo'
+               CHECK (role IN ('byo', 'managed', 'admin'))
+);
+
+CREATE TABLE IF NOT EXISTS redemptions (
+    code        TEXT NOT NULL,
+    licence_key TEXT NOT NULL,
+    redeemed_at TEXT NOT NULL,
+    PRIMARY KEY (code, licence_key)
+);
+CREATE INDEX IF NOT EXISTS redemptions_by_code ON redemptions (code);
+
+-- Failed attempts, for rate limiting. Codes carry enough entropy that guessing
+-- is not a real threat, but an unbounded endpoint that answers yes or no is
+-- still worth a lid.
+CREATE TABLE IF NOT EXISTS code_attempts (
+    ip       TEXT NOT NULL,
+    day      TEXT NOT NULL,
+    failures INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (ip, day)
+);
+
+-- Which licence, if any, came from an override code, and with what role. This
+-- is what the admin endpoints re-read on every request.
+CREATE TABLE IF NOT EXISTS licence_roles (
+    licence_key TEXT PRIMARY KEY,
+    role        TEXT NOT NULL,
+    from_code   TEXT
+);
