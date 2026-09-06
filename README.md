@@ -121,15 +121,26 @@ The rules that are easy to get wrong, all ported from production defects:
 ## Layout
 
 ```
-app/core/rules.py      the ONE rule table, shared by screen and scorer (spec 5.5)
-app/core/screen.py     the four-tier deterministic screen — zero tokens
-app/core/dedup.py      exact drops, near-duplicate flags, stranded-file recovery
-app/core/tracker.py    the board: stages, status mirror, action tasks
-app/core/db.py         SQLite schema; the constraints that replace procedures
-app/feed/models.py     the normalised Job — the only shape the app ever sees
-app/feed/base.py       provider adapter contract + rate limiting
-app/feed/theirstack.py the P0-validated adapter, with delta pulls
-tests/                 the golden set: every case cites the failure it encodes
+app/i18n.py              50 locales, shared with Easy-Post Desktop and Wren
+app/core/rules.py        the ONE rule table, shared by screen and scorer (spec 5.5)
+app/core/screen.py       the four-tier deterministic screen — zero tokens
+app/core/dedup.py        exact drops, near-duplicate flags, stranded-file recovery
+app/core/tracker.py      the board: stages, status mirror, action tasks
+app/core/cadence.py      the follow-up ladder, from evidenced touches only
+app/core/pipeline.py     the morning run, funnel counts recorded as it goes
+app/core/db.py           SQLite schema; the constraints that replace procedures
+app/intelligence/        cached prompt prefix, verdict schema, assessment guards
+app/outreach/drafts.py   .eml output, placeholder blocking, revise-in-place
+app/outreach/voice.py    tone of voice, measured from the user's own sent mail
+app/outreach/compose.py  language + voice + factsheet, assembled
+app/ui/review.py         the morning review window
+app/feed/models.py       the normalised Job — the only shape the app ever sees
+app/feed/base.py         provider adapter contract + rate limiting
+app/feed/theirstack.py   the P0-validated adapter, with delta pulls
+server/                  the Cloudflare feed proxy: metering, cache, failover
+tools/render_ui.py       renders the window to PNG — look at it, don't trust the test
+tools/translate_catalog.py  generates the 48 outstanding locale catalogues
+tests/                   the golden set: every case cites the failure it encodes
 ```
 
 ## Running the tests

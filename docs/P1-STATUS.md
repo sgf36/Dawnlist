@@ -1,7 +1,7 @@
 # Build status
 
 **Repo:** `C:\Users\SpencerFields\dawnlist`, deliberately **off OneDrive** per handoff Part 9.
-**Tests:** 157, all passing — `.venv/Scripts/python -m pytest -q`
+**Tests:** 190, all passing — `.venv/Scripts/python -m pytest -q`
 **Last updated:** 2026-09-06
 
 ## Done
@@ -18,7 +18,10 @@
 | `app/feed/` | normalised `Job`, provider contract, P0-validated TheirStack adapter with mandatory delta pulls |
 | `app/intelligence/` | cached prompt prefix, verdict schema, batching, resumability, the three assessment guards |
 | `app/outreach/drafts.py` | `.eml` output, placeholder blocking, revise-in-place, the plain-ask check |
-| `app/ui/review.py` | review window: always-visible funnel bar, browsable rejects, "Needs review" containment tab |
+| `app/ui/review.py` | review window: always-visible funnel bar, browsable rejects, "Needs review" containment tab, fully localised + RTL |
+| `app/i18n.py` | the same 50 locales as Easy-Post Desktop and Wren, ported verbatim |
+| `app/outreach/voice.py` | tone of voice measured from the user's own sent mail — style only, never content |
+| `app/outreach/compose.py` | language + voice + factsheet assembled into the drafting request |
 | `server/dawnlist-feed-worker/` | search proxy, D1 metering, cross-user cache, provider failover as data |
 
 Both P1 findings are resolved structurally — see below. Rendered proof of the UI is in
@@ -51,6 +54,9 @@ is now an actionable row.
 
 ## Next
 
+0. **Generate the 48 outstanding locale catalogues** — `tools/translate_catalog.py`. One API run,
+   needs your go-ahead because it spends money. `en` and `ar` are written; the rest fall back to
+   English cleanly until then.
 1. **Onboarding (P2)** — CV ingest, the Sessions 1–3 interview, factsheet/brief builders, and the
    **calibration gate**. Not started. The gate is the transfer-of-judgement step that made the
    original system work: ~10 live postings, the user corrects the verdicts, and each correction
