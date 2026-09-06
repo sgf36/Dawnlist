@@ -31,6 +31,13 @@ BODY = ("I am an individual exploring roles and I am not selling anything. "
         "Could we speak briefly?")
 
 
+@pytest.fixture(scope="module")
+def qapp_or_skip():
+    pytest.importorskip("PySide6")
+    from PySide6.QtWidgets import QApplication
+    yield QApplication.instance() or QApplication([])
+
+
 @pytest.fixture()
 def conn(tmp_path):
     c = db.connect(tmp_path / "t.sqlite3")
@@ -228,3 +235,38 @@ def test_two_postings_at_one_employer_share_one_pursuit(conn):
     record_decision(conn, "theirstack:a", "pursue")
     record_decision(conn, "theirstack:b", "pursue")
     assert len(load_board(conn)) == 1
+
+
+# -- settings is reachable --------------------------------------------------
+def test_the_review_window_offers_settings(qapp_or_skip):
+    """SettingsWindow existed with no way to open it. On a bring-your-own-key
+    app that means a rotated or mistyped key leaves the whole thing inert with
+    nothing on screen that could fix it."""
+    from app.ui.review import ReviewWindow
+    w = ReviewWindow()
+    assert w.menuBar().actions(), "no menu bar"
+    labels = [a.text() for menu in w.menuBar().actions()
+              for a in (menu.menu().actions() if menu.menu() else [])]
+    assert any("etting" in l for l in labels), labels
+    w.close()
+
+
+def test_asking_for_settings_is_a_signal_not_a_window(qapp_or_skip):
+    """The window knows nothing about the keyring — main.py wires that. Opening
+    it here would put a credential store behind a Qt widget."""
+    from app.ui.review import ReviewWindow
+    w = ReviewWindow()
+    seen = []
+    w.settings_requested.connect(lambda: seen.append(True))
+    w.act_settings.trigger()
+    assert seen == [True]
+    w.close()
+
+
+def test_settings_is_reachable_without_a_working_key(qapp_or_skip):
+    """The state it is most needed in is the one where nothing else starts, so
+    it must not sit behind onboarding or the entitlement gate."""
+    from app.main import open_settings
+    window = open_settings()
+    assert window.key is not None and window.licence is not None
+    window.close()

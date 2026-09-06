@@ -174,3 +174,62 @@ def test_the_window_carries_both_panels(qapp):
     assert isinstance(w.key, KeyPanel)
     assert isinstance(w.licence, LicencePanel)
     w.close()
+
+
+# -- removing a key ---------------------------------------------------------
+def test_a_stored_key_can_be_removed(qapp):
+    """Someone who revokes the key at Anthropic, or hands the machine on, had
+    no way to clear it from here. The app kept a dead credential and said
+    nothing."""
+    panel = key_panel(qapp, stored="sk-ant-api03-" + "x" * 40)
+    assert panel.button_forget.isVisibleTo(panel)
+    panel._forget = lambda: panel._saved.update(key=None)
+    panel.forget()
+    assert panel._saved["key"] is None
+    assert "cannot run without one" in panel.stored.text()
+
+
+def test_the_remove_button_is_hidden_with_no_key(qapp):
+    """Nothing to remove, so nothing offering to."""
+    panel = key_panel(qapp)
+    assert not panel.button_forget.isVisibleTo(panel)
+
+
+def test_removing_says_what_it_means(qapp):
+    panel = key_panel(qapp, stored="sk-ant-api03-" + "x" * 40)
+    panel._forget = lambda: panel._saved.update(key=None)
+    panel.forget()
+    assert "cannot run" in panel.result.text()
+
+
+def test_both_buttons_keep_the_same_metrics(qapp):
+    """Styling one QPushButton and not the other drops native metrics for the
+    styled one, and they end up different heights on the same row."""
+    panel = key_panel(qapp, stored="sk-ant-api03-" + "x" * 40)
+    panel.resize(900, 400)
+    panel.show()
+    assert panel.button.sizeHint().height() == \
+        panel.button_forget.sizeHint().height()
+    panel.close()
+
+
+# -- the licence panel is build-dependent -----------------------------------
+def test_a_store_build_shows_no_licence_box(qapp):
+    """Entitlement there is by possession and no licence key exists. Asking for
+    one sends a paying user hunting for something nobody sent them."""
+    w = SettingsWindow(variant="store")
+    assert not w.shows_licence
+    assert w.licence is not None, "the attribute must stay stable for callers"
+    w.close()
+
+
+def test_a_direct_download_build_shows_the_licence_box(qapp):
+    w = SettingsWindow(variant="direct")
+    assert w.shows_licence
+    w.close()
+
+
+def test_the_mac_app_store_build_matches_the_windows_one(qapp):
+    w = SettingsWindow(variant="mas")
+    assert not w.shows_licence
+    w.close()

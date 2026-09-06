@@ -352,6 +352,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="print environment diagnostics and exit")
     parser.add_argument("--draft", action="store_true",
                         help="draft every outreach that is due; sends nothing")
+    parser.add_argument("--settings", action="store_true",
+                        help="open settings alone, without the rest of the app")
     parser.add_argument("--onboard", action="store_true",
                         help="open the setup flow, even if already calibrated")
     parser.add_argument("--db", type=Path, default=None,
@@ -420,6 +422,17 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         print_outreach(report)
         return 0
+
+    if args.settings:
+        # Reachable without a working key or a passed gate on purpose: the
+        # state this is most needed in is the one where nothing else starts.
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication(sys.argv)
+        # Bound, and it looks unused: this local is the ONLY reference to the
+        # window, and letting it go collects the widget before exec() runs.
+        window = open_settings()  # noqa: F841
+        assert window is not None
+        return app.exec()
 
     if args.onboard:
         from PySide6.QtWidgets import QApplication
@@ -603,6 +616,24 @@ def _stored_funnel(conn, run_id) -> dict[str, int]:
     return counts
 
 
+def open_settings(parent=None):
+    """The settings window, wired to the real keyring.
+
+    Held on the parent rather than returned into a local: a QWidget with no
+    reference is garbage-collected the moment the function returns, and the
+    window vanishes as fast as it appeared.
+    """
+    from app.ui.settings import SettingsWindow
+
+    # Both panels already default to the real keyring and the real redeemer;
+    # the injection points exist so the tests can spend nothing.
+    window = SettingsWindow()
+    if parent is not None:
+        parent._settings_window = window
+    window.show()
+    return window
+
+
 def _launch_ui(conn, *, open_board: bool) -> int:
     from PySide6.QtWidgets import QApplication
 
@@ -624,6 +655,7 @@ def _launch_ui(conn, *, open_board: bool) -> int:
         window.load(rows, findings)
     else:
         window = ReviewWindow()
+        window.settings_requested.connect(lambda: open_settings(window))
         connect_window(window, conn)
         # The last run's shortlist, read back from the database rather than
         # held from a run this process did. Opening the app the morning after

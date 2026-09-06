@@ -144,19 +144,39 @@ def test_require_passes_on_a_store_build(conn, monkeypatch):
     assert require(conn, now=NOW).entitled
 
 
-def test_the_run_is_gated_but_nothing_else_is(conn, monkeypatch):
-    """Only morning_run calls require(). If this list grows, the gate has
-    spread somewhere it was not meant to go."""
+def test_the_gate_is_enforced_in_one_file_only(conn, monkeypatch):
+    """Paid work is gated; onboarding, the board and every screen are not. If
+    this list grows, the gate has spread somewhere it was not meant to go.
+
+    Read as an AST, not grepped. The first version matched source text and a
+    docstring that merely NAMED `entitlement.require()` failed it — a comment
+    explaining a rule is not an application of it.
+    """
+    import ast
     import pathlib
-    import re
 
     app_dir = pathlib.Path(ent.__file__).resolve().parents[1]
-    callers = []
+    callers = set()
     for path in app_dir.rglob("*.py"):
-        text = path.read_text(encoding="utf-8")
-        if re.search(r"require_entitlement\(|entitlement\.require\(", text):
-            callers.append(path.name)
-    assert callers == ["main.py"], f"entitlement is enforced in {callers}"
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            name = (func.attr if isinstance(func, ast.Attribute)
+                    else getattr(func, "id", ""))
+            if name in {"require_entitlement", "require"} and _is_entitlement(func):
+                callers.add(path.name)
+    assert callers == {"main.py"}, f"entitlement is enforced in {sorted(callers)}"
+
+
+def _is_entitlement(func) -> bool:
+    """`require` is a common enough name to need disambiguating from a bare
+    `require(...)` that has nothing to do with paying."""
+    import ast
+    if isinstance(func, ast.Attribute):
+        return getattr(func.value, "id", "") == "entitlement"
+    return getattr(func, "id", "") == "require_entitlement"
 
 
 # -- override codes ---------------------------------------------------------

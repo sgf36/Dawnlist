@@ -4,10 +4,13 @@ The flag is chosen at BUILD time by `tools/set_build_variant.py` and bundled by
 the PyInstaller spec. This module is the only thing that reads it, so the
 question "which variant am I?" has one answer rather than several.
 
-Nothing here gates anything yet — there is no entitlement code. It exists so the
-variant is OBSERVABLE (`--doctor` reports it), because a Store package that is
-silently the direct-download build is exactly the failure the flags are for, and
-an unbundled flag is invisible without something that looks for it.
+`entitlement.require()` reads `variant()` and treats a store or MAS build as
+entitled by possession — the storefront already took the money, so re-asking it
+would put a network call between a paying user and the app they bought.
+
+The variant is also OBSERVABLE: `--doctor` reports it, because a Store package
+that is silently the direct-download build is exactly the failure the flags are
+for, and an unbundled flag is invisible without something that looks for it.
 """
 from __future__ import annotations
 

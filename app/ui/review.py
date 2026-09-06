@@ -18,7 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont, QFontMetrics
+from PySide6.QtGui import QAction, QFont, QFontMetrics
 from app.i18n import is_rtl, tr
 from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel,
                                QMainWindow,
@@ -239,6 +239,7 @@ class FunnelBar(QFrame):
 
 class ReviewWindow(QMainWindow):
     decided = Signal(str, str)          # (job_id, decision)
+    settings_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -249,6 +250,15 @@ class ReviewWindow(QMainWindow):
             else Qt.LayoutDirection.LeftToRight)
         self.resize(1180, 760)
         self._rows: dict[str, ReviewRow] = {}
+
+        # The only route to Settings. Without it someone who has finished
+        # onboarding can never change their API key, and on a bring-your-own-key
+        # app a rotated, revoked or mistyped key then leaves the whole thing
+        # inert with nothing on screen that could fix it.
+        self.act_settings = QAction(tr("settings.title"), self)
+        self.act_settings.setMenuRole(QAction.MenuRole.PreferencesRole)
+        self.act_settings.triggered.connect(self.settings_requested)
+        self.menuBar().addMenu(tr("menu.app")).addAction(self.act_settings)
 
         root = QWidget()
         outer = QVBoxLayout(root)

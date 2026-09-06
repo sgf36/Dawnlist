@@ -65,11 +65,13 @@ class KeyPanel(QWidget):
 
     key_changed = Signal(bool)      # True when a verified key is stored
 
-    def __init__(self, *, verifier=None, storer=None, reader=None, parent=None):
+    def __init__(self, *, verifier=None, storer=None, reader=None,
+                 forgetter=None, parent=None):
         super().__init__(parent)
         self._verify = verifier or api_key.verify
         self._store = storer or api_key.store
         self._read = reader or api_key.get
+        self._forget = forgetter or api_key.forget
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -104,8 +106,19 @@ class KeyPanel(QWidget):
         self.button = QPushButton(tr("settings.key_save"))
         self.button.setObjectName("primary")
         self.button.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        # Only shown once there is something to remove. Someone who revokes
+        # the key at Anthropic, or hands the machine on, otherwise has no way
+        # to clear it from here — the app would keep a dead credential
+        # indefinitely and never say so.
+        self.button_forget = QPushButton(tr("settings.key_forget"))
+        # `secondary`, not a new danger style: pasting the key back takes ten
+        # seconds, and styling a reversible action as destructive spends alarm
+        # that the genuinely irreversible ones then have less of.
+        self.button_forget.setObjectName("secondary")
+        self.button_forget.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         row.addWidget(self.field, 1)
         row.addWidget(self.button)
+        row.addWidget(self.button_forget)
         layout.addLayout(row)
 
         self.result = QLabel()
@@ -115,6 +128,7 @@ class KeyPanel(QWidget):
 
         self.setStyleSheet(SETTINGS_STYLESHEET)
         self.button.clicked.connect(self.save)
+        self.button_forget.clicked.connect(self.forget)
         self.field.returnPressed.connect(self.save)
         self.refresh()
 
@@ -123,7 +137,23 @@ class KeyPanel(QWidget):
         self.stored.setText(
             tr("settings.key_stored", key=masked(existing)) if existing
             else tr("settings.key_none"))
+        self.button_forget.setVisible(bool(existing))
         self.key_changed.emit(bool(existing))
+
+    def forget(self) -> None:
+        """Remove the stored key.
+
+        Not confirmed: nothing is lost that cannot be pasted back in ten
+        seconds, and a confirmation dialog on a reversible action teaches
+        people to dismiss dialogs.
+        """
+        self._forget()
+        self.field.clear()
+        self.result.setObjectName("")
+        self.result.setText(tr("settings.key_forgotten"))
+        self.result.style().unpolish(self.result)
+        self.result.style().polish(self.result)
+        self.refresh()
 
     def save(self) -> None:
         entered = self.field.text().strip()
@@ -248,20 +278,36 @@ class LicencePanel(QWidget):
 
 
 class SettingsWindow(QWidget):
-    """Both panels, for the Settings menu and for onboarding."""
+    """Both panels, for the Settings menu and for onboarding.
 
-    def __init__(self, parent=None):
+    In a store build the licence panel is not shown. Entitlement there is by
+    possession — the storefront already took the money and there is no licence
+    key in existence — so a box asking for one sends a paying user hunting
+    through their email for something nobody ever sent them.
+    """
+
+    def __init__(self, parent=None, *, variant=None):
         super().__init__(parent)
+        from app.core.build_variant import variant as read_variant
+
         self.setWindowTitle(tr("settings.title"))
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         self.key = KeyPanel()
-        self.licence = LicencePanel()
         layout.addWidget(self.key)
-        line = QFrame()
-        line.setFrameShape(QFrame.HLine)
-        line.setStyleSheet("color:#ddd8cc;")
-        layout.addWidget(line)
-        layout.addWidget(self.licence)
+
+        self.licence = LicencePanel()
+        build = variant if variant is not None else read_variant()
+        self.shows_licence = build not in ("store", "mas")
+        if self.shows_licence:
+            line = QFrame()
+            line.setFrameShape(QFrame.HLine)
+            line.setStyleSheet("color:#ddd8cc;")
+            layout.addWidget(line)
+            layout.addWidget(self.licence)
+        else:
+            # Constructed but not laid out, so `window.licence` stays a stable
+            # attribute for callers and tests rather than sometimes-missing.
+            self.licence.hide()
         self.setStyleSheet(SETTINGS_STYLESHEET)
