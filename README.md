@@ -8,6 +8,23 @@ send yourself.
 **It never sends anything.** Every outreach path ends in a draft you open and send from your own
 mail app. That is the positioning against the auto-apply category and the safety boundary both.
 
+## The commercial model (supersedes handoff Part 7)
+
+**A paid app, bought once, bring-your-own-key.** Decided 2026-09-06. The handoff described a free
+download gated by a licence, a managed subscription tier and a store "Production Unlock" add-on;
+none of that is the model any more.
+
+- **Store builds are entitled by possession.** The Store does not hand the binary to someone who
+  has not bought it, so there is nothing to check. No IAP, no receipt, no add-on.
+- **Direct download needs a licence key** from Paddle, or an override code.
+- **The user brings their own Anthropic key.** Reading and drafting bill to them, at
+  console.anthropic.com, with no cut and no markup. This is what makes a one-time price viable:
+  inference is the cost that scales with use, so it sits with the person using it.
+- **Spencer still pays for the feed**, metered and capped per licence in the Worker. Affordable
+  because a job search is finite — the handoff models a 2–4 month working life per user.
+- **Only the morning run is gated.** Onboarding, the board and every screen stay open on an
+  unlicensed copy: locking someone out of their own tracker is a punishment, not a gate.
+
 Build handoff: `../Apps/Claude/job-search-desktop-app-build-handoff.md`
 Operating spec (the source system's IP): `../Apps/Claude/job-search-automation-handoff-for-sean.md`
 Identity: `../Apps/Claude/brand-dawnlist/README.md`

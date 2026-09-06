@@ -151,12 +151,19 @@ def build_provider(conn):
 
 
 def build_send(conn):
-    """The assessment transport. Never called during tests."""
-    import anthropic
-    import keyring
+    """The assessment transport, on the USER's own Anthropic key.
 
-    api_key = keyring.get_password("dawnlist-anthropic", "api-key")
-    client = anthropic.Anthropic(api_key=api_key) if api_key else anthropic.Anthropic()
+    Dawnlist is bring-your-own-key: reading and drafting bill to the person
+    using it. The key is required rather than optional, and there is
+    deliberately no fallback to ambient credentials — falling back to
+    ANTHROPIC_API_KEY would bill whoever's key happened to be in the
+    environment, which on a developer machine is Spencer's.
+    """
+    import anthropic
+
+    from app.core import api_key
+
+    client = anthropic.Anthropic(api_key=api_key.require())
 
     def send(request: dict):
         response = client.messages.create(**request)
@@ -275,10 +282,16 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.run_once:
+        from app.core.api_key import KeyProblem
         from app.core.entitlement import NotEntitled
 
         try:
             outcome = morning_run(conn)
+        except KeyProblem as exc:
+            # Exit 4: distinct from "not set up" (2) and "not paid" (3),
+            # because the fix is different again.
+            print(f"no api key: {exc}", file=sys.stderr)
+            return 4
         except NotEntitled as exc:
             # Exit 3, distinct from 2: "not paid" and "not set up" want
             # different responses from whatever is running this.
@@ -350,6 +363,14 @@ def _doctor(conn) -> int:
                   file=sys.stderr)
 
     from app.core.entitlement import check as check_entitlement
+
+    from app.core import api_key as user_key
+
+    stored = user_key.get()
+    print(f"anthropic key : {'present' if stored else 'MISSING'}")
+    if not stored:
+        print("  Dawnlist is bring-your-own-key. Add one in Settings.",
+              file=sys.stderr)
 
     ent = check_entitlement(conn)
     state = ent.source if ent.entitled else "NOT ENTITLED"

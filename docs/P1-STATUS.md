@@ -1,7 +1,7 @@
 # Build status
 
 **Repo:** `C:\Users\SpencerFields\dawnlist`, deliberately **off OneDrive** per handoff Part 9.
-**Tests:** 361, all passing — `.venv/Scripts/python -m pytest -q`
+**Tests:** 390, all passing — `.venv/Scripts/python -m pytest -q`
 **Last updated:** 2026-09-06 — P1 engine complete; a frozen build runs
 
 ## Done
@@ -69,6 +69,17 @@ is now an actionable row.
   Inert: no licences exist and no secrets are installed.
 - **MSIX builds** — `dist/Dawnlist.msix`, 73MB, validated by opening the package.
 - **A new user is routed to onboarding** rather than to an empty shortlist.
+
+## Commercial model — CHANGED 2026-09-06
+
+Paid app, one price, bring-your-own-key. This supersedes handoff Part 7 (free download + licence
++ managed subscription + store add-on). See the README for the full statement. The practical
+consequences already in code: `entitlement.py` treats store builds as entitled by possession,
+`api_key.py` requires the user's own key with no fallback to ambient credentials, and the store
+listing discloses the key requirement in the description rather than the small print.
+
+Still open: the **direct-download price**, and whether a Paddle subscription exists at all now
+that there is no managed inference tier to fund.
 
 ## What only Spencer can do
 

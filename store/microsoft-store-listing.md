@@ -20,7 +20,7 @@ LinkedIn code and the marketing must not imply otherwise.
 | Package identity | `SFields.Dawnlist` *(confirm against what Partner Center actually reserved, and correct `packaging/msix/AppxManifest.xml` if it differs — a mismatch fails ingestion, not certification)* |
 | Category | Productivity |
 | Subcategory | Personal finance & productivity → Productivity |
-| Pricing | **Paid.** One price, bought up front. No in-app purchase, no free tier, no trial gate inside the app. |
+| Pricing | **Paid, one price, up front.** No in-app purchase and no free tier. **Bring-your-own-key:** the buyer supplies an Anthropic API key and is billed by Anthropic directly. |
 
 ---
 
@@ -39,6 +39,13 @@ LinkedIn code and the marketing must not imply otherwise.
 ```
 Dawnlist is a paid app. You buy it once, and it is yours — there is nothing to
 unlock inside it and nothing held back.
+
+BEFORE YOU BUY: Dawnlist uses your own Anthropic API key to read job postings
+and draft messages. You will need one, and Anthropic bills you directly for
+what Dawnlist reads — typically a few pounds a month at normal use. Creating a
+key takes a couple of minutes at console.anthropic.com. Dawnlist takes no cut
+and adds no markup. If you would rather not hold an API key, this app is not
+for you.
 
 Dawnlist reads the world's job feeds every morning, judges every posting against
 a fit brief it builds with you, and hands you a ranked shortlist before you have
@@ -100,8 +107,9 @@ HOW YOUR DATA IS HANDLED
 Your CVs, your brief and your tracker live on your own machine.
 
 Job descriptions and your fit brief are sent to Anthropic's API to be assessed,
-and job searches go through Dawnlist's own feed service. Neither retains your
-career documents; the feed service records usage counts, never content.
+under YOUR OWN API key — so that traffic is between you and Anthropic, and
+Dawnlist is not a party to it. Job searches go through Dawnlist's feed service,
+which records usage counts and never content.
 
 Full detail is in the privacy policy.
 
@@ -118,8 +126,16 @@ WHAT YOU PAY FOR
 One purchase, and the whole app. No subscription inside it, nothing locked
 behind a second payment, and no features held back from the version you bought.
 
-Dawnlist calls a language model to read postings and draft messages, and that
-costs a little to run. Which is why it is a paid app rather than a free one.
+Separately, you pay Anthropic for what Dawnlist reads, on your own API key. At
+about forty postings a day that is roughly two pounds a month for the reading
+and about one for the drafting, plus a one-off two to four pounds when you first
+set up your factsheet. You hold the key, you see the usage, and you can revoke
+it at any moment. Dawnlist never sees a bill and takes no share of one.
+
+Why it works this way: reading is the cost that grows with how hard you use the
+app, and it belongs with the person doing the using. Charging everyone a
+subscription to cover the heaviest users would mean the lightest users
+subsidised them.
 ```
 
 ---
@@ -143,6 +159,7 @@ costs a little to run. Which is why it is a paid app rather than a free one.
 14. No mailbox access and no passwords to hand over
 15. Your CVs and tracker stay on your machine
 16. One purchase, the whole app — no in-app unlocks
+17. Uses your own Anthropic key — you hold it, you see the usage
 
 ---
 
