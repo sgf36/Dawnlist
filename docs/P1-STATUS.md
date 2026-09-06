@@ -1,7 +1,7 @@
 # Build status
 
 **Repo:** `C:\Users\SpencerFields\dawnlist`, deliberately **off OneDrive** per handoff Part 9.
-**Tests:** 445 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
+**Tests:** 472 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
 **Last updated:** 2026-09-07 — P1 engine complete; a frozen build runs
 
 ## Done
@@ -88,6 +88,21 @@ is now an actionable row.
   None was a logic fault, so no unit test could have caught any of them. `tests/test_entry_points.py`
   now covers the routes, and the smoke test no longer opens the opportunity on the app's behalf —
   which is how it passed over a severed chain in the first place.
+
+- **Five defects a user would have hit every day.** The same audit run one layer down — which
+  tables does the app READ but never WRITE — found that a table nothing writes is the same
+  defect as a function nothing calls.
+
+  | Was | Now |
+  |---|---|
+  | `rule_terms` had no writer, and tiers 2-4 are an allowlist, so an empty table rejected everything: **0 of 8 postings survived** and the shortlist was empty every morning with no error | an unconfigured table has no opinion and says so; the funnel can no longer read "swept N, screened out N, assessed 0" and look like a quiet market |
+  | "every entry is earned" had no way to earn one | tier 2 derived from pursue decisions; `save_rule_term` for the rest, finally calling the `assert_no_conflicts` guard written for it |
+  | nothing called `record_outbound`, so the cadence sat at rung zero — four weeks simulated, the same first-contact letter redrafted every Tuesday | a board action, attributing the touch to the contact the live draft was addressed to |
+  | the rung reached `prepare_drafts` and was dropped, so every follow-up was drafted as a cold approach | the request states which message this is and when the last went out; verified live |
+  | invariant 2 caught only `[[double]]` brackets, so a draft ending "Best regards, [Your name]" was send-ready | both forms block; numerics and `[sic]` excluded |
+
+  The last two were findable only by reading real model output — no test written against the
+  prompt's own conventions would have caught either.
 
 - **All 50 locale catalogues**, at 100% coverage, verified for placeholder parity. `--fill` tops
   up catalogues that fall behind the source, and now falls back to the keyring when
