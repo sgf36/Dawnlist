@@ -1,0 +1,208 @@
+"""Assessment guards. No network: `send` is injected, so nothing here spends money."""
+import json
+
+import pytest
+
+from app.feed.models import Job
+from app.intelligence.assess import (AssessmentReport, assess, build_request,
+                                     enforce_quote_rule, merge_batch_results,
+                                     parse_verdicts, quote_is_verbatim)
+from app.intelligence.prompts import FIRST_PASS_CHARS, render_posting, system_prefix
+
+DESC = ("We are seeking a Director of Asset Management. "
+        "Candidates must have a minimum of 10 years' experience in real estate. "
+        "RICS qualification is required.")
+
+
+def job(jid="1", title="Director of Asset Management", company="Acme",
+        description=DESC):
+    return Job(provider="theirstack", provider_job_id=jid, title=title,
+               company=company, description_text=description)
+
+
+# -- spec 6.7: the quote is VERIFIED, not merely requested ------------------
+def test_a_real_quote_verifies():
+    assert quote_is_verbatim("minimum of 10 years' experience", DESC)
+
+
+def test_quote_matching_tolerates_curly_quotes_and_whitespace():
+    """A model normalising a smart quote is not hallucinating."""
+    assert quote_is_verbatim("minimum of 10 years’  experience", DESC)
+
+
+def test_a_hallucinated_quote_does_not_verify():
+    assert not quote_is_verbatim("must hold an MBA", DESC)
+
+
+def test_rejection_with_a_hallucinated_quote_is_downgraded():
+    v = enforce_quote_rule(
+        {"bucket": "rejected", "reason": "needs an MBA",
+         "disqualifying_quote": "must hold an MBA", "requirement_checked": True},
+        job())
+    assert v.bucket == "judgement-call"
+    assert v.downgraded_from == "rejected"
+    assert "does not appear in the description" in v.downgrade_reason
+
+
+def test_rejection_with_a_real_quote_stands():
+    v = enforce_quote_rule(
+        {"bucket": "rejected", "reason": "10 year floor",
+         "disqualifying_quote": "minimum of 10 years' experience",
+         "requirement_checked": True},
+        job())
+    assert v.bucket == "rejected" and v.downgraded_from is None
+
+
+def test_unchecked_requirement_can_never_be_a_rejection():
+    v = enforce_quote_rule(
+        {"bucket": "rejected", "reason": "description truncated",
+         "disqualifying_quote": None, "requirement_checked": False},
+        job())
+    assert v.bucket == "possible"
+    assert "never a failure" in v.downgrade_reason
+
+
+def test_an_unknown_bucket_becomes_a_judgement_call():
+    v = enforce_quote_rule({"bucket": "maybe", "reason": "x"}, job())
+    assert v.bucket == "judgement-call"
+
+
+# -- mapping is by ref, never by position -----------------------------------
+def test_verdicts_map_by_ref_not_position():
+    a, b = job("a", title="Strategy Lead"), job("b", title="Revenue Lead")
+    payload = {"verdicts": [
+        {"job_ref": "b", "bucket": "strong", "reason": "fits",
+         "disqualifying_quote": None, "requirement_checked": True},
+        {"job_ref": "a", "bucket": "rejected", "reason": "no",
+         "disqualifying_quote": None, "requirement_checked": True},
+    ]}
+    verdicts, errors = parse_verdicts(payload, {"a": a, "b": b})
+    by_id = {v.job.provider_job_id: v.bucket for v in verdicts}
+    assert by_id == {"a": "rejected", "b": "strong"}
+    assert errors == []
+
+
+def test_a_verdict_for_an_unknown_ref_is_discarded_loudly():
+    verdicts, errors = parse_verdicts(
+        {"verdicts": [{"job_ref": "ghost", "bucket": "strong", "reason": "x"}]},
+        {"a": job("a")})
+    assert verdicts == [] and "unknown ref" in errors[0]
+
+
+def test_unparseable_payload_is_an_error_not_a_silent_empty():
+    verdicts, errors = parse_verdicts("not json", {"a": job("a")})
+    assert verdicts == [] and errors
+
+
+# -- never buy budget by skipping reads -------------------------------------
+def test_a_failed_batch_leaves_jobs_unread_never_rejected():
+    jobs = [job(str(i)) for i in range(3)]
+
+    def boom(_request):
+        raise RuntimeError("503 from upstream")
+
+    report = assess(jobs, "brief", "facts", send=boom)
+    assert report.verdicts == []
+    assert len(report.unread) == 3, "a failed batch is unread, not rejected"
+    assert not report.complete
+    assert report.counts["left_unread"] == 3
+
+
+def test_a_posting_the_model_skipped_is_reported_unread():
+    jobs = [job("a"), job("b")]
+
+    def partial(_request):
+        return {"verdicts": [{"job_ref": "a", "bucket": "strong", "reason": "fits",
+                              "disqualifying_quote": None,
+                              "requirement_checked": True}]}
+
+    report = assess(jobs, "brief", "facts", send=partial)
+    assert [j.provider_job_id for j in report.unread] == ["b"]
+    assert not report.complete
+
+
+def test_resume_skips_already_judged_ids():
+    jobs = [job("a"), job("b")]
+    seen = []
+
+    def send(request):
+        seen.append(request)
+        return {"verdicts": [{"job_ref": "b", "bucket": "strong", "reason": "x",
+                              "disqualifying_quote": None,
+                              "requirement_checked": True}]}
+
+    report = assess(jobs, "brief", "facts", send=send, already_judged={"a"})
+    assert report.complete
+    assert "ref=\"a\"" not in seen[0]["messages"][0]["content"]
+
+
+def test_downgrades_are_counted_every_run():
+    jobs = [job("a")]
+
+    def send(_r):
+        return {"verdicts": [{"job_ref": "a", "bucket": "rejected",
+                              "reason": "invented", "requirement_checked": True,
+                              "disqualifying_quote": "must hold an MBA"}]}
+
+    report = assess(jobs, "brief", "facts", send=send)
+    assert report.counts["downgraded"] == 1
+
+
+# -- request shape ----------------------------------------------------------
+def test_request_uses_structured_outputs_not_the_deprecated_parameter():
+    req = build_request([job()], "brief", "facts")
+    assert "output_config" in req and "output_format" not in req
+    assert req["output_config"]["format"]["type"] == "json_schema"
+
+
+def test_the_cache_breakpoint_is_on_the_last_system_block():
+    blocks = system_prefix("brief", "facts")
+    assert "cache_control" not in blocks[0]
+    assert blocks[-1]["cache_control"] == {"type": "ephemeral"}
+
+
+def test_no_volatile_content_in_the_cached_prefix():
+    """Two calls with the same inputs must be byte-identical, or the cache
+    never hits and the saving silently disappears."""
+    assert system_prefix("brief", "facts") == system_prefix("brief", "facts")
+
+
+def test_first_pass_truncation_is_announced():
+    long = "x" * (FIRST_PASS_CHARS + 500)
+    block = render_posting("1", "T", "C", "London", long)
+    assert "[TRUNCATED" in block, (
+        "an unannounced truncation reads as a complete description, so the "
+        "model cannot know to set requirement_checked=false")
+    assert "TRUNCATED" not in render_posting("1", "T", "C", "L", long, full=True)
+
+
+# -- Batch API: results arrive in ANY order ---------------------------------
+def test_batch_results_are_keyed_by_custom_id():
+    a, b = job("a"), job("b")
+    results = [
+        {"custom_id": "b", "result": {"type": "succeeded", "message": {"content": [
+            {"type": "text", "text": json.dumps({"verdicts": [
+                {"job_ref": "b", "bucket": "strong", "reason": "fits",
+                 "disqualifying_quote": None, "requirement_checked": True}]})}]}}},
+        {"custom_id": "a", "result": {"type": "succeeded", "message": {"content": [
+            {"type": "text", "text": json.dumps({"verdicts": [
+                {"job_ref": "a", "bucket": "possible", "reason": "stretch",
+                 "disqualifying_quote": None, "requirement_checked": True}]})}]}}},
+    ]
+    verdicts, errors = merge_batch_results(results, {"a": a, "b": b})
+    assert {v.job.provider_job_id: v.bucket for v in verdicts} == {
+        "a": "possible", "b": "strong"}
+    assert errors == []
+
+
+def test_an_errored_batch_entry_is_reported_not_dropped():
+    verdicts, errors = merge_batch_results(
+        [{"custom_id": "a", "result": {"type": "errored"}}], {"a": job("a")})
+    assert verdicts == [] and "errored" in errors[0]
+
+
+# -- strong verdicts need the full read -------------------------------------
+def test_a_strong_verdict_from_a_truncated_pass_is_flagged_for_re_read():
+    v = enforce_quote_rule({"bucket": "strong", "reason": "fits",
+                            "requirement_checked": True}, job())
+    assert v.needs_full_read, "spec 7.6: re-read in full before a strong verdict"
