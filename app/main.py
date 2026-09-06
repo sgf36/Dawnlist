@@ -169,12 +169,24 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
     """One morning run, with the gates the stored state implies."""
     from app.ui.adapter import rejected_keys
 
+    from app.onboarding.calibration import is_calibrated
+
     brief = load_document(conn, "fit_brief")
     factsheet = load_document(conn, "factsheet")
     if not brief.strip():
         raise NotConfigured(
             "No fit brief yet. Run onboarding first — a run against an empty "
             "brief produces a plausible shortlist built on nothing.")
+    if not is_calibrated(conn):
+        # The gate is checked HERE, at the only door into a run, rather than in
+        # the UI. A gate enforced in a screen is a gate the scheduled run walks
+        # straight past.
+        raise NotConfigured(
+            "Calibration has not been completed. The app must show you ~10 "
+            "live postings and have you correct its verdicts before it runs "
+            "daily — that is the step that transfers your judgement into the "
+            "brief, and without it the shortlist is a guess that looks like an "
+            "answer.")
 
     queries = load_queries(conn)
     if not queries:

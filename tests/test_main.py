@@ -28,7 +28,8 @@ def conn(dbfile):
     c.close()
 
 
-def seed(conn, *, brief="Roles in hospitality strategy.", queries=True):
+def seed(conn, *, brief="Roles in hospitality strategy.", queries=True,
+         calibrated=True):
     if brief:
         conn.execute("INSERT INTO documents(kind, version, body, created_at)"
                      " VALUES('fit_brief', 1, ?, 'x')", (brief,))
@@ -41,6 +42,9 @@ def seed(conn, *, brief="Roles in hospitality strategy.", queries=True):
                                      "countries": ["GB"]}), "x"))
     conn.execute("INSERT INTO rule_terms(field, term, added_at)"
                  " VALUES('strong_terms', 'strategy', 'x')")
+    if calibrated:
+        conn.execute("INSERT INTO settings(key, value) "
+                     "VALUES('calibration_passed_at', '2026-09-06T00:00:00+00:00')")
     conn.commit()
 
 
@@ -206,3 +210,23 @@ def test_non_ascii_survives_the_console(dbfile, capsys):
     assert main(["--audit", "--db", str(dbfile)]) == 0
     out = capsys.readouterr().out
     assert "Hôtel de Rome" in out and "�" not in out
+
+
+def test_an_uncalibrated_run_is_refused_at_the_door(conn):
+    """The gate is enforced in morning_run, not in a screen.
+
+    A gate enforced in the UI is a gate the scheduled run walks straight past,
+    and the handoff is explicit: no daily runs before calibration.
+    """
+    seed(conn, calibrated=False)
+    with pytest.raises(NotConfigured, match="Calibration has not been completed"):
+        morning_run(conn, provider=Stub(ok([job("a")])), send=strong_send)
+
+
+def test_run_once_exits_two_when_uncalibrated(dbfile, capsys):
+    c = db.connect(dbfile)
+    db.migrate(c)
+    seed(c, calibrated=False)
+    c.close()
+    assert main(["--run-once", "--db", str(dbfile)]) == 2
+    assert "Calibration" in capsys.readouterr().err

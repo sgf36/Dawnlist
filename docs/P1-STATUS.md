@@ -1,7 +1,7 @@
 # Build status
 
 **Repo:** `C:\Users\SpencerFields\dawnlist`, deliberately **off OneDrive** per handoff Part 9.
-**Tests:** 221, all passing — `.venv/Scripts/python -m pytest -q`
+**Tests:** 301, all passing — `.venv/Scripts/python -m pytest -q`
 **Last updated:** 2026-09-06
 
 ## Done
@@ -23,6 +23,11 @@
 | `app/outreach/voice.py` | tone of voice measured from the user's own sent mail — style only, never content |
 | `app/outreach/compose.py` | language + voice + factsheet assembled into the drafting request |
 | `app/ui/adapter.py` | run → rows, and the user's click → `decisions`; rejections compound into the next run's gate |
+| `app/core/board_repo.py` | board load/save; stage and mirror move in one statement |
+| `app/ui/board.py` | the board: stage-grouped, audit on screen, two separate repairs |
+| `app/outreach/run.py` | what is due, who to write to, and the draft — blocked items named |
+| `app/onboarding/` | CV corpus, factsheet/brief drafting rules, the calibration gate |
+| `app/main.py` | entry point: `--run-once`, `--board`, `--audit`; headless and windowed share every path |
 | `server/dawnlist-feed-worker/` | search proxy, D1 metering, cross-user cache, provider failover as data |
 
 Both P1 findings are resolved structurally — see below. Rendered proof of the UI is in
@@ -55,27 +60,16 @@ is now an actionable row.
 
 ## Next
 
-0. **Generate the 48 outstanding locale catalogues** — `tools/translate_catalog.py`. One API run,
-   needs your go-ahead because it spends money. `en` and `ar` are written; the rest fall back to
-   English cleanly until then.
-1. **Onboarding (P2)** — CV ingest, the Sessions 1–3 interview, factsheet/brief builders, and the
-   **calibration gate**. Not started. The gate is the transfer-of-judgement step that made the
-   original system work: ~10 live postings, the user corrects the verdicts, and each correction
-   rewrites the brief. Do not let a user into daily runs without it.
-2. ~~Wire the UI to the pipeline~~ **DONE** — `app/ui/adapter.py`. The loop closes: a run
-   produces rows, a click writes to `decisions`, and `rejected_keys()` feeds the next run's gate,
-   so each rejection is a posting never assessed again.
-3. **Tracker UI** — the board exists in `tracker.py` and in the schema; it has no screen yet.
-   This is the next substantial piece: a stage-ordered board, the parity/bounce audit surfaced,
-   and next-step dates from `cadence.next_step()`.
-4. **Cadence → drafts** — `next_step()` and the draft writer both exist but are not joined up.
-   Joining them makes the outreach half work end to end.
-5. **A run entry point** — there is no `main.py`. Nothing yet schedules or triggers a morning run
-   from the UI; the pipeline is only reachable from tests.
-6. **Packaging (P4)** — PyInstaller onedir, MSIX, notarised macOS, MAS. Reuse the EasyPost specs.
-
-The marketing site (`dawnlist.spencerfields.com`) is spun off to its own session — it shares
-nothing with this repo but the brand assets.
+1. **Onboarding UI** — the onboarding *logic* is done (corpus warnings, factsheet and brief
+   drafting rules, the calibration gate, all enforced) but it has no screens yet. The gate is
+   enforced in `morning_run`, so nothing can run around it in the meantime; it simply refuses.
+2. **CV text extraction** — `Corpus` takes text; nothing yet reads a PDF or `.docx`. Add `pypdf`
+   and `python-docx`, and treat an image-only scan as unreadable *by name* rather than as empty.
+3. **Alert-email drag-and-drop** (handoff 0.2) — the universal zero-cost feed supplement. The
+   `.eml` parsing already exists in `outreach/voice.py`; it needs a job-card parser and a drop
+   target.
+4. **Packaging (P4)** — PyInstaller onedir, MSIX, notarised macOS, MAS. Reuse the EasyPost specs.
+5. **Generate the 48 locale catalogues** — one API run, needs your go-ahead.
 
 ## Blocked, deliberately
 
