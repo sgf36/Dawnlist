@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "non adatto",
   "onboarding.title": "Dawnlist — configurazione",
   "onboarding.next": "Avanti",
-  "onboarding.back": "Indietro"
+  "onboarding.back": "Indietro",
+  "settings.title": "Dawnlist — impostazioni",
+  "settings.key_heading": "La tua chiave Anthropic",
+  "settings.key_body": "Dawnlist legge le offerte di lavoro e redige i tuoi messaggi utilizzando i modelli di Anthropic, sul tuo account personale. Crea una chiave su console.anthropic.com e incollala qui. Puoi revocarla in qualsiasi momento; Dawnlist la conserva nel gestore delle credenziali del tuo sistema operativo, mai in un file.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Salva e verifica",
+  "settings.key_checking": "Verifica della chiave con Anthropic in corso…",
+  "settings.key_stored": "Salvata: {key}",
+  "settings.key_none": "Nessuna chiave salvata — Dawnlist non può funzionare senza.",
+  "settings.licence_heading": "La tua licenza",
+  "settings.licence_body": "Incolla la chiave di licenza ricevuta nell'email di acquisto. Se ti è stato fornito un codice override, incolla quello — Dawnlist lo convertirà in una licenza.",
+  "settings.licence_placeholder": "DAWN-… o un codice override",
+  "settings.licence_save": "Salva",
+  "settings.licence_checking": "Verifica in corso…",
+  "settings.licence_stored": "Salvata: {key}",
+  "settings.licence_none": "Nessuna licenza salvata.",
+  "settings.licence_saved": "Licenza salvata.",
+  "settings.code_redeemed": "Codice accettato — la tua licenza è stata salvata."
 }

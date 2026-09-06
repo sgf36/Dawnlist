@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "ಸೂಕ್ತವಲ್ಲ",
   "onboarding.title": "Dawnlist — ಸಿದ್ಧತೆ ನಡೆಯುತ್ತಿದೆ",
   "onboarding.next": "ಮುಂದೆ",
-  "onboarding.back": "ಹಿಂದೆ"
+  "onboarding.back": "ಹಿಂದೆ",
+  "settings.title": "ಡಾನ್‌ಲಿಸ್ಟ್ — ಸೆಟ್ಟಿಂಗ್‌ಗಳು",
+  "settings.key_heading": "ನಿಮ್ಮ Anthropic ಕೀ",
+  "settings.key_body": "ಡಾನ್‌ಲಿಸ್ಟ್ ಉದ್ಯೋಗ ಪೋಸ್ಟಿಂಗ್‌ಗಳನ್ನು ಓದುತ್ತದೆ ಮತ್ತು ನಿಮ್ಮ ಸಂದೇಶಗಳನ್ನು Anthropic ಮಾದರಿಗಳನ್ನು ಬಳಸಿ ನಿಮ್ಮ ಸ್ವಂತ ಖಾತೆಯಲ್ಲಿ ರಚಿಸುತ್ತದೆ. console.anthropic.com ನಲ್ಲಿ ಕೀ ರಚಿಸಿ ಮತ್ತು ಇಲ್ಲಿ ಅಂಟಿಸಿ. ನೀವು ಯಾವುದೇ ಸಮಯದಲ್ಲಿ ಅದನ್ನು ರದ್ದುಗೊಳಿಸಬಹುದು, ಮತ್ತು ಡಾನ್‌ಲಿಸ್ಟ್ ಅದನ್ನು ನಿಮ್ಮ ಆಪರೇಟಿಂಗ್ ಸಿಸ್ಟಂನ ಕ್ರೆಡೆನ್ಷಿಯಲ್ ಮ್ಯಾನೇಜರ್‌ನಲ್ಲಿ ಸಂಗ್ರಹಿಸುತ್ತದೆ — ಎಂದಿಗೂ ಫೈಲ್‌ನಲ್ಲಿ ಅಲ್ಲ.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "ಉಳಿಸಿ ಮತ್ತು ಪರಿಶೀಲಿಸಿ",
+  "settings.key_checking": "Anthropic ನೊಂದಿಗೆ ಕೀ ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ…",
+  "settings.key_stored": "ಸಂಗ್ರಹಿಸಲಾಗಿದೆ: {key}",
+  "settings.key_none": "ಇನ್ನೂ ಯಾವುದೇ ಕೀ ಸಂಗ್ರಹಿಸಿಲ್ಲ — ಕೀ ಇಲ್ಲದೆ ಡಾನ್‌ಲಿಸ್ಟ್ ಚಲಿಸಲಾರದು.",
+  "settings.licence_heading": "ನಿಮ್ಮ ಲೈಸೆನ್ಸ್",
+  "settings.licence_body": "ನಿಮ್ಮ ಖರೀದಿ ಇಮೇಲ್‌ನಿಂದ ಲೈಸೆನ್ಸ್ ಕೀಯನ್ನು ಅಂಟಿಸಿ. ಬದಲಿಗೆ ನಿಮಗೆ ಓವರ್‌ರೈಡ್ ಕೋಡ್ ನೀಡಲಾಗಿದ್ದರೆ, ಅದನ್ನು ಅಂಟಿಸಿ — ಡಾನ್‌ಲಿಸ್ಟ್ ಅದನ್ನು ಲೈಸೆನ್ಸ್‌ಗೆ ವಿನಿಮಯ ಮಾಡಿಕೊಳ್ಳುತ್ತದೆ.",
+  "settings.licence_placeholder": "DAWN-… ಅಥವಾ ಓವರ್‌ರೈಡ್ ಕೋಡ್",
+  "settings.licence_save": "ಉಳಿಸಿ",
+  "settings.licence_checking": "ಪರಿಶೀಲಿಸಲಾಗುತ್ತಿದೆ…",
+  "settings.licence_stored": "ಸಂಗ್ರಹಿಸಲಾಗಿದೆ: {key}",
+  "settings.licence_none": "ಇನ್ನೂ ಯಾವುದೇ ಲೈಸೆನ್ಸ್ ಸಂಗ್ರಹಿಸಿಲ್ಲ.",
+  "settings.licence_saved": "ಲೈಸೆನ್ಸ್ ಉಳಿಸಲಾಗಿದೆ.",
+  "settings.code_redeemed": "ಕೋಡ್ ಸ್ವೀಕರಿಸಲಾಗಿದೆ — ನಿಮ್ಮ ಲೈಸೆನ್ಸ್ ಉಳಿಸಲಾಗಿದೆ."
 }

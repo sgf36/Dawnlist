@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "tidak sesuai",
   "onboarding.title": "Dawnlist — persediaan",
   "onboarding.next": "Seterusnya",
-  "onboarding.back": "Kembali"
+  "onboarding.back": "Kembali",
+  "settings.title": "Dawnlist — tetapan",
+  "settings.key_heading": "Kunci Anthropic anda",
+  "settings.key_body": "Dawnlist membaca iklan pekerjaan dan merangka mesej anda menggunakan model Anthropic, di bawah akaun anda sendiri. Cipta kunci di console.anthropic.com dan tampalkannya di sini. Anda boleh membatalkannya pada bila-bila masa, dan Dawnlist menyimpannya dalam pengurus kelayakan sistem pengendalian anda — tidak sekali-kali dalam fail.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Simpan dan semak",
+  "settings.key_checking": "Menyemak kunci dengan Anthropic…",
+  "settings.key_stored": "Disimpan: {key}",
+  "settings.key_none": "Belum ada kunci disimpan — Dawnlist tidak dapat berfungsi tanpanya.",
+  "settings.licence_heading": "Lesen anda",
+  "settings.licence_body": "Tampalkan kunci lesen daripada e-mel pembelian anda. Jika anda diberikan kod ganti sebagai gantinya, tampalkan kod tersebut — Dawnlist akan menukarkannya kepada lesen.",
+  "settings.licence_placeholder": "DAWN-… atau kod ganti",
+  "settings.licence_save": "Simpan",
+  "settings.licence_checking": "Menyemak…",
+  "settings.licence_stored": "Disimpan: {key}",
+  "settings.licence_none": "Belum ada lesen disimpan.",
+  "settings.licence_saved": "Lesen disimpan.",
+  "settings.code_redeemed": "Kod diterima — lesen anda telah disimpan."
 }

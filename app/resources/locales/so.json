@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "kuma habboona",
   "onboarding.title": "Dawnlist — habaynta",
   "onboarding.next": "Xiga",
-  "onboarding.back": "Dib u noqo"
+  "onboarding.back": "Dib u noqo",
+  "settings.title": "Dawnlist — dejinta",
+  "settings.key_heading": "Furahaaga Anthropic",
+  "settings.key_body": "Dawnlist wuxuu akhriyaa dhaqdhaqaaqyada shaqada oo qoraa fariimahaaga isagoo isticmaalaya moodelada Anthropic, iyadoo lagu shaqaynayo akoonkaaga gaarka ah. Samee furaha console.anthropic.com kadibna ku dhex qor halkan. Waad ka baabi'in kartaa wakhti kasta, Dawnlist-na wuxuu ku kaydiyaa maareeyaha xogta aqoonsiga ee nidaamkaaga hawlgalka — marnaba fayl kuma kaydiyo.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Kaydi oo hubi",
+  "settings.key_checking": "Furaha ayaa lagu hubinayaa Anthropic…",
+  "settings.key_stored": "La kaydiyay: {key}",
+  "settings.key_none": "Weli ma jiro furaha la kaydiyay — Dawnlist ma shaqayn karo iyada la'aanteed.",
+  "settings.licence_heading": "Shatigaaga",
+  "settings.licence_body": "Ku dhex qor furaha shatiga ee ku yimid emailkaaga iibsiga. Haddii lagu siiyay xeer sokeeye (override code) halkii shati, sidaas ku dhex qor — Dawnlist ayaa ku badali doona shati.",
+  "settings.licence_placeholder": "DAWN-… ama xeer sokeeye",
+  "settings.licence_save": "Kaydi",
+  "settings.licence_checking": "Waa la hubinayaa…",
+  "settings.licence_stored": "La kaydiyay: {key}",
+  "settings.licence_none": "Weli ma jiro shati la kaydiyay.",
+  "settings.licence_saved": "Shatiga waa la kaydiyay.",
+  "settings.code_redeemed": "Xeerka waa la aqbalay — shatigaaga waa la kaydiyay."
 }

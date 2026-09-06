@@ -1,7 +1,7 @@
 # Build status
 
 **Repo:** `C:\Users\SpencerFields\dawnlist`, deliberately **off OneDrive** per handoff Part 9.
-**Tests:** 391 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
+**Tests:** 413 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
 **Last updated:** 2026-09-06 — P1 engine complete; a frozen build runs
 
 ## Done

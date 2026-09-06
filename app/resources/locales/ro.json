@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "nu se potrivește",
   "onboarding.title": "Dawnlist — configurare",
   "onboarding.next": "Următorul",
-  "onboarding.back": "Înapoi"
+  "onboarding.back": "Înapoi",
+  "settings.title": "Dawnlist — setări",
+  "settings.key_heading": "Cheia dumneavoastră Anthropic",
+  "settings.key_body": "Dawnlist citește anunțurile de angajare și redactează mesajele dumneavoastră folosind modelele Anthropic, pe propriul dumneavoastră cont. Creați o cheie la console.anthropic.com și lipiți-o aici. O puteți revoca oricând, iar Dawnlist o stochează în managerul de acreditări al sistemului de operare — niciodată într-un fișier.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Salvează și verifică",
+  "settings.key_checking": "Se verifică cheia cu Anthropic…",
+  "settings.key_stored": "Salvată: {key}",
+  "settings.key_none": "Nicio cheie salvată încă — Dawnlist nu poate funcționa fără una.",
+  "settings.licence_heading": "Licența dumneavoastră",
+  "settings.licence_body": "Lipiți cheia de licență din e-mailul de confirmare a achiziției. Dacă ați primit în schimb un cod de înlocuire, lipiți-l pe acela — Dawnlist îl va schimba pentru o licență.",
+  "settings.licence_placeholder": "DAWN-… sau un cod de înlocuire",
+  "settings.licence_save": "Salvează",
+  "settings.licence_checking": "Se verifică…",
+  "settings.licence_stored": "Salvată: {key}",
+  "settings.licence_none": "Nicio licență salvată încă.",
+  "settings.licence_saved": "Licență salvată.",
+  "settings.code_redeemed": "Cod acceptat — licența dumneavoastră a fost salvată."
 }

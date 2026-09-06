@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "ਢੁਕਵਾਂ ਨਹੀਂ",
   "onboarding.title": "Dawnlist — ਸੈੱਟਅੱਪ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ",
   "onboarding.next": "ਅੱਗੇ",
-  "onboarding.back": "ਪਿੱਛੇ"
+  "onboarding.back": "ਪਿੱਛੇ",
+  "settings.title": "Dawnlist — ਸੈਟਿੰਗਾਂ",
+  "settings.key_heading": "ਤੁਹਾਡੀ Anthropic ਕੁੰਜੀ",
+  "settings.key_body": "Dawnlist ਤੁਹਾਡੇ ਆਪਣੇ ਖਾਤੇ 'ਤੇ, Anthropic ਦੇ ਮਾਡਲਾਂ ਦੀ ਵਰਤੋਂ ਕਰਕੇ ਨੌਕਰੀ ਦੀਆਂ ਪੋਸਟਿੰਗਾਂ ਪੜ੍ਹਦਾ ਹੈ ਅਤੇ ਤੁਹਾਡੇ ਸੁਨੇਹੇ ਤਿਆਰ ਕਰਦਾ ਹੈ। console.anthropic.com 'ਤੇ ਇੱਕ ਕੁੰਜੀ ਬਣਾਓ ਅਤੇ ਇੱਥੇ ਪੇਸਟ ਕਰੋ। ਤੁਸੀਂ ਇਸਨੂੰ ਕਿਸੇ ਵੀ ਸਮੇਂ ਰੱਦ ਕਰ ਸਕਦੇ ਹੋ, ਅਤੇ Dawnlist ਇਸਨੂੰ ਤੁਹਾਡੇ ਓਪਰੇਟਿੰਗ ਸਿਸਟਮ ਦੇ ਕ੍ਰੈਡੈਂਸ਼ੀਅਲ ਮੈਨੇਜਰ ਵਿੱਚ ਸਟੋਰ ਕਰਦਾ ਹੈ — ਕਦੇ ਵੀ ਕਿਸੇ ਫਾਈਲ ਵਿੱਚ ਨਹੀਂ।",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "ਸੇਵ ਕਰੋ ਅਤੇ ਜਾਂਚੋ",
+  "settings.key_checking": "Anthropic ਨਾਲ ਕੁੰਜੀ ਦੀ ਜਾਂਚ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ…",
+  "settings.key_stored": "ਸਟੋਰ ਕੀਤੀ ਗਈ: {key}",
+  "settings.key_none": "ਹਾਲੇ ਤੱਕ ਕੋਈ ਕੁੰਜੀ ਸਟੋਰ ਨਹੀਂ ਕੀਤੀ ਗਈ — Dawnlist ਬਿਨਾਂ ਕਿਸੇ ਕੁੰਜੀ ਦੇ ਨਹੀਂ ਚੱਲ ਸਕਦਾ।",
+  "settings.licence_heading": "ਤੁਹਾਡਾ ਲਾਇਸੈਂਸ",
+  "settings.licence_body": "ਆਪਣੀ ਖਰੀਦ ਦੀ ਈਮੇਲ ਤੋਂ ਲਾਇਸੈਂਸ ਕੁੰਜੀ ਪੇਸਟ ਕਰੋ। ਜੇ ਤੁਹਾਨੂੰ ਇਸਦੀ ਬਜਾਏ ਇੱਕ ਓਵਰਰਾਈਡ ਕੋਡ ਦਿੱਤਾ ਗਿਆ ਸੀ, ਤਾਂ ਉਹ ਪੇਸਟ ਕਰੋ — Dawnlist ਇਸਨੂੰ ਲਾਇਸੈਂਸ ਨਾਲ ਬਦਲ ਦੇਵੇਗਾ।",
+  "settings.licence_placeholder": "DAWN-… ਜਾਂ ਇੱਕ ਓਵਰਰਾਈਡ ਕੋਡ",
+  "settings.licence_save": "ਸੇਵ ਕਰੋ",
+  "settings.licence_checking": "ਜਾਂਚ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ…",
+  "settings.licence_stored": "ਸਟੋਰ ਕੀਤੀ ਗਈ: {key}",
+  "settings.licence_none": "ਹਾਲੇ ਤੱਕ ਕੋਈ ਲਾਇਸੈਂਸ ਸਟੋਰ ਨਹੀਂ ਕੀਤਾ ਗਿਆ।",
+  "settings.licence_saved": "ਲਾਇਸੈਂਸ ਸੇਵ ਕੀਤਾ ਗਿਆ।",
+  "settings.code_redeemed": "ਕੋਡ ਸਵੀਕਾਰ ਕੀਤਾ ਗਿਆ — ਤੁਹਾਡਾ ਲਾਇਸੈਂਸ ਸੇਵ ਕਰ ਦਿੱਤਾ ਗਿਆ ਹੈ।"
 }

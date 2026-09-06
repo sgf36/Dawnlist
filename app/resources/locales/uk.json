@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "не підходить",
   "onboarding.title": "Dawnlist — налаштування",
   "onboarding.next": "Далі",
-  "onboarding.back": "Назад"
+  "onboarding.back": "Назад",
+  "settings.title": "Dawnlist — налаштування",
+  "settings.key_heading": "Ваш ключ Anthropic",
+  "settings.key_body": "Dawnlist читає вакансії та готує чернетки повідомлень за допомогою моделей Anthropic на вашому власному обліковому записі. Створіть ключ на console.anthropic.com і вставте його сюди. Ви можете відкликати його будь-коли, а Dawnlist зберігає його в менеджері облікових даних вашої операційної системи — ніколи у файлі.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Зберегти та перевірити",
+  "settings.key_checking": "Перевірка ключа в Anthropic…",
+  "settings.key_stored": "Збережено: {key}",
+  "settings.key_none": "Ключ ще не збережено — без нього Dawnlist не може працювати.",
+  "settings.licence_heading": "Ваша ліцензія",
+  "settings.licence_body": "Вставте ліцензійний ключ із листа про покупку. Якщо натомість вам надали код заміни, вставте його — Dawnlist обміняє його на ліцензію.",
+  "settings.licence_placeholder": "DAWN-… або код заміни",
+  "settings.licence_save": "Зберегти",
+  "settings.licence_checking": "Перевірка…",
+  "settings.licence_stored": "Збережено: {key}",
+  "settings.licence_none": "Ліцензію ще не збережено.",
+  "settings.licence_saved": "Ліцензію збережено.",
+  "settings.code_redeemed": "Код прийнято — вашу ліцензію збережено."
 }

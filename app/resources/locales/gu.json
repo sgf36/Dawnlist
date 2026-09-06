@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "મેળ ખાતું નથી",
   "onboarding.title": "Dawnlist — સેટઅપ થઈ રહ્યું છે",
   "onboarding.next": "આગળ",
-  "onboarding.back": "પાછળ"
+  "onboarding.back": "પાછળ",
+  "settings.title": "Dawnlist — સેટિંગ્સ",
+  "settings.key_heading": "તમારી Anthropic કી",
+  "settings.key_body": "Dawnlist તમારા પોતાના એકાઉન્ટ પર Anthropic ના મોડેલ્સનો ઉપયોગ કરીને જોબ પોસ્ટિંગ્સ વાંચે છે અને તમારા સંદેશાઓનો ડ્રાફ્ટ તૈયાર કરે છે. console.anthropic.com પર એક કી બનાવો અને તેને અહીં પેસ્ટ કરો. તમે તેને કોઈપણ સમયે રદ કરી શકો છો, અને Dawnlist તેને તમારી ઓપરેટિંગ સિસ્ટમના ક્રેડેન્શિયલ મેનેજરમાં સંગ્રહિત કરે છે — ક્યારેય ફાઇલમાં નહીં.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "સાચવો અને તપાસો",
+  "settings.key_checking": "Anthropic સાથે કી તપાસી રહ્યાં છીએ…",
+  "settings.key_stored": "સંગ્રહિત: {key}",
+  "settings.key_none": "હજુ સુધી કોઈ કી સંગ્રહિત નથી — તેના વગર Dawnlist ચાલી શકતું નથી.",
+  "settings.licence_heading": "તમારું લાઇસન્સ",
+  "settings.licence_body": "તમારા ખરીદી ઇમેઇલમાંથી લાઇસન્સ કી પેસ્ટ કરો. જો તમને તેના બદલે ઓવરરાઇડ કોડ આપવામાં આવ્યો હોય, તો તે પેસ્ટ કરો — Dawnlist તેને લાઇસન્સ સાથે બદલી નાખશે.",
+  "settings.licence_placeholder": "DAWN-… અથવા ઓવરરાઇડ કોડ",
+  "settings.licence_save": "સાચવો",
+  "settings.licence_checking": "તપાસી રહ્યાં છીએ…",
+  "settings.licence_stored": "સંગ્રહિત: {key}",
+  "settings.licence_none": "હજુ સુધી કોઈ લાઇસન્સ સંગ્રહિત નથી.",
+  "settings.licence_saved": "લાઇસન્સ સાચવ્યું.",
+  "settings.code_redeemed": "કોડ સ્વીકારાયો — તમારું લાઇસન્સ સાચવવામાં આવ્યું છે."
 }

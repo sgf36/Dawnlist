@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "não é adequado",
   "onboarding.title": "Dawnlist — configurando",
   "onboarding.next": "Avançar",
-  "onboarding.back": "Voltar"
+  "onboarding.back": "Voltar",
+  "settings.title": "Dawnlist — configurações",
+  "settings.key_heading": "A sua chave Anthropic",
+  "settings.key_body": "O Dawnlist lê anúncios de emprego e redige as suas mensagens utilizando os modelos da Anthropic, na sua própria conta. Crie uma chave em console.anthropic.com e cole-a aqui. Pode revogá-la a qualquer momento; o Dawnlist guarda-a no gestor de credenciais do seu sistema operativo — nunca num ficheiro.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Guardar e verificar",
+  "settings.key_checking": "A verificar a chave com a Anthropic…",
+  "settings.key_stored": "Guardada: {key}",
+  "settings.key_none": "Ainda não há chave guardada — o Dawnlist não pode funcionar sem uma.",
+  "settings.licence_heading": "A sua licença",
+  "settings.licence_body": "Cole a chave de licença do seu e-mail de compra. Se, em vez disso, lhe foi fornecido um código de substituição, cole-o aqui — o Dawnlist irá trocá-lo por uma licença.",
+  "settings.licence_placeholder": "DAWN-… ou um código de substituição",
+  "settings.licence_save": "Guardar",
+  "settings.licence_checking": "A verificar…",
+  "settings.licence_stored": "Guardada: {key}",
+  "settings.licence_none": "Ainda não há licença guardada.",
+  "settings.licence_saved": "Licença guardada.",
+  "settings.code_redeemed": "Código aceite — a sua licença foi guardada."
 }

@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "సరిపోదు",
   "onboarding.title": "Dawnlist — సెటప్ చేస్తోంది",
   "onboarding.next": "తదుపరి",
-  "onboarding.back": "వెనుకకు"
+  "onboarding.back": "వెనుకకు",
+  "settings.title": "Dawnlist — సెట్టింగ్‌లు",
+  "settings.key_heading": "మీ Anthropic కీ",
+  "settings.key_body": "Dawnlist ఉద్యోగ ప్రకటనలను చదివి, మీ స్వంత ఖాతాలో Anthropic మోడల్‌లను ఉపయోగించి మీ సందేశాలను రూపొందిస్తుంది. console.anthropic.com వద్ద ఒక కీని సృష్టించి ఇక్కడ అతికించండి. మీరు దీన్ని ఎప్పుడైనా రద్దు చేయవచ్చు, మరియు Dawnlist దీన్ని మీ ఆపరేటింగ్ సిస్టమ్ క్రెడెన్షియల్ మేనేజర్‌లో నిల్వ చేస్తుంది — ఏ ఫైల్‌లోనూ కాదు.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "సేవ్ చేసి తనిఖీ చేయండి",
+  "settings.key_checking": "Anthropic తో కీని తనిఖీ చేస్తోంది…",
+  "settings.key_stored": "నిల్వ చేయబడింది: {key}",
+  "settings.key_none": "ఇంకా కీ నిల్వ చేయలేదు — కీ లేకుండా Dawnlist పని చేయదు.",
+  "settings.licence_heading": "మీ లైసెన్స్",
+  "settings.licence_body": "మీ కొనుగోలు ఇమెయిల్ నుండి లైసెన్స్ కీని అతికించండి. బదులుగా మీకు ఓవర్‌రైడ్ కోడ్ ఇవ్వబడితే, దాన్ని అతికించండి — Dawnlist దాన్ని లైసెన్స్‌గా మార్చుకుంటుంది.",
+  "settings.licence_placeholder": "DAWN-… లేదా ఓవర్‌రైడ్ కోడ్",
+  "settings.licence_save": "సేవ్ చేయండి",
+  "settings.licence_checking": "తనిఖీ చేస్తోంది…",
+  "settings.licence_stored": "నిల్వ చేయబడింది: {key}",
+  "settings.licence_none": "ఇంకా లైసెన్స్ నిల్వ చేయలేదు.",
+  "settings.licence_saved": "లైసెన్స్ సేవ్ చేయబడింది.",
+  "settings.code_redeemed": "కోడ్ ఆమోదించబడింది — మీ లైసెన్స్ సేవ్ చేయబడింది."
 }

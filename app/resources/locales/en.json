@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "not a fit",
   "onboarding.title": "Dawnlist — setting up",
   "onboarding.next": "Next",
-  "onboarding.back": "Back"
+  "onboarding.back": "Back",
+  "settings.title": "Dawnlist — settings",
+  "settings.key_heading": "Your Anthropic key",
+  "settings.key_body": "Dawnlist reads job postings and drafts your messages using Anthropic's models, on your own account. Create a key at console.anthropic.com and paste it here. You can revoke it at any time, and Dawnlist stores it in your operating system's credential manager — never in a file.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Save and check",
+  "settings.key_checking": "Checking the key with Anthropic…",
+  "settings.key_stored": "Stored: {key}",
+  "settings.key_none": "No key stored yet — Dawnlist cannot run without one.",
+  "settings.licence_heading": "Your licence",
+  "settings.licence_body": "Paste the licence key from your purchase email. If you were given an override code instead, paste that — Dawnlist will exchange it for a licence.",
+  "settings.licence_placeholder": "DAWN-… or an override code",
+  "settings.licence_save": "Save",
+  "settings.licence_checking": "Checking…",
+  "settings.licence_stored": "Stored: {key}",
+  "settings.licence_none": "No licence stored yet.",
+  "settings.licence_saved": "Licence saved.",
+  "settings.code_redeemed": "Code accepted — your licence is saved."
 }

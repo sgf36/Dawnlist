@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "no encaja",
   "onboarding.title": "Dawnlist — configuración",
   "onboarding.next": "Siguiente",
-  "onboarding.back": "Atrás"
+  "onboarding.back": "Atrás",
+  "settings.title": "Dawnlist — configuración",
+  "settings.key_heading": "Tu clave de Anthropic",
+  "settings.key_body": "Dawnlist lee las ofertas de empleo y redacta tus mensajes utilizando los modelos de Anthropic, con tu propia cuenta. Crea una clave en console.anthropic.com y pégala aquí. Puedes revocarla en cualquier momento; Dawnlist la guarda en el administrador de credenciales de tu sistema operativo, nunca en un archivo.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Guardar y comprobar",
+  "settings.key_checking": "Comprobando la clave con Anthropic…",
+  "settings.key_stored": "Guardada: {key}",
+  "settings.key_none": "Aún no se ha guardado ninguna clave; Dawnlist no puede funcionar sin una.",
+  "settings.licence_heading": "Tu licencia",
+  "settings.licence_body": "Pega la clave de licencia del correo de tu compra. Si en su lugar recibiste un código de anulación, pégalo aquí — Dawnlist lo canjeará por una licencia.",
+  "settings.licence_placeholder": "DAWN-… o un código de anulación",
+  "settings.licence_save": "Guardar",
+  "settings.licence_checking": "Comprobando…",
+  "settings.licence_stored": "Guardada: {key}",
+  "settings.licence_none": "Aún no se ha guardado ninguna licencia.",
+  "settings.licence_saved": "Licencia guardada.",
+  "settings.code_redeemed": "Código aceptado — tu licencia se ha guardado."
 }

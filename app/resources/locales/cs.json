@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "nevhodné",
   "onboarding.title": "Dawnlist — nastavení",
   "onboarding.next": "Další",
-  "onboarding.back": "Zpět"
+  "onboarding.back": "Zpět",
+  "settings.title": "Dawnlist — nastavení",
+  "settings.key_heading": "Váš klíč Anthropic",
+  "settings.key_body": "Dawnlist čte pracovní nabídky a vytváří návrhy vašich zpráv pomocí modelů Anthropic, a to na vašem vlastním účtu. Vytvořte si klíč na console.anthropic.com a vložte jej sem. Kdykoli jej můžete odvolat a Dawnlist jej ukládá do správce přihlašovacích údajů vašeho operačního systému — nikdy do souboru.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Uložit a ověřit",
+  "settings.key_checking": "Ověřování klíče u Anthropic…",
+  "settings.key_stored": "Uloženo: {key}",
+  "settings.key_none": "Zatím není uložen žádný klíč — bez něj Dawnlist nemůže fungovat.",
+  "settings.licence_heading": "Vaše licence",
+  "settings.licence_body": "Vložte licenční klíč z e-mailu potvrzujícího nákup. Pokud jste místo toho obdrželi náhradní kód, vložte jej — Dawnlist jej vymění za licenci.",
+  "settings.licence_placeholder": "DAWN-… nebo náhradní kód",
+  "settings.licence_save": "Uložit",
+  "settings.licence_checking": "Ověřování…",
+  "settings.licence_stored": "Uloženo: {key}",
+  "settings.licence_none": "Zatím není uložena žádná licence.",
+  "settings.licence_saved": "Licence byla uložena.",
+  "settings.code_redeemed": "Kód byl přijat — vaše licence je uložena."
 }

@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "غیر موزوں",
   "onboarding.title": "ڈان لسٹ — ترتیب دی جا رہی ہے",
   "onboarding.next": "اگلا",
-  "onboarding.back": "پیچھے"
+  "onboarding.back": "پیچھے",
+  "settings.title": "Dawnlist — ترتیبات",
+  "settings.key_heading": "آپ کی Anthropic کلید",
+  "settings.key_body": "Dawnlist آپ کے اپنے اکاؤنٹ پر Anthropic کے ماڈلز استعمال کرتے ہوئے ملازمت کی اسامیاں پڑھتا ہے اور آپ کے پیغامات کا مسودہ تیار کرتا ہے۔ console.anthropic.com پر جا کر ایک کلید بنائیں اور اسے یہاں چسپاں کریں۔ آپ اسے کسی بھی وقت منسوخ کر سکتے ہیں، اور Dawnlist اسے آپ کے آپریٹنگ سسٹم کے کریڈینشل مینیجر میں محفوظ کرتا ہے — کبھی کسی فائل میں نہیں۔",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "محفوظ کریں اور جانچیں",
+  "settings.key_checking": "Anthropic کے ساتھ کلید کی جانچ ہو رہی ہے…",
+  "settings.key_stored": "محفوظ شدہ: {key}",
+  "settings.key_none": "ابھی تک کوئی کلید محفوظ نہیں — Dawnlist اس کے بغیر نہیں چل سکتا۔",
+  "settings.licence_heading": "آپ کا لائسنس",
+  "settings.licence_body": "اپنی خریداری کی ای میل سے لائسنس کلید چسپاں کریں۔ اگر آپ کو اس کے بجائے اوور رائیڈ کوڈ دیا گیا تھا، تو وہ چسپاں کریں — Dawnlist اسے لائسنس کے بدلے تبدیل کر دے گا۔",
+  "settings.licence_placeholder": "DAWN-… یا ایک اوور رائیڈ کوڈ",
+  "settings.licence_save": "محفوظ کریں",
+  "settings.licence_checking": "جانچ ہو رہی ہے…",
+  "settings.licence_stored": "محفوظ شدہ: {key}",
+  "settings.licence_none": "ابھی تک کوئی لائسنس محفوظ نہیں۔",
+  "settings.licence_saved": "لائسنس محفوظ ہو گیا۔",
+  "settings.code_redeemed": "کوڈ قبول کر لیا گیا — آپ کا لائسنس محفوظ ہو گیا۔"
 }

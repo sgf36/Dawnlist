@@ -479,8 +479,15 @@ class OnboardingWizard(QWidget):
 
         self.stack = QStackedWidget()
         self.ingest = IngestPage()
+        # The key step sits BETWEEN ingest and calibration, because calibration
+        # fetches live postings and assesses them — it is the first thing that
+        # actually spends the user's money, so they must have supplied the key
+        # before they reach it.
+        from app.ui.settings import KeyPanel
+        self.keys = KeyPanel()
         self.calibration = CalibrationPage()
         self.stack.addWidget(self.ingest)
+        self.stack.addWidget(self.keys)
         self.stack.addWidget(self.calibration)
         layout.addWidget(self.stack, 1)
 
@@ -500,10 +507,15 @@ class OnboardingWizard(QWidget):
         self.setStyleSheet(ONBOARDING_STYLESHEET)
 
         self.ingest.files_added.connect(self._on_files)
+        self.keys.key_changed.connect(self._on_key)
         self.btn_next.clicked.connect(self._next)
         self.btn_back.clicked.connect(self._back)
         self.calibration.finished.connect(self._finish)
         self._show_step(0)
+
+    def _on_key(self, present: bool) -> None:
+        if self.stack.currentIndex() == 1:
+            self.btn_next.setEnabled(present)
 
     def _on_files(self, paths) -> None:
         names, warnings = self._extract(paths)
@@ -519,12 +531,20 @@ class OnboardingWizard(QWidget):
         # The gate has its own Finish button, so the wizard's Next is hidden
         # there — two buttons that mean different things is how people click
         # the wrong one.
-        self.btn_next.setVisible(index == 0)
+        self.btn_next.setVisible(index < 2)
+        if index == 1:
+            # Cannot leave the key step without a key: the next screen spends
+            # money on the user's account, and an app with no key is inert.
+            from app.core import api_key
+            self.btn_next.setEnabled(bool(api_key.get()))
 
     def _next(self) -> None:
-        if self.stack.currentIndex() == 0:
-            self.calibration.load(self._sample())
+        index = self.stack.currentIndex()
+        if index == 0:
             self._show_step(1)
+        elif index == 1:
+            self.calibration.load(self._sample())
+            self._show_step(2)
 
     def _back(self) -> None:
         self._show_step(max(0, self.stack.currentIndex() - 1))

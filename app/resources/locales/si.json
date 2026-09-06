@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "ගැලපෙන්නේ නැත",
   "onboarding.title": "ඩෝන්ලිස්ට් — සකසමින්",
   "onboarding.next": "ඊළඟට",
-  "onboarding.back": "ආපසු"
+  "onboarding.back": "ආපසු",
+  "settings.title": "ඩෝන්ලිස්ට් — සැකසුම්",
+  "settings.key_heading": "ඔබේ Anthropic යතුර",
+  "settings.key_body": "ඩෝන්ලිස්ට් ඔබගේම ගිණුම භාවිතයෙන් Anthropic ආකෘති උපයෝගී කරගනිමින් රැකියා දැන්වීම් කියවා ඔබගේ පණිවිඩ කෙටුම්පත් කරයි. console.anthropic.com වෙබ් අඩවියේ යතුරක් සාදා එය මෙහි අලවන්න. ඔබට එය ඕනෑම මොහොතක අවලංගු කළ හැකි අතර, ඩෝන්ලිස්ට් එය ගබඩා කරන්නේ ඔබගේ මෙහෙයුම් පද්ධතියේ අක්තපත්‍ර කළමනාකරු තුළ පමණි — කිසි විටෙකත් ගොනුවක නොවේ.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "සුරකින්න සහ පරීක්ෂා කරන්න",
+  "settings.key_checking": "Anthropic සමඟ යතුර පරීක්ෂා කරමින්…",
+  "settings.key_stored": "ගබඩා කර ඇත: {key}",
+  "settings.key_none": "තවම යතුරක් ගබඩා කර නැත — යතුරක් නොමැතිව ඩෝන්ලිස්ට් ක්‍රියාත්මක විය නොහැක.",
+  "settings.licence_heading": "ඔබේ බලපත්‍රය",
+  "settings.licence_body": "ඔබගේ මිලදී ගැනීමේ විද්‍යුත් තැපෑලෙන් ලද බලපත්‍ර යතුර අලවන්න. ඒ වෙනුවට යටිකුරු කේතයක් ලබා දී ඇත්නම්, එය අලවන්න — ඩෝන්ලිස්ට් එය බලපත්‍රයක් සඳහා හුවමාරු කරගනු ඇත.",
+  "settings.licence_placeholder": "DAWN-… හෝ යටිකුරු කේතයක්",
+  "settings.licence_save": "සුරකින්න",
+  "settings.licence_checking": "පරීක්ෂා කරමින්…",
+  "settings.licence_stored": "ගබඩා කර ඇත: {key}",
+  "settings.licence_none": "තවම බලපත්‍රයක් ගබඩා කර නැත.",
+  "settings.licence_saved": "බලපත්‍රය සුරකින ලදී.",
+  "settings.code_redeemed": "කේතය පිළිගන්නා ලදී — ඔබේ බලපත්‍රය සුරකින ලදී."
 }

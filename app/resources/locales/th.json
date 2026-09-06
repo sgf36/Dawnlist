@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "ไม่เหมาะสม",
   "onboarding.title": "ดอว์นลิสต์ — กำลังตั้งค่า",
   "onboarding.next": "ถัดไป",
-  "onboarding.back": "ย้อนกลับ"
+  "onboarding.back": "ย้อนกลับ",
+  "settings.title": "Dawnlist — การตั้งค่า",
+  "settings.key_heading": "คีย์ Anthropic ของคุณ",
+  "settings.key_body": "Dawnlist อ่านประกาศงานและร่างข้อความของคุณโดยใช้โมเดลของ Anthropic ผ่านบัญชีของคุณเอง สร้างคีย์ได้ที่ console.anthropic.com แล้ววางที่นี่ คุณสามารถเพิกถอนได้ทุกเมื่อ และ Dawnlist จะจัดเก็บคีย์นี้ไว้ในตัวจัดการข้อมูลรับรองของระบบปฏิบัติการของคุณ — ไม่เก็บไว้ในไฟล์ใด ๆ ทั้งสิ้น",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "บันทึกและตรวจสอบ",
+  "settings.key_checking": "กำลังตรวจสอบคีย์กับ Anthropic…",
+  "settings.key_stored": "จัดเก็บแล้ว: {key}",
+  "settings.key_none": "ยังไม่มีคีย์ที่จัดเก็บไว้ — Dawnlist ไม่สามารถทำงานได้หากไม่มีคีย์นี้",
+  "settings.licence_heading": "ใบอนุญาตของคุณ",
+  "settings.licence_body": "วางคีย์ใบอนุญาตจากอีเมลการสั่งซื้อของคุณ หากคุณได้รับรหัสแทนที่ (override code) แทน ให้วางรหัสนั้น — Dawnlist จะแลกเปลี่ยนให้เป็นใบอนุญาต",
+  "settings.licence_placeholder": "DAWN-… หรือรหัสแทนที่",
+  "settings.licence_save": "บันทึก",
+  "settings.licence_checking": "กำลังตรวจสอบ…",
+  "settings.licence_stored": "จัดเก็บแล้ว: {key}",
+  "settings.licence_none": "ยังไม่มีใบอนุญาตที่จัดเก็บไว้",
+  "settings.licence_saved": "บันทึกใบอนุญาตแล้ว",
+  "settings.code_redeemed": "ยอมรับรหัสแล้ว — บันทึกใบอนุญาตของคุณเรียบร้อยแล้ว"
 }

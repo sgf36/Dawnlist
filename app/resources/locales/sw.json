@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "haifai",
   "onboarding.title": "Dawnlist — inasanidiwa",
   "onboarding.next": "Endelea",
-  "onboarding.back": "Rudi"
+  "onboarding.back": "Rudi",
+  "settings.title": "Dawnlist — mipangilio",
+  "settings.key_heading": "Ufunguo wako wa Anthropic",
+  "settings.key_body": "Dawnlist husoma matangazo ya kazi na kuandaa rasimu za ujumbe wako kwa kutumia miundo ya Anthropic, kwenye akaunti yako mwenyewe. Tengeneza ufunguo katika console.anthropic.com kisha uubandike hapa. Unaweza kuubatilisha wakati wowote, na Dawnlist huuhifadhi kwenye kidhibiti cha vitambulisho cha mfumo wako wa uendeshaji — kamwe si kwenye faili.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Hifadhi na kagua",
+  "settings.key_checking": "Inakagua ufunguo na Anthropic…",
+  "settings.key_stored": "Umehifadhiwa: {key}",
+  "settings.key_none": "Hakuna ufunguo uliohifadhiwa bado — Dawnlist haiwezi kufanya kazi bila ufunguo.",
+  "settings.licence_heading": "Leseni yako",
+  "settings.licence_body": "Bandika ufunguo wa leseni kutoka barua pepe ya ununuzi wako. Iwapo ulipewa msimbo wa kubatilisha badala yake, bandika huo — Dawnlist itaubadilisha kuwa leseni.",
+  "settings.licence_placeholder": "DAWN-… au msimbo wa kubatilisha",
+  "settings.licence_save": "Hifadhi",
+  "settings.licence_checking": "Inakagua…",
+  "settings.licence_stored": "Umehifadhiwa: {key}",
+  "settings.licence_none": "Hakuna leseni iliyohifadhiwa bado.",
+  "settings.licence_saved": "Leseni imehifadhiwa.",
+  "settings.code_redeemed": "Msimbo umekubaliwa — leseni yako imehifadhiwa."
 }

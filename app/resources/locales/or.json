@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "ଉପଯୁକ୍ତ ନୁହେଁ",
   "onboarding.title": "ଡନଲିଷ୍ଟ — ସେଟଅପ୍ ହେଉଛି",
   "onboarding.next": "ପରବର୍ତ୍ତୀ",
-  "onboarding.back": "ପଛକୁ"
+  "onboarding.back": "ପଛକୁ",
+  "settings.title": "ଡନଲିଷ୍ଟ — ସେଟିଂସ୍",
+  "settings.key_heading": "ଆପଣଙ୍କ Anthropic କୀ",
+  "settings.key_body": "ଡନଲିଷ୍ଟ ଆପଣଙ୍କ ନିଜ ଆକାଉଣ୍ଟରେ Anthropicର ମଡେଲ୍ ବ୍ୟବହାର କରି ଚାକିରି ପୋଷ୍ଟିଂଗୁଡିକ ପଢ଼ିଥାଏ ଏବଂ ଆପଣଙ୍କ ମେସେଜ୍ ଡ୍ରାଫ୍ଟ କରିଥାଏ। console.anthropic.comରେ ଏକ କୀ ତିଆରି କରି ଏଠାରେ ପେଷ୍ଟ କରନ୍ତୁ। ଆପଣ ଯେକୌଣସି ସମୟରେ ଏହାକୁ ବାତିଲ୍ କରିପାରିବେ, ଏବଂ ଡନଲିଷ୍ଟ ଏହାକୁ ଆପଣଙ୍କ ଅପରେଟିଂ ସିଷ୍ଟମର କ୍ରେଡେନ୍ସିଆଲ୍ ମ୍ୟାନେଜରରେ ସଂରକ୍ଷଣ କରିଥାଏ — କେବେହେଲେ ଏକ ଫାଇଲରେ ନୁହେଁ।",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "ସେଭ୍ କରନ୍ତୁ ଏବଂ ଯାଞ୍ଚ କରନ୍ତୁ",
+  "settings.key_checking": "Anthropic ସହିତ କୀ ଯାଞ୍ଚ ହେଉଛି…",
+  "settings.key_stored": "ସଂରକ୍ଷିତ: {key}",
+  "settings.key_none": "ଏପର୍ଯ୍ୟନ୍ତ କୌଣସି କୀ ସଂରକ୍ଷିତ ନାହିଁ — ଏହା ବିନା ଡନଲିଷ୍ଟ ଚାଲିପାରିବ ନାହିଁ।",
+  "settings.licence_heading": "ଆପଣଙ୍କ ଲାଇସେନ୍ସ",
+  "settings.licence_body": "ଆପଣଙ୍କ କ୍ରୟ ଇମେଲରୁ ଲାଇସେନ୍ସ କୀ ପେଷ୍ଟ କରନ୍ତୁ। ଯଦି ଆପଣଙ୍କୁ ପରିବର୍ତ୍ତେ ଏକ ଓଭରାଇଡ୍ କୋଡ୍ ଦିଆଯାଇଛି, ତାହା ପେଷ୍ଟ କରନ୍ତୁ — ଡନଲିଷ୍ଟ ଏହାକୁ ଏକ ଲାଇସେନ୍ସ ସହିତ ବଦଳାଇବ।",
+  "settings.licence_placeholder": "DAWN-… କିମ୍ବା ଏକ ଓଭରାଇଡ୍ କୋଡ୍",
+  "settings.licence_save": "ସେଭ୍ କରନ୍ତୁ",
+  "settings.licence_checking": "ଯାଞ୍ଚ ହେଉଛି…",
+  "settings.licence_stored": "ସଂରକ୍ଷିତ: {key}",
+  "settings.licence_none": "ଏପର୍ଯ୍ୟନ୍ତ କୌଣସି ଲାଇସେନ୍ସ ସଂରକ୍ଷିତ ନାହିଁ।",
+  "settings.licence_saved": "ଲାଇସେନ୍ସ ସେଭ୍ ହୋଇଗଲା।",
+  "settings.code_redeemed": "କୋଡ୍ ଗ୍ରହଣ କରାଗଲା — ଆପଣଙ୍କ ଲାଇସେନ୍ସ ସେଭ୍ ହୋଇଗଲା।"
 }

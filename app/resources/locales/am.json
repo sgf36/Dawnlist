@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "ተስማሚ አይደለም",
   "onboarding.title": "ዳውንሊስት — በማዋቀር ላይ",
   "onboarding.next": "ቀጣይ",
-  "onboarding.back": "ተመለስ"
+  "onboarding.back": "ተመለስ",
+  "settings.title": "ዳውንሊስት — ቅንብሮች",
+  "settings.key_heading": "የእርስዎ Anthropic ቁልፍ",
+  "settings.key_body": "ዳውንሊስት የስራ ማስታወቂያዎችን በማንበብ፣ በእርስዎ የራስዎ መለያ በመጠቀም በAnthropic ሞዴሎች አማካኝነት መልዕክቶችዎን ያረቀቃል። ቁልፍ ለመፍጠር console.anthropic.com ይጎብኙና እዚህ ይለጥፉት። በማንኛውም ጊዜ ሊሰርዙት ይችላሉ፤ ዳውንሊስት ደግሞ በስርዓተ ክወናዎ credential manager ውስጥ ያከማቻል — በፋይል ውስጥ በፍጹም አያስቀምጥም።",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "አስቀምጥና አረጋግጥ",
+  "settings.key_checking": "ቁልፉን ከAnthropic ጋር በማረጋገጥ ላይ…",
+  "settings.key_stored": "የተቀመጠ፦ {key}",
+  "settings.key_none": "እስካሁን ምንም ቁልፍ አልተቀመጠም — ያለ ቁልፍ ዳውንሊስት መስራት አይችልም።",
+  "settings.licence_heading": "የእርስዎ ፈቃድ",
+  "settings.licence_body": "ከግዢዎ ኢሜይል የፈቃድ ቁልፉን ይለጥፉ። በምትኩ የመተኪያ ኮድ ከተሰጠዎት፣ እሱን ይለጥፉ — ዳውንሊስት ለፈቃድ ይለውጠዋል።",
+  "settings.licence_placeholder": "DAWN-… ወይም የመተኪያ ኮድ",
+  "settings.licence_save": "አስቀምጥ",
+  "settings.licence_checking": "በማረጋገጥ ላይ…",
+  "settings.licence_stored": "የተቀመጠ፦ {key}",
+  "settings.licence_none": "እስካሁን ምንም ፈቃድ አልተቀመጠም።",
+  "settings.licence_saved": "ፈቃድ ተቀምጧል።",
+  "settings.code_redeemed": "ኮድ ተቀባይነት አግኝቷል — ፈቃድዎ ተቀምጧል።"
 }

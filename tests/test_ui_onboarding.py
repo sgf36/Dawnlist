@@ -221,3 +221,40 @@ def test_the_app_verdict_has_its_own_vocabulary(page):
     assert verdict_label("rejected") == "Not for me"
     assert app_verdict_label("rejected") == "not a fit"
     assert app_verdict_label("strong") == "a strong fit"
+
+
+# -- the key step -----------------------------------------------------------
+def test_onboarding_has_a_key_step_before_calibration(qapp, monkeypatch):
+    """Calibration fetches live postings and assesses them — the first thing
+    that spends the user's money. They must have supplied a key first."""
+    from app.core import api_key
+    from app.ui.onboarding import OnboardingWizard
+    from app.ui.settings import KeyPanel
+
+    monkeypatch.setattr(api_key, "get", lambda: None)
+    w = OnboardingWizard(extract=lambda p: ([], []), sample=lambda: items(1))
+    assert w.stack.count() == 3
+    assert isinstance(w.stack.widget(1), KeyPanel)
+    w.close()
+
+
+def test_next_is_disabled_on_the_key_step_without_a_key(qapp, monkeypatch):
+    from app.core import api_key
+    from app.ui.onboarding import OnboardingWizard
+
+    monkeypatch.setattr(api_key, "get", lambda: None)
+    w = OnboardingWizard(extract=lambda p: (["cv.docx"], []), sample=lambda: items(1))
+    w._show_step(1)
+    assert not w.btn_next.isEnabled(), "an app with no key is inert"
+    w.close()
+
+
+def test_next_is_enabled_once_a_key_is_present(qapp, monkeypatch):
+    from app.core import api_key
+    from app.ui.onboarding import OnboardingWizard
+
+    monkeypatch.setattr(api_key, "get", lambda: "sk-ant-stored")
+    w = OnboardingWizard(extract=lambda p: (["cv.docx"], []), sample=lambda: items(1))
+    w._show_step(1)
+    assert w.btn_next.isEnabled()
+    w.close()

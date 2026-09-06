@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "မသင့်လျော်ပါ",
   "onboarding.title": "Dawnlist — စနစ်ထည့်သွင်းနေသည်",
   "onboarding.next": "ရှေ့သို့",
-  "onboarding.back": "နောက်သို့"
+  "onboarding.back": "နောက်သို့",
+  "settings.title": "Dawnlist — ဆက်တင်များ",
+  "settings.key_heading": "သင့် Anthropic key",
+  "settings.key_body": "Dawnlist သည် သင့်ကိုယ်ပိုင်အကောင့်ဖြင့် Anthropic ၏ မော်ဒယ်များကို အသုံးပြု၍ အလုပ်ကြေညာချက်များကို ဖတ်ရှုပြီး သင့်စာများကို ရေးဆွဲပေးပါသည်။ console.anthropic.com တွင် key တစ်ခု ဖန်တီးပြီး ဤနေရာတွင် ကူးထည့်ပါ။ ၎င်းကို အချိန်မရွေး ပြန်လည်ရုပ်သိမ်းနိုင်ပြီး Dawnlist က သင့် operating system ၏ credential manager တွင် သိမ်းဆည်းထားမည်ဖြစ်သည် — ဖိုင်တွင် အလျှင်း မသိမ်းပါ။",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "သိမ်းဆည်းပြီး စစ်ဆေးပါ",
+  "settings.key_checking": "Anthropic ဖြင့် key ကို စစ်ဆေးနေသည်…",
+  "settings.key_stored": "သိမ်းဆည်းထားသည်: {key}",
+  "settings.key_none": "key မသိမ်းရသေးပါ — Dawnlist ကို key မရှိဘဲ အသုံးပြု၍မရပါ။",
+  "settings.licence_heading": "သင့်လိုင်စင်",
+  "settings.licence_body": "သင့်ဝယ်ယူမှု အီးမေးလ်မှ လိုင်စင် key ကို ကူးထည့်ပါ။ override code ကို အစားထိုးရရှိထားပါက ၎င်းကို ကူးထည့်ပါ — Dawnlist က ၎င်းကို လိုင်စင်နှင့် လဲလှယ်ပေးပါမည်။",
+  "settings.licence_placeholder": "DAWN-… သို့မဟုတ် override code",
+  "settings.licence_save": "သိမ်းဆည်းရန်",
+  "settings.licence_checking": "စစ်ဆေးနေသည်…",
+  "settings.licence_stored": "သိမ်းဆည်းထားသည်: {key}",
+  "settings.licence_none": "လိုင်စင် မသိမ်းရသေးပါ။",
+  "settings.licence_saved": "လိုင်စင် သိမ်းဆည်းပြီးပါပြီ။",
+  "settings.code_redeemed": "Code လက်ခံပြီး — သင့်လိုင်စင် သိမ်းဆည်းပြီးပါပြီ။"
 }

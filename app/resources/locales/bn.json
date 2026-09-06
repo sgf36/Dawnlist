@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "উপযুক্ত নয়",
   "onboarding.title": "ডনলিস্ট — সেটআপ চলছে",
   "onboarding.next": "পরবর্তী",
-  "onboarding.back": "পূর্ববর্তী"
+  "onboarding.back": "পূর্ববর্তী",
+  "settings.title": "Dawnlist — সেটিংস",
+  "settings.key_heading": "আপনার Anthropic কী",
+  "settings.key_body": "Dawnlist আপনার নিজের অ্যাকাউন্ট ব্যবহার করে Anthropic-এর মডেলের মাধ্যমে চাকরির বিজ্ঞাপন পড়ে এবং আপনার বার্তার খসড়া তৈরি করে। console.anthropic.com-এ একটি কী তৈরি করে এখানে পেস্ট করুন। আপনি যেকোনো সময় এটি বাতিল করতে পারেন, এবং Dawnlist এটি আপনার অপারেটিং সিস্টেমের ক্রেডেনশিয়াল ম্যানেজারে সংরক্ষণ করে — কখনো কোনো ফাইলে নয়।",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "সংরক্ষণ করুন ও যাচাই করুন",
+  "settings.key_checking": "Anthropic-এর সাথে কী যাচাই করা হচ্ছে…",
+  "settings.key_stored": "সংরক্ষিত: {key}",
+  "settings.key_none": "এখনো কোনো কী সংরক্ষিত নেই — কী ছাড়া Dawnlist চালানো যাবে না।",
+  "settings.licence_heading": "আপনার লাইসেন্স",
+  "settings.licence_body": "আপনার ক্রয়ের ইমেইল থেকে লাইসেন্স কী পেস্ট করুন। যদি আপনাকে পরিবর্তে একটি ওভাররাইড কোড দেওয়া হয়ে থাকে, তাহলে সেটি পেস্ট করুন — Dawnlist এটি একটি লাইসেন্সের সাথে বিনিময় করবে।",
+  "settings.licence_placeholder": "DAWN-… অথবা একটি ওভাররাইড কোড",
+  "settings.licence_save": "সংরক্ষণ করুন",
+  "settings.licence_checking": "যাচাই করা হচ্ছে…",
+  "settings.licence_stored": "সংরক্ষিত: {key}",
+  "settings.licence_none": "এখনো কোনো লাইসেন্স সংরক্ষিত নেই।",
+  "settings.licence_saved": "লাইসেন্স সংরক্ষিত হয়েছে।",
+  "settings.code_redeemed": "কোড গৃহীত হয়েছে — আপনার লাইসেন্স সংরক্ষিত হয়েছে।"
 }

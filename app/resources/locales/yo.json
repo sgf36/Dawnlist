@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "kì í ṣe ìbáramu",
   "onboarding.title": "Dawnlist — ìṣètò ń lọ",
   "onboarding.next": "Tẹ̀síwájú",
-  "onboarding.back": "Padà"
+  "onboarding.back": "Padà",
+  "settings.title": "Dawnlist — ètò",
+  "settings.key_heading": "Kọ́kọ́rọ́ Anthropic rẹ",
+  "settings.key_body": "Dawnlist máa ń ka àwọn ìpolówó iṣẹ́ àti kọ àwọn ìránṣẹ́ rẹ nípa lílo àwọn àwòṣe Anthropic, lórí àkọọ́lẹ̀ tirẹ. Ṣẹ̀dá kọ́kọ́rọ́ kan ní console.anthropic.com kí o sì fi ìdí rẹ̀ sí ibí yìí. O lè fagi lé e ní ìgbà tí o bá fẹ́, Dawnlist yóò sì fi pamọ́ sínú olùṣàkóso ẹ̀rí ìdánimọ̀ ẹ̀rọ ìṣiṣẹ́ rẹ — kì í ṣe nínú fáìlì rárá.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Fi pamọ́ kí o sì ṣàyẹ̀wò",
+  "settings.key_checking": "Ń ṣàyẹ̀wò kọ́kọ́rọ́ pẹ̀lú Anthropic…",
+  "settings.key_stored": "Ó ti fi pamọ́: {key}",
+  "settings.key_none": "Kò sí kọ́kọ́rọ́ tí a fi pamọ́ síbẹ̀ — Dawnlist kò lè ṣiṣẹ́ láìsí ọ̀kan.",
+  "settings.licence_heading": "Ìwé àṣẹ rẹ",
+  "settings.licence_body": "Fi kọ́kọ́rọ́ ìwé àṣẹ láti inú ìmeèlì ìrajà rẹ sí ibí. Bí a bá fún ọ ní àmì àyípadà (override code) dípò rẹ̀, fi ìyẹn sí ibí — Dawnlist yóò yí i padà sí ìwé àṣẹ.",
+  "settings.licence_placeholder": "DAWN-… tàbí àmì àyípadà kan",
+  "settings.licence_save": "Fi pamọ́",
+  "settings.licence_checking": "Ń ṣàyẹ̀wò…",
+  "settings.licence_stored": "Ó ti fi pamọ́: {key}",
+  "settings.licence_none": "Kò sí ìwé àṣẹ tí a fi pamọ́ síbẹ̀.",
+  "settings.licence_saved": "A ti fi ìwé àṣẹ pamọ́.",
+  "settings.code_redeemed": "A tẹ́wọ́ gba àmì náà — ìwé àṣẹ rẹ ti fi pamọ́."
 }

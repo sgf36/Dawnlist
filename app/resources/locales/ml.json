@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "യോജിക്കുന്നില്ല",
   "onboarding.title": "Dawnlist — സജ്ജീകരിക്കുന്നു",
   "onboarding.next": "അടുത്തത്",
-  "onboarding.back": "പിന്നോട്ട്"
+  "onboarding.back": "പിന്നോട്ട്",
+  "settings.title": "Dawnlist — ക്രമീകരണങ്ങൾ",
+  "settings.key_heading": "നിങ്ങളുടെ Anthropic കീ",
+  "settings.key_body": "Dawnlist ജോലി പോസ്റ്റിംഗുകൾ വായിക്കുകയും നിങ്ങളുടെ സ്വന്തം അക്കൗണ്ടിൽ Anthropic-ന്റെ മോഡലുകൾ ഉപയോഗിച്ച് സന്ദേശങ്ങൾ തയ്യാറാക്കുകയും ചെയ്യുന്നു. console.anthropic.com-ൽ ഒരു കീ സൃഷ്ടിച്ച് ഇവിടെ പേസ്റ്റ് ചെയ്യുക. നിങ്ങൾക്ക് എപ്പോൾ വേണമെങ്കിലും ഇത് റദ്ദാക്കാം, Dawnlist ഇത് നിങ്ങളുടെ ഓപ്പറേറ്റിംഗ് സിസ്റ്റത്തിന്റെ ക്രെഡൻഷ്യൽ മാനേജറിൽ സൂക്ഷിക്കുന്നു — ഒരിക്കലും ഒരു ഫയലിലല്ല.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "സേവ് ചെയ്ത് പരിശോധിക്കുക",
+  "settings.key_checking": "Anthropic-ൽ കീ പരിശോധിക്കുന്നു…",
+  "settings.key_stored": "സൂക്ഷിച്ചത്: {key}",
+  "settings.key_none": "ഇതുവരെ കീ സൂക്ഷിച്ചിട്ടില്ല — കീ ഇല്ലാതെ Dawnlist പ്രവർത്തിക്കില്ല.",
+  "settings.licence_heading": "നിങ്ങളുടെ ലൈസൻസ്",
+  "settings.licence_body": "നിങ്ങളുടെ വാങ്ങൽ ഇമെയിലിൽ നിന്നുള്ള ലൈസൻസ് കീ പേസ്റ്റ് ചെയ്യുക. പകരം ഒരു ഓവർറൈഡ് കോഡ് ലഭിച്ചിട്ടുണ്ടെങ്കിൽ, അത് പേസ്റ്റ് ചെയ്യുക — Dawnlist അതിനെ ലൈസൻസുമായി കൈമാറ്റം ചെയ്യും.",
+  "settings.licence_placeholder": "DAWN-… അല്ലെങ്കിൽ ഒരു ഓവർറൈഡ് കോഡ്",
+  "settings.licence_save": "സേവ് ചെയ്യുക",
+  "settings.licence_checking": "പരിശോധിക്കുന്നു…",
+  "settings.licence_stored": "സൂക്ഷിച്ചത്: {key}",
+  "settings.licence_none": "ഇതുവരെ ലൈസൻസ് സൂക്ഷിച്ചിട്ടില്ല.",
+  "settings.licence_saved": "ലൈസൻസ് സേവ് ചെയ്തു.",
+  "settings.code_redeemed": "കോഡ് സ്വീകരിച്ചു — നിങ്ങളുടെ ലൈസൻസ് സേവ് ചെയ്തിരിക്കുന്നു."
 }

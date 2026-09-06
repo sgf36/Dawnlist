@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "nicht geeignet",
   "onboarding.title": "Dawnlist — Einrichtung",
   "onboarding.next": "Weiter",
-  "onboarding.back": "Zurück"
+  "onboarding.back": "Zurück",
+  "settings.title": "Dawnlist — Einstellungen",
+  "settings.key_heading": "Ihr Anthropic-Schlüssel",
+  "settings.key_body": "Dawnlist liest Stellenanzeigen und entwirft Ihre Nachrichten mithilfe der Modelle von Anthropic über Ihr eigenes Konto. Erstellen Sie einen Schlüssel auf console.anthropic.com und fügen Sie ihn hier ein. Sie können ihn jederzeit widerrufen; Dawnlist speichert ihn in der Anmeldeinformationsverwaltung Ihres Betriebssystems — niemals in einer Datei.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Speichern und prüfen",
+  "settings.key_checking": "Schlüssel wird bei Anthropic geprüft…",
+  "settings.key_stored": "Gespeichert: {key}",
+  "settings.key_none": "Noch kein Schlüssel gespeichert — Dawnlist kann ohne diesen nicht ausgeführt werden.",
+  "settings.licence_heading": "Ihre Lizenz",
+  "settings.licence_body": "Fügen Sie den Lizenzschlüssel aus Ihrer Kauf-E-Mail ein. Falls Sie stattdessen einen Override-Code erhalten haben, fügen Sie diesen ein — Dawnlist tauscht ihn gegen eine Lizenz ein.",
+  "settings.licence_placeholder": "DAWN-… oder ein Override-Code",
+  "settings.licence_save": "Speichern",
+  "settings.licence_checking": "Wird geprüft…",
+  "settings.licence_stored": "Gespeichert: {key}",
+  "settings.licence_none": "Noch keine Lizenz gespeichert.",
+  "settings.licence_saved": "Lizenz gespeichert.",
+  "settings.code_redeemed": "Code akzeptiert — Ihre Lizenz wurde gespeichert."
 }

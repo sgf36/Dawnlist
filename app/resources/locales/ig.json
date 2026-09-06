@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "adabaghị",
   "onboarding.title": "Dawnlist — na-ahazi",
   "onboarding.next": "Ọzọ",
-  "onboarding.back": "Azụ"
+  "onboarding.back": "Azụ",
+  "settings.title": "Dawnlist — ntọala",
+  "settings.key_heading": "Igodo Anthropic gị",
+  "settings.key_body": "Dawnlist na-agụ ọkwa ọrụ ma dee ozi gị site na iji ụdị Anthropic, n'akaụntụ gị. Mepụta igodo na console.anthropic.com wee mado ya ebe a. Ị nwere ike ịkagbu ya n'oge ọ bụla, Dawnlist na-echekwakwa ya n'ọdụ njikwa nzere nke sistemu gị — ọ bụghị mgbe ọ bụla n'faịlụ.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Chekwaa ma lelee",
+  "settings.key_checking": "Na-elele igodo na Anthropic…",
+  "settings.key_stored": "Echekwara: {key}",
+  "settings.key_none": "Enweghị igodo echekwara — Dawnlist enweghị ike ịrụ ọrụ n'enweghị otu.",
+  "settings.licence_heading": "Ikike gị",
+  "settings.licence_body": "Mado igodo ikike si na email ịzụta gị. Ọ bụrụ na e nyere gị koodu mgbanwe kama, mado nke ahụ — Dawnlist ga-agbanwe ya ka ọ bụrụ ikike.",
+  "settings.licence_placeholder": "DAWN-… ma ọ bụ koodu mgbanwe",
+  "settings.licence_save": "Chekwaa",
+  "settings.licence_checking": "Na-elele…",
+  "settings.licence_stored": "Echekwara: {key}",
+  "settings.licence_none": "Enweghị ikike echekwara.",
+  "settings.licence_saved": "Echekwala ikike.",
+  "settings.code_redeemed": "Anabatara koodu — echekwala ikike gị."
 }

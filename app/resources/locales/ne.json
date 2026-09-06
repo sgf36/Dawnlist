@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "उपयुक्त छैन",
   "onboarding.title": "डनलिस्ट — सेटअप गर्दै",
   "onboarding.next": "अर्को",
-  "onboarding.back": "पछाडि"
+  "onboarding.back": "पछाडि",
+  "settings.title": "Dawnlist — सेटिङहरू",
+  "settings.key_heading": "तपाईंको Anthropic कुञ्जी",
+  "settings.key_body": "Dawnlist ले जागिर सूचनाहरू पढ्छ र तपाईंको आफ्नै खातामा Anthropic का मोडेलहरू प्रयोग गरी सन्देशहरूको मस्यौदा तयार पार्छ। console.anthropic.com मा कुञ्जी बनाउनुहोस् र यहाँ टाँस्नुहोस्। तपाईं जुनसुकै बेला यसलाई रद्द गर्न सक्नुहुन्छ, र Dawnlist ले यसलाई तपाईंको अपरेटिङ प्रणालीको क्रेडेन्सियल प्रबन्धकमा भण्डारण गर्छ — फाइलमा कहिल्यै होइन।",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "सुरक्षित गर्नुहोस् र जाँच्नुहोस्",
+  "settings.key_checking": "Anthropic सँग कुञ्जी जाँच गर्दै…",
+  "settings.key_stored": "भण्डारण गरिएको: {key}",
+  "settings.key_none": "अहिलेसम्म कुनै कुञ्जी भण्डारण गरिएको छैन — कुञ्जी बिना Dawnlist चल्न सक्दैन।",
+  "settings.licence_heading": "तपाईंको इजाजतपत्र",
+  "settings.licence_body": "तपाईंको खरिद इमेलबाट इजाजतपत्र कुञ्जी टाँस्नुहोस्। यदि तपाईंलाई सट्टामा ओभरराइड कोड दिइएको थियो भने, त्यो टाँस्नुहोस् — Dawnlist ले यसलाई इजाजतपत्रसँग साट्नेछ।",
+  "settings.licence_placeholder": "DAWN-… वा ओभरराइड कोड",
+  "settings.licence_save": "सुरक्षित गर्नुहोस्",
+  "settings.licence_checking": "जाँच गर्दै…",
+  "settings.licence_stored": "भण्डारण गरिएको: {key}",
+  "settings.licence_none": "अहिलेसम्म कुनै इजाजतपत्र भण्डारण गरिएको छैन।",
+  "settings.licence_saved": "इजाजतपत्र सुरक्षित गरियो।",
+  "settings.code_redeemed": "कोड स्वीकार गरियो — तपाईंको इजाजतपत्र सुरक्षित गरियो।"
 }

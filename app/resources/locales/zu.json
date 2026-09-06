@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "akufaneleki",
   "onboarding.title": "Dawnlist — ukulungiselela",
   "onboarding.next": "Okulandelayo",
-  "onboarding.back": "Emuva"
+  "onboarding.back": "Emuva",
+  "settings.title": "Dawnlist — izilungiselelo",
+  "settings.key_heading": "Ukhiye wakho we-Anthropic",
+  "settings.key_body": "I-Dawnlist ifunda izimemo zemisebenzi futhi ibhale imiyalezo yakho isebenzisa amamodeli e-Anthropic, kwi-akhawunti yakho siqu. Dala ukhiye ku-console.anthropic.com bese uwunamathisela lapha. Ungawuhoxisa noma nini, futhi i-Dawnlist iwugcina kusiphathi samagama emvume yesistimu yakho yokusebenza — akulona ifayela.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Londoloza uphinde uhlole",
+  "settings.key_checking": "Kuhlolwa ukhiye ne-Anthropic…",
+  "settings.key_stored": "Kugciniwe: {key}",
+  "settings.key_none": "Akukho khiye ogciniwe okwamanje — i-Dawnlist ayikwazi ukusebenza ngaphandle kwawo.",
+  "settings.licence_heading": "Ilayisensi yakho",
+  "settings.licence_body": "Namathisela ukhiye welayisensi ovela kwi-imeyili yakho yokuthenga. Uma unikwe ikhodi yokungenisa esikhundleni salokho, namathisela leyo — i-Dawnlist izoyishintshanisa ngelayisensi.",
+  "settings.licence_placeholder": "DAWN-… noma ikhodi yokungenisa",
+  "settings.licence_save": "Londoloza",
+  "settings.licence_checking": "Kuyahlolwa…",
+  "settings.licence_stored": "Kugciniwe: {key}",
+  "settings.licence_none": "Akukho layisensi egciniwe okwamanje.",
+  "settings.licence_saved": "Ilayisensi ilondoloziwe.",
+  "settings.code_redeemed": "Ikhodi yamukelwe — ilayisensi yakho ilondoloziwe."
 }

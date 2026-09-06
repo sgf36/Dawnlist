@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "לא מתאים",
   "onboarding.title": "דאונליסט — הגדרה ראשונית",
   "onboarding.next": "הבא",
-  "onboarding.back": "חזרה"
+  "onboarding.back": "חזרה",
+  "settings.title": "Dawnlist — הגדרות",
+  "settings.key_heading": "מפתח Anthropic שלך",
+  "settings.key_body": "Dawnlist קורא מודעות דרושים ומנסח את ההודעות שלך באמצעות המודלים של Anthropic, תחת החשבון שלך. צור מפתח בכתובת console.anthropic.com והדבק אותו כאן. ניתן לבטל אותו בכל עת, ו-Dawnlist שומר אותו במנהל האישורים של מערכת ההפעלה שלך — לעולם לא בקובץ.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "שמור ובדוק",
+  "settings.key_checking": "בודק את המפתח מול Anthropic…",
+  "settings.key_stored": "נשמר: {key}",
+  "settings.key_none": "טרם נשמר מפתח — Dawnlist אינו יכול לפעול בלעדיו.",
+  "settings.licence_heading": "הרישיון שלך",
+  "settings.licence_body": "הדבק את מפתח הרישיון מאימייל הרכישה שלך. אם קיבלת במקום זאת קוד עקיפה, הדבק אותו — Dawnlist יחליף אותו ברישיון.",
+  "settings.licence_placeholder": "DAWN-… או קוד עקיפה",
+  "settings.licence_save": "שמור",
+  "settings.licence_checking": "בודק…",
+  "settings.licence_stored": "נשמר: {key}",
+  "settings.licence_none": "טרם נשמר רישיון.",
+  "settings.licence_saved": "הרישיון נשמר.",
+  "settings.code_redeemed": "הקוד התקבל — הרישיון שלך נשמר."
 }

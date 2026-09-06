@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "जुळत नाही",
   "onboarding.title": "डॉनलिस्ट — सेटअप सुरू आहे",
   "onboarding.next": "पुढे",
-  "onboarding.back": "मागे"
+  "onboarding.back": "मागे",
+  "settings.title": "Dawnlist — सेटिंग्ज",
+  "settings.key_heading": "तुमची Anthropic की",
+  "settings.key_body": "Dawnlist नोकरीच्या जाहिराती वाचते आणि तुमच्या स्वतःच्या खात्यावर Anthropic च्या मॉडेल्सचा वापर करून तुमचे संदेश तयार करते. console.anthropic.com वर की तयार करा आणि ती इथे पेस्ट करा. तुम्ही ती केव्हाही रद्द करू शकता आणि Dawnlist ती तुमच्या ऑपरेटिंग सिस्टीमच्या क्रेडेन्शियल मॅनेजरमध्ये साठवते — कधीही फाइलमध्ये नाही.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "जतन करा आणि तपासा",
+  "settings.key_checking": "Anthropic कडे की तपासली जात आहे…",
+  "settings.key_stored": "साठवलेली: {key}",
+  "settings.key_none": "अद्याप कोणतीही की साठवलेली नाही — की शिवाय Dawnlist चालू शकत नाही.",
+  "settings.licence_heading": "तुमचा परवाना",
+  "settings.licence_body": "तुमच्या खरेदी ईमेलमधील परवाना की पेस्ट करा. जर तुम्हाला त्याऐवजी ओव्हरराइड कोड दिला असेल, तर तो पेस्ट करा — Dawnlist तो परवान्यासाठी बदलून घेईल.",
+  "settings.licence_placeholder": "DAWN-… किंवा ओव्हरराइड कोड",
+  "settings.licence_save": "जतन करा",
+  "settings.licence_checking": "तपासले जात आहे…",
+  "settings.licence_stored": "साठवलेला: {key}",
+  "settings.licence_none": "अद्याप कोणताही परवाना साठवलेला नाही.",
+  "settings.licence_saved": "परवाना जतन झाला.",
+  "settings.code_redeemed": "कोड स्वीकारला — तुमचा परवाना जतन झाला आहे."
 }

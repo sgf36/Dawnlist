@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "نامناسب",
   "onboarding.title": "داون‌لیست — پیکربندی",
   "onboarding.next": "بعدی",
-  "onboarding.back": "بازگشت"
+  "onboarding.back": "بازگشت",
+  "settings.title": "Dawnlist — تنظیمات",
+  "settings.key_heading": "کلید Anthropic شما",
+  "settings.key_body": "Dawnlist آگهی‌های شغلی را می‌خواند و پیام‌های شما را با استفاده از مدل‌های Anthropic، روی حساب کاربری خودتان، پیش‌نویس می‌کند. یک کلید در console.anthropic.com بسازید و آن را اینجا جای‌گذاری کنید. می‌توانید هر زمان آن را باطل کنید و Dawnlist آن را در مدیر اطلاعات ورود سیستم‌عامل شما ذخیره می‌کند — هرگز در یک فایل.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "ذخیره و بررسی",
+  "settings.key_checking": "در حال بررسی کلید با Anthropic…",
+  "settings.key_stored": "ذخیره‌شده: {key}",
+  "settings.key_none": "هنوز کلیدی ذخیره نشده — Dawnlist بدون آن نمی‌تواند اجرا شود.",
+  "settings.licence_heading": "مجوز شما",
+  "settings.licence_body": "کلید مجوز موجود در ایمیل خرید خود را جای‌گذاری کنید. اگر به‌جای آن یک کد جایگزین دریافت کرده‌اید، همان را جای‌گذاری کنید — Dawnlist آن را با یک مجوز تعویض می‌کند.",
+  "settings.licence_placeholder": "DAWN-… یا یک کد جایگزین",
+  "settings.licence_save": "ذخیره",
+  "settings.licence_checking": "در حال بررسی…",
+  "settings.licence_stored": "ذخیره‌شده: {key}",
+  "settings.licence_none": "هنوز مجوزی ذخیره نشده.",
+  "settings.licence_saved": "مجوز ذخیره شد.",
+  "settings.code_redeemed": "کد پذیرفته شد — مجوز شما ذخیره شد."
 }

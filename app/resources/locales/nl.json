@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "geen match",
   "onboarding.title": "Dawnlist — instellen",
   "onboarding.next": "Volgende",
-  "onboarding.back": "Terug"
+  "onboarding.back": "Terug",
+  "settings.title": "Dawnlist — instellingen",
+  "settings.key_heading": "Uw Anthropic-sleutel",
+  "settings.key_body": "Dawnlist leest vacatures en stelt uw berichten op met behulp van de modellen van Anthropic, via uw eigen account. Maak een sleutel aan op console.anthropic.com en plak deze hier. U kunt de sleutel op elk moment intrekken. Dawnlist slaat deze op in de referentiebeheerder van uw besturingssysteem — nooit in een bestand.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Opslaan en controleren",
+  "settings.key_checking": "Sleutel wordt gecontroleerd bij Anthropic…",
+  "settings.key_stored": "Opgeslagen: {key}",
+  "settings.key_none": "Nog geen sleutel opgeslagen — Dawnlist kan hier niet zonder functioneren.",
+  "settings.licence_heading": "Uw licentie",
+  "settings.licence_body": "Plak de licentiesleutel uit uw aankoopbevestiging. Heeft u in plaats daarvan een overschrijvingscode gekregen, plak die dan hier — Dawnlist wisselt deze in voor een licentie.",
+  "settings.licence_placeholder": "DAWN-… of een overschrijvingscode",
+  "settings.licence_save": "Opslaan",
+  "settings.licence_checking": "Controleren…",
+  "settings.licence_stored": "Opgeslagen: {key}",
+  "settings.licence_none": "Nog geen licentie opgeslagen.",
+  "settings.licence_saved": "Licentie opgeslagen.",
+  "settings.code_redeemed": "Code geaccepteerd — uw licentie is opgeslagen."
 }

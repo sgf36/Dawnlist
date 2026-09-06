@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "bai dace ba",
   "onboarding.title": "Dawnlist — saiti",
   "onboarding.next": "Gaba",
-  "onboarding.back": "Baya"
+  "onboarding.back": "Baya",
+  "settings.title": "Dawnlist — saitunan",
+  "settings.key_heading": "Makullin Anthropic naka",
+  "settings.key_body": "Dawnlist yana karanta sanarwar aikin yi kuma yana tsara saƙonninka ta amfani da samfuran Anthropic, akan asusunka. Ƙirƙiri makulli a console.anthropic.com sannan ka manna shi anan. Kana iya soke shi a kowane lokaci, kuma Dawnlist yana ajiye shi a cikin manajan takaddun shaida na tsarin aiki naka — ba a cikin fayil ba.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Ajiye kuma bincika",
+  "settings.key_checking": "Ana bincika makullin tare da Anthropic…",
+  "settings.key_stored": "An ajiye: {key}",
+  "settings.key_none": "Babu makullin da aka ajiye tukuna — Dawnlist ba zai iya gudana ba tare da shi ba.",
+  "settings.licence_heading": "Lasisinka",
+  "settings.licence_body": "Manna makullin lasisi daga imel na sayenka. Idan an ba ka lambar tsallakewa a maimakon haka, manna wannan — Dawnlist zai musanya ta don samun lasisi.",
+  "settings.licence_placeholder": "DAWN-… ko lambar tsallakewa",
+  "settings.licence_save": "Ajiye",
+  "settings.licence_checking": "Ana bincika…",
+  "settings.licence_stored": "An ajiye: {key}",
+  "settings.licence_none": "Babu lasisin da aka ajiye tukuna.",
+  "settings.licence_saved": "An ajiye lasisin.",
+  "settings.code_redeemed": "An karɓi lambar — an ajiye lasisinka."
 }

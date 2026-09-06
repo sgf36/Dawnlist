@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "अनुपयुक्त",
   "onboarding.title": "डॉनलिस्ट — सेटअप हो रहा है",
   "onboarding.next": "आगे",
-  "onboarding.back": "पीछे"
+  "onboarding.back": "पीछे",
+  "settings.title": "Dawnlist — सेटिंग्स",
+  "settings.key_heading": "आपकी Anthropic कुंजी",
+  "settings.key_body": "Dawnlist नौकरी की पोस्टिंग पढ़ता है और आपके संदेश Anthropic के मॉडल का उपयोग करके, आपके अपने खाते पर तैयार करता है। console.anthropic.com पर एक कुंजी बनाएं और उसे यहाँ पेस्ट करें। आप इसे किसी भी समय निरस्त कर सकते हैं, और Dawnlist इसे आपके ऑपरेटिंग सिस्टम के क्रेडेंशियल मैनेजर में संग्रहीत करता है — किसी फ़ाइल में कभी नहीं।",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "सहेजें और जाँचें",
+  "settings.key_checking": "Anthropic के साथ कुंजी की जाँच हो रही है…",
+  "settings.key_stored": "संग्रहीत: {key}",
+  "settings.key_none": "अभी तक कोई कुंजी संग्रहीत नहीं है — बिना इसके Dawnlist नहीं चल सकता।",
+  "settings.licence_heading": "आपका लाइसेंस",
+  "settings.licence_body": "अपने खरीद ईमेल से लाइसेंस कुंजी पेस्ट करें। यदि आपको इसके बजाय एक ओवरराइड कोड दिया गया था, तो उसे पेस्ट करें — Dawnlist इसे लाइसेंस के लिए एक्सचेंज करेगा।",
+  "settings.licence_placeholder": "DAWN-… या एक ओवरराइड कोड",
+  "settings.licence_save": "सहेजें",
+  "settings.licence_checking": "जाँच हो रही है…",
+  "settings.licence_stored": "संग्रहीत: {key}",
+  "settings.licence_none": "अभी तक कोई लाइसेंस संग्रहीत नहीं है।",
+  "settings.licence_saved": "लाइसेंस सहेजा गया।",
+  "settings.code_redeemed": "कोड स्वीकार किया गया — आपका लाइसेंस सहेजा गया है।"
 }

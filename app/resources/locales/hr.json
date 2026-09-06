@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "nije spoj",
   "onboarding.title": "Dawnlist — postavljanje",
   "onboarding.next": "Dalje",
-  "onboarding.back": "Natrag"
+  "onboarding.back": "Natrag",
+  "settings.title": "Dawnlist — postavke",
+  "settings.key_heading": "Vaš Anthropic ključ",
+  "settings.key_body": "Dawnlist čita natječaje za posao i sastavlja vaše poruke koristeći Anthropicove modele, na vašem vlastitom računu. Izradite ključ na console.anthropic.com i zalijepite ga ovdje. Možete ga opozvati u bilo kojem trenutku, a Dawnlist ga pohranjuje u upravitelju vjerodajnica vašeg operacijskog sustava — nikada u datoteci.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Spremi i provjeri",
+  "settings.key_checking": "Provjera ključa kod Anthropica…",
+  "settings.key_stored": "Pohranjeno: {key}",
+  "settings.key_none": "Ključ još nije pohranjen — Dawnlist ne može raditi bez njega.",
+  "settings.licence_heading": "Vaša licenca",
+  "settings.licence_body": "Zalijepite licencni ključ iz e-poruke o kupnji. Ako ste umjesto toga dobili zamjenski kôd, zalijepite njega — Dawnlist će ga zamijeniti za licencu.",
+  "settings.licence_placeholder": "DAWN-… ili zamjenski kôd",
+  "settings.licence_save": "Spremi",
+  "settings.licence_checking": "Provjera…",
+  "settings.licence_stored": "Pohranjeno: {key}",
+  "settings.licence_none": "Licenca još nije pohranjena.",
+  "settings.licence_saved": "Licenca je spremljena.",
+  "settings.code_redeemed": "Kôd prihvaćen — vaša licenca je spremljena."
 }

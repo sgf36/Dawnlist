@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "不合适",
   "onboarding.title": "Dawnlist — 正在设置",
   "onboarding.next": "下一步",
-  "onboarding.back": "上一步"
+  "onboarding.back": "上一步",
+  "settings.title": "Dawnlist — 设置",
+  "settings.key_heading": "您的 Anthropic 密钥",
+  "settings.key_body": "Dawnlist 使用 Anthropic 的模型读取招聘信息并起草您的消息，费用计入您自己的账户。请在 console.anthropic.com 创建密钥并粘贴到此处。您可随时撤销该密钥，Dawnlist 会将其存储在操作系统的凭据管理器中——绝不会写入文件。",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "保存并检查",
+  "settings.key_checking": "正在向 Anthropic 验证密钥…",
+  "settings.key_stored": "已存储：{key}",
+  "settings.key_none": "尚未存储密钥——没有密钥 Dawnlist 无法运行。",
+  "settings.licence_heading": "您的许可证",
+  "settings.licence_body": "请粘贴购买邮件中的许可证密钥。如果您收到的是替代兑换码，也请粘贴于此——Dawnlist 会将其兑换为许可证。",
+  "settings.licence_placeholder": "DAWN-… 或替代兑换码",
+  "settings.licence_save": "保存",
+  "settings.licence_checking": "正在检查…",
+  "settings.licence_stored": "已存储：{key}",
+  "settings.licence_none": "尚未存储许可证。",
+  "settings.licence_saved": "许可证已保存。",
+  "settings.code_redeemed": "兑换码已接受——您的许可证已保存。"
 }

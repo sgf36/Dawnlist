@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "brak dopasowania",
   "onboarding.title": "Dawnlist — konfiguracja",
   "onboarding.next": "Dalej",
-  "onboarding.back": "Wstecz"
+  "onboarding.back": "Wstecz",
+  "settings.title": "Dawnlist — ustawienia",
+  "settings.key_heading": "Twój klucz Anthropic",
+  "settings.key_body": "Dawnlist odczytuje ogłoszenia o pracę i tworzy wersje robocze wiadomości przy użyciu modeli Anthropic, na Twoim własnym koncie. Utwórz klucz na console.anthropic.com i wklej go tutaj. Możesz go w każdej chwili unieważnić — Dawnlist przechowuje go w menedżerze poświadczeń systemu operacyjnego, nigdy w pliku.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Zapisz i sprawdź",
+  "settings.key_checking": "Sprawdzanie klucza w Anthropic…",
+  "settings.key_stored": "Zapisano: {key}",
+  "settings.key_none": "Nie zapisano jeszcze klucza — Dawnlist nie może działać bez niego.",
+  "settings.licence_heading": "Twoja licencja",
+  "settings.licence_body": "Wklej klucz licencyjny z e-maila potwierdzającego zakup. Jeśli otrzymałeś zamiast tego kod zastępczy, wklej go — Dawnlist wymieni go na licencję.",
+  "settings.licence_placeholder": "DAWN-… lub kod zastępczy",
+  "settings.licence_save": "Zapisz",
+  "settings.licence_checking": "Sprawdzanie…",
+  "settings.licence_stored": "Zapisano: {key}",
+  "settings.licence_none": "Nie zapisano jeszcze licencji.",
+  "settings.licence_saved": "Licencja zapisana.",
+  "settings.code_redeemed": "Kod zaakceptowany — Twoja licencja została zapisana."
 }

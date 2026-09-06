@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "καμία αντιστοιχία",
   "onboarding.title": "Dawnlist — ρύθμιση",
   "onboarding.next": "Επόμενο",
-  "onboarding.back": "Πίσω"
+  "onboarding.back": "Πίσω",
+  "settings.title": "Dawnlist — ρυθμίσεις",
+  "settings.key_heading": "Το κλειδί σας Anthropic",
+  "settings.key_body": "Το Dawnlist διαβάζει αγγελίες εργασίας και συντάσσει τα μηνύματά σας χρησιμοποιώντας τα μοντέλα της Anthropic, μέσω του δικού σας λογαριασμού. Δημιουργήστε ένα κλειδί στο console.anthropic.com και επικολλήστε το εδώ. Μπορείτε να το ανακαλέσετε ανά πάσα στιγμή· το Dawnlist το αποθηκεύει στη διαχείριση διαπιστευτηρίων του λειτουργικού σας συστήματος — ποτέ σε αρχείο.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Αποθήκευση και έλεγχος",
+  "settings.key_checking": "Έλεγχος του κλειδιού με την Anthropic…",
+  "settings.key_stored": "Αποθηκευμένο: {key}",
+  "settings.key_none": "Δεν έχει αποθηκευτεί κλειδί ακόμη — το Dawnlist δεν μπορεί να λειτουργήσει χωρίς αυτό.",
+  "settings.licence_heading": "Η άδειά σας χρήσης",
+  "settings.licence_body": "Επικολλήστε το κλειδί άδειας χρήσης από το email αγοράς σας. Εάν αντ' αυτού σας δόθηκε κωδικός παράκαμψης, επικολλήστε αυτόν — το Dawnlist θα τον ανταλλάξει με άδεια χρήσης.",
+  "settings.licence_placeholder": "DAWN-… ή κωδικός παράκαμψης",
+  "settings.licence_save": "Αποθήκευση",
+  "settings.licence_checking": "Έλεγχος…",
+  "settings.licence_stored": "Αποθηκευμένο: {key}",
+  "settings.licence_none": "Δεν έχει αποθηκευτεί άδεια χρήσης ακόμη.",
+  "settings.licence_saved": "Η άδεια χρήσης αποθηκεύτηκε.",
+  "settings.code_redeemed": "Ο κωδικός έγινε αποδεκτός — η άδεια χρήσης σας αποθηκεύτηκε."
 }

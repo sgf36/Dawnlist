@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "mos kelmaydi",
   "onboarding.title": "Dawnlist — sozlanmoqda",
   "onboarding.next": "Keyingi",
-  "onboarding.back": "Orqaga"
+  "onboarding.back": "Orqaga",
+  "settings.title": "Dawnlist — sozlamalar",
+  "settings.key_heading": "Anthropic kalitingiz",
+  "settings.key_body": "Dawnlist ish e'lonlarini o'qiydi va xabarlaringizni Anthropic modellari yordamida sizning hisobingizdan foydalanib tayyorlaydi. Kalitni console.anthropic.com saytida yarating va bu yerga joylashtiring. Uni istalgan vaqtda bekor qilishingiz mumkin — Dawnlist uni operatsion tizimingizning hisobga olish ma'lumotlari menejerida saqlaydi, hech qachon faylda emas.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Saqlash va tekshirish",
+  "settings.key_checking": "Kalit Anthropic orqali tekshirilmoqda…",
+  "settings.key_stored": "Saqlangan: {key}",
+  "settings.key_none": "Hali kalit saqlanmagan — Dawnlist kalitsiz ishlay olmaydi.",
+  "settings.licence_heading": "Litsenziyangiz",
+  "settings.licence_body": "Xarid xatingizdagi litsenziya kalitini joylashtiring. Agar sizga uning o'rniga override kod berilgan bo'lsa, o'shani joylashtiring — Dawnlist uni litsenziyaga almashtiradi.",
+  "settings.licence_placeholder": "DAWN-… yoki override kod",
+  "settings.licence_save": "Saqlash",
+  "settings.licence_checking": "Tekshirilmoqda…",
+  "settings.licence_stored": "Saqlangan: {key}",
+  "settings.licence_none": "Hali litsenziya saqlanmagan.",
+  "settings.licence_saved": "Litsenziya saqlandi.",
+  "settings.code_redeemed": "Kod qabul qilindi — litsenziyangiz saqlandi."
 }

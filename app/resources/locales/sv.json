@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "ingen matchning",
   "onboarding.title": "Dawnlist – konfigurerar",
   "onboarding.next": "Nästa",
-  "onboarding.back": "Tillbaka"
+  "onboarding.back": "Tillbaka",
+  "settings.title": "Dawnlist – inställningar",
+  "settings.key_heading": "Din Anthropic-nyckel",
+  "settings.key_body": "Dawnlist läser jobbannonser och utformar dina meddelanden med hjälp av Anthropics modeller, kopplat till ditt eget konto. Skapa en nyckel på console.anthropic.com och klistra in den här. Du kan när som helst återkalla den, och Dawnlist lagrar den i operativsystemets autentiseringshanterare – aldrig i en fil.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Spara och kontrollera",
+  "settings.key_checking": "Kontrollerar nyckeln hos Anthropic …",
+  "settings.key_stored": "Lagrad: {key}",
+  "settings.key_none": "Ingen nyckel har lagrats ännu – Dawnlist kan inte köras utan en.",
+  "settings.licence_heading": "Din licens",
+  "settings.licence_body": "Klistra in licensnyckeln från ditt köpbekräftelsemejl. Om du istället fick en åsidosättningskod kan du klistra in den – Dawnlist byter då ut den mot en licens.",
+  "settings.licence_placeholder": "DAWN-… eller en åsidosättningskod",
+  "settings.licence_save": "Spara",
+  "settings.licence_checking": "Kontrollerar …",
+  "settings.licence_stored": "Lagrad: {key}",
+  "settings.licence_none": "Ingen licens har lagrats ännu.",
+  "settings.licence_saved": "Licensen har sparats.",
+  "settings.code_redeemed": "Koden godkändes – din licens har sparats."
 }

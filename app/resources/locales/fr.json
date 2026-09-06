@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "pas une correspondance",
   "onboarding.title": "Dawnlist — configuration",
   "onboarding.next": "Suivant",
-  "onboarding.back": "Retour"
+  "onboarding.back": "Retour",
+  "settings.title": "Dawnlist — Paramètres",
+  "settings.key_heading": "Votre clé Anthropic",
+  "settings.key_body": "Dawnlist lit les offres d'emploi et rédige vos messages à l'aide des modèles d'Anthropic, sur votre propre compte. Créez une clé sur console.anthropic.com et collez-la ici. Vous pouvez la révoquer à tout moment ; Dawnlist la stocke dans le gestionnaire d'identifiants de votre système d'exploitation, jamais dans un fichier.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Enregistrer et vérifier",
+  "settings.key_checking": "Vérification de la clé auprès d'Anthropic…",
+  "settings.key_stored": "Enregistrée : {key}",
+  "settings.key_none": "Aucune clé enregistrée — Dawnlist ne peut pas fonctionner sans clé.",
+  "settings.licence_heading": "Votre licence",
+  "settings.licence_body": "Collez la clé de licence reçue dans votre e-mail d'achat. Si l'on vous a plutôt fourni un code de dérogation, collez-le ici — Dawnlist l'échangera contre une licence.",
+  "settings.licence_placeholder": "DAWN-… ou un code de dérogation",
+  "settings.licence_save": "Enregistrer",
+  "settings.licence_checking": "Vérification…",
+  "settings.licence_stored": "Enregistrée : {key}",
+  "settings.licence_none": "Aucune licence enregistrée.",
+  "settings.licence_saved": "Licence enregistrée.",
+  "settings.code_redeemed": "Code accepté — votre licence est enregistrée."
 }

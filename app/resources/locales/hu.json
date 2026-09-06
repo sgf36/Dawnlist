@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "nem megfelelő",
   "onboarding.title": "Dawnlist — beállítás",
   "onboarding.next": "Tovább",
-  "onboarding.back": "Vissza"
+  "onboarding.back": "Vissza",
+  "settings.title": "Dawnlist — beállítások",
+  "settings.key_heading": "Az Ön Anthropic kulcsa",
+  "settings.key_body": "A Dawnlist az Ön saját fiókjával, az Anthropic modelljeit használva olvassa be az álláshirdetéseket, és fogalmazza meg az üzeneteket. Hozzon létre egy kulcsot a console.anthropic.com oldalon, majd illessze be ide. Bármikor visszavonhatja, a Dawnlist pedig az operációs rendszer hitelesítő-adatkezelőjében tárolja — soha nem fájlban.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Mentés és ellenőrzés",
+  "settings.key_checking": "Kulcs ellenőrzése az Anthropic szolgáltatással…",
+  "settings.key_stored": "Tárolva: {key}",
+  "settings.key_none": "Még nincs tárolt kulcs — a Dawnlist nem működik nélküle.",
+  "settings.licence_heading": "Az Ön licence",
+  "settings.licence_body": "Illessze be a vásárláskor kapott e-mailben szereplő licenckulcsot. Ha ehelyett felülbírálási kódot kapott, azt illessze be — a Dawnlist licencre váltja azt.",
+  "settings.licence_placeholder": "DAWN-… vagy felülbírálási kód",
+  "settings.licence_save": "Mentés",
+  "settings.licence_checking": "Ellenőrzés…",
+  "settings.licence_stored": "Tárolva: {key}",
+  "settings.licence_none": "Még nincs tárolt licenc.",
+  "settings.licence_saved": "Licenc elmentve.",
+  "settings.code_redeemed": "A kód elfogadva — a licenc elmentve."
 }

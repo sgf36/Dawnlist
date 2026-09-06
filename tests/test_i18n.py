@@ -111,3 +111,17 @@ def test_coverage_is_reported_for_every_locale():
     cov = i18n.coverage()
     assert set(cov) == set(i18n.LOCALE_CODES)
     assert cov["en"] == 1.0
+
+
+def test_a_placeholder_may_be_called_key():
+    """The placeholder name is chosen by whoever writes the catalogue, so tr()
+    must not reserve plausible words for its own parameters."""
+    assert i18n.tr("settings.key_stored", key="sk-ant-…abcd") == \
+        "Stored: sk-ant-…abcd"
+
+
+def test_a_placeholder_may_be_called_anything_else_awkward():
+    import inspect
+    sig = inspect.signature(i18n.tr)
+    first = list(sig.parameters.values())[0]
+    assert first.kind is inspect.Parameter.POSITIONAL_ONLY

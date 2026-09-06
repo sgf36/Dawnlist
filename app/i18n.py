@@ -109,11 +109,17 @@ def set_locale(locale: str) -> str:
     return _active_locale
 
 
-def tr(key: str, **kwargs) -> str:
+def tr(key: str, /, **kwargs) -> str:
     """Active locale, then English, then the key itself.
 
     Returning the key last means a missing translation is visibly obvious in
     the UI rather than silently blank.
+
+    `key` is POSITIONAL-ONLY. Without that, any catalogue string containing a
+    `{key}` placeholder collides with this parameter — `tr("settings.key_stored",
+    key=...)` raises "got multiple values for argument 'key'". The placeholder
+    name is chosen by whoever writes the catalogue, so the function must not
+    reserve plausible words.
     """
     catalog = _load_catalog(current_locale())
     text = catalog.get(key) or _english_catalog().get(key) or key

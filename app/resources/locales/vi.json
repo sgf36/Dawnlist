@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "không phù hợp",
   "onboarding.title": "Dawnlist — đang thiết lập",
   "onboarding.next": "Tiếp theo",
-  "onboarding.back": "Quay lại"
+  "onboarding.back": "Quay lại",
+  "settings.title": "Dawnlist — cài đặt",
+  "settings.key_heading": "Khóa Anthropic của bạn",
+  "settings.key_body": "Dawnlist đọc tin tuyển dụng và soạn thảo tin nhắn của bạn bằng các mô hình của Anthropic, trên tài khoản riêng của bạn. Hãy tạo một khóa tại console.anthropic.com và dán vào đây. Bạn có thể thu hồi khóa bất cứ lúc nào, và Dawnlist lưu trữ nó trong trình quản lý thông tin xác thực của hệ điều hành — không bao giờ trong một tệp.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "Lưu và kiểm tra",
+  "settings.key_checking": "Đang kiểm tra khóa với Anthropic…",
+  "settings.key_stored": "Đã lưu: {key}",
+  "settings.key_none": "Chưa có khóa nào được lưu — Dawnlist không thể chạy nếu thiếu khóa.",
+  "settings.licence_heading": "Giấy phép của bạn",
+  "settings.licence_body": "Dán khóa giấy phép từ email mua hàng của bạn. Nếu bạn được cấp mã ghi đè thay vào đó, hãy dán mã đó — Dawnlist sẽ đổi mã đó lấy giấy phép.",
+  "settings.licence_placeholder": "DAWN-… hoặc một mã ghi đè",
+  "settings.licence_save": "Lưu",
+  "settings.licence_checking": "Đang kiểm tra…",
+  "settings.licence_stored": "Đã lưu: {key}",
+  "settings.licence_none": "Chưa có giấy phép nào được lưu.",
+  "settings.licence_saved": "Đã lưu giấy phép.",
+  "settings.code_redeemed": "Mã đã được chấp nhận — giấy phép của bạn đã được lưu."
 }

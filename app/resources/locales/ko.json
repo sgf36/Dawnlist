@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "적합하지 않음",
   "onboarding.title": "Dawnlist — 설정 중",
   "onboarding.next": "다음",
-  "onboarding.back": "이전"
+  "onboarding.back": "이전",
+  "settings.title": "Dawnlist — 설정",
+  "settings.key_heading": "Anthropic 키",
+  "settings.key_body": "Dawnlist는 사용자의 계정으로 Anthropic 모델을 사용하여 채용 공고를 읽고 메시지 초안을 작성합니다. console.anthropic.com에서 키를 생성한 후 여기에 붙여넣으세요. 언제든지 취소할 수 있으며, Dawnlist는 이를 운영체제의 자격 증명 관리자에 저장합니다. 파일에는 절대 저장하지 않습니다.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "저장 및 확인",
+  "settings.key_checking": "Anthropic에서 키를 확인하는 중…",
+  "settings.key_stored": "저장됨: {key}",
+  "settings.key_none": "저장된 키가 없습니다 — 키가 없으면 Dawnlist를 실행할 수 없습니다.",
+  "settings.licence_heading": "라이선스",
+  "settings.licence_body": "구매 확인 이메일에 있는 라이선스 키를 붙여넣으세요. 대신 재발급 코드를 받으셨다면 그것을 붙여넣으세요 — Dawnlist가 이를 라이선스로 교환해 드립니다.",
+  "settings.licence_placeholder": "DAWN-… 또는 재발급 코드",
+  "settings.licence_save": "저장",
+  "settings.licence_checking": "확인하는 중…",
+  "settings.licence_stored": "저장됨: {key}",
+  "settings.licence_none": "저장된 라이선스가 없습니다.",
+  "settings.licence_saved": "라이선스가 저장되었습니다.",
+  "settings.code_redeemed": "코드가 승인되었습니다 — 라이선스가 저장되었습니다."
 }

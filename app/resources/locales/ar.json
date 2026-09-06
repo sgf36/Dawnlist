@@ -58,5 +58,22 @@
   "onboarding.app.rejected": "غير مناسبة",
   "onboarding.title": "داونليست — الإعداد",
   "onboarding.next": "التالي",
-  "onboarding.back": "رجوع"
+  "onboarding.back": "رجوع",
+  "settings.title": "Dawnlist — الإعدادات",
+  "settings.key_heading": "مفتاح Anthropic الخاص بك",
+  "settings.key_body": "يقرأ Dawnlist إعلانات الوظائف ويصيغ رسائلك باستخدام نماذج Anthropic، عبر حسابك الخاص. أنشئ مفتاحًا من console.anthropic.com والصقه هنا. يمكنك إلغاؤه في أي وقت، ويقوم Dawnlist بتخزينه في مدير بيانات الاعتماد الخاص بنظام التشغيل — وليس في ملف أبدًا.",
+  "settings.key_placeholder": "sk-ant-...",
+  "settings.key_save": "حفظ والتحقق",
+  "settings.key_checking": "جارٍ التحقق من المفتاح مع Anthropic…",
+  "settings.key_stored": "المخزَّن: {key}",
+  "settings.key_none": "لا يوجد مفتاح مخزَّن بعد — لا يمكن لـ Dawnlist العمل بدونه.",
+  "settings.licence_heading": "ترخيصك",
+  "settings.licence_body": "الصق مفتاح الترخيص من رسالة الشراء الإلكترونية. إذا حصلت على رمز تجاوز بدلاً من ذلك، الصقه هنا — سيقوم Dawnlist باستبداله بترخيص.",
+  "settings.licence_placeholder": "DAWN-… أو رمز تجاوز",
+  "settings.licence_save": "حفظ",
+  "settings.licence_checking": "جارٍ التحقق…",
+  "settings.licence_stored": "المخزَّن: {key}",
+  "settings.licence_none": "لا يوجد ترخيص مخزَّن بعد.",
+  "settings.licence_saved": "تم حفظ الترخيص.",
+  "settings.code_redeemed": "تم قبول الرمز — تم حفظ ترخيصك."
 }
