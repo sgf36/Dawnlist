@@ -8,6 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from app import i18n  # noqa: E402
@@ -96,11 +97,26 @@ COUNTS = {"swept": 1143, "deduped": 1088, "gated_out": 213,
 # Microsoft Store: 1366x768 or larger, 16:9.
 STORE_SIZE = (1366, 768)
 
+def render_hidden(widget, size):
+    """Lay out and paint a widget WITHOUT putting it on screen.
+
+    Qt paints a WA_DontShowOnScreen widget normally — real fonts, real styles —
+    but never maps it to the display. Without this every render flashes a
+    window on the user's desktop, which is intrusive when these run repeatedly.
+
+    The offscreen platform plugin would also avoid the flash, but it has no
+    font configuration and renders every glyph as tofu.
+    """
+    widget.setAttribute(Qt.WA_DontShowOnScreen, True)
+    widget.resize(*size)
+    widget.show()
+    return widget
+
+
 app = QApplication(sys.argv)
 w = ReviewWindow()
 w.load(ROWS, COUNTS, incomplete_note="context exhausted")
-w.resize(*STORE_SIZE)
-w.show()
+render_hidden(w, STORE_SIZE)
 # Select the first shortlist row so the detail pane renders real content -
 # an empty pane in a screenshot proves nothing about the pane.
 docs = Path(__file__).resolve().parents[1] / "docs"
@@ -127,8 +143,7 @@ i18n.set_locale("ar")
 i18n.clear_cache()
 rtl = ReviewWindow()
 rtl.load(ROWS, COUNTS, incomplete_note="نفد السياق")
-rtl.resize(*STORE_SIZE)
-rtl.show()
+render_hidden(rtl, STORE_SIZE)
 rtl.tabs.setCurrentIndex(0)
 rtl.shortlist.setCurrentItem(rtl.shortlist.topLevelItem(0))
 for _ in range(8):

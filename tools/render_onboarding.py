@@ -4,6 +4,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from app.onboarding.calibration import CalibrationItem  # noqa: E402
@@ -29,6 +30,22 @@ SAMPLE = [
 # Microsoft Store: 1366x768 or larger, 16:9.
 STORE_SIZE = (1366, 768)
 
+def render_hidden(widget, size):
+    """Lay out and paint a widget WITHOUT putting it on screen.
+
+    Qt paints a WA_DontShowOnScreen widget normally — real fonts, real styles —
+    but never maps it to the display. Without this every render flashes a
+    window on the user's desktop, which is intrusive when these run repeatedly.
+
+    The offscreen platform plugin would also avoid the flash, but it has no
+    font configuration and renders every glyph as tofu.
+    """
+    widget.setAttribute(Qt.WA_DontShowOnScreen, True)
+    widget.resize(*size)
+    widget.show()
+    return widget
+
+
 app = QApplication(sys.argv)
 page = CalibrationPage()
 page.load([CalibrationItem(job_key=str(i), title=t, company=c, description="d",
@@ -44,8 +61,7 @@ for btn in page._widgets[1].group.buttons():
     if btn.property("verdict") == "strong":
         btn.setChecked(True)
 
-page.resize(*STORE_SIZE)
-page.show()
+render_hidden(page, STORE_SIZE)
 for _ in range(8):
     app.processEvents()
 out = Path(__file__).resolve().parents[1] / "docs" / "calibration-gate.png"
