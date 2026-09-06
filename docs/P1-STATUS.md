@@ -1,70 +1,83 @@
-# P1 — status
+# Build status
 
-**Started 2026-09-06**, after the P0 gate passed. Repo is at `C:\Users\SpencerFields\dawnlist`,
-deliberately **off OneDrive** per handoff Part 9.
+**Repo:** `C:\Users\SpencerFields\dawnlist`, deliberately **off OneDrive** per handoff Part 9.
+**Tests:** 157, all passing — `.venv/Scripts/python -m pytest -q`
+**Last updated:** 2026-09-06
 
 ## Done
 
-The engine core — the parts handoff Part 11 calls the product's actual IP, ported as code, schema
-and constraints rather than documentation.
-
 | Module | What it holds |
 |---|---|
-| `app/core/rules.py` | the one shared rule table (spec 5.5), word-boundary matcher, `KillFamily` with mandatory SAVES + two anchored precedents, and the admission-time conflict guard |
-| `app/core/screen.py` | the four-tier screen with tier order enforced, `ScreenReport` retaining screened-out rows and reasons, yield-rate diagnostic |
+| `app/core/rules.py` | the one shared rule table (spec 5.5), word-boundary matcher, `KillFamily` with mandatory SAVES + two anchored precedents, admission-time conflict guard, containment detection |
+| `app/core/screen.py` | four-tier screen, tier order enforced, screened-out rows kept with reasons, contained-match bucket, yield-rate diagnostic |
 | `app/core/dedup.py` | exact drops by `(provider, provider_job_id)`, near-duplicate flagging, stranded-file recovery |
 | `app/core/tracker.py` | the board — 9-stage ladder, status mirror, action tasks, parity/bounce audit |
 | `app/core/cadence.py` | ladder from evidenced touches, Tue–Thu rule, OOO override, bounce pivot |
-| `app/core/db.py` | full SQLite schema; invariant 13 as a foreign key |
-| `app/feed/` | normalised `Job`, provider contract, P0-validated TheirStack adapter with delta pulls |
+| `app/core/db.py` | full SQLite schema; invariant 13 as a foreign key; partial unique indexes for one-live-opportunity, one-open-task, one-live-draft |
+| `app/core/pipeline.py` | the morning run: feed → dedup → gates → screen → assessment, every narrowing counted onto the run as it happens |
+| `app/feed/` | normalised `Job`, provider contract, P0-validated TheirStack adapter with mandatory delta pulls |
+| `app/intelligence/` | cached prompt prefix, verdict schema, batching, resumability, the three assessment guards |
+| `app/outreach/drafts.py` | `.eml` output, placeholder blocking, revise-in-place, the plain-ask check |
+| `app/ui/review.py` | review window: always-visible funnel bar, browsable rejects, "Needs review" containment tab |
 | `server/dawnlist-feed-worker/` | search proxy, D1 metering, cross-user cache, provider failover as data |
 
-**89 tests, all passing.** `.venv/Scripts/python -m pytest -q`
+Both P1 findings are resolved structurally — see below. Rendered proof of the UI is in
+`docs/review-window.png` and `docs/review-window-contained.png`; `tools/render_ui.py` regenerates
+them.
 
-## Two findings from the port
+## The two findings, and how they were closed
 
-**1. Word boundaries do not satisfy invariant 7 on their own.** They stop `venue` firing inside
-*revenue* and `spa` inside *space* — the 474-of-550 failure. They do **not** stop
-`\boffice manager\b` matching inside "Assistant Front Office Manager", because that is a
-well-formed word sequence inside a longer, genuinely in-scope title. The golden set reproduced the
-original defect against the new code. No matcher tweak fixes it safely — shortening the match
-breaks real kills. The spec's rule is an **admission** guard, so `rules.assert_no_conflicts()` now
-tests every proposed term and every proposed kill family against the user's pursue history before
-it can enter the table. `test_word_boundaries_alone_would_not_have_caught_it` exists specifically
-to stop someone "simplifying" the guard away later.
+**1. Containment.** Word boundaries stop `venue`/*revenue* and `spa`/*space*, but not
+`\boffice manager\b` matching inside "Assistant Front Office Manager". Two layers now cover it:
 
-**2. A bounced send is not an evidenced touch.** Counting five business days from a bounce
-schedules a chase against contact that never happened — the same class of error as mirroring
-`waiting` onto a bounced opportunity. `Touch.is_evidenced_outbound` excludes bounces, and the
-bounce path returns "due now, pivot channel, ladder unchanged".
+- `rules.assert_no_conflicts()` — an **admission** guard testing every proposed term and every
+  proposed kill family against the user's real pursue history before it can enter the table;
+- `rules.is_contained_match()` — a structural check needing **no history**, so it works on day one.
+  The discriminator is linguistic: *"X of Y"* means the role **is** Y (so an `operations` kill on
+  "Head of Operations" is correct and is **not** flagged), while *"A B Y"* means Y modified (so
+  "Assistant Front Office Manager" **is** flagged).
 
-## Next, in order
+The kill still happens — the screen stays cheap and predictable — but the row lands in the review
+window's **Needs review** tab with its explanation and a Pursue button. The failure that was silent
+is now an actionable row.
 
-1. **Assessment via the Batch API** (`app/intelligence/`). Structured outputs for the verdict line;
-   the disqualifying quote enforced *in the schema* so a reject on a stated requirement cannot be
-   recorded without the verbatim line. Prompt-cache the fit brief + factsheet + rules prefix; keep
-   volatile content after the cache breakpoint. Resumable: verdicts append per batch so a crashed
-   run resumes by skipping judged ids.
-2. **The run pipeline** wiring feed → dedup → gates → screen → assessment through `db.run()`, so
-   the funnel counts land in `runs` and every output is registered.
-3. **Minimal review UI** (PySide6) — the ranked list with Pursue / Reject / Later, the funnel
-   counts always on screen, and the `unlikely` pile browsable.
-4. **Worker deploy** — `d1 create`, schema, secrets, then verify by behaviour rather than by the
-   deploy message.
+**2. Bounces.** Beyond `Touch.is_evidenced_outbound` excluding bounces from the cadence:
 
-`.eml` drafting, the onboarding interview and the calibration gate are P2/P3 and are not started.
+- `contacts` carries `CHECK (email_bounced = 0 OR email IS NULL)`, so a bounced contact **cannot
+  retain an address**. "Cleared" is enforced, not remembered;
+- `db.record_bounce()` clears and flags in one statement;
+- `tests/test_bounce_integration.py` pins the tracker and the cadence to the same meaning, so the
+  board cannot read "waiting on them" while the engine chases a dead mailbox.
 
-## Blocked, and it is not an engineering blocker
+## Next
 
-The **TheirStack licensing/product-fit answer** (`theirstack-licensing-enquiry.md`) is still
-outstanding. It decides whether this runs on the API or on a self-hosted dataset index, which is a
-genuine infrastructure step change. **Do not purchase any tier before that reply.** The provider
-abstraction means a dataset becomes another adapter behind the same normalised `Job`, so nothing
-built so far is wasted either way.
+1. **Onboarding (P2)** — CV ingest, the Sessions 1–3 interview, factsheet/brief builders, and the
+   **calibration gate**. Not started. The gate is the transfer-of-judgement step that made the
+   original system work: ~10 live postings, the user corrects the verdicts, and each correction
+   rewrites the brief. Do not let a user into daily runs without it.
+2. **Wire the UI to the pipeline** — the review window currently takes `ReviewRow`s directly;
+   it needs the `RunOutcome` → rows adapter and decision persistence into `decisions`.
+3. **Tracker UI** — the board exists in `tracker.py` and the schema; it has no screen yet.
+4. **Cadence → drafts** — `next_step()` and the draft writer exist but are not joined up.
+5. **Packaging (P4)** — PyInstaller onedir, MSIX, notarised macOS, MAS. Reuse the EasyPost specs.
 
-## Environment note
+## Blocked, deliberately
 
-PySide6 is not installed for Python 3.14 in this environment and the engine core does not need it —
-everything above is stdlib-only and testable now. Install `requirements-dev.txt` into `.venv` before
-starting the UI, and check PySide6 has a 3.14 wheel; if not, pin the venv to 3.12/3.13 as EasyPost
-does.
+- **Worker deploy.** Needs Cloudflare credentials and is outward-facing infrastructure; not run.
+  `wrangler.jsonc` carries a placeholder `database_id`, and `server/dawnlist-feed-worker/README.md`
+  has the sequence. Verify by behaviour, never by the deploy message.
+- **TheirStack tier purchase.** The licensing/product-fit answer
+  (`theirstack-licensing-enquiry.md`) decides API vs self-hosted dataset index. **Do not purchase
+  any tier before that reply.** The provider abstraction means a dataset becomes another adapter
+  behind the same normalised `Job`, so nothing built so far is wasted either way.
+
+## Environment note (corrects an earlier claim)
+
+**PySide6 does have a Python 3.14 wheel** — 6.11.1 was already running in the EasyPost venv; it was
+simply absent from the system interpreter. 6.11.2 is installed in this repo's `.venv`. No version
+pin is needed.
+
+Two rendering traps worth keeping: `QT_QPA_PLATFORM=offscreen` renders every glyph as tofu (a
+font-config artefact, not an app fault — render natively for screenshots), and a UI smoke test
+proves the window *built*, never that it is *readable*. Rendering and looking at it caught a
+truncated "Why" column and a dangling em-dash that no test would have.
