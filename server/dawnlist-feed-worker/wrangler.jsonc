@@ -1,0 +1,14 @@
+{
+  "name": "dawnlist-feed-worker",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-06",
+  "observability": { "enabled": true },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "dawnlist", "database_id": "PLACEHOLDER-set-after-d1-create" }
+  ]
+  // Secrets (wrangler secret put <NAME> — the command takes the secret's NAME,
+  // never its value; the value goes at the interactive prompt only):
+  //   THEIRSTACK_API_KEY
+  //   ANTHROPIC_API_KEY
+  //   PADDLE_WEBHOOK_SECRET   (separate signing key from EasyPost's)
+}

@@ -1,0 +1,226 @@
+"""The rule table — ONE table, shared by the screen and the priority scorer.
+
+spec 5.5: the screen decides *whether* a posting is assessed; the scorer decides
+*when*. They can silently disagree when a rule is added to one and not the
+other — a real case put "Assistant <title>" roles in scope while the scorer
+still demoted anything containing "assistant", so newly in-scope roles landed
+at the bottom of the pile.
+
+The structural answer is that there is no second table to forget to update.
+Both consumers import RuleTable and neither carries terms of its own.
+"""
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+
+
+def word_boundary(terms: list[str]) -> re.Pattern | None:
+    r"""Compile terms into ONE word-boundary alternation.
+
+    Rule 7 / spec 5.1. A naive substring screen marked 474 of 550 postings
+    `likely` because "venue" fired on re*venue* and "spa" on *spa*ce. Word
+    boundaries plus title/company scoping cut that to 143.
+
+    Multi-word terms are supported; internal whitespace matches any run of
+    whitespace so "front office" matches "front  office".
+    """
+    if not terms:
+        return None
+    parts = [r"\s+".join(re.escape(w) for w in t.split()) for t in terms if t.strip()]
+    if not parts:
+        return None
+    return re.compile(r"\b(?:" + "|".join(parts) + r")\b", re.IGNORECASE)
+
+
+class KillFamilyError(ValueError):
+    """Raised when a kill family violates one of the four rules in spec 5.3."""
+
+
+@dataclass(frozen=True)
+class KillFamily:
+    """An employer list + a KILL title regex + a SAVES title regex.
+
+    spec 5.2: the brand does not disqualify a posting — the brand plus the
+    wrong function does. An operations role at these employers dies; a strategy
+    or data role at the same employer survives.
+
+    The four rules of spec 5.3 are enforced in __post_init__ rather than
+    documented, because prose is what failed:
+      1. anchored to >= 2 real rejections, carried in `precedents`;
+      2. a SAVES regex is REQUIRED — a family without one over-fires the
+         moment the user's interests widen;
+      3. never admit a term that can appear inside an in-scope title (tested
+         against the golden set, see tests/test_screen.py);
+      4. unit-tested against real decisions.
+    """
+    name: str
+    employers: tuple[str, ...]
+    kill_titles: tuple[str, ...]
+    saves_titles: tuple[str, ...]
+    # Every precedent is a real decision the user made: (company, title).
+    precedents: tuple[tuple[str, str], ...] = ()
+    # Kill families are PROPOSED by the app after two rejections of the same
+    # shape and adopted only when the user accepts them (rule 8). A family
+    # loaded from the database with adopted=False never fires.
+    adopted: bool = False
+
+    _kill_re: re.Pattern | None = field(default=None, init=False, repr=False, compare=False)
+    _saves_re: re.Pattern | None = field(default=None, init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if not self.employers:
+            raise KillFamilyError(f"{self.name}: a kill family needs at least one employer")
+        if not self.kill_titles:
+            raise KillFamilyError(f"{self.name}: a kill family needs KILL terms")
+        if not self.saves_titles:
+            raise KillFamilyError(
+                f"{self.name}: SAVES is a required field (spec 5.3 rule 2). "
+                "A family without one over-fires the moment interests widen."
+            )
+        if len(self.precedents) < 2:
+            raise KillFamilyError(
+                f"{self.name}: anchor to at least two real rejections "
+                f"(spec 5.3 rule 1); got {len(self.precedents)}. "
+                "A family invented from intuition removes things the user wanted."
+            )
+        object.__setattr__(self, "_kill_re", word_boundary(list(self.kill_titles)))
+        object.__setattr__(self, "_saves_re", word_boundary(list(self.saves_titles)))
+
+    def covers_employer(self, company: str) -> bool:
+        c = (company or "").casefold()
+        return any(e.casefold() in c for e in self.employers)
+
+    def verdict(self, company: str, title: str) -> str | None:
+        """Return a kill reason, or None if this family does not kill it.
+
+        SAVES is checked BEFORE kill: the whole point of the family is that the
+        right function at a rejected employer survives.
+        """
+        if not self.adopted or not self.covers_employer(company):
+            return None
+        if self._saves_re and self._saves_re.search(title or ""):
+            return None
+        if self._kill_re:
+            m = self._kill_re.search(title or "")
+            if m:
+                return f"kill family {self.name!r}: {company} + title term {m.group(0)!r}"
+        return None
+
+
+@dataclass
+class RuleTable:
+    """Per-user screening rules. Seeded EMPTY — every entry is earned.
+
+    unsupported_titles  tier 1: line-staff grades and excluded functions
+    known_employers     tier 2: employers the user has actually pursued
+    strong_terms        tier 3: signal anywhere, description included
+    contextual_terms    tier 4: signal in TITLE or COMPANY only — a word like
+                        "travel" or "portfolio" is real signal in a title and
+                        pure noise in a description's benefits boilerplate
+    """
+    unsupported_titles: list[str] = field(default_factory=list)
+    known_employers: list[str] = field(default_factory=list)
+    strong_terms: list[str] = field(default_factory=list)
+    contextual_terms: list[str] = field(default_factory=list)
+    kill_families: list[KillFamily] = field(default_factory=list)
+
+    def compiled(self) -> "CompiledRules":
+        return CompiledRules(
+            unsupported=word_boundary(self.unsupported_titles),
+            strong=word_boundary(self.strong_terms),
+            contextual=word_boundary(self.contextual_terms),
+            employers=tuple(e.casefold() for e in self.known_employers),
+            families=tuple(self.kill_families),
+        )
+
+
+@dataclass(frozen=True)
+class CompiledRules:
+    unsupported: re.Pattern | None
+    strong: re.Pattern | None
+    contextual: re.Pattern | None
+    employers: tuple[str, ...]
+    families: tuple[KillFamily, ...]
+
+    def known_employer(self, company: str) -> str | None:
+        c = (company or "").casefold()
+        for e in self.employers:
+            if e and e in c:
+                return e
+        return None
+
+
+# ---------------------------------------------------------------------------
+# spec 5.3 rules 3 and 4 — the admission-time guard.
+#
+# Word boundaries are NOT sufficient here, and assuming they were is how the
+# original failure happened. `\boffice manager\b` still matches INSIDE
+# "Assistant Front Office Manager" — the term is a well-formed word sequence
+# sitting within a longer, genuinely in-scope title. No matcher tweak fixes
+# that safely: shortening the match would break real kills.
+#
+# The spec's actual rule is therefore about ADMISSION, not matching: "never
+# admit a term that can appear inside an in-scope title". So a term is tested
+# against the user's real decisions BEFORE it can enter the table, and rule 4
+# ("unit-test the families against real decisions") becomes runtime code
+# instead of a documented intention.
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class RuleConflict:
+    term: str
+    field: str
+    pursued_title: str
+    company: str
+
+    def __str__(self) -> str:
+        return (f"{self.field} term {self.term!r} would kill a pursued role: "
+                f"{self.pursued_title!r} at {self.company!r}")
+
+
+class RuleConflictError(ValueError):
+    def __init__(self, conflicts: list[RuleConflict]):
+        self.conflicts = conflicts
+        super().__init__("; ".join(str(c) for c in conflicts))
+
+
+def find_conflicts(table: "RuleTable",
+                   pursued: list[tuple[str, str]]) -> list[RuleConflict]:
+    """Every way `table` would screen out a role the user actually pursued.
+
+    `pursued` is the golden set: (company, title) pairs the user marked pursue.
+    Returns conflicts rather than raising, so the UI can show them all at once.
+    """
+    conflicts: list[RuleConflict] = []
+    unsupported = word_boundary(table.unsupported_titles)
+    for company, title in pursued:
+        if unsupported:
+            m = unsupported.search(title or "")
+            if m:
+                conflicts.append(RuleConflict(m.group(0), "unsupported_titles",
+                                              title, company))
+        for fam in table.kill_families:
+            # Test the family as if adopted: a proposed family must be checked
+            # before the user is ever asked to adopt it.
+            probe = KillFamily(name=fam.name, employers=fam.employers,
+                               kill_titles=fam.kill_titles,
+                               saves_titles=fam.saves_titles,
+                               precedents=fam.precedents, adopted=True)
+            why = probe.verdict(company, title)
+            if why:
+                conflicts.append(RuleConflict(fam.name, "kill_families",
+                                              title, company))
+    return conflicts
+
+
+def assert_no_conflicts(table: "RuleTable",
+                        pursued: list[tuple[str, str]]) -> None:
+    """Raise if any rule in `table` would screen out a real pursue.
+
+    Call this on every rule change — adding a term, adopting a proposed kill
+    family — and on app start against the stored decision history.
+    """
+    conflicts = find_conflicts(table, pursued)
+    if conflicts:
+        raise RuleConflictError(conflicts)
