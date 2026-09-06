@@ -308,6 +308,17 @@ def _doctor(conn) -> int:
               "to English silently. Check the spec collects "
               "app/resources/locales.", file=sys.stderr)
 
+    # Reported because a missing extractor in a frozen build shows up to the
+    # user as "no text could be read", which points at their CV rather than at
+    # the bundle.
+    for module, what in (("pypdf", "PDF"), ("docx", "Word")):
+        try:
+            __import__(module)
+            print(f"{what + ' reading':<14}: available")
+        except ImportError:
+            print(f"{what + ' reading':<14}: MISSING ({module} not bundled)",
+                  file=sys.stderr)
+
     print(f"calibrated    : {is_calibrated(conn)}")
     print(f"queries       : {len(load_queries(conn))}")
     print(f"fit brief     : {'yes' if load_document(conn, 'fit_brief') else 'no'}")

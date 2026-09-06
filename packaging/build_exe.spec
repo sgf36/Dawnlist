@@ -46,13 +46,16 @@ datas += [
 ]
 
 hiddenimports = [
-    # Imported lazily inside build_provider/build_send so the engine stays
-    # importable without them; PyInstaller's static graph therefore never sees
-    # them and would leave them out of the frozen app.
+    # Every one of these is imported LAZILY, inside a function, so the engine
+    # stays importable without it. PyInstaller's static graph therefore never
+    # sees them, and a frozen build would be missing them with no build error —
+    # the failure would only appear when a user dropped a PDF on the app.
     "keyring",
     "keyring.backends.Windows",
     "keyring.backends.macOS",
     "anthropic",
+    "pypdf",          # app/onboarding/extract.py::_read_pdf
+    "docx",           # app/onboarding/extract.py::_read_docx
 ]
 
 binaries = []

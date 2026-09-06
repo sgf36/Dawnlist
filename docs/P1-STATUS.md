@@ -1,7 +1,7 @@
 # Build status
 
 **Repo:** `C:\Users\SpencerFields\dawnlist`, deliberately **off OneDrive** per handoff Part 9.
-**Tests:** 302, all passing — `.venv/Scripts/python -m pytest -q`
+**Tests:** 349, all passing — `.venv/Scripts/python -m pytest -q`
 **Last updated:** 2026-09-06 — P1 engine complete; a frozen build runs
 
 ## Done
@@ -28,6 +28,9 @@
 | `app/outreach/run.py` | what is due, who to write to, and the draft — blocked items named |
 | `app/onboarding/` | CV corpus, factsheet/brief drafting rules, the calibration gate |
 | `app/main.py` | entry point: `--run-once`, `--board`, `--audit`; headless and windowed share every path |
+| `app/onboarding/extract.py` | CV corpus off disk; a scanned PDF is diagnosed by name, never treated as empty |
+| `app/ui/onboarding.py` | ingest with drag-drop, and the calibration gate |
+| `app/feed/alert_email.py` | job-alert digests dragged in; tracking stripped so one posting is one row |
 | `server/dawnlist-feed-worker/` | search proxy, D1 metering, cross-user cache, provider failover as data |
 
 Both P1 findings are resolved structurally — see below. Rendered proof of the UI is in
@@ -60,20 +63,25 @@ is now an actionable row.
 
 ## Next
 
-1. **Onboarding UI.** The onboarding *logic* is done and enforced — corpus warnings, factsheet and
-   brief drafting rules, the calibration gate — but it has no screens. Nothing can run around the
-   gate meanwhile: `morning_run` refuses, so the app is safe, just not yet usable end to end by a
-   real user.
-2. **CV text extraction.** `Corpus` takes text; nothing reads a PDF or `.docx` yet. Add `pypdf` and
-   `python-docx`, and treat an image-only scan as unreadable **by name** rather than as empty.
-3. **Alert-email drag-and-drop** (handoff 0.2) — the universal zero-cost feed supplement, and the
-   thing that replaces the LinkedIn digest coverage. The `.eml` parsing already exists in
-   `outreach/voice.py`; it needs a job-card parser and a drop target.
-4. **MSIX + notarisation + MAS.** The PyInstaller build works and produces a running 124MB onedir.
-   Store packaging and signing need credentials and are outward-facing decisions. Reuse EasyPost's
+Everything buildable without your credentials or spend is done. What remains needs a decision
+from you:
+
+1. **Generate the 48 locale catalogues** — `tools/translate_catalog.py`. One API run; it spends
+   money, so it is not automatic. `en` and `ar` are written and the rest fall back to English
+   cleanly meanwhile.
+2. **Worker deploy** — needs Cloudflare credentials. `server/dawnlist-feed-worker/README.md` has
+   the sequence; verify by behaviour, never by the deploy message.
+3. **MSIX, notarisation, MAS** — the PyInstaller build works and produces a running 124MB onedir.
+   Store packaging and signing are outward-facing and need certificates. Reuse EasyPost's
    `build_msix.py`, `sign_msix.ps1`, `run_wack.ps1` and `CI-MAS-SETUP.md`.
-5. **Generate the 48 locale catalogues** — one API run, needs your go-ahead.
-6. **Worker deploy** — needs Cloudflare credentials.
+4. **TheirStack tier** — blocked on the licensing reply. Do not purchase before it lands.
+5. **Trademark clearance on "Dawnlist"** — free first-pass across UKIPO, EUIPO, USPTO and both
+   stores, re-run immediately before submission. September's search found nothing, but registers
+   move and a clean result has a shelf life.
+
+Smaller things worth doing when convenient: wiring the onboarding pages into a wizard flow in
+`main.py` (the pages exist and are tested; nothing routes to them yet), and a drop target for
+alert emails on the review window (the parser is done).
 
 ## Blocked, deliberately
 
