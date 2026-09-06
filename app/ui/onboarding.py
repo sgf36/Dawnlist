@@ -12,6 +12,7 @@ which makes a five-minute step feel endless and trains people to guess.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -26,6 +27,22 @@ from app.i18n import tr
 from app.onboarding.calibration import CalibrationItem, CalibrationResult
 from app.onboarding.interview import INGEST_GUIDANCE
 from app.ui.review import CREAM, GOLD, GOLD_DEEP, INK, TEAL, TEAL_LIFTED
+
+def reflow(text: str) -> str:
+    """Undo hard line breaks inside paragraphs, keep the paragraph breaks.
+
+    Source strings are wrapped at ~78 characters for readability in the file.
+    QLabel HONOURS those newlines, so the text renders at whatever width the
+    source happened to use and ignores the pane it is in — which looks like a
+    word-wrap bug and is not one. Blank lines are kept, because they separate
+    paragraphs; single newlines are joined.
+
+    This changes whitespace only. The wording is still shown verbatim.
+    """
+    paragraphs = [" ".join(part.split())
+                  for part in re.split(r"\n\s*\n", text.strip())]
+    return "\n\n".join(p for p in paragraphs if p).replace("**", "")
+
 
 ONBOARDING_STYLESHEET = f"""
 QLabel#stepHeading {{
@@ -170,7 +187,7 @@ class IngestPage(QWidget):
         # The guidance is shown VERBATIM. Both sentences are load-bearing:
         # users hand over a single tidied CV and lose exactly the history the
         # screen needs.
-        body = QLabel(INGEST_GUIDANCE.replace("**", ""))
+        body = QLabel(reflow(INGEST_GUIDANCE))
         body.setObjectName("stepBody")
         body.setWordWrap(True)
         layout.addWidget(body)
@@ -236,7 +253,7 @@ class CalibrationPage(QWidget):
         heading.setObjectName("stepHeading")
         layout.addWidget(heading)
 
-        body = QLabel(tr("onboarding.calibration_body"))
+        body = QLabel(reflow(tr("onboarding.calibration_body")))
         body.setObjectName("stepBody")
         body.setWordWrap(True)
         layout.addWidget(body)

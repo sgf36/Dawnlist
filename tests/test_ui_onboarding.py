@@ -156,3 +156,21 @@ def test_reloading_clears_the_previous_sample(page):
     page.load(items())
     assert len(page._widgets) == 10
     assert not page.btn_finish.isEnabled()
+
+
+def test_reflow_undoes_source_line_breaks_but_keeps_paragraphs():
+    """The source strings are hard-wrapped at ~78 chars for readability, and
+    QLabel honours those newlines — so the text renders at the source's width
+    and ignores the pane. That looks like a word-wrap bug and is not one."""
+    from app.ui.onboarding import reflow
+    out = reflow("one line\nsame paragraph\n\nsecond paragraph\nstill second")
+    assert out == "one line same paragraph\n\nsecond paragraph still second"
+
+
+def test_reflow_preserves_the_wording(qapp):
+    from app.onboarding.interview import INGEST_GUIDANCE
+    from app.ui.onboarding import reflow
+    out = reflow(INGEST_GUIDANCE)
+    assert "Do not tidy them up first" in out
+    assert "Early roles are often cut from a senior CV" in out
+    assert "\n" not in out.split("\n\n")[0], "no hard breaks inside a paragraph"
