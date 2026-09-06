@@ -239,6 +239,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="open on the board rather than the shortlist")
     parser.add_argument("--audit", action="store_true",
                         help="print the board audit and exit")
+    parser.add_argument("--doctor", action="store_true",
+                        help="print environment diagnostics and exit")
     parser.add_argument("--db", type=Path, default=None,
                         help="database path (defaults to the app data dir)")
     parser.add_argument("--locale", default=None, help="UI locale, e.g. fr")
@@ -249,6 +251,9 @@ def main(argv: list[str] | None = None) -> int:
 
     settings = load_settings(conn)
     set_locale(args.locale or settings.get("locale", "en"))
+
+    if args.doctor:
+        return _doctor(conn)
 
     if args.audit:
         from app.core.board_repo import audit_board
@@ -273,6 +278,40 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if outcome.complete else 1
 
     return _launch_ui(conn, open_board=args.board)
+
+
+def _doctor(conn) -> int:
+    """Environment diagnostics.
+
+    Exists because a frozen build fails differently from a source run: a
+    resource read by path at runtime can simply be absent from the bundle, and
+    the app degrades quietly rather than crashing. This prints what actually
+    resolved, so "it is not translating" is one command to diagnose rather than
+    a support thread.
+    """
+    from app.i18n import LOCALE_CODES, LOCALES_DIR, coverage
+    from app.onboarding.calibration import is_calibrated
+
+    frozen = getattr(sys, "frozen", False)
+    print(f"dawnlist      : {'frozen' if frozen else 'source'}")
+    print(f"database      : {conn.execute('PRAGMA database_list').fetchone()[2]}")
+    print(f"locales dir   : {LOCALES_DIR}")
+    print(f"locales exist : {LOCALES_DIR.exists()}")
+
+    cov = coverage()
+    shipped = sorted(c for c in LOCALE_CODES if cov[c] > 0)
+    print(f"catalogues    : {len(shipped)} of {len(LOCALE_CODES)} "
+          f"({', '.join(shipped) if shipped else 'none'})")
+    if not shipped:
+        # The exact failure the spec's `datas` entry exists to prevent.
+        print("  WARNING: no catalogues resolved. Every locale will fall back "
+              "to English silently. Check the spec collects "
+              "app/resources/locales.", file=sys.stderr)
+
+    print(f"calibrated    : {is_calibrated(conn)}")
+    print(f"queries       : {len(load_queries(conn))}")
+    print(f"fit brief     : {'yes' if load_document(conn, 'fit_brief') else 'no'}")
+    return 0 if shipped else 1
 
 
 def _launch_ui(conn, *, open_board: bool) -> int:

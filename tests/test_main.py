@@ -230,3 +230,16 @@ def test_run_once_exits_two_when_uncalibrated(dbfile, capsys):
     c.close()
     assert main(["--run-once", "--db", str(dbfile)]) == 2
     assert "Calibration" in capsys.readouterr().err
+
+
+def test_doctor_reports_the_locale_catalogues(dbfile, capsys):
+    """A frozen build fails differently: a resource read by path can simply be
+    absent from the bundle and the app degrades quietly. This is the check."""
+    c = db.connect(dbfile)
+    db.migrate(c)
+    c.close()
+    assert main(["--doctor", "--db", str(dbfile)]) == 0
+    out = capsys.readouterr().out
+    assert "locales exist : True" in out
+    assert "catalogues" in out and "en" in out
+    assert "calibrated    : False" in out
