@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 from app.core import db
-from app.core.board_repo import add_task, create_opportunity, load_board, set_stage
+from app.core.board_repo import add_task, load_board, set_stage
 from app.core.pipeline import permanent_reject_gate, persist, run_morning
 from app.core.rules import RuleTable
 from app.core.tracker import Stage
@@ -175,15 +175,20 @@ def test_a_user_goes_from_documents_to_a_draft(conn, tmp_path):
     assert ("theirstack", "m-2") in rejected_keys(conn), (
         "a rejection that does not suppress tomorrow's sweep is not a rejection")
 
-    # -- 4. the board ------------------------------------------------------
-    oid = create_opportunity(conn, "Meridian Group", stage=Stage.IDENTIFIED)
+    # -- 4. the board, opened by the decision itself ------------------------
+    # This step used to call `create_opportunity` here, which is exactly how a
+    # smoke test can pass over a severed chain: the app did not open anything
+    # on a Pursue, and the test did it on the app's behalf.
+    board = load_board(conn)
+    assert len(board) == 1, "Pursue must put the employer on the board"
+    assert board[0].company == "Meridian Group"
+    assert board[0].stage is Stage.IDENTIFIED
+
+    oid = board[0].id
     add_contact(conn, oid)
     add_task(conn, str(oid), "Write to Jo Bennett", due_on=TUE)
     set_stage(conn, str(oid), Stage.CONTACTED)
-
-    board = load_board(conn)
-    assert len(board) == 1
-    assert board[0].stage is Stage.CONTACTED
+    assert load_board(conn)[0].stage is Stage.CONTACTED
 
     # -- 5. drafting, on the factsheet the interview produced --------------
     due = due_today(conn, today=TUE)

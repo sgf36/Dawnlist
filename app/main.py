@@ -251,6 +251,95 @@ def print_funnel(outcome) -> None:
         print(f"\n  below 10% yield, rewrite rather than widen: {', '.join(loose)}")
 
 
+
+def drafts_dir() -> Path:
+    """Where `.eml` files land. Beside the database, never a synced folder —
+    a draft is unsent correspondence and has no business in OneDrive."""
+    return db.default_db_path().parent / "drafts"
+
+
+def outreach_run(conn, *, send=None, today: date | None = None,
+                 folder: Path | None = None):
+    """Draft everything due. Writes files; sends nothing, ever.
+
+    The board decides what is due and the cadence decides when — this only
+    turns that list into files the user opens and sends themselves. There is
+    deliberately no transport here and no credential that could grow one.
+    """
+    from app.outreach.run import due_today, prepare_drafts
+    from app.outreach.voice import build_profile
+
+    factsheet = load_document(conn, "factsheet")
+    if not factsheet.strip():
+        raise NotConfigured(
+            "No background factsheet yet. Run onboarding first — every factual "
+            "claim in a draft has to come from it, so without one a draft is "
+            "either empty or invented.")
+
+    from app.core.entitlement import require as require_entitlement
+    require_entitlement(conn)
+
+    folder = folder or drafts_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+
+    items = due_today(conn, today=today)
+    settings = load_settings(conn)
+    return prepare_drafts(
+        conn, items, folder=folder, factsheet=factsheet,
+        voice=load_voice(conn), send=send or build_send(conn),
+        locale=settings.get("locale", "en"), today=today)
+
+
+#: Sent mail the user has supplied, for measuring how they write. Files rather
+#: than a table, and deliberately: `documents` is constrained to the fit brief
+#: and the factsheet, and widening that CHECK to admit a mail archive would put
+#: correspondence in the same store as the two documents that govern truth.
+#: Dawnlist never reads a mailbox — these are files a person put here.
+VOICE_DIRNAME = "voice"
+
+
+def voice_dir() -> Path:
+    return db.default_db_path().parent / VOICE_DIRNAME
+
+
+def load_voice(conn, folder: Path | None = None):
+    """The user's own tone of voice, measured from mail they supplied.
+
+    Falls back to a neutral profile rather than failing: someone who has added
+    no sent mail should still get drafts, in nobody's particular voice, rather
+    than no drafts at all. Style only — never content. What a past message
+    SAID is not evidence for anything a new one may claim; only the factsheet
+    is.
+    """
+    from app.outreach.voice import build_profile, profile_from_files
+
+    settings = load_settings(conn)
+    folder = folder or Path(settings.get("voice_dir") or voice_dir())
+    if not folder.is_dir():
+        return build_profile([])
+
+    paths = sorted(p for p in folder.iterdir()
+                   if p.suffix.lower() in {".eml", ".txt", ".md"})
+    if not paths:
+        return build_profile([])
+    return profile_from_files(paths, locale=settings.get("locale", "en"))
+
+
+def print_outreach(report) -> None:
+    counts = report.counts
+    width = max(len(k) for k in counts)
+    for key, value in counts.items():
+        print(f"  {key.replace('_', ' '):<{width}}  {value}")
+    for item in report.blocked:
+        print(f"    blocked: {item.opportunity.company} — {item.blocked}")
+    for draft in report.drafts.blocked:
+        print(f"    needs evidence: {draft.to_name} — "
+              f"{', '.join(draft.placeholders)}")
+    if report.drafts.drafts:
+        print(f"\n  written to {drafts_dir()}")
+    print("\n  Nothing was sent. Open each file and send it yourself.")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="dawnlist")
     parser.add_argument("--run-once", action="store_true",
@@ -261,6 +350,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="print the board audit and exit")
     parser.add_argument("--doctor", action="store_true",
                         help="print environment diagnostics and exit")
+    parser.add_argument("--draft", action="store_true",
+                        help="draft every outreach that is due; sends nothing")
     parser.add_argument("--onboard", action="store_true",
                         help="open the setup flow, even if already calibrated")
     parser.add_argument("--db", type=Path, default=None,
@@ -311,6 +402,24 @@ def main(argv: list[str] | None = None) -> int:
         # fetched nothing because the endpoint failed must never look like a
         # quiet morning.
         return 0 if outcome.complete else 1
+
+    if args.draft:
+        from app.core.api_key import KeyProblem
+        from app.core.entitlement import NotEntitled
+
+        try:
+            report = outreach_run(conn)
+        except KeyProblem as exc:
+            print(f"no api key: {exc}", file=sys.stderr)
+            return 4
+        except NotEntitled as exc:
+            print(f"not entitled: {exc}", file=sys.stderr)
+            return 3
+        except NotConfigured as exc:
+            print(f"not configured: {exc}", file=sys.stderr)
+            return 2
+        print_outreach(report)
+        return 0
 
     if args.onboard:
         from PySide6.QtWidgets import QApplication
@@ -472,11 +581,33 @@ def _launch_onboarding(app, conn) -> int:
     return app.exec()
 
 
+
+def _stored_funnel(conn, run_id) -> dict[str, int]:
+    """The funnel bar for a run that is no longer in memory.
+
+    Returned empty when there is no run: the bar states what a number excludes,
+    and inventing zeroes would say a run happened and found nothing.
+    """
+    if run_id is None:
+        return {}
+    row = conn.execute(
+        "SELECT swept, deduped, gated, screened_likely, screened_out, "
+        "assessed, left_unread FROM runs WHERE id=?", (run_id,)).fetchone()
+    if row is None:
+        return {}
+    # `gated` on disk, `gated_out` in memory. The funnel bar reads the
+    # in-memory names, so the rename happens here rather than in the window —
+    # a bar that silently omits a stage looks like a run that skipped it.
+    counts = {k: row[k] or 0 for k in row.keys()}
+    counts["gated_out"] = counts.pop("gated")
+    return counts
+
+
 def _launch_ui(conn, *, open_board: bool) -> int:
     from PySide6.QtWidgets import QApplication
 
     from app.onboarding.calibration import is_calibrated
-    from app.ui.adapter import connect_window
+    from app.ui.adapter import connect_window, latest_run_id, rows_from_db
     from app.ui.board import BoardWindow
     from app.ui.board_adapter import board_rows, connect_board
     from app.ui.review import ReviewWindow
@@ -494,7 +625,11 @@ def _launch_ui(conn, *, open_board: bool) -> int:
     else:
         window = ReviewWindow()
         connect_window(window, conn)
-        window.load([], {})
+        # The last run's shortlist, read back from the database rather than
+        # held from a run this process did. Opening the app the morning after
+        # is the normal case, and this window used to open empty in it — every
+        # posting the run assessed was on disk and nothing put it on screen.
+        window.load(rows_from_db(conn), _stored_funnel(conn, latest_run_id(conn)))
 
     window.show()
     return app.exec()

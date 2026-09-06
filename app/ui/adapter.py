@@ -14,6 +14,7 @@ Two rules travel with the rows rather than being re-derived in the UI:
 """
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import datetime, timezone
 
@@ -125,6 +126,39 @@ def record_decision(conn: sqlite3.Connection, job_id: str, decision: str) -> Non
          datetime.now(timezone.utc).isoformat(timespec="seconds")))
     conn.commit()
 
+    if decision == "pursue":
+        open_opportunity(conn, row["id"])
+
+
+def open_opportunity(conn: sqlite3.Connection, job_row_id: int) -> int | None:
+    """Put a pursued posting on the board.
+
+    Without this, Pursue wrote a `decisions` row and stopped. Nothing appeared
+    on the board, so nothing ever came due, so no draft was ever written — the
+    chain was severed between deciding and doing, and every module either side
+    of the break was correct and tested.
+
+    Returns the opportunity id, or None when the employer already has a live
+    one. Spec 9.5 allows one live opportunity per employer, so a second posting
+    at the same company joins the existing pursuit rather than opening a rival
+    to it — two live records for one employer is how the same person gets
+    written to twice in a week.
+    """
+    from app.core.board_repo import create_opportunity
+
+    job = conn.execute("SELECT company FROM jobs WHERE id=?",
+                       (job_row_id,)).fetchone()
+    if job is None:
+        return None
+
+    live = conn.execute(
+        "SELECT id FROM opportunities WHERE company=? AND closed_at IS NULL "
+        "AND stage NOT IN (6, 7)", (job["company"],)).fetchone()
+    if live is not None:
+        return None
+
+    return create_opportunity(conn, job["company"], job_id=job_row_id)
+
 
 def rejected_keys(conn: sqlite3.Connection) -> set[tuple[str, str]]:
     """Every permanently rejected posting, for the next run's gate.
@@ -144,3 +178,72 @@ def connect_window(window, conn: sqlite3.Connection) -> None:
     """Wire the window's decisions straight through to the database."""
     window.decided.connect(lambda job_id, decision:
                            record_decision(conn, job_id, decision))
+
+
+def latest_run_id(conn: sqlite3.Connection) -> int | None:
+    row = conn.execute("SELECT MAX(id) AS id FROM runs").fetchone()
+    return row["id"] if row and row["id"] is not None else None
+
+
+def rows_from_db(conn: sqlite3.Connection, run_id: int | None = None,
+                 *, include_decided: bool = False) -> list[ReviewRow]:
+    """Rebuild the review rows from what a run persisted.
+
+    `rows_from_outcome` only works while the run is still in memory, which
+    means it can only ever serve the process that did the run. Opening the app
+    the next morning is the normal case, and without this the window opens
+    empty however much work the last run did.
+
+    Decided postings are dropped by default: a pile that does not shrink as it
+    is worked is the reason people stop working it.
+    """
+    run_id = run_id if run_id is not None else latest_run_id(conn)
+    if run_id is None:
+        return []
+
+    sql = """
+        SELECT j.provider, j.provider_job_id, j.title, j.company,
+               j.locations_json, j.description_text, j.url,
+               j.screen_verdict, j.screen_reason,
+               a.bucket, a.reason, a.disqualifying_quote, a.requirement_checked
+          FROM jobs j
+          LEFT JOIN assessments a ON a.job_id = j.id AND a.run_id = ?
+         WHERE j.first_seen_run = ?
+    """
+    if not include_decided:
+        sql += " AND j.id NOT IN (SELECT job_id FROM decisions)"
+    sql += " ORDER BY j.id"
+
+    rows: list[ReviewRow] = []
+    for r in conn.execute(sql, (run_id, run_id)):
+        if r["bucket"]:
+            bucket = r["bucket"]
+            reason = r["reason"] or ""
+            quote = r["disqualifying_quote"]
+            checked = bool(r["requirement_checked"])
+        elif r["screen_verdict"] == Verdict.LIKELY.value:
+            # Survived the screen, never judged. Same rule as
+            # `rows_from_outcome`: an unread posting is an unknown, not a
+            # rejection.
+            bucket, reason = "judgement-call", "not assessed in this run"
+            quote, checked = None, False
+        else:
+            bucket, reason = SCREENED_OUT, ""
+            quote, checked = None, True
+
+        rows.append(ReviewRow(
+            job_id=f"{r['provider']}:{r['provider_job_id']}",
+            title=r["title"],
+            company=r["company"],
+            location=", ".join(json.loads(r["locations_json"] or "[]")),
+            url=r["url"],
+            description=r["description_text"],
+            bucket=bucket,
+            reason=reason,
+            disqualifying_quote=quote,
+            requirement_checked=checked,
+            downgrade_reason=None,
+            screen_reason=r["screen_reason"] or "",
+            contained=False,
+        ))
+    return rows
