@@ -141,3 +141,57 @@ tests/                 the golden set: every case cites the failure it encodes
 The suite is the golden set. Every kill is anchored to a real rejection and every save to a real
 pursue, so a regression in the screen shows up as a named historical failure returning rather than
 as an abstract assertion.
+
+---
+
+## Languages
+
+Dawnlist ships the **same 50 languages as Easy-Post Desktop and Wren** — the list and the RTL set
+(`ar`, `ur`, `fa`, `he`) are ported verbatim from `EasyPost-Desktop-App/app/i18n.py`. Keeping the
+three apps on one list means a locale added to one is addable to all, and the store listings stay
+comparable. **If the list changes there, change it here too.**
+
+`app/i18n.py` is the same JSON-catalogue pattern: `tr(key)` resolves against the active locale, then
+English, then returns the key itself — so a missing translation is visibly obvious rather than
+silently blank, and a broken catalogue file can never crash the UI.
+
+RTL locales mirror the **whole window**, not just the strings (`docs/review-window-ar.png` is the
+rendered proof).
+
+**Catalogue status: `en` and `ar` are written; the other 48 are not.** They fall back to English
+cleanly in the meantime. `tools/translate_catalog.py` generates them — it is deliberately **not**
+run automatically because it calls the API and spends money:
+
+```bash
+python tools/translate_catalog.py --dry-run
+```
+
+It never overwrites a hand-corrected catalogue without `--force`, never invents keys, and **verifies
+placeholder parity before writing** — a translation that drops `{count}` renders as a runtime error
+in front of the user, in a language the developer cannot read, so a catalogue that fails the check
+is not written at all. A missing file degrades to English; a corrupt one does not.
+
+## Tone of voice
+
+Outreach drafts are written in the user's chosen language **and in their own habitual register**,
+measured from messages they wrote themselves.
+
+**This does not read anyone's mailbox.** v1 ships no IMAP, no OAuth and no app passwords, and that
+is not negotiable — it is what keeps the product out of Google's restricted-scope rules and their
+annual paid CASA assessment. So the samples arrive exactly the way job-alert emails already do: the
+user **drags their own sent mail onto the app** (`.eml` files, or an `.mbox` export — every
+mainstream client can produce both). Zero credentials, every provider, and it is the user handling
+their own mail.
+
+`app/outreach/voice.py` measures **style only**: greeting and sign-off habits, sentence length,
+contraction rate, hedging, exclamation frequency, paragraph shape. Quoted reply text and signature
+blocks are stripped first, so the profile reflects what the user actually composed.
+
+**It never derives content.** No employers, no figures, no claims. A tone profile that carried
+biography would be a route around the one rule protecting the user from inventing their own career,
+so the extractor works on shape and frequency, the prompt block says `STYLE ONLY` in as many words,
+and a test asserts that content planted in the sample messages does not appear in the profile.
+Every factual claim still comes from the factsheet, and gaps are still blocking `[[placeholders]]`.
+
+Below five sample messages the profile reports itself unusable and drafting falls back to a neutral
+professional register — imitating noise is worse than not imitating.

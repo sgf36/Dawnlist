@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
+from app import i18n  # noqa: E402
 from app.ui.review import ReviewRow, ReviewWindow  # noqa: E402
 
 ROWS = [
@@ -80,4 +81,17 @@ w.contained.setCurrentItem(w.contained.topLevelItem(0))
 for _ in range(8):
     app.processEvents()
 w.grab().save(str(docs / "review-window-contained.png"))
-print("wrote both to", docs)
+# Arabic: the whole window must mirror, not just the strings.
+i18n.set_locale("ar")
+i18n.clear_cache()
+rtl = ReviewWindow()
+rtl.load(ROWS, COUNTS, incomplete_note="نفد السياق")
+rtl.resize(1180, 760)
+rtl.show()
+rtl.tabs.setCurrentIndex(0)
+rtl.shortlist.setCurrentItem(rtl.shortlist.topLevelItem(0))
+for _ in range(8):
+    app.processEvents()
+rtl.grab().save(str(docs / "review-window-ar.png"))
+i18n.set_locale("en")
+print("wrote three to", docs)

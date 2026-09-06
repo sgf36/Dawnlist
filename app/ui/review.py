@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
+from app.i18n import is_rtl, tr
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QMainWindow,
                                QPushButton, QSplitter, QTabWidget, QTextBrowser,
                                QTreeWidget, QTreeWidgetItem, QVBoxLayout,
@@ -73,9 +74,11 @@ class FunnelBar(QWidget):
                 item.widget().deleteLater()
         self._labels.clear()
 
-        stages = [("swept", "Swept"), ("deduped", "Deduped"),
-                  ("gated_out", "Gated"), ("screened_likely", "Screened in"),
-                  ("screened_out", "Screened out"), ("assessed", "Assessed")]
+        stages = [("swept", tr("funnel.swept")), ("deduped", tr("funnel.deduped")),
+                  ("gated_out", tr("funnel.gated")),
+                  ("screened_likely", tr("funnel.screened_in")),
+                  ("screened_out", tr("funnel.screened_out")),
+                  ("assessed", tr("funnel.assessed"))]
         for key, label in stages:
             if key not in counts:
                 continue
@@ -90,7 +93,10 @@ class FunnelBar(QWidget):
         # An incomplete run says so, in the bar, in gold. Never filed as normal.
         left = counts.get("left_unread", 0)
         if left or incomplete_note:
-            text = f"⚠ {left} left unread" if left else "⚠ incomplete"
+            if left:
+                text = "⚠ " + tr("funnel.left_unread", count=left)
+            else:
+                text = "⚠ " + tr("funnel.incomplete")
             if incomplete_note:
                 text += f" — {incomplete_note}"
             warn = QLabel(text)
@@ -103,7 +109,11 @@ class ReviewWindow(QMainWindow):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Dawnlist — this morning")
+        self.setWindowTitle(tr("app.title"))
+        # RTL locales flip the whole window, same as the other apps.
+        self.setLayoutDirection(
+            Qt.LayoutDirection.RightToLeft if is_rtl()
+            else Qt.LayoutDirection.LeftToRight)
         self.resize(1180, 760)
         self._rows: dict[str, ReviewRow] = {}
 
@@ -122,11 +132,11 @@ class ReviewWindow(QMainWindow):
         self.rejected = self._make_tree()
         self.screened_out = self._make_tree()
         self.contained = self._make_tree()
-        self.tabs.addTab(self.shortlist, "Shortlist")
-        self.tabs.addTab(self.rejected, "Rejected")
+        self.tabs.addTab(self.shortlist, tr("tab.shortlist"))
+        self.tabs.addTab(self.rejected, tr("tab.rejected"))
         # spec 5.4: the unlikely pile is browsable, never erased.
-        self.tabs.addTab(self.screened_out, "Screened out")
-        self.tabs.addTab(self.contained, "Needs review")
+        self.tabs.addTab(self.screened_out, tr("tab.screened_out"))
+        self.tabs.addTab(self.contained, tr("tab.needs_review"))
         splitter.addWidget(self.tabs)
 
         right = QWidget()
@@ -137,9 +147,9 @@ class ReviewWindow(QMainWindow):
         rl.addWidget(self.detail, 1)
 
         buttons = QHBoxLayout()
-        self.btn_pursue = QPushButton("Pursue")
-        self.btn_later = QPushButton("Later")
-        self.btn_reject = QPushButton("Reject — permanently")
+        self.btn_pursue = QPushButton(tr("btn.pursue"))
+        self.btn_later = QPushButton(tr("btn.later"))
+        self.btn_reject = QPushButton(tr("btn.reject"))
         self.btn_pursue.setStyleSheet(
             f"background:{TEAL}; color:{CREAM}; padding:8px 16px; border-radius:5px;")
         self.btn_reject.setStyleSheet(
@@ -164,7 +174,7 @@ class ReviewWindow(QMainWindow):
     @staticmethod
     def _make_tree() -> QTreeWidget:
         t = QTreeWidget()
-        t.setHeaderLabels(["Title", "Company", "Why"])
+        t.setHeaderLabels([tr("col.title"), tr("col.company"), tr("col.why")])
         t.setColumnWidth(0, 230)
         t.setColumnWidth(1, 140)
         t.setRootIsDecorated(False)
@@ -210,10 +220,12 @@ class ReviewWindow(QMainWindow):
             target.addTopLevelItem(item)
 
         self.funnel.set_counts(counts, incomplete_note=incomplete_note)
-        self.tabs.setTabText(0, f"Shortlist ({self.shortlist.topLevelItemCount()})")
-        self.tabs.setTabText(1, f"Rejected ({self.rejected.topLevelItemCount()})")
-        self.tabs.setTabText(2, f"Screened out ({self.screened_out.topLevelItemCount()})")
-        self.tabs.setTabText(3, f"Needs review ({self.contained.topLevelItemCount()})")
+        for idx, (tree, key) in enumerate((
+                (self.shortlist, "tab.shortlist"), (self.rejected, "tab.rejected"),
+                (self.screened_out, "tab.screened_out"),
+                (self.contained, "tab.needs_review"))):
+            self.tabs.setTabText(idx, tr("tab.with_count", label=tr(key),
+                                         count=tree.topLevelItemCount()))
 
     # -- interaction -------------------------------------------------------
     def _current_row(self) -> ReviewRow | None:
@@ -234,26 +246,30 @@ class ReviewWindow(QMainWindow):
         ]
         if r.url:
             # ATS-canonical where the provider gave one: the link to apply through.
-            parts.append(f"<p><a href='{r.url}'>Open the original posting</a></p>")
+            parts.append(
+                f"<p><a href='{r.url}'>{tr('detail.open_posting')}</a></p>")
         verdict = f"{r.bucket} — {r.reason}" if r.reason else r.bucket
-        parts.append(f"<p><b>Verdict:</b> {verdict}</p>")
+        parts.append(f"<p><b>{tr('detail.verdict')}</b> {verdict}</p>")
         if r.disqualifying_quote:
             parts.append(
                 f"<blockquote style='border-left:3px solid {GOLD};padding-left:8px;"
                 f"color:#333'>{r.disqualifying_quote}</blockquote>")
         if not r.requirement_checked:
-            parts.append("<p style='color:#8a6d3b'><b>Not checked</b> — the "
-                         "description was truncated or silent on this. Treated "
-                         "as unknown, never as a failure.</p>")
+            parts.append(
+                f"<p style='color:#8a6d3b'><b>{tr('detail.not_checked_title')}</b> "
+                f"— {tr('detail.not_checked_body')}</p>")
         if r.downgrade_reason:
-            parts.append(f"<p style='color:#8a6d3b'><b>Downgraded:</b> "
-                         f"{r.downgrade_reason}</p>")
+            parts.append(
+                f"<p style='color:#8a6d3b'><b>{tr('detail.downgraded')}</b> "
+                f"{r.downgrade_reason}</p>")
         if r.contained:
-            parts.append("<p style='color:#8a6d3b'><b>Contained match</b> — a "
-                         "kill term matched inside a longer role name. Check "
-                         "this before trusting the kill.</p>")
+            parts.append(
+                f"<p style='color:#8a6d3b'><b>{tr('detail.contained_title')}</b> "
+                f"— {tr('detail.contained_body')}</p>")
         if r.screen_reason:
-            parts.append(f"<p style='color:#666'><i>Screen: {r.screen_reason}</i></p>")
+            parts.append("<p style='color:#666'><i>"
+                         + tr("detail.screen", reason=r.screen_reason)
+                         + "</i></p>")
         parts.append("<hr>")
         parts.append(f"<div style='white-space:pre-wrap'>{r.description}</div>")
         self.detail.setHtml("".join(parts))
