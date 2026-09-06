@@ -1,8 +1,8 @@
 # Build status
 
 **Repo:** `C:\Users\SpencerFields\dawnlist`, deliberately **off OneDrive** per handoff Part 9.
-**Tests:** 413 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
-**Last updated:** 2026-09-06 — P1 engine complete; a frozen build runs
+**Tests:** 419 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
+**Last updated:** 2026-09-07 — P1 engine complete; a frozen build runs
 
 ## Done
 
@@ -26,10 +26,10 @@
 | `app/core/board_repo.py` | board load/save; stage and mirror move in one statement |
 | `app/ui/board.py` | the board: stage-grouped, audit on screen, two separate repairs |
 | `app/outreach/run.py` | what is due, who to write to, and the draft — blocked items named |
-| `app/onboarding/` | CV corpus, factsheet/brief drafting rules, the calibration gate |
+| `app/onboarding/` | CV corpus, the interview that turns it into a factsheet and a brief, the calibration gate |
 | `app/main.py` | entry point: `--run-once`, `--board`, `--audit`; headless and windowed share every path |
 | `app/onboarding/extract.py` | CV corpus off disk; a scanned PDF is diagnosed by name, never treated as empty |
-| `app/ui/onboarding.py` | ingest with drag-drop, and the calibration gate |
+| `app/ui/onboarding.py` | the four-step wizard: ingest → key → interview → calibration |
 | `app/feed/alert_email.py` | job-alert digests dragged in; tracking stripped so one posting is one row |
 | `server/dawnlist-feed-worker/` | search proxy, D1 metering, cross-user cache, provider failover as data |
 
@@ -63,8 +63,18 @@ is now an actionable row.
 
 ## Done since
 
+- **The interview step is wired.** Onboarding previously collected CVs and dropped them:
+  `build_factsheet_request` had no caller, so a user finished the wizard with an empty brief and
+  no factsheet, and every later assessment was scored against nothing. The wizard is now
+  ingest → key → interview → calibration, the two documents are editable side by side, and what
+  is saved is what the user **corrected** — the model has seen only the CVs, so it cannot know
+  which of two conflicting titles is the real one. `docs/interview-step.png` shows it.
+- **An end-to-end smoke test** — `tests/test_smoke_end_to_end.py` walks one database from the
+  saved documents to a written `.eml` with only the two network boundaries stubbed. The pieces
+  were each tested; the seams between them were not.
 - **All 50 locale catalogues**, at 100% coverage, verified for placeholder parity. `--fill` tops
-  up catalogues that fall behind the source.
+  up catalogues that fall behind the source, and now falls back to the keyring when
+  `ANTHROPIC_API_KEY` is absent from the shell.
 - **The Worker is deployed** — https://dawnlist-feed-worker.sgf36.workers.dev with D1 `dawnlist`.
   Inert: no licences exist and no secrets are installed.
 - **MSIX builds** — `dist/Dawnlist.msix`, 73MB, validated by opening the package.
@@ -118,12 +128,13 @@ machine I do not have.
 7. **A feed credential**, once the tier is settled: `wrangler secret put THEIRSTACK_API_KEY` for
    the Worker, and a key in Credential Manager under `dawnlist-feed` / `api-key` for the desktop
    app.
-8. **A separate Anthropic org or workspace with spend caps** for the managed proxy key, before
-   any beta.
-9. **Paddle products and prices**, and the licence-issuance path into the Worker's `licences`
+8. **Paddle products and prices**, and the licence-issuance path into the Worker's `licences`
    table.
-10. **Confirm the pricing hypothesis** — two-tier, or managed-only until the subscriber base
-    clears the feed tier threshold.
+9. **Set the direct-download price.** Store builds are entitled by possession, so this is the
+   only price still undecided.
+
+*Two earlier items are gone with the managed tier: a separate Anthropic workspace for a proxy
+key, and the two-tier pricing hypothesis. There is no proxy and there is one price.*
 
 **Product**
 11. **Your own CVs.** The factsheet and fit brief are built from them, and nothing can stand in
@@ -132,9 +143,6 @@ machine I do not have.
 
 ## Blocked, deliberately
 
-- **Worker deploy.** Needs Cloudflare credentials and is outward-facing infrastructure; not run.
-  `wrangler.jsonc` carries a placeholder `database_id`, and `server/dawnlist-feed-worker/README.md`
-  has the sequence. Verify by behaviour, never by the deploy message.
 - **TheirStack tier purchase.** The licensing/product-fit answer
   (`theirstack-licensing-enquiry.md`) decides API vs self-hosted dataset index. **Do not purchase
   any tier before that reply.** The provider abstraction means a dataset becomes another adapter

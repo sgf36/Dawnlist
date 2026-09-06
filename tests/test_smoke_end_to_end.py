@@ -26,8 +26,10 @@ from app.core.rules import RuleTable
 from app.core.tracker import Stage
 from app.feed.base import FeedProvider, FetchResult, SearchQuery
 from app.feed.models import Job
+from app.main import load_document
 from app.onboarding.calibration import (CalibrationItem, CalibrationResult,
                                         complete_calibration, is_calibrated)
+from app.onboarding.interview import save_document
 from app.outreach.run import due_today, prepare_drafts
 from app.outreach.voice import build_profile
 from app.ui.adapter import record_decision, rejected_keys, rows_from_outcome
@@ -104,6 +106,15 @@ def add_contact(conn, oid, name="Jo Bennett", email="jo@meridian.example"):
 
 
 def test_a_user_goes_from_documents_to_a_draft(conn, tmp_path):
+    # -- 0. the interview writes the two documents -------------------------
+    # Three modules write and read these rows and each names the kind as a
+    # string literal. A disagreement about that string does not raise: it
+    # returns "" and the user gets a shortlist scored against nothing.
+    save_document(conn, "factsheet", FACTSHEET)
+    save_document(conn, "fit_brief", DRAFT_BRIEF)
+    assert load_document(conn, "factsheet") == FACTSHEET
+    assert load_document(conn, "fit_brief") == DRAFT_BRIEF
+
     # -- 1. onboarding: the brief the rest of the chain reads ---------------
     assert not is_calibrated(conn), "the gate starts shut"
 
@@ -119,11 +130,15 @@ def test_a_user_goes_from_documents_to_a_draft(conn, tmp_path):
 
     result = CalibrationResult(items=sample)
     assert result.passed, result.blocking_reasons()
-    brief = complete_calibration(conn, DRAFT_BRIEF, result)
+    brief = complete_calibration(conn, load_document(conn, "fit_brief"), result)
 
     assert is_calibrated(conn), "the gate opens only here"
     assert "Operational real estate is in scope." in brief, (
         "the user's correction must reach the brief the run is scored against")
+    assert load_document(conn, "fit_brief") == brief, (
+        "calibration saves the brief through its own writer, not "
+        "`save_document`. If the two ever name the kind differently the "
+        "correction is written somewhere nothing reads.")
 
     # -- 2. the morning run, scored against THAT brief ----------------------
     jobs = [job("m-1", "Head of Asset Strategy"),
