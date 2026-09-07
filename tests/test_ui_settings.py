@@ -233,3 +233,167 @@ def test_the_mac_app_store_build_matches_the_windows_one(qapp):
     w = SettingsWindow(variant="mas")
     assert not w.shows_licence
     w.close()
+
+
+# -- the rules panel --------------------------------------------------------
+def rules_panel(qapp, table=None, *, saver=None):
+    from app.core.rules import RuleTable
+    from app.ui.settings import RulesPanel
+
+    state = table if table is not None else RuleTable()
+    saved = []
+
+    def default_saver(field, term):
+        getattr(state, field).append(term)
+        saved.append((field, term))
+
+    panel = RulesPanel(loader=lambda: state,
+                       saver=saver or default_saver,
+                       forgetter=lambda field, term: (
+                           getattr(state, field).remove(term),
+                           saved.append(("-", term))))
+    panel._state, panel._log = state, saved
+    return panel
+
+
+def test_the_three_writable_tiers_are_offered(qapp):
+    """Not four: `known_employers` is derived from pursue decisions, and a
+    hand-typed copy would drift the moment one was revised."""
+    from app.ui.settings import RULE_TIERS
+    assert [f for f, _, _ in RULE_TIERS] == [
+        "unsupported_titles", "strong_terms", "contextual_terms"]
+
+    panel = rules_panel(qapp)
+    assert set(panel._lists) == set(f for f, _, _ in RULE_TIERS)
+    panel.close()
+
+
+def test_the_earned_employers_are_shown_but_not_editable(qapp):
+    """Showing them makes the earning mechanism visible; letting someone type
+    into the list would create a second, drifting copy of the decisions."""
+    from app.core.rules import RuleTable
+    panel = rules_panel(qapp, RuleTable(known_employers=["Meridian Group"]))
+    assert panel.employers.count() == 1
+    assert panel.employers.item(0).text() == "Meridian Group"
+    assert not panel.employers.isEnabled()
+    panel.close()
+
+
+def test_a_term_is_added_and_the_list_reloads(qapp):
+    panel = rules_panel(qapp)
+    panel._fields["strong_terms"].setText("asset management")
+    panel.add("strong_terms")
+    assert panel._log == [("strong_terms", "asset management")]
+    assert panel._lists["strong_terms"].item(0).text() == "asset management"
+    assert panel._fields["strong_terms"].text() == ""
+    panel.close()
+
+
+def test_an_empty_add_does_nothing(qapp):
+    panel = rules_panel(qapp)
+    panel._fields["strong_terms"].setText("   ")
+    panel.add("strong_terms")
+    assert panel._log == []
+    panel.close()
+
+
+def test_a_refusal_names_the_role_it_would_have_cost(qapp):
+    """The useful information is not "invalid term", it is "you chased this
+    exact job". Reducing the conflict to a red border throws away the only
+    finding the admission guard exists to produce."""
+    from app.core.rules import RuleConflict, RuleConflictError
+
+    def refuse(field, term):
+        raise RuleConflictError([RuleConflict(
+            term="operations", field="unsupported_titles",
+            pursued_title="Head of Operations", company="Meridian Group")])
+
+    panel = rules_panel(qapp, saver=refuse)
+    panel._fields["unsupported_titles"].setText("operations")
+    panel.add("unsupported_titles")
+
+    text = panel.result.text()
+    assert "Head of Operations" in text
+    assert "Meridian Group" in text
+    assert panel.result.isVisibleTo(panel)
+    panel.close()
+
+
+def test_a_refused_term_stays_in_the_box(qapp):
+    """So it can be edited into something narrower, rather than retyped."""
+    from app.core.rules import RuleConflict, RuleConflictError
+
+    def refuse(field, term):
+        raise RuleConflictError([RuleConflict("operations", field, "Head of "
+                                              "Operations", "Acme")])
+
+    panel = rules_panel(qapp, saver=refuse)
+    panel._fields["unsupported_titles"].setText("operations")
+    panel.add("unsupported_titles")
+    assert panel._fields["unsupported_titles"].text() == "operations"
+    panel.close()
+
+
+def test_removing_takes_the_selected_term(qapp):
+    from app.core.rules import RuleTable
+    panel = rules_panel(qapp, RuleTable(strong_terms=["asset", "strategy"]))
+    panel._lists["strong_terms"].setCurrentRow(1)
+    panel.remove("strong_terms")
+    assert panel._log == [("-", "strategy")]
+    assert panel._lists["strong_terms"].count() == 1
+    panel.close()
+
+
+def test_removing_nothing_selected_does_nothing(qapp):
+    from app.core.rules import RuleTable
+    panel = rules_panel(qapp, RuleTable(strong_terms=["asset"]))
+    panel._lists["strong_terms"].setCurrentRow(-1)
+    panel.remove("strong_terms")
+    assert panel._log == []
+    panel.close()
+
+
+def test_the_window_omits_the_rules_panel_without_a_database(qapp):
+    """Rules are per-user and live in the database. A panel wired to nothing
+    would offer to save terms and silently drop them."""
+    w = SettingsWindow(variant="direct")
+    assert w.rules is None
+    w.close()
+
+
+def test_the_window_carries_the_rules_panel_when_given_one(qapp):
+    panel = rules_panel(qapp)
+    w = SettingsWindow(variant="direct", rules=panel)
+    assert w.rules is panel
+    assert panel.isVisibleTo(w)
+    w.close()
+
+
+def test_the_window_scrolls(qapp):
+    """Three stacked panels want ~916px and a 768-tall laptop is ordinary.
+    Without a scroll area the licence box sits below the bottom of the display
+    on the one build that needs it, unreachable — and a user who cannot enter
+    their licence key has bought something inert."""
+    panel = rules_panel(qapp)
+    w = SettingsWindow(variant="direct", rules=panel)
+    w.resize(1120, 640)
+    w.show()
+    for _ in range(4):
+        qapp.processEvents()
+    assert w.scroll.verticalScrollBar().maximum() > 0
+    w.close()
+
+
+def test_the_window_opens_shorter_than_a_laptop_screen(qapp):
+    panel = rules_panel(qapp)
+    w = SettingsWindow(variant="direct", rules=panel)
+    assert w.height() <= 720, f"opens at {w.height()}px tall"
+    w.close()
+
+
+def test_the_window_cannot_be_shrunk_to_a_stub(qapp):
+    """A scroll area reports a tiny minimum of its own."""
+    panel = rules_panel(qapp)
+    w = SettingsWindow(variant="direct", rules=panel)
+    assert w.minimumWidth() >= 700 and w.minimumHeight() >= 400
+    w.close()

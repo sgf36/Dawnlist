@@ -350,3 +350,44 @@ def test_an_empty_term_is_refused(conn):
     from app.main import save_rule_term
     with pytest.raises(ValueError, match="cannot be empty"):
         save_rule_term(conn, "strong_terms", "   ")
+
+
+def test_settings_carries_the_rules_panel_when_it_has_a_database(conn, qapp_or_skip):
+    """Wired to the real loader and saver, not a stub — a panel that offers to
+    save terms and drops them is worse than no panel."""
+    from app.main import open_settings, save_rule_term
+    window = open_settings(conn=conn)
+    assert window.rules is not None
+
+    save_rule_term(conn, "strong_terms", "asset management")
+    window.rules.refresh()
+    assert window.rules._lists["strong_terms"].item(0).text() == "asset management"
+    window.close()
+
+
+def test_adding_a_term_through_the_panel_reaches_the_database(conn, qapp_or_skip):
+    from app.main import load_rules, open_settings
+    window = open_settings(conn=conn)
+    window.rules._fields["contextual_terms"].setText("hospitality")
+    window.rules.add("contextual_terms")
+    assert load_rules(conn).contextual_terms == ["hospitality"]
+    window.close()
+
+
+def test_the_panel_refuses_a_term_that_would_hide_a_pursued_role(conn, qapp_or_skip):
+    """The whole admission guard, reaching a person for the first time."""
+    from app.main import load_rules, open_settings
+
+    a_run(conn, [Job(provider="theirstack", provider_job_id="a",
+                     title="Head of Operations", company="Round Hill Capital",
+                     description_text="Strategy.")])
+    record_decision(conn, "theirstack:a", "pursue")
+
+    window = open_settings(conn=conn)
+    window.rules._fields["unsupported_titles"].setText("operations")
+    window.rules.add("unsupported_titles")
+
+    assert load_rules(conn).unsupported_titles == [], "nothing was stored"
+    assert "Head of Operations" in window.rules.result.text()
+    assert "Round Hill Capital" in window.rules.result.text()
+    window.close()

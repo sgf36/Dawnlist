@@ -490,7 +490,7 @@ def main(argv: list[str] | None = None) -> int:
         app = QApplication.instance() or QApplication(sys.argv)
         # Bound, and it looks unused: this local is the ONLY reference to the
         # window, and letting it go collects the widget before exec() runs.
-        window = open_settings()  # noqa: F841
+        window = open_settings(conn=conn)  # noqa: F841
         assert window is not None
         return app.exec()
 
@@ -676,18 +676,27 @@ def _stored_funnel(conn, run_id) -> dict[str, int]:
     return counts
 
 
-def open_settings(parent=None):
+def open_settings(parent=None, conn=None):
     """The settings window, wired to the real keyring.
 
     Held on the parent rather than returned into a local: a QWidget with no
     reference is garbage-collected the moment the function returns, and the
     window vanishes as fast as it appeared.
     """
-    from app.ui.settings import SettingsWindow
+    from app.ui.settings import RulesPanel, SettingsWindow
 
-    # Both panels already default to the real keyring and the real redeemer;
-    # the injection points exist so the tests can spend nothing.
-    window = SettingsWindow()
+    # The key and licence panels already default to the real keyring and the
+    # real redeemer; the injection points exist so the tests can spend nothing.
+    # The rules panel cannot default, because the rules are per-user and live
+    # in the database — so it is offered only when there is one.
+    rules = None
+    if conn is not None:
+        rules = RulesPanel(
+            loader=lambda: load_rules(conn),
+            saver=lambda field, term: save_rule_term(conn, field, term),
+            forgetter=lambda field, term: forget_rule_term(conn, field, term))
+
+    window = SettingsWindow(rules=rules)
     if parent is not None:
         parent._settings_window = window
     window.show()
@@ -715,7 +724,7 @@ def _launch_ui(conn, *, open_board: bool) -> int:
         window.load(rows, findings)
     else:
         window = ReviewWindow()
-        window.settings_requested.connect(lambda: open_settings(window))
+        window.settings_requested.connect(lambda: open_settings(window, conn))
         connect_window(window, conn)
         # The last run's shortlist, read back from the database rather than
         # held from a run this process did. Opening the app the morning after

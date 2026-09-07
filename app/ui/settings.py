@@ -25,8 +25,10 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit,
-                               QPushButton, QSizePolicy, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel,
+                               QLineEdit, QListWidget, QPushButton,
+                               QScrollArea, QSizePolicy, QVBoxLayout,
+                               QWidget)
 
 from app.core import api_key
 from app.i18n import tr
@@ -44,6 +46,15 @@ QLabel#costNote {{
     color: #45505a;
 }}
 QLabel#storedKey {{ color: #6b7480; font-family: Consolas, monospace; }}
+QListWidget#ruleList {{
+    background: #ffffff;
+    border: 1px solid #cfcabf;
+    border-radius: 6px;
+    padding: 4px;
+}}
+QListWidget#ruleList::item {{ padding: 3px 4px; }}
+QListWidget#ruleList::item:selected {{ background: {TEAL}; color: {CREAM}; }}
+QListWidget#ruleList:disabled {{ background: #f4f1ea; color: #45505a; }}
 """
 
 
@@ -277,8 +288,15 @@ class LicencePanel(QWidget):
             self.refresh()
 
 
+def _divider() -> QFrame:
+    line = QFrame()
+    line.setFrameShape(QFrame.HLine)
+    line.setStyleSheet("color:#ddd8cc;")
+    return line
+
+
 class SettingsWindow(QWidget):
-    """Both panels, for the Settings menu and for onboarding.
+    """The panels, for the Settings menu and for onboarding.
 
     In a store build the licence panel is not shown. Entitlement there is by
     possession — the storefront already took the money and there is no licence
@@ -286,28 +304,233 @@ class SettingsWindow(QWidget):
     through their email for something nobody ever sent them.
     """
 
-    def __init__(self, parent=None, *, variant=None):
+    def __init__(self, parent=None, *, variant=None, rules=None):
         super().__init__(parent)
         from app.core.build_variant import variant as read_variant
 
         self.setWindowTitle(tr("settings.title"))
-        layout = QVBoxLayout(self)
+
+        # Scrolled, because three stacked panels want ~916px and a 768-tall
+        # laptop screen is ordinary. Without this the licence box sits below
+        # the bottom of the display on the one build that needs it, with no
+        # way to reach it — and a user who cannot enter their licence key has
+        # bought something inert.
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.NoFrame)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        outer.addWidget(self.scroll)
+
+        content = QWidget()
+        self.scroll.setWidget(content)
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         self.key = KeyPanel()
         layout.addWidget(self.key)
 
+        # Only when a database is available: the rules live per-user in the
+        # database, and a panel wired to nothing would offer to save terms and
+        # silently drop them.
+        self.rules = rules
+        if rules is not None:
+            layout.addWidget(_divider())
+            layout.addWidget(rules, 1)
+
         self.licence = LicencePanel()
         build = variant if variant is not None else read_variant()
         self.shows_licence = build not in ("store", "mas")
         if self.shows_licence:
-            line = QFrame()
-            line.setFrameShape(QFrame.HLine)
-            line.setStyleSheet("color:#ddd8cc;")
-            layout.addWidget(line)
+            layout.addWidget(_divider())
             layout.addWidget(self.licence)
         else:
             # Constructed but not laid out, so `window.licence` stays a stable
             # attribute for callers and tests rather than sometimes-missing.
             self.licence.hide()
         self.setStyleSheet(SETTINGS_STYLESHEET)
+
+        # A scroll area reports a tiny minimum, so the window would otherwise
+        # be resizable down to a stub. The floor keeps the four rule columns
+        # legible; the default opens shorter than a 768-tall laptop screen and
+        # lets the scroll cover the rest.
+        self.setMinimumSize(760, 440)
+        self.resize(1120, 700)
+
+
+#: The three writable tiers, in the order they fire during a screen. Tier 2
+#: (`known_employers`) is absent on purpose: it is derived from pursue
+#: decisions, and a hand-typed copy would drift the moment one was revised.
+RULE_TIERS = (
+    ("unsupported_titles", "rules.unsupported", "rules.unsupported_help"),
+    ("strong_terms", "rules.strong", "rules.strong_help"),
+    ("contextual_terms", "rules.contextual", "rules.contextual_help"),
+)
+
+
+class RulesPanel(QWidget):
+    """The screening rules: what gets read, and what gets killed for nothing.
+
+    Two things make this more than a list of words.
+
+    **A refused term is the most useful thing this screen does.** When a term
+    would have removed a role the user actually pursued, the refusal names the
+    role — because the useful information is not "invalid", it is "you chased
+    this exact job in March". That is the failure the whole admission guard was
+    built for, and reducing it to a red border throws the finding away.
+
+    **Tier 2 is shown but not editable.** Employers are earned by pursuing
+    them. Showing the earned list makes the mechanism visible; letting someone
+    type into it would create a second, drifting copy of the decisions.
+    """
+
+    changed = Signal()
+
+    def __init__(self, *, loader=None, saver=None, forgetter=None, parent=None):
+        super().__init__(parent)
+        self._load = loader or (lambda: None)
+        self._save = saver or (lambda field, term: None)
+        self._forget = forgetter or (lambda field, term: None)
+        self._lists: dict[str, QListWidget] = {}
+        self._fields: dict[str, QLineEdit] = {}
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
+
+        heading = QLabel(tr("rules.heading"))
+        heading.setObjectName("stepHeading")
+        layout.addWidget(heading)
+
+        body = QLabel(reflow(tr("rules.body")))
+        body.setObjectName("stepBody")
+        body.setWordWrap(True)
+        layout.addWidget(body)
+
+        self.result = QLabel()
+        self.result.setWordWrap(True)
+        self.result.hide()
+        layout.addWidget(self.result)
+
+        # A grid, not four stacked columns: the help text runs to two lines in
+        # one tier and three in the others, so side-by-side layouts start each
+        # list box at a different height and the row of panels reads as
+        # misaligned. Grid rows are shared, so the boxes line up whatever the
+        # translation does to the text length.
+        columns = QGridLayout()
+        columns.setHorizontalSpacing(12)
+        columns.setVerticalSpacing(6)
+        for i, (field, label_key, help_key) in enumerate(RULE_TIERS):
+            self._tier(columns, i, field, label_key, help_key)
+        self._earned_column(columns, len(RULE_TIERS))
+        columns.setRowStretch(2, 1)
+        for i in range(len(RULE_TIERS) + 1):
+            columns.setColumnStretch(i, 1)
+        layout.addLayout(columns, 1)
+
+        self.setStyleSheet(SETTINGS_STYLESHEET)
+        self.refresh()
+
+    def _head(self, grid: QGridLayout, column: int, label_key: str,
+              help_key: str) -> None:
+        title = QLabel(tr(label_key))
+        f = QFont()
+        f.setBold(True)
+        title.setFont(f)
+        grid.addWidget(title, 0, column)
+
+        note = QLabel(reflow(tr(help_key)))
+        note.setObjectName("stepBody")
+        note.setWordWrap(True)
+        note.setAlignment(Qt.AlignTop)
+        grid.addWidget(note, 1, column)
+
+    def _tier(self, grid: QGridLayout, column: int, field: str,
+              label_key: str, help_key: str) -> None:
+        self._head(grid, column, label_key, help_key)
+
+        listing = QListWidget()
+        listing.setObjectName("ruleList")
+        grid.addWidget(listing, 2, column)
+        self._lists[field] = listing
+
+        controls = QWidget()
+        row = QHBoxLayout(controls)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(6)
+        entry = QLineEdit()
+        entry.setObjectName("sentence")
+        entry.setPlaceholderText(tr("rules.add_placeholder"))
+        entry.returnPressed.connect(lambda f=field: self.add(f))
+        add = QPushButton(tr("rules.add"))
+        remove = QPushButton(tr("rules.remove"))
+        for b, slot in ((add, self.add), (remove, self.remove)):
+            b.setObjectName("secondary")
+            b.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+            b.clicked.connect(lambda _=False, f=field, s=slot: s(f))
+        row.addWidget(entry, 1)
+        row.addWidget(add)
+        row.addWidget(remove)
+        grid.addWidget(controls, 3, column)
+        self._fields[field] = entry
+
+    def _earned_column(self, grid: QGridLayout, column: int) -> None:
+        self._head(grid, column, "rules.employers", "rules.employers_help")
+        self.employers = QListWidget()
+        self.employers.setObjectName("ruleList")
+        self.employers.setEnabled(False)      # earned, never typed
+        grid.addWidget(self.employers, 2, column)
+        # Row 3 is left empty rather than spaced by hand: the grid gives this
+        # column the same height as the others, so the list boxes end level.
+
+    # -- state -------------------------------------------------------------
+    def refresh(self) -> None:
+        table = self._load()
+        for field, listing in self._lists.items():
+            listing.clear()
+            listing.addItems(getattr(table, field, []) if table else [])
+        self.employers.clear()
+        self.employers.addItems(getattr(table, "known_employers", []) if table
+                                else [])
+
+    def _say(self, text: str, ok: bool) -> None:
+        self.result.setObjectName("ok" if ok else "bad")
+        self.result.setText(text)
+        self.result.style().unpolish(self.result)
+        self.result.style().polish(self.result)
+        self.result.setVisible(bool(text))
+
+    def add(self, field: str) -> None:
+        from app.core.rules import RuleConflictError
+
+        term = self._fields[field].text().strip()
+        if not term:
+            return
+        try:
+            self._save(field, term)
+        except RuleConflictError as exc:
+            # Name the role. "Invalid term" throws away the only fact the user
+            # needs, which is which job this would have cost them.
+            self._say(tr("rules.conflict") + "\n• " + "\n• ".join(
+                tr("rules.conflict_line", term=c.term, title=c.pursued_title,
+                   company=c.company) for c in exc.conflicts), ok=False)
+            return
+        except ValueError as exc:
+            self._say(str(exc), ok=False)
+            return
+
+        self._fields[field].clear()
+        self._say(tr("rules.added", term=term), ok=True)
+        self.refresh()
+        self.changed.emit()
+
+    def remove(self, field: str) -> None:
+        listing = self._lists[field]
+        item = listing.currentItem()
+        if item is None:
+            return
+        self._forget(field, item.text())
+        self._say(tr("rules.removed", term=item.text()), ok=True)
+        self.refresh()
+        self.changed.emit()
