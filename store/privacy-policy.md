@@ -2,8 +2,10 @@
 
 *Last updated 6 September 2026.*
 
-**To publish at `https://dawnlist.spencerfields.com/privacy`.** The URL must be
-live before store submission; both stores check it.
+**PUBLISHED 2026-09-07 at `https://dawnlist.spencerfields.com/privacy.html`.**
+Verified live by read-back over HTTPS. The page itself is
+`Apps/Claude/dawnlist-site/privacy.html`; this file is the source text.
+Edit both together, or they drift.
 
 > **Before publishing, three checks.**
 >

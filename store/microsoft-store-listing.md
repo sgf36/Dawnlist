@@ -233,7 +233,14 @@ Required, and the URL must be live before submission. It must state plainly:
 - that no data is sold, and none is used for advertising;
 - how to export and delete everything.
 
-Host it at `dawnlist.spencerfields.com/privacy` alongside the marketing site.
+**LIVE at `https://dawnlist.spencerfields.com/privacy.html`** (published 2026-09-07,
+verified by read-back over HTTPS). Paste that exact URL into Partner Center's Privacy
+policy URL field.
+
+The extensionless `/privacy` returns 404 and is NOT used: adding an `.htaccess` rewrite
+for it would replace whatever server config is already on the host, site-wide, and no
+store requires a particular URL shape. Do not "tidy" this without checking what is
+already there.
 
 ---
 
