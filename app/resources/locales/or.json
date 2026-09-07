@@ -1,5 +1,6 @@
 {
   "app.title": "ଡନଲିଷ୍ଟ — ଆଜି ସକାଳ",
+  "board.add_task": "କାର୍ଯ୍ୟ ଯୋଡ଼ନ୍ତୁ",
   "board.col.company": "କମ୍ପାନୀ",
   "board.col.next_step": "ପରବର୍ତ୍ତୀ ପଦକ୍ଷେପ",
   "board.col.open_task": "ଖୋଲା କାର୍ଯ୍ୟ",
@@ -7,6 +8,7 @@
   "board.mark_sent": "ମୁଁ ବାର୍ତ୍ତା ପଠାଇଲି",
   "board.repair_mirror": "ସ୍ଥିତି ସଂଶୋଧନ କରନ୍ତୁ",
   "board.repair_stage": "ପର୍ଯ୍ୟାୟ ସଂଶୋଧନ କରନ୍ତୁ",
+  "board.task_placeholder": "ଏଠାରେ କରିବାକୁ ଥିବା ପରବର୍ତ୍ତୀ କାର୍ଯ୍ୟ",
   "board.title": "ଡନଲିଷ୍ଟ — ଆପଣଙ୍କ ବୋର୍ଡ",
   "btn.later": "ପରେ",
   "btn.pursue": "ଅନୁସରଣ କରନ୍ତୁ",

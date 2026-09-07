@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — enjing punika",
+  "board.add_task": "Tambah tugas",
   "board.col.company": "Perusahaan",
   "board.col.next_step": "Langkah Sabanjuré",
   "board.col.open_task": "Tugas Kabuka",
@@ -7,6 +8,7 @@
   "board.mark_sent": "Kula sampun ngirim pesen",
   "board.repair_mirror": "Benerké status",
   "board.repair_stage": "Benerké tahap",
+  "board.task_placeholder": "perkara sabanjuré sing kudu ditindakaké",
   "board.title": "Dawnlist — papan sampeyan",
   "btn.later": "Mengko",
   "btn.pursue": "Udi",

@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — dnes ráno",
+  "board.add_task": "Přidat úkol",
   "board.col.company": "Společnost",
   "board.col.next_step": "Další krok",
   "board.col.open_task": "Otevřený úkol",
@@ -7,6 +8,7 @@
   "board.mark_sent": "Zpráva odeslána",
   "board.repair_mirror": "Opravit stav",
   "board.repair_stage": "Opravit fázi",
+  "board.task_placeholder": "další úkol, který zde chcete zadat",
   "board.title": "Dawnlist — vaše nástěnka",
   "btn.later": "Později",
   "btn.pursue": "Ucházet se",

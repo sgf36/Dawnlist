@@ -780,3 +780,34 @@ def test_the_review_window_accepts_only_alert_files(qapp_or_skip):
                   QUrl.fromLocalFile(str(Path("cv.docx").resolve()))])
     assert [p.suffix for p in w._alert_paths(mime)] == [".eml"]
     w.close()
+
+
+def test_the_two_row_builders_agree(conn):
+    """`rows_from_outcome` reads a run still in memory; `rows_from_db` rebuilds
+    it from disk. A field added to one and not the other shows the user
+    different things depending on whether they are looking at the run that just
+    happened or the one they opened this morning."""
+    from app.ui.adapter import rows_from_outcome
+
+    jobs = [Job(provider="theirstack", provider_job_id="a",
+                title="Head of Strategy", company="Acme",
+                description_text="Strategy work."),
+            Job(provider="theirstack", provider_job_id="n",
+                title="Night Auditor", company="Acme",
+                description_text="Front desk, overnight.")]
+    outcome = a_run(conn, jobs)
+
+    live = {r.job_id: r for r in rows_from_outcome(outcome)}
+    stored = {r.job_id: r for r in rows_from_db(conn)}
+    assert set(live) == set(stored)
+
+    # `downgrade_reason` and `contained` are deliberately absent from the
+    # stored form — `persist` folds the downgrade into the reason text and does
+    # not record containment — so they are excluded rather than pretended.
+    compared = ("title", "company", "url", "description", "bucket",
+                "requirement_checked", "near_duplicate")
+    for job_id, row in live.items():
+        for field in compared:
+            assert getattr(row, field) == getattr(stored[job_id], field), (
+                f"{job_id}.{field}: in-memory {getattr(row, field)!r} vs "
+                f"stored {getattr(stored[job_id], field)!r}")

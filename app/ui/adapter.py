@@ -30,7 +30,14 @@ VALID_DECISIONS = {"pursue", "reject", "later"}
 
 
 def rows_from_outcome(outcome: RunOutcome) -> list[ReviewRow]:
-    """Every posting the run touched, assessed or not."""
+    """Every posting the run touched, assessed or not — from memory.
+
+    The twin of `rows_from_db`, which rebuilds the same rows from what
+    `persist` wrote. Two builders is a drift risk and the drift would be
+    invisible: a field added to one shows the user different things depending
+    on whether they are looking at the run that just happened or the one they
+    opened this morning. `test_the_two_row_builders_agree` pins them together.
+    """
     verdicts = {v.job.provider_job_id: v
                 for v in (outcome.assessment.verdicts if outcome.assessment else [])}
     # Flagged, never merged. Both sides of a pair carry the note, so whichever
@@ -79,10 +86,6 @@ def rows_from_outcome(outcome: RunOutcome) -> list[ReviewRow]:
             near_duplicate=near.get(job.provider_job_id, ""),
         ))
     return rows
-
-
-def counts_for_ui(outcome: RunOutcome) -> dict[str, int]:
-    return outcome.funnel()
 
 
 def incomplete_note(outcome: RunOutcome) -> str:

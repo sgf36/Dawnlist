@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — bugun ertalab",
+  "board.add_task": "Vazifa qo'shish",
   "board.col.company": "Kompaniya",
   "board.col.next_step": "Keyingi qadam",
   "board.col.open_task": "Ochiq vazifa",
@@ -7,6 +8,7 @@
   "board.mark_sent": "Men xabarni yubordim",
   "board.repair_mirror": "Holatni to'g'rilash",
   "board.repair_stage": "Bosqichni to'g'rilash",
+  "board.task_placeholder": "bu yerda keyingi qilinadigan ish",
   "board.title": "Dawnlist — sizning taxtangiz",
   "btn.later": "Keyinroq",
   "btn.pursue": "Davom ettirish",

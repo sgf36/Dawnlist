@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — àárọ̀ yìí",
+  "board.add_task": "Ṣafikun iṣẹ́",
   "board.col.company": "Ilé-iṣẹ́",
   "board.col.next_step": "Ìgbésẹ̀ Tó Kàn",
   "board.col.open_task": "Iṣẹ́ Tí Ó Ṣí Sílẹ̀",
@@ -7,6 +8,7 @@
   "board.mark_sent": "Mo ti fi ìránṣẹ́ ránṣẹ́",
   "board.repair_mirror": "Ṣàtúnṣe ipò náà",
   "board.repair_stage": "Ṣàtúnṣe ìpele náà",
+  "board.task_placeholder": "ohun tí ó kàn tí ó yẹ kí a ṣe níhìn-ín",
   "board.title": "Dawnlist — pátákó rẹ",
   "btn.later": "Ìgbà Míì",
   "btn.pursue": "Lépa",

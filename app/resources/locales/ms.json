@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — pagi ini",
+  "board.add_task": "Tambah tugas",
   "board.col.company": "Syarikat",
   "board.col.next_step": "Langkah seterusnya",
   "board.col.open_task": "Tugasan terbuka",
@@ -7,6 +8,7 @@
   "board.mark_sent": "Saya telah menghantar mesej",
   "board.repair_mirror": "Betulkan status",
   "board.repair_stage": "Betulkan peringkat",
+  "board.task_placeholder": "perkara seterusnya untuk dilakukan di sini",
   "board.title": "Dawnlist — papan anda",
   "btn.later": "Kemudian",
   "btn.pursue": "Teruskan",

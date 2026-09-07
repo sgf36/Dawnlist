@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — vanochtend",
+  "board.add_task": "Taak toevoegen",
   "board.col.company": "Bedrijf",
   "board.col.next_step": "Volgende stap",
   "board.col.open_task": "Openstaande taak",
@@ -7,6 +8,7 @@
   "board.mark_sent": "Ik heb het bericht verzonden",
   "board.repair_mirror": "Status corrigeren",
   "board.repair_stage": "Fase corrigeren",
+  "board.task_placeholder": "de volgende taak hier",
   "board.title": "Dawnlist — uw bord",
   "btn.later": "Later",
   "btn.pursue": "Nastreven",

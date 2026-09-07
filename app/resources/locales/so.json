@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — subaxnimadan",
+  "board.add_task": "Ku dar hawl",
   "board.col.company": "Shirkadda",
   "board.col.next_step": "Tallaabada xigta",
   "board.col.open_task": "Hawl furan",
@@ -7,6 +8,7 @@
   "board.mark_sent": "Fariinta waan diray",
   "board.repair_mirror": "Saxda xaaladda",
   "board.repair_stage": "Saxda marxaladda",
+  "board.task_placeholder": "waxa xiga ee la sameeyo halkan",
   "board.title": "Dawnlist — sabuuradaada",
   "btn.later": "Wakhti dambe",
   "btn.pursue": "Sii wad",

@@ -1,5 +1,6 @@
 {
   "app.title": "داونلیست — امروز صبح",
+  "board.add_task": "افزودن وظیفه",
   "board.col.company": "شرکت",
   "board.col.next_step": "مرحلهٔ بعدی",
   "board.col.open_task": "وظیفهٔ باز",
@@ -7,6 +8,7 @@
   "board.mark_sent": "پیام را ارسال کردم",
   "board.repair_mirror": "اصلاح وضعیت",
   "board.repair_stage": "اصلاح مرحله",
+  "board.task_placeholder": "کار بعدی که باید انجام شود",
   "board.title": "داونلیست — تختهٔ شما",
   "btn.later": "بعداً",
   "btn.pursue": "پیگیری",

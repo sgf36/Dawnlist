@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — namuhla ekuseni",
+  "board.add_task": "Engeza umsebenzi",
   "board.col.company": "Inkampani",
   "board.col.next_step": "Isinyathelo esilandelayo",
   "board.col.open_task": "Umsebenzi ovulekile",
@@ -7,6 +8,7 @@
   "board.mark_sent": "Ngithumele umlayezo",
   "board.repair_mirror": "Lungisa isimo",
   "board.repair_stage": "Lungisa isigaba",
+  "board.task_placeholder": "into elandelayo okufanele yenziwe lapha",
   "board.title": "Dawnlist — ibhodi lakho",
   "btn.later": "Kamuva",
   "btn.pursue": "Landelela",

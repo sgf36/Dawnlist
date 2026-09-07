@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — ma reggel",
+  "board.add_task": "Feladat hozzáadása",
   "board.col.company": "Cég",
   "board.col.next_step": "Következő lépés",
   "board.col.open_task": "Nyitott feladat",
@@ -7,6 +8,7 @@
   "board.mark_sent": "Elküldtem az üzenetet",
   "board.repair_mirror": "Állapot javítása",
   "board.repair_stage": "Szakasz javítása",
+  "board.task_placeholder": "a következő teendő itt",
   "board.title": "Dawnlist — a te táblád",
   "btn.later": "Később",
   "btn.pursue": "Megpályázom",

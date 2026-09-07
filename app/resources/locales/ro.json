@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — în această dimineață",
+  "board.add_task": "Adaugă sarcină",
   "board.col.company": "Companie",
   "board.col.next_step": "Pasul următor",
   "board.col.open_task": "Sarcină deschisă",
@@ -7,6 +8,7 @@
   "board.mark_sent": "Am trimis mesajul",
   "board.repair_mirror": "Corectează starea",
   "board.repair_stage": "Corectează etapa",
+  "board.task_placeholder": "următorul lucru de făcut aici",
   "board.title": "Dawnlist — panoul tău",
   "btn.later": "Mai târziu",
   "btn.pursue": "Urmărește",

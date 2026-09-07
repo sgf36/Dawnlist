@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — 오늘 아침",
+  "board.add_task": "작업 추가",
   "board.col.company": "회사",
   "board.col.next_step": "다음 단계",
   "board.col.open_task": "진행 중인 작업",
@@ -7,6 +8,7 @@
   "board.mark_sent": "메시지를 보냈습니다",
   "board.repair_mirror": "상태 수정",
   "board.repair_stage": "단계 수정",
+  "board.task_placeholder": "다음에 할 작업",
   "board.title": "Dawnlist — 내 보드",
   "btn.later": "나중에",
   "btn.pursue": "지원하기",

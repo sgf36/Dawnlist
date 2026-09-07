@@ -298,3 +298,71 @@ def _find_item(window, opportunity_id):
             return item
         stack.extend(item.child(i) for i in range(item.childCount()))
     return None
+
+
+def test_a_task_can_be_added_from_the_board(conn, qapp):
+    """`add_task` had no route, so the "Open task" column could only ever be
+    filled by something other than the board."""
+    from app.core.tracker import open_children
+    from app.core.board_repo import load_board
+    from app.ui.board import BoardRow, BoardWindow
+    from app.ui.board_adapter import connect_board
+
+    oid = create_opportunity(conn, "Acme", stage=Stage.CONTACTED)
+    w = BoardWindow()
+    connect_board(w, conn)
+    w.load([BoardRow(opportunity_id=str(oid), company="Acme",
+                     stage=Stage.CONTACTED, status="Contacted")],
+           {"scanned": [], "parity_defects": [], "bounce_corrections": [],
+            "duplicate_open_children": []})
+    w.task_added.emit(str(oid), "Prepare for the call")
+
+    tasks = open_children(load_board(conn)[0])
+    assert [t.title for t in tasks] == ["Prepare for the call"]
+    w.close()
+
+
+def test_an_empty_task_is_not_added(qapp):
+    from app.ui.board import BoardRow, BoardWindow
+    w = BoardWindow()
+    rows = [BoardRow(opportunity_id="1", company="Acme",
+                     stage=Stage.CONTACTED, status="Contacted")]
+    w.load(rows, {"scanned": [], "parity_defects": [],
+                  "bounce_corrections": [], "duplicate_open_children": []})
+    seen = []
+    w.task_added.connect(lambda *a: seen.append(a))
+    w.field_task.setText("   ")
+    w._emit_task()
+    assert seen == []
+    w.close()
+
+
+def test_the_task_field_is_closed_when_one_is_already_open(qapp):
+    """At most one open task per opportunity — the schema enforces it, so
+    offering the field would only produce an error the user cannot act on."""
+    from app.ui.board import BoardRow, BoardWindow
+    w = BoardWindow()
+    rows = [BoardRow(opportunity_id="1", company="Busy", stage=Stage.CONTACTED,
+                     status="Contacted", open_task="Chase Jo"),
+            BoardRow(opportunity_id="2", company="Free", stage=Stage.CONTACTED,
+                     status="Contacted")]
+    w.load(rows, {"scanned": [], "parity_defects": [],
+                  "bounce_corrections": [], "duplicate_open_children": []})
+    state = {}
+    for oid in ("1", "2"):
+        w.tree.setCurrentItem(_find_item(w, oid))
+        state[oid] = w.btn_task.isEnabled()
+    assert state == {"1": False, "2": True}
+    w.close()
+
+
+def test_a_closed_opportunity_takes_no_new_task(qapp):
+    from app.ui.board import BoardRow, BoardWindow
+    w = BoardWindow()
+    rows = [BoardRow(opportunity_id="1", company="Done", stage=Stage.WON,
+                     status="Won")]
+    w.load(rows, {"scanned": [], "parity_defects": [],
+                  "bounce_corrections": [], "duplicate_open_children": []})
+    w.tree.setCurrentItem(_find_item(w, "1"))
+    assert not w.btn_task.isEnabled()
+    w.close()

@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — आज बिहान",
+  "board.add_task": "कार्य थप्नुहोस्",
   "board.col.company": "कम्पनी",
   "board.col.next_step": "अर्को चरण",
   "board.col.open_task": "खुला कार्य",
@@ -7,6 +8,7 @@
   "board.mark_sent": "मैले सन्देश पठाएँ",
   "board.repair_mirror": "स्थिति सच्याउनुहोस्",
   "board.repair_stage": "चरण सच्याउनुहोस्",
+  "board.task_placeholder": "यहाँ गर्नुपर्ने अर्को कुरा",
   "board.title": "Dawnlist — तपाईंको बोर्ड",
   "btn.later": "पछि",
   "btn.pursue": "अगाडि बढाउनुहोस्",

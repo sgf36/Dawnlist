@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — 今晨速览",
+  "board.add_task": "添加任务",
   "board.col.company": "公司",
   "board.col.next_step": "下一步",
   "board.col.open_task": "待办任务",
@@ -7,6 +8,7 @@
   "board.mark_sent": "我已发送消息",
   "board.repair_mirror": "更正状态",
   "board.repair_stage": "更正阶段",
+  "board.task_placeholder": "接下来要做的事情",
   "board.title": "Dawnlist — 我的看板",
   "btn.later": "稍后处理",
   "btn.pursue": "推进",

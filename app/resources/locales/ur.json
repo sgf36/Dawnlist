@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — آج صبح",
+  "board.add_task": "ٹاسک شامل کریں",
   "board.col.company": "کمپنی",
   "board.col.next_step": "اگلا قدم",
   "board.col.open_task": "کھلا کام",
@@ -7,6 +8,7 @@
   "board.mark_sent": "میں نے پیغام بھیج دیا",
   "board.repair_mirror": "حیثیت درست کریں",
   "board.repair_stage": "مرحلہ درست کریں",
+  "board.task_placeholder": "یہاں اگلا کام",
   "board.title": "Dawnlist — آپ کا بورڈ",
   "btn.later": "بعد میں",
   "btn.pursue": "آگے بڑھیں",

@@ -24,7 +24,8 @@ from datetime import date
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPalette
-from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton,
+from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit,
+                               QPushButton,
                                QSizePolicy, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
@@ -152,6 +153,7 @@ class BoardWindow(QWidget):
     repair_requested = Signal(str)        # opportunity_id — fix the MIRROR
     bounce_repair_requested = Signal(str)  # opportunity_id — fix the STAGE
     sent_recorded = Signal(str)           # opportunity_id — a message went out
+    task_added = Signal(str, str)         # (opportunity_id, title)
     opportunity_selected = Signal(str)
 
     def __init__(self, parent=None):
@@ -198,10 +200,21 @@ class BoardWindow(QWidget):
         # only the user can say so. Without this the cadence sits at rung zero
         # for ever: the same first-contact letter is redrafted every Tuesday
         # and no follow-up is ever scheduled.
+        # The "Open task" column had no way to be filled: `add_task` existed
+        # and nothing called it, so the column was permanently blank. Tasks are
+        # for what the cadence cannot know — "prepare for the call" — so the
+        # user types them.
+        self.field_task = QLineEdit()
+        self.field_task.setObjectName("taskField")
+        self.field_task.setPlaceholderText(tr("board.task_placeholder"))
+        self.field_task.setEnabled(False)
+        self.btn_task = QPushButton(tr("board.add_task"))
         self.btn_sent = QPushButton(tr("board.mark_sent"))
         self.btn_repair = QPushButton(tr("board.repair_mirror"))
         self.btn_repair_bounce = QPushButton(tr("board.repair_stage"))
-        for b in (self.btn_sent, self.btn_repair, self.btn_repair_bounce):
+        actions.addWidget(self.field_task, 1)
+        for b in (self.btn_task, self.btn_sent, self.btn_repair,
+                  self.btn_repair_bounce):
             b.setObjectName("boardAction")
             b.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
             b.setEnabled(False)
@@ -212,6 +225,8 @@ class BoardWindow(QWidget):
         self.setStyleSheet(BOARD_STYLESHEET)
 
         self.tree.currentItemChanged.connect(self._on_select)
+        self.btn_task.clicked.connect(self._emit_task)
+        self.field_task.returnPressed.connect(self._emit_task)
         self.btn_sent.clicked.connect(self._emit_sent)
         self.btn_repair.clicked.connect(self._emit_repair)
         self.btn_repair_bounce.clicked.connect(self._emit_bounce_repair)
@@ -278,10 +293,23 @@ class BoardWindow(QWidget):
         # Only a live stage carries a cadence. Recording a send against a Won,
         # Lost or On Hold record would schedule a chase on a closed pursuit.
         self.btn_sent.setEnabled(bool(row and row.stage.is_live))
+        # At most one open task per opportunity — the schema enforces it, so
+        # offering the field when one is already open would only produce a
+        # constraint error the user cannot act on.
+        can_add = bool(row and row.stage.is_live and not row.open_task)
+        self.btn_task.setEnabled(can_add)
+        self.field_task.setEnabled(can_add)
         self.btn_repair.setEnabled(bool(row and row.parity_defect))
         self.btn_repair_bounce.setEnabled(bool(row and row.bounce_defect))
         if row:
             self.opportunity_selected.emit(row.opportunity_id)
+
+    def _emit_task(self):
+        row = self._current()
+        title = self.field_task.text().strip()
+        if row and title and row.stage.is_live and not row.open_task:
+            self.task_added.emit(row.opportunity_id, title)
+            self.field_task.clear()
 
     def _emit_sent(self):
         row = self._current()

@@ -4,7 +4,8 @@ from __future__ import annotations
 import sqlite3
 from datetime import date
 
-from app.core.board_repo import (audit_board, load_board, next_steps,
+from app.core.board_repo import (add_task, audit_board, load_board,
+                                 next_steps,
                                  record_outbound, repair_mirror, set_stage)
 from app.core.cadence import Channel
 from app.core.tracker import Stage, open_children
@@ -51,6 +52,7 @@ def connect_board(window, conn: sqlite3.Connection) -> None:
     window.bounce_repair_requested.connect(
         lambda oid: set_stage(conn, oid, Stage.IDENTIFIED))
     window.sent_recorded.connect(lambda oid: record_sent(conn, oid))
+    window.task_added.connect(lambda oid, title: add_task(conn, oid, title))
 
 
 def record_sent(conn: sqlite3.Connection, opportunity_id: str,

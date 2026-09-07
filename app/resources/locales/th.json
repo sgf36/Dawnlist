@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — เช้านี้",
+  "board.add_task": "เพิ่มงาน",
   "board.col.company": "บริษัท",
   "board.col.next_step": "ขั้นตอนถัดไป",
   "board.col.open_task": "งานที่ค้างอยู่",
@@ -7,6 +8,7 @@
   "board.mark_sent": "ฉันส่งข้อความแล้ว",
   "board.repair_mirror": "แก้ไขสถานะ",
   "board.repair_stage": "แก้ไขขั้นตอน",
+  "board.task_placeholder": "สิ่งที่ต้องทำต่อไป",
   "board.title": "Dawnlist — บอร์ดของคุณ",
   "btn.later": "ไว้ทีหลัง",
   "btn.pursue": "ดำเนินการต่อ",

@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — αυτό το πρωί",
+  "board.add_task": "Προσθήκη εργασίας",
   "board.col.company": "Εταιρεία",
   "board.col.next_step": "Επόμενο βήμα",
   "board.col.open_task": "Ανοιχτή εργασία",
@@ -7,6 +8,7 @@
   "board.mark_sent": "Έστειλα το μήνυμα",
   "board.repair_mirror": "Διόρθωση της κατάστασης",
   "board.repair_stage": "Διόρθωση του σταδίου",
+  "board.task_placeholder": "το επόμενο βήμα εδώ",
   "board.title": "Dawnlist — ο πίνακάς σας",
   "btn.later": "Αργότερα",
   "btn.pursue": "Επιδίωξη",

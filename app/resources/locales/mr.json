@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — आजची सकाळ",
+  "board.add_task": "कार्य जोडा",
   "board.col.company": "कंपनी",
   "board.col.next_step": "पुढील पायरी",
   "board.col.open_task": "खुले कार्य",
@@ -7,6 +8,7 @@
   "board.mark_sent": "मी संदेश पाठवला",
   "board.repair_mirror": "स्थिती दुरुस्त करा",
   "board.repair_stage": "टप्पा दुरुस्त करा",
+  "board.task_placeholder": "पुढील करायचे काम",
   "board.title": "Dawnlist — तुमचा बोर्ड",
   "btn.later": "नंतर",
   "btn.pursue": "पुढे न्या",

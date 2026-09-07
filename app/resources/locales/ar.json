@@ -1,5 +1,6 @@
 {
   "app.title": "دون‑ليست — هذا الصباح",
+  "board.add_task": "إضافة مهمة",
   "board.col.company": "الشركة",
   "board.col.next_step": "الخطوة التالية",
   "board.col.open_task": "مهمة مفتوحة",
@@ -7,6 +8,7 @@
   "board.mark_sent": "لقد أرسلت الرسالة",
   "board.repair_mirror": "تصحيح الحالة",
   "board.repair_stage": "تصحيح المرحلة",
+  "board.task_placeholder": "المهمة التالية هنا",
   "board.title": "داونليست — لوحتك",
   "btn.later": "لاحقاً",
   "btn.pursue": "متابعة",

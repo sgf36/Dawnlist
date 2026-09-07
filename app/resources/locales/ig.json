@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — n'ụtụtụ a",
+  "board.add_task": "Tinye ọrụ",
   "board.col.company": "Ụlọ ọrụ",
   "board.col.next_step": "Nzọụkwụ ọzọ",
   "board.col.open_task": "Ọrụ dị mmeghe",
@@ -7,6 +8,7 @@
   "board.mark_sent": "Ezitela m ozi ahụ",
   "board.repair_mirror": "Dozie ọnọdụ ahụ",
   "board.repair_stage": "Dozie ọkwa ahụ",
+  "board.task_placeholder": "ihe ọzọ ị ga-eme ebe a",
   "board.title": "Dawnlist — bọọdụ gị",
   "btn.later": "Mgbe ọzọ",
   "btn.pursue": "Chụso",

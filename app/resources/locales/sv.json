@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — i morse",
+  "board.add_task": "Lägg till uppgift",
   "board.col.company": "Företag",
   "board.col.next_step": "Nästa steg",
   "board.col.open_task": "Öppen uppgift",
@@ -7,6 +8,7 @@
   "board.mark_sent": "Jag skickade meddelandet",
   "board.repair_mirror": "Korrigera statusen",
   "board.repair_stage": "Korrigera steget",
+  "board.task_placeholder": "nästa sak att göra här",
   "board.title": "Dawnlist — din tavla",
   "btn.later": "Senare",
   "btn.pursue": "Gå vidare",

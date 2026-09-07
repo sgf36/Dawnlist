@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — this morning",
+  "board.add_task": "Add task",
   "board.col.company": "Company",
   "board.col.next_step": "Next step",
   "board.col.open_task": "Open task",
@@ -7,6 +8,7 @@
   "board.mark_sent": "I sent the message",
   "board.repair_mirror": "Correct the status",
   "board.repair_stage": "Correct the stage",
+  "board.task_placeholder": "the next thing to do here",
   "board.title": "Dawnlist — your board",
   "btn.later": "Later",
   "btn.pursue": "Pursue",

@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — bu sabah",
+  "board.add_task": "Görev ekle",
   "board.col.company": "Şirket",
   "board.col.next_step": "Sonraki adım",
   "board.col.open_task": "Açık görev",
@@ -7,6 +8,7 @@
   "board.mark_sent": "Mesajı gönderdim",
   "board.repair_mirror": "Durumu düzelt",
   "board.repair_stage": "Aşamayı düzelt",
+  "board.task_placeholder": "burada yapılacak sonraki iş",
   "board.title": "Dawnlist — panonuz",
   "btn.later": "Sonra",
   "btn.pursue": "Değerlendir",

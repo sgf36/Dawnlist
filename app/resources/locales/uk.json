@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — сьогодні вранці",
+  "board.add_task": "Додати завдання",
   "board.col.company": "Компанія",
   "board.col.next_step": "Наступний крок",
   "board.col.open_task": "Відкрите завдання",
@@ -7,6 +8,7 @@
   "board.mark_sent": "Повідомлення надіслано",
   "board.repair_mirror": "Виправити статус",
   "board.repair_stage": "Виправити етап",
+  "board.task_placeholder": "наступна справа тут",
   "board.title": "Dawnlist — ваша дошка",
   "btn.later": "Пізніше",
   "btn.pursue": "Розглянути",

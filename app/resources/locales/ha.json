@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — safiyar yau",
+  "board.add_task": "Ƙara aiki",
   "board.col.company": "Kamfani",
   "board.col.next_step": "Mataki na gaba",
   "board.col.open_task": "Bude aiki",
@@ -7,6 +8,7 @@
   "board.mark_sent": "Na aika saƙon",
   "board.repair_mirror": "Gyara matsayin",
   "board.repair_stage": "Gyara mataki",
+  "board.task_placeholder": "abu na gaba da za a yi anan",
   "board.title": "Dawnlist — allon aikinka",
   "btn.later": "Daga baya",
   "btn.pursue": "Bi ta",

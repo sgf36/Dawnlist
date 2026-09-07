@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — asubuhi hii",
+  "board.add_task": "Ongeza kazi",
   "board.col.company": "Kampuni",
   "board.col.next_step": "Hatua inayofuata",
   "board.col.open_task": "Kazi iliyo wazi",
@@ -7,6 +8,7 @@
   "board.mark_sent": "Nimetuma ujumbe",
   "board.repair_mirror": "Sahihisha hali",
   "board.repair_stage": "Sahihisha hatua",
+  "board.task_placeholder": "jambo linalofuata la kufanya hapa",
   "board.title": "Dawnlist — ubao wako",
   "btn.later": "Baadaye",
   "btn.pursue": "Fuatilia",

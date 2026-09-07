@@ -1,5 +1,6 @@
 {
   "app.title": "Dawnlist — jutros",
+  "board.add_task": "Dodaj zadatak",
   "board.col.company": "Tvrtka",
   "board.col.next_step": "Sljedeći korak",
   "board.col.open_task": "Otvoreni zadatak",
@@ -7,6 +8,7 @@
   "board.mark_sent": "Poslao/la sam poruku",
   "board.repair_mirror": "Ispravi status",
   "board.repair_stage": "Ispravi fazu",
+  "board.task_placeholder": "sljedeća stvar za obaviti ovdje",
   "board.title": "Dawnlist — vaša ploča",
   "btn.later": "Kasnije",
   "btn.pursue": "Prijavi se",
