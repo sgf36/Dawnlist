@@ -918,3 +918,98 @@ def test_a_screened_out_posting_still_reaches_the_gate(conn):
     items = calibration_sample(conn, provider=Stub(jobs), send=verdicts("strong"))
     titles = {i.title for i in items}
     assert "Night Auditor" in titles, "the screened-out row was hidden"
+
+
+# -- onboarding without a feed credential (the beta blocker) ----------------
+ALERT_CARD = ('<a href="https://example.com/jobs/view/{i}/?trk=x">{title}</a>'
+              '<p>{company} &middot; London</p>')
+
+
+def an_alerts_folder(tmp_path, n=10):
+    folder = tmp_path / "alerts"
+    folder.mkdir()
+    cards = "\n".join(
+        ALERT_CARD.format(i=200 + i, title=f"Asset Manager {i}", company=f"Co {i}")
+        for i in range(n))
+    (folder / "alert.eml").write_text(
+        'From: LinkedIn Job Alerts <jobalerts-noreply@linkedin.com>\n'
+        'Subject: new jobs\nContent-Type: text/html; charset="utf-8"\n\n'
+        f"<html><body>{cards}</body></html>\n", encoding="utf-8")
+    return folder
+
+
+def test_calibration_works_with_no_feed_credential(conn, tmp_path, monkeypatch):
+    """Without this a user with no feed credential could not finish onboarding
+    AT ALL: calibration needs ten live postings, the gate needs eight
+    decisions, and there was no third way to get them. It blocked every beta
+    tester, on the last screen of setup."""
+    import app.main as main
+    from app.main import calibration_sample
+    from app.onboarding.calibration import CalibrationResult
+
+    save_document(conn, "fit_brief", "Asset management in London.")
+    save_document(conn, "factsheet", FACTS)
+    monkeypatch.setattr(main, "alerts_dir", lambda: an_alerts_folder(tmp_path))
+
+    items = calibration_sample(conn, send=verdicts("possible"))
+    assert len(items) == 10
+    reasons = CalibrationResult(items=items).blocking_reasons()
+    assert "decide at least 8" in reasons[0], (
+        "the gate must now be reachable, not a setup failure")
+
+
+def test_the_feed_is_still_preferred_when_present(conn, tmp_path, monkeypatch):
+    """Alert emails are the fallback, not the default — a configured feed is
+    live and current where a saved digest is neither."""
+    import app.main as main
+    from app.main import calibration_sample, save_query
+
+    save_document(conn, "fit_brief", "b")
+    save_document(conn, "factsheet", FACTS)
+    save_query(conn, "strategy", ["strategy"])
+    monkeypatch.setattr(main, "alerts_dir", lambda: an_alerts_folder(tmp_path))
+
+    feed_jobs = [Job(provider="theirstack", provider_job_id=f"f{i}",
+                     title=f"Head of Strategy {i}", company="Acme",
+                     description_text="Strategy.") for i in range(10)]
+    items = calibration_sample(conn, provider=Stub(feed_jobs),
+                               send=verdicts("strong"))
+    assert all(i.job_key.startswith("theirstack:") for i in items)
+
+
+def test_a_short_feed_is_topped_up_from_alerts(conn, tmp_path, monkeypatch):
+    """Three from the feed plus seven from alerts is a usable sample; three
+    alone is a setup failure the user cannot act on."""
+    import app.main as main
+    from app.main import calibration_sample, save_query
+
+    save_document(conn, "fit_brief", "b")
+    save_document(conn, "factsheet", FACTS)
+    save_query(conn, "strategy", ["strategy"])
+    monkeypatch.setattr(main, "alerts_dir", lambda: an_alerts_folder(tmp_path))
+
+    feed_jobs = [Job(provider="theirstack", provider_job_id=f"f{i}",
+                     title=f"Head of Strategy {i}", company="Acme",
+                     description_text="Strategy.") for i in range(3)]
+    items = calibration_sample(conn, provider=Stub(feed_jobs),
+                               send=verdicts("strong"))
+    assert len(items) == 10
+    providers = {i.job_key.split(":")[0] for i in items}
+    assert providers == {"theirstack", "alert-email"}
+
+
+def test_no_feed_and_no_alerts_is_still_a_named_setup_failure(conn, tmp_path, monkeypatch):
+    import app.main as main
+    from app.main import calibration_sample
+    from app.onboarding.calibration import CalibrationResult
+
+    save_document(conn, "fit_brief", "b")
+    monkeypatch.setattr(main, "alerts_dir", lambda: tmp_path / "nothing-here")
+    items = calibration_sample(conn)
+    assert items == []
+    assert "setup problem" in CalibrationResult(items=items).blocking_reasons()[0]
+
+
+def test_the_alerts_folder_is_not_a_synced_one():
+    from app.main import alerts_dir
+    assert "OneDrive" not in str(alerts_dir())

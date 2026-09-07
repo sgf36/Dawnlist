@@ -500,6 +500,46 @@ def ingest_alerts(conn, paths, *, send=None, today: date | None = None):
 
 
 
+
+ALERTS_DIRNAME = "alerts"
+
+
+def alerts_dir() -> Path:
+    """Where job-alert emails live for calibration and for `--add-alerts`.
+
+    Beside the database, never a synced folder. Mirrors `voice_dir()`: the app
+    reads files a person put there and never touches a mailbox.
+    """
+    return db.default_db_path().parent / ALERTS_DIRNAME
+
+
+def alert_postings(conn, folder: Path | None = None):
+    """Postings parsed from job-alert emails on disk, minus anything already
+    seen or permanently rejected.
+
+    Used by `calibration_sample` when there is no feed credential, so onboarding
+    can be completed without one. Returns [] rather than raising when the folder
+    is absent — an empty fallback is a short sample, which the gate already
+    reports as a setup problem naming the cause.
+    """
+    from app.feed.alert_email import parse_many
+    from app.ui.adapter import rejected_keys
+
+    folder = folder or alerts_dir()
+    if not folder.is_dir():
+        return []
+    paths = sorted(p for p in folder.iterdir()
+                   if p.suffix.lower() in (".eml", ".mbox"))
+    if not paths:
+        return []
+
+    jobs, _problems = parse_many(paths)
+    seen = {(r["provider"], r["provider_job_id"]) for r in
+            conn.execute("SELECT provider, provider_job_id FROM seen_jobs")}
+    blocked = seen | rejected_keys(conn)
+    return [j for j in jobs if (j.provider, j.provider_job_id) not in blocked]
+
+
 CALIBRATION_SAMPLE = 10
 
 
@@ -519,22 +559,35 @@ def calibration_sample(conn, *, provider=None, send=None):
     from app.intelligence.assess import assess
     from app.onboarding.calibration import CalibrationItem
 
-    queries = load_queries(conn)
-    if not queries:
-        return []
-
-    try:
-        feed = provider or build_provider(conn)
-    except NotConfigured:
-        return []
-
     jobs = []
-    for query in queries:
-        result = feed.search(query)
-        if result.ok:
-            jobs.extend(result.jobs)
-        if len(jobs) >= CALIBRATION_SAMPLE:
-            break
+    queries = load_queries(conn)
+    if queries:
+        try:
+            feed = provider or build_provider(conn)
+        except NotConfigured:
+            feed = None
+        if feed is not None:
+            for query in queries:
+                result = feed.search(query)
+                if result.ok:
+                    jobs.extend(result.jobs)
+                if len(jobs) >= CALIBRATION_SAMPLE:
+                    break
+
+    if len(jobs) < CALIBRATION_SAMPLE:
+        # Fall back to job-alert emails the user has supplied. These are real
+        # postings — the rule is "real postings, or none", not "fetched
+        # postings, or none" — and they need no feed credential.
+        #
+        # Without this, a user who has no feed credential cannot finish
+        # onboarding AT ALL: calibration needs ten live postings, the gate
+        # needs eight decisions, and there is no third way to obtain them. That
+        # blocked every beta tester, and it blocked them on the last screen of
+        # setup rather than the first.
+        jobs.extend(j for j in alert_postings(conn)
+                    if j.provider_job_id not in
+                    {x.provider_job_id for x in jobs})
+
     jobs = jobs[:CALIBRATION_SAMPLE]
     if not jobs:
         return []
