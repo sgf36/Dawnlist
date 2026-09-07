@@ -17,6 +17,7 @@
   "detail.contained_body": "un término excluyente coincidió dentro de un nombre de puesto más largo. Verifica esto antes de confiar en la exclusión.",
   "detail.contained_title": "Coincidencia parcial",
   "detail.downgraded": "Reclasificado:",
+  "detail.near_duplicate": "También publicado como:",
   "detail.not_checked_body": "la descripción estaba truncada o no mencionaba esto. Se trata como desconocido, nunca como un fallo.",
   "detail.not_checked_title": "No verificado",
   "detail.open_posting": "Abrir la oferta original",

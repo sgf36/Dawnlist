@@ -17,6 +17,7 @@
   "detail.contained_body": "除外語が、より長い職種名の一部として一致しました。この除外を信用する前にご確認ください。",
   "detail.contained_title": "部分一致",
   "detail.downgraded": "評価を下げました：",
+  "detail.near_duplicate": "別名で投稿:",
   "detail.not_checked_body": "この点について説明文が省略または欠落していました。失敗ではなく「不明」として扱われます。",
   "detail.not_checked_title": "未確認",
   "detail.open_posting": "元の求人情報を開く",

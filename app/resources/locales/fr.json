@@ -17,6 +17,7 @@
   "detail.contained_body": "un terme éliminatoire correspondait à l'intérieur d'un intitulé de poste plus long. Vérifiez ce point avant de faire confiance à l'élimination.",
   "detail.contained_title": "Correspondance incluse",
   "detail.downgraded": "Rétrogradé :",
+  "detail.near_duplicate": "Également publié sous :",
   "detail.not_checked_body": "la description était tronquée ou muette sur ce point. Traité comme inconnu, jamais comme un échec.",
   "detail.not_checked_title": "Non vérifié",
   "detail.open_posting": "Ouvrir l'offre d'origine",

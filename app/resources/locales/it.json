@@ -17,6 +17,7 @@
   "detail.contained_body": "un termine di esclusione ha trovato corrispondenza all'interno di un nome di ruolo più lungo. Verificare prima di considerare valida l'esclusione.",
   "detail.contained_title": "Corrispondenza contenuta",
   "detail.downgraded": "Retrocesso:",
+  "detail.near_duplicate": "Pubblicato anche come:",
   "detail.not_checked_body": "la descrizione era troncata o non specificava nulla in merito. Trattato come sconosciuto, mai come un fallimento.",
   "detail.not_checked_title": "Non verificato",
   "detail.open_posting": "Apri l'annuncio originale",

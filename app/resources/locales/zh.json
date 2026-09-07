@@ -17,6 +17,7 @@
   "detail.contained_body": "一个否决词出现在较长的职位名称内。请在采信该否决结果前先核实。",
   "detail.contained_title": "匹配包含于文本中",
   "detail.downgraded": "已降级：",
+  "detail.near_duplicate": "同时发布为:",
   "detail.not_checked_body": "该描述在此处被截断或未提及。视为未知，而非视为不合格。",
   "detail.not_checked_title": "未检查",
   "detail.open_posting": "打开原始招聘信息",

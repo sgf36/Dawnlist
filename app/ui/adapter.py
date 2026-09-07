@@ -33,6 +33,12 @@ def rows_from_outcome(outcome: RunOutcome) -> list[ReviewRow]:
     """Every posting the run touched, assessed or not."""
     verdicts = {v.job.provider_job_id: v
                 for v in (outcome.assessment.verdicts if outcome.assessment else [])}
+    # Flagged, never merged. Both sides of a pair carry the note, so whichever
+    # one the user opens tells them the other exists.
+    near: dict[str, str] = {}
+    for nd in (outcome.deduped.near_duplicates if outcome.deduped else []):
+        near[nd.job.provider_job_id] = f"{nd.other.title} — {nd.other.company}"
+        near[nd.other.provider_job_id] = f"{nd.job.title} — {nd.job.company}"
     rows: list[ReviewRow] = []
 
     for result in (outcome.screen.results if outcome.screen else []):
@@ -70,6 +76,7 @@ def rows_from_outcome(outcome: RunOutcome) -> list[ReviewRow]:
             downgrade_reason=downgrade,
             screen_reason=result.reason if not result.is_likely else "",
             contained=result.contained,
+            near_duplicate=near.get(job.provider_job_id, ""),
         ))
     return rows
 
@@ -214,6 +221,7 @@ def rows_from_db(conn: sqlite3.Connection, run_id: int | None = None,
         sql += " AND j.id NOT IN (SELECT job_id FROM decisions)"
     sql += " ORDER BY j.id"
 
+    near = near_duplicate_notes(conn)
     rows: list[ReviewRow] = []
     for r in conn.execute(sql, (run_id, run_id)):
         if r["bucket"]:
@@ -245,5 +253,27 @@ def rows_from_db(conn: sqlite3.Connection, run_id: int | None = None,
             downgrade_reason=None,
             screen_reason=r["screen_reason"] or "",
             contained=False,
+            near_duplicate=near.get(r["provider_job_id"], ""),
         ))
     return rows
+
+
+def near_duplicate_notes(conn: sqlite3.Connection) -> dict[str, str]:
+    """provider_job_id -> "the other posting", for every flagged pair.
+
+    Both sides carry the note, so whichever one the user opens tells them the
+    other exists. One row per pair is stored; the symmetry is built here.
+    """
+    notes: dict[str, str] = {}
+    for r in conn.execute(
+            "SELECT a.provider_job_id AS a_id, a.title AS a_title, "
+            "       a.company AS a_company, "
+            "       b.provider_job_id AS b_id, b.title AS b_title, "
+            "       b.company AS b_company "
+            "  FROM near_duplicates n "
+            "  JOIN jobs a ON a.id = n.job_id "
+            "  JOIN jobs b ON b.id = n.other_id "
+            " WHERE n.resolved = 0"):
+        notes[r["a_id"]] = f"{r['b_title']} — {r['b_company']}"
+        notes[r["b_id"]] = f"{r['a_title']} — {r['a_company']}"
+    return notes

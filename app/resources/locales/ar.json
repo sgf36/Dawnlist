@@ -17,6 +17,7 @@
   "detail.contained_body": "تطابق مصطلح استبعاد داخل مسمى وظيفي أطول. راجع هذا قبل الوثوق بالاستبعاد.",
   "detail.contained_title": "تطابق داخلي",
   "detail.downgraded": "خُفّض التصنيف:",
+  "detail.near_duplicate": "نُشرت أيضًا باسم:",
   "detail.not_checked_body": "كان الوصف مقتطعاً أو لم يذكر ذلك. يُعامل كغير معروف، وليس كإخفاق.",
   "detail.not_checked_title": "لم يتم التحقق",
   "detail.open_posting": "افتح الإعلان الأصلي",

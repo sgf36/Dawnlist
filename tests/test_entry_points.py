@@ -391,3 +391,55 @@ def test_the_panel_refuses_a_term_that_would_hide_a_pursued_role(conn, qapp_or_s
     assert "Head of Operations" in window.rules.result.text()
     assert "Round Hill Capital" in window.rules.result.text()
     window.close()
+
+
+# -- near-duplicates are flagged, and the flag survives ---------------------
+def test_a_near_duplicate_is_stored_and_shown(conn):
+    """`dedup` has always found these. Nothing wrote them down, so nothing
+    could ever show them — a flag that is computed and dropped is not a flag."""
+    from app.ui.adapter import near_duplicate_notes
+    a_run(conn, [Job(provider="theirstack", provider_job_id="a",
+                     title="Head of Strategy", company="Acme Hotels",
+                     description_text="Strategy."),
+                 Job(provider="theirstack", provider_job_id="b",
+                     title="Head of Strategy", company="Acme Hotels",
+                     description_text="Strategy, relisted.")])
+
+    notes = near_duplicate_notes(conn)
+    assert notes, "nothing flagged"
+    # Both sides carry it, so whichever the user opens names the other.
+    assert set(notes) == {"a", "b"}
+    assert "Acme Hotels" in notes["a"] and "Head of Strategy" in notes["a"]
+    assert "Acme Hotels" in notes["b"]
+
+
+def test_the_note_reaches_the_review_row(conn):
+    a_run(conn, [Job(provider="theirstack", provider_job_id="a",
+                     title="Head of Strategy", company="Acme Hotels",
+                     description_text="Strategy."),
+                 Job(provider="theirstack", provider_job_id="b",
+                     title="Head of Strategy", company="Acme Hotels",
+                     description_text="Strategy, relisted.")])
+    rows = {r.job_id: r for r in rows_from_db(conn)}
+    assert rows["theirstack:a"].near_duplicate
+    assert rows["theirstack:b"].near_duplicate
+
+
+def test_both_postings_survive(conn):
+    """Never merged (spec 6.6): two postings that look like one may be two real
+    vacancies, and merging them loses one."""
+    a_run(conn, [Job(provider="theirstack", provider_job_id="a",
+                     title="Head of Strategy", company="Acme Hotels",
+                     description_text="Strategy."),
+                 Job(provider="theirstack", provider_job_id="b",
+                     title="Head of Strategy", company="Acme Hotels",
+                     description_text="Strategy, relisted.")])
+    assert len(rows_from_db(conn)) == 2
+
+
+def test_nothing_flagged_is_no_notes(conn):
+    from app.ui.adapter import near_duplicate_notes
+    a_run(conn, [Job(provider="theirstack", provider_job_id="a",
+                     title="Head of Strategy", company="Acme",
+                     description_text="Strategy.")])
+    assert near_duplicate_notes(conn) == {}

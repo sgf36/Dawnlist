@@ -17,6 +17,7 @@
   "detail.contained_body": "ein Ausschlussbegriff traf innerhalb einer längeren Rollenbezeichnung zu. Vor dem Verlassen auf den Ausschluss prüfen.",
   "detail.contained_title": "Enthaltener Treffer",
   "detail.downgraded": "Herabgestuft:",
+  "detail.near_duplicate": "Auch veröffentlicht als:",
   "detail.not_checked_body": "die Beschreibung war hierzu gekürzt oder machte keine Angaben. Wird als unbekannt behandelt, nie als Fehlschlag.",
   "detail.not_checked_title": "Nicht geprüft",
   "detail.open_posting": "Originalanzeige öffnen",

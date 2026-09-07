@@ -17,6 +17,7 @@
   "detail.contained_body": "একটি বাতিল-শব্দ একটি দীর্ঘতর পদের নামের মধ্যে মিলে গেছে। বাতিলকরণে বিশ্বাস করার আগে এটি যাচাই করুন।",
   "detail.contained_title": "অন্তর্ভুক্ত মিল",
   "detail.downgraded": "অবনমিত:",
+  "detail.near_duplicate": "এভাবেও পোস্ট করা হয়েছে:",
   "detail.not_checked_body": "বিবরণটি সংক্ষিপ্ত ছিল বা এ বিষয়ে কিছু বলা ছিল না। অজানা হিসেবে গণ্য, ব্যর্থতা হিসেবে নয়।",
   "detail.not_checked_title": "যাচাই করা হয়নি",
   "detail.open_posting": "মূল পোস্টিং খুলুন",

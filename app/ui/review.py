@@ -58,6 +58,10 @@ class ReviewRow:
     downgrade_reason: str | None = None
     screen_reason: str = ""
     contained: bool = False
+    #: "also posted as X at Y" — the near-duplicate this row was flagged
+    #: against. Never merged (spec 6.6): two postings that look like one may be
+    #: two real vacancies, and merging them loses one.
+    near_duplicate: str = ""
 
 
 #: One stylesheet, every selector scoped by object name or class.
@@ -418,6 +422,13 @@ class ReviewWindow(QMainWindow):
             parts.append(
                 f"<p style='color:#8a6d3b'><b>{tr('detail.contained_title')}</b> "
                 f"— {tr('detail.contained_body')}</p>")
+        if r.near_duplicate:
+            # Shown, never merged (spec 6.6). Two postings that look like one
+            # may be two real vacancies, and merging them loses one — so this
+            # is a note for the reader, not a decision taken for them.
+            parts.append(
+                f"<p style='color:#8a6d3b'><b>{tr('detail.near_duplicate')}</b> "
+                f"{r.near_duplicate}</p>")
         if r.screen_reason:
             parts.append("<p style='color:#666'><i>"
                          + tr("detail.screen", reason=r.screen_reason)

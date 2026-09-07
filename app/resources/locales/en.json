@@ -17,6 +17,7 @@
   "detail.contained_body": "a kill term matched inside a longer role name. Check this before trusting the kill.",
   "detail.contained_title": "Contained match",
   "detail.downgraded": "Downgraded:",
+  "detail.near_duplicate": "Also posted as:",
   "detail.not_checked_body": "the description was truncated or silent on this. Treated as unknown, never as a failure.",
   "detail.not_checked_title": "Not checked",
   "detail.open_posting": "Open the original posting",

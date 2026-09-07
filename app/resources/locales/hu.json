@@ -17,6 +17,7 @@
   "detail.contained_body": "egy kizáró kifejezés egy hosszabb pozíciónéven belül talált egyezést. Ellenőrizd, mielőtt megbíznál a kizárásban.",
   "detail.contained_title": "Részleges egyezés",
   "detail.downgraded": "Leértékelve:",
+  "detail.near_duplicate": "Szintén közzétéve mint:",
   "detail.not_checked_body": "a leírás csonka volt, vagy nem tért ki erre. Ismeretlenként kezelve, sosem elutasításként.",
   "detail.not_checked_title": "Nem ellenőrizve",
   "detail.open_posting": "Eredeti hirdetés megnyitása",

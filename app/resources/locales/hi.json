@@ -17,6 +17,7 @@
   "detail.contained_body": "एक बहिष्करण शब्द किसी लंबे पद-नाम के भीतर मेल खाया। भरोसा करने से पहले इसकी जाँच करें।",
   "detail.contained_title": "आंशिक मेल",
   "detail.downgraded": "डाउनग्रेड किया गया:",
+  "detail.near_duplicate": "इस रूप में भी पोस्ट किया गया:",
   "detail.not_checked_body": "विवरण अधूरा था या इस बारे में कुछ नहीं बताया गया। इसे अज्ञात माना गया है, विफलता नहीं।",
   "detail.not_checked_title": "जाँच नहीं हुई",
   "detail.open_posting": "मूल पोस्टिंग खोलें",

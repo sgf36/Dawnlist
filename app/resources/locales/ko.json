@@ -17,6 +17,7 @@
   "detail.contained_body": "제외 조건이 더 긴 직무명 안에서 일치했습니다. 이 제외를 신뢰하기 전에 확인하세요.",
   "detail.contained_title": "포함된 일치",
   "detail.downgraded": "강등됨:",
+  "detail.near_duplicate": "다른 이름으로도 게시됨:",
   "detail.not_checked_body": "설명이 잘렸거나 이 부분에 대한 언급이 없습니다. 실패가 아닌 미확인으로 처리됩니다.",
   "detail.not_checked_title": "확인되지 않음",
   "detail.open_posting": "원본 공고 열기",

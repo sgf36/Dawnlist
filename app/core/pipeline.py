@@ -233,4 +233,22 @@ def persist(conn: sqlite3.Connection, outcome: RunOutcome) -> None:
                 (row["id"], outcome.run_id, v.bucket, reason,
                  v.disqualifying_quote, int(v.requirement_checked),
                  int(v.full_read), "", now))
+
+    # Near-duplicates are FLAGGED, never merged (spec 6.6) — and a flag that is
+    # computed and then dropped is not a flag. `dedup` has always found these;
+    # nothing ever wrote them down, so nothing could show them. Written last
+    # because both jobs have to be stored before they can be referenced.
+    if outcome.deduped:
+        for nd in outcome.deduped.near_duplicates:
+            rows = [conn.execute(
+                "SELECT id FROM jobs WHERE provider=? AND provider_job_id=?",
+                (j.provider, j.provider_job_id)).fetchone()
+                for j in (nd.job, nd.other)]
+            if any(r is None for r in rows):
+                continue
+            # Ordered, so the same pair found the other way round is one row.
+            a, b = sorted(r["id"] for r in rows)
+            conn.execute(
+                "INSERT INTO near_duplicates(job_id, other_id, reason) "
+                "VALUES(?,?,?) ON CONFLICT DO NOTHING", (a, b, nd.reason))
     conn.commit()

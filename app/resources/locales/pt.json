@@ -17,6 +17,7 @@
   "detail.contained_body": "um termo de exclusão coincidiu dentro de um nome de cargo mais longo. Verifique isto antes de confiar na exclusão.",
   "detail.contained_title": "Correspondência contida",
   "detail.downgraded": "Reclassificado:",
+  "detail.near_duplicate": "Também publicado como:",
   "detail.not_checked_body": "a descrição estava truncada ou omissa nesse ponto. Tratado como desconhecido, nunca como falha.",
   "detail.not_checked_title": "Não verificado",
   "detail.open_posting": "Abrir o anúncio original",
