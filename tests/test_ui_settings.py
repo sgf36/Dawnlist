@@ -397,3 +397,98 @@ def test_the_window_cannot_be_shrunk_to_a_stub(qapp):
     w = SettingsWindow(variant="direct", rules=panel)
     assert w.minimumWidth() >= 700 and w.minimumHeight() >= 400
     w.close()
+
+
+# -- kill families ----------------------------------------------------------
+def a_family(name="Kier", adopted=False):
+    from app.core.rules import KillFamily
+    return KillFamily(name=name, employers=(name,), kill_titles=("engineer",),
+                      saves_titles=("strategy",),
+                      precedents=((name, "Site Engineer"),
+                                  (name, "Senior Site Engineer")),
+                      adopted=adopted)
+
+
+def families_panel(qapp, families=None, *, adopter=None):
+    from app.ui.settings import FamiliesPanel
+    state = list(families or [])
+    log = []
+
+    def default_adopter(name, on):
+        log.append((name, on))
+
+    panel = FamiliesPanel(loader=lambda: state,
+                          adopter=adopter or default_adopter,
+                          refresher=lambda: len(state))
+    panel._state, panel._log = state, log
+    return panel
+
+
+def test_a_proposal_shows_the_rejections_it_came_from(qapp):
+    """"Kier + engineer" is a rule to agree with in the abstract. "You turned
+    down these two" is a decision the user can actually check."""
+    panel = families_panel(qapp, [a_family()])
+    text = panel.listing.item(0).text()
+    assert "Kier" in text
+    assert "Site Engineer" in text
+    assert "engineer" in text and "strategy" in text
+    panel.close()
+
+
+def test_a_proposal_is_marked_as_not_yet_armed(qapp):
+    panel = families_panel(qapp, [a_family(adopted=False)])
+    assert "Proposed" in panel.listing.item(0).text()
+    panel.close()
+
+
+def test_an_armed_family_says_so(qapp):
+    panel = families_panel(qapp, [a_family(adopted=True)])
+    assert "Armed" in panel.listing.item(0).text()
+    panel.close()
+
+
+def test_nothing_proposed_says_why_not(qapp):
+    panel = families_panel(qapp, [])
+    assert panel.empty.isVisibleTo(panel)
+    assert "two similar roles" in panel.empty.text()
+    panel.close()
+
+
+def test_arming_needs_a_selection(qapp):
+    panel = families_panel(qapp, [a_family()])
+    assert not panel.btn_adopt.isEnabled()
+    panel.listing.setCurrentRow(0)
+    assert panel.btn_adopt.isEnabled()
+    panel.close()
+
+
+def test_arming_and_standing_down_reach_the_adopter(qapp):
+    panel = families_panel(qapp, [a_family()])
+    panel.listing.setCurrentRow(0)
+    panel.set_adopted(True)
+    panel.listing.setCurrentRow(0)
+    panel.set_adopted(False)
+    assert panel._log == [("Kier", True), ("Kier", False)]
+    panel.close()
+
+
+def test_a_refused_adoption_names_the_role(qapp):
+    """The same guard as a tier-1 term, and the same reason for naming it."""
+    from app.core.rules import RuleConflict, RuleConflictError
+
+    def refuse(name, on):
+        raise RuleConflictError([RuleConflict(
+            "engineer", "kill_families", "Site Engineer, Strategy", "Kier")])
+
+    panel = families_panel(qapp, [a_family()], adopter=refuse)
+    panel.listing.setCurrentRow(0)
+    panel.set_adopted(True)
+    assert "Site Engineer, Strategy" in panel.result.text()
+    assert panel.result.isVisibleTo(panel)
+    panel.close()
+
+
+def test_the_window_omits_the_families_panel_without_a_database(qapp):
+    w = SettingsWindow(variant="direct")
+    assert w.families is None
+    w.close()

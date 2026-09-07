@@ -14,7 +14,9 @@ drifts from the first.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+from dataclasses import replace
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -177,6 +179,81 @@ def save_rule_term(conn, field: str, term: str) -> None:
 def forget_rule_term(conn, field: str, term: str) -> None:
     conn.execute("DELETE FROM rule_terms WHERE field=? AND term=?",
                  (field, term.strip()))
+    conn.commit()
+
+
+
+def decisions_by_kind(conn, kind: str) -> list[tuple[str, str]]:
+    """Every (company, title) the user decided this way."""
+    return [(r["company"], r["title"]) for r in conn.execute(
+        "SELECT j.company, j.title FROM decisions d "
+        "JOIN jobs j ON j.id = d.job_id WHERE d.kind = ?", (kind,))]
+
+
+def refresh_kill_family_proposals(conn) -> int:
+    """Notice the shapes in the user's rejections and offer them. Adopts none.
+
+    A family is never typed in: spec 5.3 rule 1 anchors one to at least two
+    real rejections and rule 8 makes adoption the user's decision, so the app's
+    job is to spot the shape and offer it. `kill_families` was the last table
+    the app read and never wrote, which left tier 1b reachable only by editing
+    SQLite by hand.
+
+    Re-proposing is safe: a family already present keeps its `adopted` flag, so
+    a running of this never quietly re-arms one the user turned down.
+    """
+    from app.core.rules import propose_families
+
+    table = load_rules(conn)
+    families = propose_families(
+        rejected=decisions_by_kind(conn, "reject"),
+        pursued=decisions_by_kind(conn, "pursue"),
+        saves_terms=table.strong_terms + table.contextual_terms)
+
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    added = 0
+    for fam in families:
+        cur = conn.execute(
+            """INSERT INTO kill_families(name, employers_json, kill_json,
+                   saves_json, precedents_json, adopted, created_at)
+               VALUES(?,?,?,?,?,0,?)
+               ON CONFLICT(name) DO UPDATE SET
+                   kill_json = excluded.kill_json,
+                   saves_json = excluded.saves_json,
+                   precedents_json = excluded.precedents_json""",
+            (fam.name, json.dumps(list(fam.employers)),
+             json.dumps(list(fam.kill_titles)), json.dumps(list(fam.saves_titles)),
+             json.dumps([list(p) for p in fam.precedents]), now))
+        added += cur.rowcount
+    conn.commit()
+    return added
+
+
+def adopt_kill_family(conn, name: str, *, adopted: bool = True) -> None:
+    """Arm a proposed family, or stand one down.
+
+    Checked against the pursue history first, exactly like a tier-1 term: a
+    family that would have removed a role the user chased is not a rule, and
+    the moment to find that out is before it fires rather than after a role
+    goes missing.
+    """
+    from app.core.rules import assert_no_conflicts
+
+    if adopted:
+        proposed = load_rules(conn)
+        for fam in proposed.kill_families:
+            if fam.name == name:
+                # Test it AS IF ARMED. An unadopted family never matches, so
+                # checking the stored copy would pass every family ever written.
+                armed = replace(fam, adopted=True)
+                probe = RuleTable(kill_families=[armed])
+                assert_no_conflicts(probe, decisions_by_kind(conn, "pursue"))
+                break
+        else:
+            raise LookupError(f"no kill family named {name!r}")
+
+    conn.execute("UPDATE kill_families SET adopted=? WHERE name=?",
+                 (int(adopted), name))
     conn.commit()
 
 
@@ -695,20 +772,24 @@ def open_settings(parent=None, conn=None):
     reference is garbage-collected the moment the function returns, and the
     window vanishes as fast as it appeared.
     """
-    from app.ui.settings import RulesPanel, SettingsWindow
+    from app.ui.settings import FamiliesPanel, RulesPanel, SettingsWindow
 
     # The key and licence panels already default to the real keyring and the
     # real redeemer; the injection points exist so the tests can spend nothing.
     # The rules panel cannot default, because the rules are per-user and live
     # in the database — so it is offered only when there is one.
-    rules = None
+    rules = families = None
     if conn is not None:
+        families = FamiliesPanel(
+            loader=lambda: load_rules(conn).kill_families,
+            adopter=lambda name, on: adopt_kill_family(conn, name, adopted=on),
+            refresher=lambda: refresh_kill_family_proposals(conn))
         rules = RulesPanel(
             loader=lambda: load_rules(conn),
             saver=lambda field, term: save_rule_term(conn, field, term),
             forgetter=lambda field, term: forget_rule_term(conn, field, term))
 
-    window = SettingsWindow(rules=rules)
+    window = SettingsWindow(rules=rules, families=families)
     if parent is not None:
         parent._settings_window = window
     window.show()

@@ -12,7 +12,7 @@ Both consumers import RuleTable and neither carries terms of its own.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 
 def word_boundary(terms: list[str]) -> re.Pattern | None:
@@ -305,3 +305,99 @@ def is_contained_match(title: str, match_start: int) -> bool:
     if not words:
         return False
     return words[-1].strip(".,").casefold() not in LINKING_WORDS
+
+
+# ---------------------------------------------------------------------------
+# Proposing kill families.
+#
+# A family is never typed in. Spec 5.3 rule 1 anchors one to at least two real
+# rejections, and rule 8 makes adoption the user's decision — so the app's job
+# is to notice the shape and offer it, never to invent one. `kill_families` was
+# the last table the app read and never wrote, which meant tier 1b could only
+# ever be populated by hand-editing SQLite.
+# ---------------------------------------------------------------------------
+
+#: Words that carry no functional meaning in a job title, so they can never be
+#: the thing a family kills on. "Senior Manager" and "Senior Analyst" share
+#: "senior" and are not the same function.
+TITLE_NOISE = frozenset({
+    "senior", "junior", "lead", "head", "chief", "deputy", "assistant",
+    "associate", "director", "manager", "executive", "officer", "specialist",
+    "coordinator", "analyst", "consultant", "advisor", "trainee", "graduate",
+    "i", "ii", "iii", "uk", "eu", "us", "emea",
+}) | LINKING_WORDS
+
+
+def _title_words(title: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z]+", (title or "").casefold())
+            if len(w) > 2 and w not in TITLE_NOISE}
+
+
+def propose_families(rejected: list[tuple[str, str]],
+                     pursued: list[tuple[str, str]],
+                     saves_terms: list[str]) -> list[KillFamily]:
+    """Kill families the evidence supports, none of them adopted.
+
+    Every returned family satisfies all four rules of spec 5.3 by construction:
+    two or more real precedents, a non-empty SAVES, no kill term that appears
+    in anything the user pursued, and a shape a test can pin.
+
+    An employer with two rejections but no basis for SAVES yields NOTHING. A
+    family that would kill every posting at an employer is precisely what rule
+    2 exists to prevent, and proposing one and letting the user adopt it would
+    make the app the author of that mistake.
+    """
+    pursued_words: set[str] = set()
+    for _company, title in pursued:
+        pursued_words |= _title_words(title)
+
+    by_employer: dict[str, list[tuple[str, str]]] = {}
+    for company, title in rejected:
+        if company:
+            by_employer.setdefault(company.casefold(), []).append((company, title))
+
+    out: list[KillFamily] = []
+    for _key, group in sorted(by_employer.items()):
+        if len(group) < 2:
+            continue
+        company = group[0][0]
+
+        # A kill term must appear in at least two rejected titles at this
+        # employer: one rejection is a decision, two is a shape.
+        counts: dict[str, int] = {}
+        for _c, title in group:
+            for word in _title_words(title):
+                counts[word] = counts.get(word, 0) + 1
+        kill = sorted(w for w, n in counts.items()
+                      if n >= 2 and w not in pursued_words)
+        if not kill:
+            continue
+
+        # SAVES: what the user has pursued at this employer, plus the terms
+        # they told the screen always to read. Rule 2 — required, not optional.
+        saves = sorted({w for c, t in pursued if c.casefold() == _key
+                        for w in _title_words(t)}
+                       | {t.casefold() for t in saves_terms if t.strip()})
+        if not saves:
+            continue
+
+        family = KillFamily(
+            name=company,
+            employers=(company,),
+            kill_titles=tuple(kill),
+            saves_titles=tuple(saves),
+            precedents=tuple(group),
+            adopted=False,
+        )
+
+        # It must actually kill the rejections it was built from. SAVES is
+        # checked before KILL, so a family whose saves cover its own precedents
+        # is inert: it would sit in the list looking armed and screen nothing.
+        # Tested by arming a copy, because an unadopted family never matches
+        # and would therefore pass any check made against the real one.
+        armed = replace(family, adopted=True)
+        if not all(armed.match(c, t) for c, t in group):
+            continue
+
+        out.append(family)
+    return out

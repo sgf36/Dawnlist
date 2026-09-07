@@ -26,7 +26,8 @@ from __future__ import annotations
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel,
-                               QLineEdit, QListWidget, QPushButton,
+                               QLineEdit, QListWidget, QListWidgetItem,
+                               QPushButton,
                                QScrollArea, QSizePolicy, QVBoxLayout,
                                QWidget)
 
@@ -304,7 +305,8 @@ class SettingsWindow(QWidget):
     through their email for something nobody ever sent them.
     """
 
-    def __init__(self, parent=None, *, variant=None, rules=None):
+    def __init__(self, parent=None, *, variant=None, rules=None,
+                 families=None):
         super().__init__(parent)
         from app.core.build_variant import variant as read_variant
 
@@ -338,6 +340,11 @@ class SettingsWindow(QWidget):
         if rules is not None:
             layout.addWidget(_divider())
             layout.addWidget(rules, 1)
+
+        self.families = families
+        if families is not None:
+            layout.addWidget(_divider())
+            layout.addWidget(families, 1)
 
         self.licence = LicencePanel()
         build = variant if variant is not None else read_variant()
@@ -532,5 +539,132 @@ class RulesPanel(QWidget):
             return
         self._forget(field, item.text())
         self._say(tr("rules.removed", term=item.text()), ok=True)
+        self.refresh()
+        self.changed.emit()
+
+
+class FamiliesPanel(QWidget):
+    """Kill families: proposed by the evidence, adopted by the user.
+
+    A family is employer plus wrong function — an operations role at a rejected
+    employer dies, a strategy role at the same employer survives. It is never
+    typed in: spec 5.3 anchors one to at least two real rejections, so the app
+    spots the shape and offers it, and rule 8 makes arming it the user's call.
+
+    The precedents are shown with every proposal, because "Kier + engineer" on
+    its own is a rule to agree or disagree with in the abstract, and "you turned
+    down these two" is a decision the user can actually check.
+    """
+
+    changed = Signal()
+
+    def __init__(self, *, loader=None, adopter=None, refresher=None, parent=None):
+        super().__init__(parent)
+        self._load = loader or (lambda: [])
+        self._adopt = adopter or (lambda name, on: None)
+        self._refresh = refresher or (lambda: 0)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
+
+        heading = QLabel(tr("families.heading"))
+        heading.setObjectName("stepHeading")
+        layout.addWidget(heading)
+
+        body = QLabel(reflow(tr("families.body")))
+        body.setObjectName("stepBody")
+        body.setWordWrap(True)
+        layout.addWidget(body)
+
+        self.result = QLabel()
+        self.result.setWordWrap(True)
+        self.result.hide()
+        layout.addWidget(self.result)
+
+        self.empty = QLabel(reflow(tr("families.none")))
+        self.empty.setObjectName("stepBody")
+        self.empty.setWordWrap(True)
+        layout.addWidget(self.empty)
+
+        self.listing = QListWidget()
+        self.listing.setObjectName("ruleList")
+        layout.addWidget(self.listing, 1)
+
+        row = QHBoxLayout()
+        row.setSpacing(6)
+        self.btn_adopt = QPushButton(tr("families.adopt"))
+        self.btn_stand_down = QPushButton(tr("families.stand_down"))
+        for b in (self.btn_adopt, self.btn_stand_down):
+            b.setObjectName("secondary")
+            b.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+            b.setEnabled(False)
+            row.addWidget(b)
+        row.addStretch(1)
+        layout.addLayout(row)
+
+        self.setStyleSheet(SETTINGS_STYLESHEET)
+        self.listing.currentItemChanged.connect(self._on_select)
+        self.btn_adopt.clicked.connect(lambda: self.set_adopted(True))
+        self.btn_stand_down.clicked.connect(lambda: self.set_adopted(False))
+        self.refresh()
+
+    # -- state -------------------------------------------------------------
+    def refresh(self) -> None:
+        self.listing.clear()
+        families = self._load() or []
+        for fam in families:
+            state = (tr("families.armed") if fam.adopted
+                     else tr("families.proposed"))
+            precedents = "; ".join(f"{t}" for _c, t in fam.precedents[:3])
+            item = QListWidgetItem(
+                f"{state}  {fam.name} — kills {', '.join(fam.kill_titles)}"
+                f"  ·  saves {', '.join(fam.saves_titles[:3])}"
+                f"  ·  because you rejected: {precedents}")
+            item.setData(Qt.UserRole, fam.name)
+            self.listing.addItem(item)
+        self.empty.setVisible(not families)
+        self.listing.setVisible(bool(families))
+        self._on_select()
+
+    def look_for_proposals(self) -> None:
+        found = self._refresh()
+        self.refresh()
+        self._say(tr("families.found", count=found) if found
+                  else tr("families.none_found"), ok=True)
+
+    def _on_select(self, *_):
+        has = self.listing.currentItem() is not None
+        self.btn_adopt.setEnabled(has)
+        self.btn_stand_down.setEnabled(has)
+
+    def _say(self, text: str, ok: bool) -> None:
+        self.result.setObjectName("ok" if ok else "bad")
+        self.result.setText(text)
+        self.result.style().unpolish(self.result)
+        self.result.style().polish(self.result)
+        self.result.setVisible(bool(text))
+
+    def set_adopted(self, on: bool) -> None:
+        from app.core.rules import RuleConflictError
+
+        item = self.listing.currentItem()
+        if item is None:
+            return
+        name = item.data(Qt.UserRole)
+        try:
+            self._adopt(name, on)
+        except RuleConflictError as exc:
+            # Name the role, exactly as the term editor does. "Invalid" throws
+            # away the only fact the user needs.
+            self._say(tr("rules.conflict") + "\n• " + "\n• ".join(
+                tr("rules.conflict_line", term=c.term, title=c.pursued_title,
+                   company=c.company) for c in exc.conflicts), ok=False)
+            return
+        except Exception as exc:  # noqa: BLE001
+            self._say(str(exc), ok=False)
+            return
+        self._say(tr("families.armed_now", name=name) if on
+                  else tr("families.stood_down", name=name), ok=True)
         self.refresh()
         self.changed.emit()

@@ -443,3 +443,142 @@ def test_nothing_flagged_is_no_notes(conn):
                      title="Head of Strategy", company="Acme",
                      description_text="Strategy.")])
     assert near_duplicate_notes(conn) == {}
+
+
+# -- kill families: proposed by evidence, adopted by the user ---------------
+def reject_all(conn, jobs):
+    """Run and reject everything, so the proposer has a shape to find."""
+    a_run(conn, jobs)
+    for j in jobs:
+        record_decision(conn, f"theirstack:{j.provider_job_id}", "reject")
+
+
+def kier(n, title):
+    return Job(provider="theirstack", provider_job_id=n, title=title,
+               company="Kier", description_text="Strategy.")
+
+
+def test_two_rejections_of_a_shape_propose_a_family(conn):
+    """`kill_families` was the last table the app read and never wrote, so
+    tier 1b could only be populated by editing SQLite by hand."""
+    from app.main import load_rules, refresh_kill_family_proposals, save_rule_term
+
+    save_rule_term(conn, "strong_terms", "asset management")
+    reject_all(conn, [kier("a", "Site Engineer"), kier("b", "Senior Site Engineer")])
+
+    assert refresh_kill_family_proposals(conn) == 1
+    families = load_rules(conn).kill_families
+    assert len(families) == 1
+    assert families[0].name == "Kier"
+    assert "engineer" in families[0].kill_titles
+    assert families[0].saves_titles, "SAVES is required (spec 5.3 rule 2)"
+    assert len(families[0].precedents) == 2
+
+
+def test_one_rejection_proposes_nothing(conn):
+    """Rule 1: one rejection is a decision, two is a shape."""
+    from app.main import load_rules, refresh_kill_family_proposals, save_rule_term
+    save_rule_term(conn, "strong_terms", "asset management")
+    reject_all(conn, [kier("a", "Site Engineer")])
+    refresh_kill_family_proposals(conn)
+    assert load_rules(conn).kill_families == []
+
+
+def test_no_basis_for_saves_proposes_nothing(conn):
+    """Rule 2. A family that would kill every posting at an employer is what
+    the required SAVES exists to prevent, and proposing one would make the app
+    the author of that mistake."""
+    from app.main import load_rules, refresh_kill_family_proposals
+    reject_all(conn, [kier("a", "Site Engineer"), kier("b", "Senior Site Engineer")])
+    refresh_kill_family_proposals(conn)
+    assert load_rules(conn).kill_families == []
+
+
+def test_a_proposed_family_does_not_fire(conn):
+    """Rule 8: adoption is the user's decision, so a proposal screens nothing."""
+    from app.core.screen import screen_all
+    from app.main import load_rules, refresh_kill_family_proposals, save_rule_term
+
+    save_rule_term(conn, "strong_terms", "strategy")
+    reject_all(conn, [kier("a", "Site Engineer"), kier("b", "Senior Site Engineer")])
+    refresh_kill_family_proposals(conn)
+
+    fresh = kier("c", "Site Engineer")
+    report = screen_all([fresh], load_rules(conn))
+    assert report.likely, "an unadopted family must never screen anything out"
+
+
+def test_adopting_arms_it(conn):
+    from app.core.screen import screen_all
+    from app.main import (adopt_kill_family, load_rules,
+                          refresh_kill_family_proposals, save_rule_term)
+
+    save_rule_term(conn, "strong_terms", "strategy")
+    reject_all(conn, [kier("a", "Site Engineer"), kier("b", "Senior Site Engineer")])
+    refresh_kill_family_proposals(conn)
+    adopt_kill_family(conn, "Kier")
+
+    report = screen_all([kier("c", "Site Engineer")], load_rules(conn))
+    assert report.unlikely, "an adopted family must fire"
+    assert "kill family" in report.unlikely[0].reason
+
+
+def test_saves_survives_at_the_same_employer(conn):
+    """spec 5.2: the brand does not disqualify a posting, the brand plus the
+    wrong function does."""
+    from app.core.screen import screen_all
+    from app.main import (adopt_kill_family, load_rules,
+                          refresh_kill_family_proposals, save_rule_term)
+
+    save_rule_term(conn, "strong_terms", "strategy")
+    reject_all(conn, [kier("a", "Site Engineer"), kier("b", "Senior Site Engineer")])
+    refresh_kill_family_proposals(conn)
+    adopt_kill_family(conn, "Kier")
+
+    survivor = kier("c", "Head of Strategy")
+    assert screen_all([survivor], load_rules(conn)).likely
+
+
+def test_adoption_is_refused_when_it_would_hide_a_pursued_role(conn):
+    """The same guard as a tier-1 term, and the moment to find out is before it
+    fires rather than after a role goes missing."""
+    from app.core.rules import RuleConflictError
+    from app.main import (adopt_kill_family, load_rules,
+                          refresh_kill_family_proposals, save_rule_term)
+
+    save_rule_term(conn, "strong_terms", "asset management")
+    reject_all(conn, [kier("a", "Site Engineer"), kier("b", "Senior Site Engineer")])
+    refresh_kill_family_proposals(conn)
+
+    # Now pursue an engineering role at the same employer.
+    a_run(conn, [kier("z", "Site Engineer, Strategy")])
+    record_decision(conn, "theirstack:z", "pursue")
+
+    with pytest.raises(RuleConflictError):
+        adopt_kill_family(conn, "Kier")
+    assert not load_rules(conn).kill_families[0].adopted
+
+
+def test_re_proposing_does_not_re_arm_a_stood_down_family(conn):
+    """Otherwise every refresh quietly undoes the user's decision."""
+    from app.main import (adopt_kill_family, load_rules,
+                          refresh_kill_family_proposals, save_rule_term)
+
+    save_rule_term(conn, "strong_terms", "strategy")
+    reject_all(conn, [kier("a", "Site Engineer"), kier("b", "Senior Site Engineer")])
+    refresh_kill_family_proposals(conn)
+    adopt_kill_family(conn, "Kier")
+    adopt_kill_family(conn, "Kier", adopted=False)
+
+    refresh_kill_family_proposals(conn)
+    assert not load_rules(conn).kill_families[0].adopted
+
+
+def test_a_term_that_both_kills_and_saves_is_not_proposed(conn):
+    """SAVES is checked first, so such a family would decline to kill the very
+    titles it was built from — armed, and doing nothing."""
+    from app.main import load_rules, refresh_kill_family_proposals, save_rule_term
+    save_rule_term(conn, "strong_terms", "engineer")
+    reject_all(conn, [kier("a", "Site Engineer"), kier("b", "Senior Site Engineer")])
+    refresh_kill_family_proposals(conn)
+    assert load_rules(conn).kill_families == []
