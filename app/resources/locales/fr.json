@@ -34,6 +34,7 @@
   "families.body": "Lorsque vous refusez deux postes similaires chez un même employeur, Dawnlist vous propose une règle : exclure cette fonction chez cet employeur, tout en continuant à lire les autres. Rien n'est activé sans votre accord, et chaque proposition indique les refus dont elle est issue.",
   "families.found": "{count} nouvelles propositions.",
   "families.heading": "Employeurs que vous avez refusés",
+  "families.look": "Rechercher de nouvelles règles",
   "families.none": "Aucune proposition pour l'instant. Elles apparaissent après le refus de deux postes similaires chez le même employeur.",
   "families.none_found": "Aucune nouvelle proposition.",
   "families.proposed": "Proposée",

@@ -1,7 +1,7 @@
 # Build status
 
 **Repo:** `C:\Users\SpencerFields\dawnlist`, deliberately **off OneDrive** per handoff Part 9.
-**Tests:** 520 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
+**Tests:** 533 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
 **Last updated:** 2026-09-07 — P1 engine complete; a frozen build runs
 
 ## Done
@@ -238,17 +238,20 @@ key, and the two-tier pricing hypothesis. There is no proxy and there is one pri
     for that. It is also the fastest way to find out whether the onboarding flow actually works.
 12. **Sean's pilot**, if it is doubling as the onboarding test.
 
-## Known gaps
+## The audits are clean
 
-Both audits are clean of anything user-facing: **every table in the schema is now read and
-written**, and the function audit's remaining entries are library surface, Qt event overrides and
-diagnostics. Two exceptions worth naming rather than leaving implicit:
+**Every table in the schema is read and written.** The function audit's remaining entries are
+library surface, Qt event overrides and diagnostics — nothing a user could reach for and fail to
+find. Closed since the last update:
 
-- **Job-alert digests have no way in.** `alert_email.parse_many` is complete and tested; nothing
-  calls it, so a user cannot drag a digest into the app. It needs a drop target and a place to put
-  the results, which is a screen rather than a wire.
-- **Board tasks cannot be created from the board.** `add_task` has no route, so the "Open task"
-  column is only ever filled by something else writing the row.
+- **Job-alert digests have a way in**, which the store listing already promised. Dropped files go
+  through the same path as a fetched sweep, so dedup, the reject gate, the screen and assessment
+  all apply unchanged; `--add-alerts` covers the headless case.
+- **Board tasks can be created from the board**, so the "Open task" column is no longer filled
+  only by something else writing the row.
+- `counts_for_ui` deleted — a one-line wrapper with no caller and no test is rot, not surface.
+  `rows_from_outcome` kept and pinned to `rows_from_db` by a test, because two builders for the
+  same rows drift invisibly.
 
 ## Blocked, deliberately
 

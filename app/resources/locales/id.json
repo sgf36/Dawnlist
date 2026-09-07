@@ -34,6 +34,7 @@
   "families.body": "Saat Anda menolak dua peran sejenis di satu pemberi kerja yang sama, Dawnlist mengusulkan sebuah aturan: hentikan fungsi tersebut di pemberi kerja itu, tetapi tetap tampilkan yang lain. Tidak ada yang aktif sampai Anda menyetujuinya, dan setiap usulan menampilkan penolakan yang menjadi dasarnya.",
   "families.found": "{count} usulan baru.",
   "families.heading": "Pemberi kerja yang Anda tolak",
+  "families.look": "Cari aturan baru",
   "families.none": "Belum ada usulan. Usulan ini akan muncul setelah Anda menolak dua peran serupa di pemberi kerja yang sama.",
   "families.none_found": "Tidak ada usulan baru.",
   "families.proposed": "Diusulkan",

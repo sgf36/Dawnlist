@@ -34,6 +34,7 @@
   "families.body": "Kada odbijete dvije uloge iste vrste kod jednog poslodavca, Dawnlist predlaže pravilo: isključite tu funkciju kod tog poslodavca, ali nastavite pratiti ostale. Ništa se ne aktivira dok to sami ne odobrite, a svaki prijedlog prikazuje odbijanja na temelju kojih je nastao.",
   "families.found": "{count} novih prijedloga.",
   "families.heading": "Poslodavci koje ste odbili",
+  "families.look": "Traži nova pravila",
   "families.none": "Još nema prijedloga. Pojavljuju se nakon što odbijete dvije slične uloge kod istog poslodavca.",
   "families.none_found": "Nema novih prijedloga.",
   "families.proposed": "Predloženo",

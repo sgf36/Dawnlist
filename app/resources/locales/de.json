@@ -34,6 +34,7 @@
   "families.body": "Wenn Sie zwei Positionen derselben Art bei einem Arbeitgeber ablehnen, schlägt Dawnlist eine Regel vor: diese Funktion bei diesem Arbeitgeber ausblenden, aber die übrigen weiter anzeigen. Nichts wird aktiviert, bevor Sie zustimmen, und jeder Vorschlag zeigt die Ablehnungen, auf denen er basiert.",
   "families.found": "{count} neue Vorschläge.",
   "families.heading": "Abgelehnte Arbeitgeber",
+  "families.look": "Nach neuen Regeln suchen",
   "families.none": "Noch keine Vorschläge. Diese erscheinen, sobald Sie zwei ähnliche Positionen beim selben Arbeitgeber abgelehnt haben.",
   "families.none_found": "Keine neuen Vorschläge.",
   "families.proposed": "Vorgeschlagen",

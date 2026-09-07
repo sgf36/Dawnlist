@@ -601,9 +601,19 @@ class FamiliesPanel(QWidget):
             b.setEnabled(False)
             row.addWidget(b)
         row.addStretch(1)
+        # Proposals are found from the rejections on record, so this is only
+        # ever worth pressing after a few decisions. It is a button rather than
+        # something that runs on open: re-reading every rejection to find the
+        # same proposals is work nobody asked for on a screen opened to change
+        # an API key.
+        self.btn_look = QPushButton(tr("families.look"))
+        self.btn_look.setObjectName("secondary")
+        self.btn_look.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        row.addWidget(self.btn_look)
         layout.addLayout(row)
 
         self.setStyleSheet(SETTINGS_STYLESHEET)
+        self.btn_look.clicked.connect(self.look_for_proposals)
         self.listing.currentItemChanged.connect(self._on_select)
         self.btn_adopt.clicked.connect(lambda: self.set_adopted(True))
         self.btn_stand_down.clicked.connect(lambda: self.set_adopted(False))

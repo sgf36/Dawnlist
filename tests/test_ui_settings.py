@@ -492,3 +492,24 @@ def test_the_window_omits_the_families_panel_without_a_database(qapp):
     w = SettingsWindow(variant="direct")
     assert w.families is None
     w.close()
+
+
+def test_looking_for_proposals_has_a_button(qapp):
+    """It was written and reachable from nowhere — the same fault the audit
+    that produced this panel exists to find."""
+    panel = families_panel(qapp, [a_family()])
+    found = []
+    panel._refresh = lambda: found.append(1) or 1
+    panel.btn_look.click()
+    assert found == [1]
+    assert panel.result.isVisibleTo(panel)
+    panel.close()
+
+
+def test_finding_nothing_says_so(qapp):
+    """Silence after pressing a button reads as a broken button."""
+    panel = families_panel(qapp, [])
+    panel._refresh = lambda: 0
+    panel.btn_look.click()
+    assert "Nothing new" in panel.result.text()
+    panel.close()

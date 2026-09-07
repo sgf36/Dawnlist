@@ -34,6 +34,7 @@
   "families.body": "Když odmítnete dvě pozice stejného typu u jednoho zaměstnavatele, Dawnlist nabídne pravidlo: vyřadit tuto pozici u tohoto zaměstnavatele, ale ostatní nadále zobrazovat. Žádné pravidlo není aktivní, dokud to sami nepotvrdíte, a každý návrh ukazuje odmítnutí, ze kterých vznikl.",
   "families.found": "{count} nových návrhů.",
   "families.heading": "Zaměstnavatelé, které jste odmítli",
+  "families.look": "Hledat nová pravidla",
   "families.none": "Zatím žádné návrhy. Objeví se, jakmile odmítnete dvě podobné pozice u stejného zaměstnavatele.",
   "families.none_found": "Nic nového k navržení.",
   "families.proposed": "Navrženo",

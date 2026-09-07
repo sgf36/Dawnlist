@@ -34,6 +34,7 @@
   "families.body": "Khi bạn từ chối hai vai trò cùng loại tại một nhà tuyển dụng, Dawnlist sẽ đề xuất một quy tắc: loại bỏ chức năng đó tại nhà tuyển dụng đó, nhưng vẫn tiếp tục xem các vai trò khác. Không có gì được kích hoạt cho đến khi bạn xác nhận, và mỗi đề xuất đều hiển thị các lượt từ chối mà nó dựa trên.",
   "families.found": "{count} đề xuất mới.",
   "families.heading": "Nhà tuyển dụng bạn đã từ chối",
+  "families.look": "Tìm quy tắc mới",
   "families.none": "Chưa có đề xuất nào. Các đề xuất sẽ xuất hiện khi bạn từ chối hai vai trò tương tự tại cùng một nhà tuyển dụng.",
   "families.none_found": "Không có đề xuất mới.",
   "families.proposed": "Đã đề xuất",

@@ -34,6 +34,7 @@
   "families.body": "När du avvisar två roller av samma slag hos samma arbetsgivare föreslår Dawnlist en regel: avfärda den funktionen hos den arbetsgivaren, men fortsätt läsa de övriga. Inget aktiveras förrän du bestämmer det, och varje förslag visar de avslag det bygger på.",
   "families.found": "{count} nya förslag.",
   "families.heading": "Arbetsgivare du har tackat nej till",
+  "families.look": "Sök efter nya regler",
   "families.none": "Inga förslag ännu. Dessa visas när du har avvisat två liknande roller hos samma arbetsgivare.",
   "families.none_found": "Inget nytt att föreslå.",
   "families.proposed": "Föreslagen",

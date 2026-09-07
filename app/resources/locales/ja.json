@@ -34,6 +34,7 @@
   "families.body": "同一の雇用主で同種の職種を2件見送ると、Dawnlistはルールを提案します。その雇用主でのその職種は除外しつつ、他の職種は引き続き表示するというものです。有効化するまで何も除外されず、各提案には元になった見送りの内容が表示されます。",
   "families.found": "新しい提案が{count}件あります。",
   "families.heading": "見送った企業",
+  "families.look": "新しいルールを探す",
   "families.none": "まだ提案はありません。同一の雇用主で似た職種を2件見送ると表示されます。",
   "families.none_found": "新しい提案はありません。",
   "families.proposed": "提案済み",

@@ -34,6 +34,7 @@
   "families.body": "Quando rejeita duas vagas do mesmo tipo num empregador, o Dawnlist propõe uma regra: eliminar essa função nesse empregador, mas continuar a mostrar as outras. Nada é ativado até que o confirme, e cada proposta mostra as rejeições em que se baseou.",
   "families.found": "{count} novas propostas.",
   "families.heading": "Empregadores que recusou",
+  "families.look": "Procurar novas regras",
   "families.none": "Ainda não há propostas. Estas aparecem depois de rejeitar duas vagas semelhantes no mesmo empregador.",
   "families.none_found": "Nada de novo para propor.",
   "families.proposed": "Proposta",

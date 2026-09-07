@@ -34,6 +34,7 @@
   "families.body": "当您在同一雇主处拒绝两个同类职位时,Dawnlist 会提出一条规则:屏蔽该雇主的该职能,但继续显示其他职位。规则在您确认前不会生效,每条建议都会显示其所依据的拒绝记录。",
   "families.found": "{count} 条新建议。",
   "families.heading": "您已拒绝的雇主",
+  "families.look": "查找新规则",
   "families.none": "暂无建议。当您在同一雇主处拒绝两个相似职位后,建议将显示于此。",
   "families.none_found": "暂无新建议。",
   "families.proposed": "已建议",

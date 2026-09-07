@@ -34,6 +34,7 @@
   "families.body": "Gdy odrzucisz dwie oferty tego samego rodzaju u jednego pracodawcy, Dawnlist proponuje regułę: wyklucz tę funkcję u tego pracodawcy, ale nadal czytaj pozostałe. Nic nie zostaje uzbrojone, dopóki tego nie potwierdzisz, a każda propozycja pokazuje odrzucenia, na podstawie których powstała.",
   "families.found": "{count} nowych propozycji.",
   "families.heading": "Odrzuceni pracodawcy",
+  "families.look": "Szukaj nowych reguł",
   "families.none": "Brak propozycji. Pojawią się, gdy odrzucisz dwie podobne oferty u tego samego pracodawcy.",
   "families.none_found": "Brak nowych propozycji.",
   "families.proposed": "Proponowana",

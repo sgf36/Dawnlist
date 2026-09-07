@@ -34,6 +34,7 @@
   "families.body": "Cuando rechazas dos puestos del mismo tipo en un empleador, Dawnlist propone una regla: descartar esa función en ese empleador, pero seguir mostrando las demás. Nada se activa hasta que tú lo decidas, y cada propuesta muestra los rechazos en los que se basó.",
   "families.found": "{count} propuestas nuevas.",
   "families.heading": "Empleadores que has rechazado",
+  "families.look": "Buscar nuevas reglas",
   "families.none": "Aún no hay propuestas. Estas aparecen cuando rechazas dos puestos similares en el mismo empleador.",
   "families.none_found": "No hay nada nuevo que proponer.",
   "families.proposed": "Propuesta",
