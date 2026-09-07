@@ -939,6 +939,12 @@ def _doctor(conn) -> int:
     # Invariant 13 from the other side: a file on disk that no run produced.
     # Reported rather than deleted — an unregistered draft may be the only copy
     # of something the user wrote, and this is a diagnostic, not a tidy-up.
+    # Printed because it is otherwise undiscoverable: the listing says drafts
+    # are written in the user's own register, learned from sent mail they add
+    # themselves, and this folder is the only way to add it.
+    print(f"drafts folder : {drafts_dir()}")
+    print(f"voice folder  : {voice_dir()}")
+
     orphans = db.orphan_outputs(conn, drafts_dir())
     print(f"orphan drafts : {len(orphans)}")
     for path in orphans[:5]:

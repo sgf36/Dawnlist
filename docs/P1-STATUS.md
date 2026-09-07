@@ -1,7 +1,7 @@
 # Build status
 
 **Repo:** `C:\Users\SpencerFields\dawnlist`, deliberately **off OneDrive** per handoff Part 9.
-**Tests:** 533 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
+**Tests:** 552 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
 **Last updated:** 2026-09-07 — P1 engine complete; a frozen build runs
 
 ## Done
@@ -237,6 +237,29 @@ key, and the two-tier pricing hypothesis. There is no proxy and there is one pri
 11. **Your own CVs.** The factsheet and fit brief are built from them, and nothing can stand in
     for that. It is also the fastest way to find out whether the onboarding flow actually works.
 12. **Sean's pilot**, if it is doubling as the onboarding test.
+
+## Two launch blockers, found by auditing the CLAIMS
+
+The store listing's feature bullets were checked one by one against what the app
+does. Two were false, and they compounded: a buyer could not have finished
+setup, and could not have run the app if they had.
+
+- **Nothing ever created a search.** `load_queries` returned empty, every run
+  refused with "No saved queries", and there was nowhere to add one. The table
+  audit missed it because `mark_queries_run` UPDATEs the table — an update is
+  not a create, and a table can be read, written and never gain a row. There is
+  a searches panel now, seeded from the aim the user typed, and the seeds arrive
+  SWITCHED OFF because the feed bills per posting returned.
+- **Calibration could never be passed.** The sample was one hard-coded
+  placeholder against a gate needing eight decisions, so the Finish button never
+  enabled on the last step of onboarding, with nothing on screen saying why.
+  `sample()` does a real pull now, and a sample too short to calibrate against
+  is reported as a setup failure rather than as an instruction nobody can follow.
+
+`store/microsoft-store-listing.md` carries a Claims audit section recording what
+was checked. "195 countries" is removed and NOT replaced with another number: it
+came from a provider's marketing, the tier is not bought, and the licensing
+answer has not landed.
 
 ## The audits are clean
 

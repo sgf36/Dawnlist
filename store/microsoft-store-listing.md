@@ -59,8 +59,8 @@ stay the person who decides what goes out under your name.
 WHAT IT DOES
 
 A shortlist every morning
-Dawnlist sweeps job feeds across 195 countries, removes what you have already
-seen or already turned down, and reads what is left. You get a ranked shortlist
+Dawnlist sweeps job feeds, removes what you have already seen or already
+turned down, and reads what is left. You get a ranked shortlist
 with reasons — and, unusually, the rejections are visible too, each with the
 reason it was set aside. Nothing disappears quietly.
 
@@ -147,7 +147,7 @@ subsidised them.
 2. Rejections stay visible, each with why it was set aside
 3. The full funnel on screen — swept, deduplicated, filtered, screened, assessed
 4. Learns your judgement from corrections, not just keywords
-5. Reads job feeds across 195 countries
+5. Reads job feeds, not scraped pages
 6. Add job-alert emails yourself for anything the feeds miss
 7. Tracks every company you pursue, with an evidence log
 8. Follow-up dates computed from what was actually sent
@@ -234,6 +234,28 @@ Required, and the URL must be live before submission. It must state plainly:
 - how to export and delete everything.
 
 Host it at `dawnlist.spencerfields.com/privacy` alongside the marketing site.
+
+---
+
+## Claims audit
+
+Every line above was checked against what the app actually does, on
+2026-09-07. Two were not true when checked and are fixed in code rather than
+softened in copy: "add job-alert emails yourself" had no route into the app,
+and "shows you ten live postings" could not happen because the calibration
+sample was a placeholder.
+
+**"195 countries" is removed** and not replaced with another number. It came
+from a provider's marketing, the feed tier is not bought, and the licensing
+answer that decides between an API and a self-hosted index has not landed — so
+any figure stated now is a guess about somebody else's product. Put a number
+back only when the contract supports it.
+
+One claim to keep an eye on: *"learned from your own sent messages that you add
+yourself"*. True — Dawnlist reads `.eml`, `.txt` and `.md` files from the voice
+folder beside the database, and `--doctor` prints the path — but there is no
+drag-and-drop for it, so in practice only a user who goes looking will find it.
+Honest as written; thin as an experience.
 
 ---
 
