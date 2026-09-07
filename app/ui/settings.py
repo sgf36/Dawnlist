@@ -306,7 +306,7 @@ class SettingsWindow(QWidget):
     """
 
     def __init__(self, parent=None, *, variant=None, rules=None,
-                 families=None):
+                 families=None, searches=None):
         super().__init__(parent)
         from app.core.build_variant import variant as read_variant
 
@@ -332,6 +332,14 @@ class SettingsWindow(QWidget):
         layout.setSpacing(0)
         self.key = KeyPanel()
         layout.addWidget(self.key)
+
+        # First, because it is the one nothing works without: a run with no
+        # saved search refuses outright, and until this panel existed there was
+        # nowhere to add one.
+        self.searches = searches
+        if searches is not None:
+            layout.addWidget(_divider())
+            layout.addWidget(searches, 1)
 
         # Only when a database is available: the rules live per-user in the
         # database, and a panel wired to nothing would offer to save terms and
@@ -676,5 +684,127 @@ class FamiliesPanel(QWidget):
             return
         self._say(tr("families.armed_now", name=name) if on
                   else tr("families.stood_down", name=name), ok=True)
+        self.refresh()
+        self.changed.emit()
+
+
+class SearchesPanel(QWidget):
+    """The saved searches a morning run sweeps.
+
+    Nothing created one before this panel existed, so `load_queries` returned
+    an empty list and every run refused with "No saved queries. Add at least
+    one before running" — with nowhere to add one.
+
+    Searches carry a switch rather than only existing or not, because billing
+    is per posting RETURNED: a search left on that nobody reads costs money
+    every morning, and the seeds drawn from the user's stated aim arrive off
+    for exactly that reason.
+    """
+
+    changed = Signal()
+
+    def __init__(self, *, loader=None, saver=None, forgetter=None,
+                 enabler=None, parent=None):
+        super().__init__(parent)
+        self._load = loader or (lambda: [])
+        self._save = saver or (lambda label, titles: None)
+        self._forget = forgetter or (lambda label: None)
+        self._enable = enabler or (lambda label, on: None)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
+
+        heading = QLabel(tr("searches.heading"))
+        heading.setObjectName("stepHeading")
+        layout.addWidget(heading)
+
+        body = QLabel(reflow(tr("searches.body")))
+        body.setObjectName("stepBody")
+        body.setWordWrap(True)
+        layout.addWidget(body)
+
+        self.result = QLabel()
+        self.result.setWordWrap(True)
+        self.result.hide()
+        layout.addWidget(self.result)
+
+        self.listing = QListWidget()
+        self.listing.setObjectName("ruleList")
+        layout.addWidget(self.listing, 1)
+
+        row = QHBoxLayout()
+        row.setSpacing(6)
+        self.field = QLineEdit()
+        self.field.setObjectName("sentence")
+        self.field.setPlaceholderText(tr("searches.placeholder"))
+        self.field.returnPressed.connect(self.add)
+        self.btn_add = QPushButton(tr("searches.add"))
+        self.btn_toggle = QPushButton(tr("searches.toggle"))
+        self.btn_remove = QPushButton(tr("searches.remove"))
+        for b in (self.btn_add, self.btn_toggle, self.btn_remove):
+            b.setObjectName("secondary")
+            b.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        row.addWidget(self.field, 1)
+        row.addWidget(self.btn_add)
+        row.addWidget(self.btn_toggle)
+        row.addWidget(self.btn_remove)
+        layout.addLayout(row)
+
+        self.setStyleSheet(SETTINGS_STYLESHEET)
+        self.btn_add.clicked.connect(self.add)
+        self.btn_toggle.clicked.connect(self.toggle)
+        self.btn_remove.clicked.connect(self.remove)
+        self.refresh()
+
+    def refresh(self) -> None:
+        self.listing.clear()
+        for label, titles, on in self._load() or []:
+            state = tr("searches.on") if on else tr("searches.off")
+            item = QListWidgetItem(f"{state}  {label}  —  {', '.join(titles)}")
+            item.setData(Qt.UserRole, (label, on))
+            self.listing.addItem(item)
+
+    def _say(self, text: str, ok: bool) -> None:
+        self.result.setObjectName("ok" if ok else "bad")
+        self.result.setText(text)
+        self.result.style().unpolish(self.result)
+        self.result.style().polish(self.result)
+        self.result.setVisible(bool(text))
+
+    def add(self) -> None:
+        text = self.field.text().strip()
+        if not text:
+            return
+        try:
+            self._save(text, [text])
+        except ValueError as exc:
+            self._say(str(exc), ok=False)
+            return
+        self.field.clear()
+        self._say(tr("searches.added", label=text), ok=True)
+        self.refresh()
+        self.changed.emit()
+
+    def _selected(self):
+        item = self.listing.currentItem()
+        return item.data(Qt.UserRole) if item else (None, None)
+
+    def toggle(self) -> None:
+        label, on = self._selected()
+        if label is None:
+            return
+        self._enable(label, not on)
+        self._say(tr("searches.switched_off", label=label) if on
+                  else tr("searches.switched_on", label=label), ok=True)
+        self.refresh()
+        self.changed.emit()
+
+    def remove(self) -> None:
+        label, _on = self._selected()
+        if label is None:
+            return
+        self._forget(label)
+        self._say(tr("searches.removed", label=label), ok=True)
         self.refresh()
         self.changed.emit()

@@ -513,3 +513,86 @@ def test_finding_nothing_says_so(qapp):
     panel.btn_look.click()
     assert "Nothing new" in panel.result.text()
     panel.close()
+
+
+# -- saved searches ---------------------------------------------------------
+def searches_panel(qapp, rows=None):
+    from app.ui.settings import SearchesPanel
+    state = list(rows or [])
+    log = []
+
+    def save(label, titles):
+        state.append((label, titles, True))
+        log.append(("add", label))
+
+    def forget(label):
+        state[:] = [r for r in state if r[0] != label]
+        log.append(("remove", label))
+
+    def enable(label, on):
+        state[:] = [(l, t, on if l == label else e) for l, t, e in state]
+        log.append(("enable", label, on))
+
+    panel = SearchesPanel(loader=lambda: state, saver=save,
+                          forgetter=forget, enabler=enable)
+    panel._state, panel._log = state, log
+    return panel
+
+
+def test_a_search_shows_whether_it_is_switched_on(qapp):
+    """A search left on costs money every morning, because the feed bills per
+    posting returned."""
+    panel = searches_panel(qapp, [("asset management", ["asset manager"], False)])
+    assert "off" in panel.listing.item(0).text()
+    assert "asset manager" in panel.listing.item(0).text()
+    panel.close()
+
+
+def test_a_search_can_be_added(qapp):
+    panel = searches_panel(qapp)
+    panel.field.setText("hotel strategy")
+    panel.add()
+    assert panel._log == [("add", "hotel strategy")]
+    assert panel.listing.count() == 1
+    assert panel.field.text() == ""
+    panel.close()
+
+
+def test_an_empty_search_is_not_added(qapp):
+    panel = searches_panel(qapp)
+    panel.field.setText("   ")
+    panel.add()
+    assert panel._log == []
+    panel.close()
+
+
+def test_a_search_can_be_switched_on(qapp):
+    panel = searches_panel(qapp, [("asset management", ["asset manager"], False)])
+    panel.listing.setCurrentRow(0)
+    panel.toggle()
+    assert panel._log == [("enable", "asset management", True)]
+    assert "ON" in panel.listing.item(0).text()
+    panel.close()
+
+
+def test_switching_says_what_it_will_cost_you(qapp):
+    """Silence would leave the user unsure whether it now costs money."""
+    panel = searches_panel(qapp, [("asset management", ["asset manager"], False)])
+    panel.listing.setCurrentRow(0)
+    panel.toggle()
+    assert "swept each morning" in panel.result.text()
+    panel.close()
+
+
+def test_a_search_can_be_removed(qapp):
+    panel = searches_panel(qapp, [("asset management", ["asset manager"], True)])
+    panel.listing.setCurrentRow(0)
+    panel.remove()
+    assert panel.listing.count() == 0
+    panel.close()
+
+
+def test_the_window_omits_searches_without_a_database(qapp):
+    w = SettingsWindow(variant="direct")
+    assert w.searches is None
+    w.close()

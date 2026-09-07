@@ -100,6 +100,18 @@ class CalibrationResult:
         """Everything stopping this gate from passing. All of them, at once —
         revealing them one at a time makes the step feel endless."""
         reasons: list[str] = []
+        if len(self.items) < MIN_DECIDED:
+            # A sample too short to calibrate against is a SETUP failure, not a
+            # user one, and it must not be phrased as an instruction. Asking
+            # for eight decisions out of one is a gate nobody can pass: the
+            # Finish button simply never enabled, on the last step of
+            # onboarding, with nothing on screen saying why.
+            return [
+                f"Dawnlist could not fetch enough live postings to calibrate "
+                f"against — {len(self.items)} of the {MIN_DECIDED} it needs. "
+                f"That is a setup problem rather than anything you have done: "
+                f"check a search is switched on and the feed is reachable, "
+                f"then try again."]
         if len(self.decided) < MIN_DECIDED:
             reasons.append(
                 f"decide at least {MIN_DECIDED} of the {len(self.items)} "

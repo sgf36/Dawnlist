@@ -132,10 +132,34 @@ def test_a_disagreement_without_a_sentence_blocks_the_gate():
 
 def test_all_blocking_reasons_are_reported_at_once():
     """Revealing them one at a time makes the step feel endless."""
-    items = [item("0", app="rejected", user="pursue"),
-             item("1", app="rejected", user="pursue")]
+    # A FULL sample with two problems in it. A short sample is now a setup
+    # failure with a single reason, which is a different case entirely.
+    items = [item(str(i)) for i in range(10)]
+    items[0] = item("0", app="rejected", user="pursue")   # no sentence
+    items[1] = item("1", app="rejected", user="pursue")   # no sentence
     reasons = CalibrationResult(items=items).blocking_reasons()
     assert len(reasons) >= 3   # too few decided, plus both missing sentences
+
+
+def test_a_sample_too_short_to_calibrate_is_a_setup_failure():
+    """Asking for eight decisions out of one is a gate nobody can pass. The
+    Finish button simply never enabled, on the last step of onboarding, with
+    nothing on screen saying why — and it read as the user's fault."""
+    reasons = CalibrationResult(items=[item("0")]).blocking_reasons()
+    assert len(reasons) == 1
+    assert "setup problem" in reasons[0]
+    assert "1 of the 8" in reasons[0]
+
+
+def test_a_short_sample_does_not_ask_for_decisions(): 
+    """It must not be phrased as an instruction the user cannot follow."""
+    reasons = CalibrationResult(items=[item("0")]).blocking_reasons()
+    assert not any("decide at least" in r for r in reasons)
+
+
+def test_an_empty_sample_says_the_same_thing():
+    reasons = CalibrationResult(items=[]).blocking_reasons()
+    assert reasons and "0 of the 8" in reasons[0]
 
 
 def test_a_complete_calibration_passes():

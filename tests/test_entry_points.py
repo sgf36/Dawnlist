@@ -811,3 +811,110 @@ def test_the_two_row_builders_agree(conn):
             assert getattr(row, field) == getattr(stored[job_id], field), (
                 f"{job_id}.{field}: in-memory {getattr(row, field)!r} vs "
                 f"stored {getattr(stored[job_id], field)!r}")
+
+
+# -- searches: the run had nothing to sweep ---------------------------------
+def test_a_search_can_be_saved_and_swept(conn):
+    """Nothing created a `queries` row. `load_queries` returned an empty list,
+    `morning_run` refused with "No saved queries", and there was no way to add
+    one — so the run could never happen at all."""
+    from app.main import load_queries, save_query
+    assert load_queries(conn) == []
+    save_query(conn, "asset management", ["asset manager", "asset management"])
+    labels = [q.label for q in load_queries(conn)]
+    assert labels == ["asset management"]
+
+
+def test_a_search_needs_a_title_to_look_for(conn):
+    from app.main import save_query
+    with pytest.raises(ValueError, match="job title"):
+        save_query(conn, "empty", [])
+    with pytest.raises(ValueError, match="needs a name"):
+        save_query(conn, "  ", ["asset manager"])
+
+
+def test_seeded_searches_arrive_switched_off(conn):
+    """Billing is per job returned, so a seed nobody read is a seed nobody
+    should be charged for — "the South East" is a location no extractor can
+    tell from a job title."""
+    from app.main import all_queries, load_queries, seed_queries_from_aim
+
+    added = seed_queries_from_aim(
+        conn, "Hotel asset management in London, and general management roles.")
+    assert added >= 1
+    assert all(not on for _label, _titles, on in all_queries(conn))
+    assert load_queries(conn) == [], "a seed must not sweep until switched on"
+
+
+def test_switching_a_search_on_makes_a_run_sweep_it(conn):
+    from app.main import all_queries, enable_query, load_queries, seed_queries_from_aim
+    seed_queries_from_aim(conn, "Hotel asset management in London.")
+    label = all_queries(conn)[0][0]
+    enable_query(conn, label)
+    assert [q.label for q in load_queries(conn)] == [label]
+
+
+def test_seeding_twice_does_not_duplicate(conn):
+    from app.main import all_queries, seed_queries_from_aim
+    aim = "Hotel asset management in London."
+    seed_queries_from_aim(conn, aim)
+    before = len(all_queries(conn))
+    seed_queries_from_aim(conn, aim)
+    assert len(all_queries(conn)) == before
+
+
+def test_a_search_can_be_removed(conn):
+    from app.main import all_queries, forget_query, save_query
+    save_query(conn, "asset management", ["asset manager"])
+    forget_query(conn, "asset management")
+    assert all_queries(conn) == []
+
+
+# -- the calibration sample was a stub --------------------------------------
+def test_the_calibration_sample_is_a_real_pull(conn, monkeypatch):
+    """It was one hard-coded placeholder against a gate needing eight
+    decisions, so onboarding could never be completed by anyone."""
+    from app.main import CALIBRATION_SAMPLE, calibration_sample, save_query
+
+    save_query(conn, "strategy", ["strategy"])
+    jobs = [Job(provider="theirstack", provider_job_id=str(i),
+                title=f"Head of Strategy {i}", company="Acme",
+                description_text="Strategy work.")
+            for i in range(CALIBRATION_SAMPLE)]
+
+    items = calibration_sample(conn, provider=Stub(jobs),
+                               send=verdicts("strong"))
+    assert len(items) == CALIBRATION_SAMPLE
+    assert all(i.app_verdict for i in items)
+    assert items[0].title.startswith("Head of Strategy")
+
+
+def test_no_searches_means_no_sample(conn):
+    """And the gate then reports a setup failure rather than an impossible ask."""
+    from app.core.rules import RuleTable
+    from app.main import calibration_sample
+    from app.onboarding.calibration import CalibrationResult
+
+    items = calibration_sample(conn, provider=Stub([]), send=verdicts("strong"))
+    assert items == []
+    reasons = CalibrationResult(items=items).blocking_reasons()
+    assert "setup problem" in reasons[0]
+
+
+def test_a_screened_out_posting_still_reaches_the_gate(conn):
+    """An over-reaching rule is exactly what calibration should catch, so
+    hiding those rows would hide the failure the gate exists to surface."""
+    from app.main import calibration_sample, save_query, save_rule_term
+
+    save_query(conn, "strategy", ["strategy"])
+    save_rule_term(conn, "strong_terms", "strategy")
+    jobs = [Job(provider="theirstack", provider_job_id="a",
+                title="Head of Strategy", company="Acme",
+                description_text="Strategy."),
+            Job(provider="theirstack", provider_job_id="n",
+                title="Night Auditor", company="Acme",
+                description_text="Front desk.")]
+
+    items = calibration_sample(conn, provider=Stub(jobs), send=verdicts("strong"))
+    titles = {i.title for i in items}
+    assert "Night Auditor" in titles, "the screened-out row was hidden"

@@ -257,6 +257,116 @@ def adopt_kill_family(conn, name: str, *, adopted: bool = True) -> None:
     conn.commit()
 
 
+
+def save_query(conn, label: str, titles: list[str], *,
+               countries: list[str] | None = None,
+               enabled: bool = True,
+               posted_within_days: int = DEFAULT_POSTED_WITHIN_DAYS) -> None:
+    """Store one saved search.
+
+    Nothing created a `queries` row before this. `load_queries` returned an
+    empty list, `morning_run` refused with "No saved queries. Add at least one
+    before running", and there was no way to add one — so the run could never
+    happen at all. The table audit missed it because `mark_queries_run` UPDATEs
+    the table: an update is not a create, and a table can be read, written and
+    still never gain a row.
+    """
+    label = label.strip()
+    titles = [t.strip() for t in titles if t.strip()]
+    if not label:
+        raise ValueError("a search needs a name")
+    if not titles:
+        raise ValueError("a search needs at least one job title to look for")
+
+    conn.execute(
+        """INSERT INTO queries(label, params_json, enabled, created_at)
+           VALUES(?,?,?,?)
+           ON CONFLICT(label) DO UPDATE SET params_json = excluded.params_json""",
+        (label, json.dumps({"titles": titles,
+                            "countries": countries or [],
+                            "posted_within_days": posted_within_days}),
+         int(enabled),
+         datetime.now(timezone.utc).isoformat(timespec="seconds")))
+    conn.commit()
+
+
+def forget_query(conn, label: str) -> None:
+    conn.execute("DELETE FROM queries WHERE label = ?", (label.strip(),))
+    conn.commit()
+
+
+def enable_query(conn, label: str, *, enabled: bool = True) -> None:
+    conn.execute("UPDATE queries SET enabled=? WHERE label=?",
+                 (int(enabled), label.strip()))
+    conn.commit()
+
+
+def all_queries(conn) -> list[tuple[str, list[str], bool]]:
+    """Every saved search, enabled or not.
+
+    `load_queries` returns only the enabled ones, because that is what a run
+    should sweep — but the screen has to show the rest, or a search the user
+    turned off looks like one the app lost.
+    """
+    out = []
+    for row in conn.execute("SELECT label, params_json, enabled FROM queries "
+                            "ORDER BY label"):
+        params = json.loads(row["params_json"])
+        out.append((row["label"], params.get("titles", []), bool(row["enabled"])))
+    return out
+
+
+def seed_queries_from_aim(conn, aim: str) -> int:
+    """Give a new user somewhere to start — turned OFF.
+
+    Billing is per job returned, so a seed nobody read is a seed nobody should
+    be charged for. "the South East" is a location that no extractor can tell
+    from a job title, and sweeping it would cost real money for nothing. The
+    seeds arrive disabled and the user switches on the ones that are actually
+    searches.
+    """
+    existing = {label for label, _titles, _on in all_queries(conn)}
+    added = 0
+    for phrase in titles_from_aim(aim):
+        if phrase in existing:
+            continue
+        save_query(conn, phrase, [phrase], enabled=False)
+        added += 1
+    return added
+
+
+#: Splitting on punctuation and on the words that join clauses. Written
+#: without regex escapes on purpose: these boundaries are ordinary
+#: punctuation, and a pattern nobody can read is a pattern nobody will
+#: correct.
+SEED_SEPARATORS = (",", ".", ";", chr(10), " and ", " or ")
+
+
+def titles_from_aim(aim: str) -> list[str]:
+    """Titles worth searching for, pulled out of what the user typed.
+
+    Crude on purpose. This only has to give a new user a non-empty
+    starting set they can then edit — guessing elaborately would produce
+    searches they did not write and would not recognise.
+    """
+    import re
+
+    parts = [aim or ""]
+    for sep in SEED_SEPARATORS:
+        parts = [bit for part in parts for bit in part.split(sep)]
+
+    seeds: list[str] = []
+    for part in parts:
+        words = [w for w in re.findall("[A-Za-z][A-Za-z&/-]+", part)
+                 if len(w) > 2]
+        phrase = " ".join(words).strip()
+        # Two to five words: one word is too broad to be worth billing
+        # for, and a whole clause matches nothing.
+        if 2 <= len(words) <= 5 and phrase.lower() not in {
+                t.lower() for t in seeds}:
+            seeds.append(phrase)
+    return seeds[:5]
+
 def mark_queries_run(conn, when: datetime | None = None) -> None:
     """Advance each query's delta high-water mark.
 
@@ -387,6 +497,75 @@ def ingest_alerts(conn, paths, *, send=None, today: date | None = None):
     persist(conn, outcome)
     db.prune_seen(conn)
     return outcome, problems
+
+
+
+CALIBRATION_SAMPLE = 10
+
+
+def calibration_sample(conn, *, provider=None, send=None):
+    """Live postings for the calibration gate, screened and assessed.
+
+    Real postings, or none. The gate is where the user's judgement is
+    transferred into the brief, so practising on invented ones would calibrate
+    them against fiction — and the app would then run against a brief corrected
+    for postings that never existed.
+
+    Returns fewer than `CALIBRATION_SAMPLE` when the feed is short or
+    unreachable, and the gate reports that as a setup failure rather than
+    asking the user for decisions they cannot make.
+    """
+    from app.core.screen import screen_all
+    from app.intelligence.assess import assess
+    from app.onboarding.calibration import CalibrationItem
+
+    queries = load_queries(conn)
+    if not queries:
+        return []
+
+    try:
+        feed = provider or build_provider(conn)
+    except NotConfigured:
+        return []
+
+    jobs = []
+    for query in queries:
+        result = feed.search(query)
+        if result.ok:
+            jobs.extend(result.jobs)
+        if len(jobs) >= CALIBRATION_SAMPLE:
+            break
+    jobs = jobs[:CALIBRATION_SAMPLE]
+    if not jobs:
+        return []
+
+    brief = load_document(conn, "fit_brief")
+    factsheet = load_document(conn, "factsheet")
+    report = screen_all(jobs, load_rules(conn))
+
+    # Assess the survivors so the user is correcting a real verdict. The
+    # screened-out ones still appear, marked as such: an over-reaching rule is
+    # exactly the thing calibration should catch, and hiding those rows would
+    # hide the failure the gate exists to surface.
+    verdicts = {}
+    likely = [r.job for r in report.likely]
+    if likely:
+        judged = assess(likely, brief, factsheet, send=send or build_send(conn))
+        verdicts = {v.job.provider_job_id: v for v in judged.verdicts}
+
+    items = []
+    for result in report.results:
+        job = result.job
+        verdict = verdicts.get(job.provider_job_id)
+        items.append(CalibrationItem(
+            job_key=f"{job.provider}:{job.provider_job_id}",
+            title=job.title,
+            company=job.company,
+            description=job.description_text,
+            app_verdict=verdict.bucket if verdict else "rejected",
+            app_reason=(verdict.reason if verdict
+                        else result.reason or "screened out before reading")))
+    return items
 
 
 def morning_run(conn, *, provider=None, send=None, today: date | None = None):
@@ -785,16 +964,15 @@ def _launch_onboarding(app, conn) -> int:
         return [d.name for d in result.corpus.documents], result.warnings
 
     def sample():
-        # The calibration sample comes from a real feed pull. Until a feed
-        # credential is configured there is nothing honest to show, so the
-        # wizard says so rather than inventing postings to practise on.
-        from app.onboarding.calibration import CalibrationItem
-        return [CalibrationItem(
-            job_key="setup", title="No live postings yet",
-            company="", description="",
-            app_verdict="possible",
-            app_reason=("a feed credential is needed before Dawnlist can "
-                        "fetch the postings you calibrate against"))]
+        """The postings to calibrate against — a real pull, or nothing.
+
+        This was a hard-coded single placeholder, and the gate needs eight
+        decisions, so the Finish button could never enable: onboarding was
+        impossible to complete. Returning a short list is now handled by the
+        gate, which names it as a setup failure instead of asking for eight
+        decisions out of one.
+        """
+        return calibration_sample(conn)
 
     def drafter(paths, aim=""):
         """CVs in, factsheet and brief out, on the user's own key.
@@ -847,6 +1025,12 @@ def _launch_onboarding(app, conn) -> int:
         if brief.strip():
             save_document(conn, "fit_brief", brief)
 
+        # Seed searches from what the user said they were looking for, so a
+        # new install has something to sweep rather than a run that refuses for
+        # want of a query. They arrive switched OFF — see
+        # `seed_queries_from_aim` for why that matters to the bill.
+        seed_queries_from_aim(conn, wizard.interview.aim.toPlainText())
+
     def finished(result):
         brief = load_document(conn, "fit_brief") or "# Fit brief"
         complete_calibration(conn, brief, result)
@@ -888,14 +1072,20 @@ def open_settings(parent=None, conn=None):
     reference is garbage-collected the moment the function returns, and the
     window vanishes as fast as it appeared.
     """
-    from app.ui.settings import FamiliesPanel, RulesPanel, SettingsWindow
+    from app.ui.settings import (FamiliesPanel, RulesPanel, SearchesPanel,
+                                 SettingsWindow)
 
     # The key and licence panels already default to the real keyring and the
     # real redeemer; the injection points exist so the tests can spend nothing.
     # The rules panel cannot default, because the rules are per-user and live
     # in the database — so it is offered only when there is one.
-    rules = families = None
+    rules = families = searches = None
     if conn is not None:
+        searches = SearchesPanel(
+            loader=lambda: all_queries(conn),
+            saver=lambda label, titles: save_query(conn, label, titles),
+            forgetter=lambda label: forget_query(conn, label),
+            enabler=lambda label, on: enable_query(conn, label, enabled=on))
         families = FamiliesPanel(
             loader=lambda: load_rules(conn).kill_families,
             adopter=lambda name, on: adopt_kill_family(conn, name, adopted=on),
@@ -905,7 +1095,8 @@ def open_settings(parent=None, conn=None):
             saver=lambda field, term: save_rule_term(conn, field, term),
             forgetter=lambda field, term: forget_rule_term(conn, field, term))
 
-    window = SettingsWindow(rules=rules, families=families)
+    window = SettingsWindow(rules=rules, families=families,
+                            searches=searches)
     if parent is not None:
         parent._settings_window = window
     window.show()
