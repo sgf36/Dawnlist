@@ -471,8 +471,10 @@ class InterviewPage(QWidget):
 
     def __init__(self, *, drafter=None, parent=None):
         super().__init__(parent)
-        self._draft = drafter          # (corpus) -> (factsheet_md, brief_md, questions)
+        #: (corpus, aim) -> (factsheet_md, brief_md, questions)
+        self._draft = drafter
         self._questions: list[str] = []
+        self._corpus = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -487,15 +489,41 @@ class InterviewPage(QWidget):
         body.setWordWrap(True)
         layout.addWidget(body)
 
+        # The aim, in the user's own words, BEFORE anything is drafted.
+        #
+        # Without it the brief is inferred from CVs alone, and a CV says what
+        # someone has done rather than what they want next. Drafted that way
+        # against a real corpus, the brief guessed at the target, the seniority
+        # direction, the location, permanent versus contract and the salary
+        # floor — and closed with six questions it had no way to answer. Five
+        # of the six are one sentence from the person sitting in front of it.
+        aim_label = QLabel(tr("onboarding.aim_label"))
+        f = QFont()
+        f.setBold(True)
+        aim_label.setFont(f)
+        layout.addWidget(aim_label)
+
+        self.aim = QPlainTextEdit()
+        self.aim.setObjectName("aimBox")
+        self.aim.setPlaceholderText(tr("onboarding.aim_placeholder"))
+        self.aim.setMaximumHeight(96)
+        layout.addWidget(self.aim)
+
+        row = QHBoxLayout()
+        self.btn_draft = QPushButton(tr("onboarding.draft"))
+        self.btn_draft.setObjectName("primary")
+        self.btn_draft.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        row.addWidget(self.btn_draft)
+        self.status = QLabel()
+        self.status.setObjectName("stepBody")
+        row.addWidget(self.status, 1)
+        layout.addLayout(row)
+
         self.questions = QLabel()
         self.questions.setObjectName("disagreement")
         self.questions.setWordWrap(True)
         self.questions.hide()
         layout.addWidget(self.questions)
-
-        self.status = QLabel()
-        self.status.setObjectName("stepBody")
-        layout.addWidget(self.status)
 
         split = QHBoxLayout()
         split.setSpacing(12)
@@ -521,19 +549,39 @@ QPlainTextEdit#docEditor {
     padding: 8px;
     font-family: Consolas, monospace;
 }
+QPlainTextEdit#aimBox {
+    border: 1px solid #cfcabf;
+    border-radius: 6px;
+    padding: 8px;
+}
 """)
+        self.btn_draft.clicked.connect(lambda: self.run_draft())
 
-    def run_draft(self, corpus) -> None:
-        """Draft both documents. Failures are shown, never swallowed."""
+    def run_draft(self, corpus=None) -> None:
+        """Draft both documents. Failures are shown, never swallowed.
+
+        The corpus is remembered from the first call so the Draft button can
+        re-run with a corrected aim — a first attempt whose brief guessed wrong
+        should be one sentence away from a better one, not a restart.
+        """
+        if corpus is not None:
+            self._corpus = corpus
+        if self._corpus is None:
+            return
+
+        self.btn_draft.setEnabled(False)
         self.status.setText(tr("onboarding.drafting"))
         self.status.repaint()
         try:
-            factsheet, brief, questions = self._draft(corpus)
+            factsheet, brief, questions = self._draft(
+                self._corpus, self.aim.toPlainText().strip())
         except Exception as exc:  # noqa: BLE001
             # The user can still write their own; a failed draft must not be a
             # dead end, and it must not look like an empty one either.
             self.status.setText(tr("onboarding.draft_failed", reason=str(exc)[:200]))
             return
+        finally:
+            self.btn_draft.setEnabled(True)
 
         self.factsheet.setPlainText(factsheet)
         self.brief.setPlainText(brief)
@@ -544,6 +592,10 @@ QPlainTextEdit#docEditor {
             self.questions.show()
         self.status.setText(tr("onboarding.drafted"))
         self.drafted.emit()
+
+    def set_corpus(self, corpus) -> None:
+        """Hand over the documents without spending anything yet."""
+        self._corpus = corpus
 
     def documents(self) -> tuple[str, str]:
         return self.factsheet.toPlainText(), self.brief.toPlainText()
@@ -653,8 +705,11 @@ class OnboardingWizard(QWidget):
             self._show_step(1)
         elif index == 1:
             self._show_step(2)
+            # Hand over the corpus but do NOT draft: the aim box is above the
+            # button for a reason, and drafting on arrival would spend the
+            # user's money on a brief drafted before they said anything.
             if self._corpus is not None and not self.interview.has_content:
-                self.interview.run_draft(self._corpus)
+                self.interview.set_corpus(self._corpus)
         elif index == 2:
             factsheet, brief = self.interview.documents()
             self.documents_ready.emit(factsheet, brief)

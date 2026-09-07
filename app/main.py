@@ -603,8 +603,13 @@ def _launch_onboarding(app, conn) -> int:
             app_reason=("a feed credential is needed before Dawnlist can "
                         "fetch the postings you calibrate against"))]
 
-    def drafter(paths):
-        """CVs in, factsheet and brief out, on the user's own key."""
+    def drafter(paths, aim=""):
+        """CVs in, factsheet and brief out, on the user's own key.
+
+        `aim` is what the user says they are looking for. Without it the brief
+        is inferred from CVs alone — and a CV records what someone has done,
+        never what they want next.
+        """
         import json
 
         from app.core import api_key
@@ -634,7 +639,7 @@ def _launch_onboarding(app, conn) -> int:
         raw = call(build_factsheet_request(corpus))
         data = json.loads(raw)
         factsheet = render_factsheet(data)
-        brief = call(build_brief_request(corpus, ""))
+        brief = call(build_brief_request(corpus, aim))
         return factsheet, brief, open_questions(data)
 
     wizard = OnboardingWizard(extract=extract, sample=sample, drafter=drafter)

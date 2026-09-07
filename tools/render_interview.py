@@ -99,8 +99,11 @@ def render_hidden(widget, size):
 def build_interview():
     """The interview step, drafted. Returns the page."""
 
-    page = InterviewPage(drafter=lambda corpus: (FACTSHEET, BRIEF, QUESTIONS))
+    page = InterviewPage(drafter=lambda corpus, aim: (FACTSHEET, BRIEF, QUESTIONS))
     render_hidden(page, STORE_SIZE)
+    page.aim.setPlainText(
+        "Operational real estate and hotel asset management, London, "
+        "permanent, senior manager band and open to a step up.")
     page.run_draft(["cv-2023.docx", "cv-tailored.docx"])
     for _ in range(8):
         QApplication.instance().processEvents()
