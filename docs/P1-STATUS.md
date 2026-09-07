@@ -1,7 +1,7 @@
 # Build status
 
 **Repo:** `C:\Users\SpencerFields\dawnlist`, deliberately **off OneDrive** per handoff Part 9.
-**Tests:** 494 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
+**Tests:** 499 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
 **Last updated:** 2026-09-07 — P1 engine complete; a frozen build runs
 
 ## Done
@@ -129,6 +129,31 @@ is now an actionable row.
   behaviour, not by the build log: `--doctor` reports 50 of 50 catalogues and the store variant,
   `--draft` and `--settings` are both present, exit code 2 carries the right message, and the
   corrected German and Italian strings are readable inside `dist/Dawnlist.msix` itself.
+
+- **Run against Spencer's own five CVs**, which is what found the next four faults. Two broke it
+  outright: `max_tokens` budgets thinking PLUS output, so at 8,000 the model spent the whole
+  budget reasoning and returned no text (the real factsheet needs 15,617), and the SDK then
+  refused the raised budget on a non-streaming request. A synthetic two-CV corpus fitted
+  comfortably, which is why every test passed.
+
+  The output is good: it independently derived five of the hand-built factsheet's most important
+  rules — £2.3M *identified* not delivered, $220M+ *supported* not closed, $7B+ Watermark
+  *analysed* not managed, no line management of the 12+/13-person groups, and title variants
+  unconfirmed. It missed the professional-designation rule, so the rules now require it; re-run,
+  it produces the MAI/RICS/CFA guard plus one nobody had written down — that appraisals
+  quality-assured for external MAI appraisers may not be claimed as authored.
+
+- **The brief asked six questions it had no way to answer.** `stated_aim` was a parameter nothing
+  filled, so the brief was inferred from CVs alone — and it excluded general management and
+  front-of-house, one of the three legs actually being searched. One sentence of aim: unknowns 6
+  to 2, question marks 11 to 5, and that leg became a named target. The interview step now opens
+  with the aim box above a Draft button and no longer drafts on arrival.
+
+- **Store screenshots**, six of them, in `store/screenshots/` with captions. Opening the first
+  caught a real fault: the Title column was fixed at 215px, so "Head of Asset Management, UK &
+  Ireland" elided — the most important field in the window. The listing had also promised a
+  screenshot of a draft; there is no such screen, and the table now says so rather than mocking
+  one up.
 
 - **All 50 locale catalogues**, at 100% coverage, verified for placeholder parity. `--fill` tops
   up catalogues that fall behind the source, and now falls back to the keyring when
