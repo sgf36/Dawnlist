@@ -61,10 +61,24 @@ not just on fixtures.
 
 ## Three findings for the fit brief
 
-**Salary is stated on 7.3% of rows** (the dictionary claims 19% across the full
-corpus). A salary floor applied naively would discard 93% of the market for the
-crime of not publishing a figure. If the brief ever gains a floor, a missing
-salary must be treated as UNKNOWN and surfaced — never as below-floor.
+**Salary: the structured field understates disclosure by 19 points.** Corrected
+after testing rather than left as first measured. The structured columns carry a
+figure on 12.1% of rows, but a pay figure appears in the description text on
+21.4%, and one or the other on **30.9%**. The first pass reported the field's
+number as the market's, which was wrong.
+
+The correction was forced by a live test. Ten real postings with an EMPTY salary
+field were assessed against a brief carrying a hard GBP 85,000 floor. Only one
+was rejected on pay, and it was rejected correctly: the structured field was
+empty and the description said "$80,000 – $90,000 per year", which the model
+quoted verbatim as rule 3 requires. Six were marked `requirement_checked=false`
+and bucketed `possible` under rule 5, which is exactly the intended behaviour —
+silence about pay does not hide a posting.
+
+So the rule that matters is already enforced, and the practical instruction is
+the opposite of what the field suggests: **never filter on the structured salary
+columns.** Two thirds of the disclosure is in the prose, and the assessment
+already reads the prose.
 
 **`seniority` is 100% filled** — `c_level`, `staff`, `senior`, `mid_level`,
 `junior`. In this sample 96% sit in `mid_level`/`senior`, so a band pre-filter
