@@ -1,7 +1,7 @@
 # Build status
 
 **Repo:** `C:\Users\SpencerFields\dawnlist`, deliberately **off OneDrive** per handoff Part 9.
-**Tests:** 472 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
+**Tests:** 492 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
 **Last updated:** 2026-09-07 — P1 engine complete; a frozen build runs
 
 ## Done
@@ -104,6 +104,17 @@ is now an actionable row.
   The last two were findable only by reading real model output — no test written against the
   prompt's own conventions would have caught either.
 
+- **The rule editor.** Terms could be stored and read but only from code, so three of the four
+  screening tiers were unreachable and the screen could never be tuned. A refused term now names
+  the role it would have cost — *"operations would have killed Head of Operations at Round Hill
+  Capital"* — because that finding is what the admission guard exists to produce and a red border
+  throws it away. Tier 2 is shown but not editable: employers are earned by pursuing them.
+  `docs/screening-rules.png`.
+
+- **Near-duplicate flags are written down.** `dedup` always found them and nothing stored them, so
+  `near_duplicates` was the one table the app never touched at all. Both postings still appear —
+  flagged, never merged, because merging two real vacancies loses one.
+
 - **All 50 locale catalogues**, at 100% coverage, verified for placeholder parity. `--fill` tops
   up catalogues that fall behind the source, and now falls back to the keyring when
   `ANTHROPIC_API_KEY` is absent from the shell.
@@ -172,6 +183,15 @@ key, and the two-tier pricing hypothesis. There is no proxy and there is one pri
 11. **Your own CVs.** The factsheet and fit brief are built from them, and nothing can stand in
     for that. It is also the fastest way to find out whether the onboarding flow actually works.
 12. **Sean's pilot**, if it is doubling as the onboarding test.
+
+## Known gap
+
+**Kill families have no editor.** `kill_families` is the last table the app reads and never
+writes. A family is employer + wrong function, and the design requires mandatory SAVES plus two
+anchored precedents before one may be adopted — so the editor is a propose-and-adopt flow, not a
+text box, and the `adopted` flag implies a review step that does not exist yet. Everything else
+in the screen is now reachable; this tier can only be populated by SQL. Worth building before a
+second user, not before Spencer's own first run.
 
 ## Blocked, deliberately
 
