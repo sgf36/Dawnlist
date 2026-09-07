@@ -611,14 +611,21 @@ def _launch_onboarding(app, conn) -> int:
         from app.onboarding.extract import extract_corpus
         from app.onboarding.interview import (build_brief_request,
                                               build_factsheet_request,
-                                              open_questions, render_factsheet)
+                                              open_questions, render_factsheet,
+                                              text_of)
 
         import anthropic
         client = anthropic.Anthropic(api_key=api_key.require())
 
         def call(request):
-            response = client.messages.create(**request)
-            return "".join(b.text for b in response.content if b.type == "text")
+            # Streamed, not `create`. The SDK REFUSES a non-streaming request
+            # whose max_tokens could exceed a ten-minute response — it raises
+            # ValueError before anything is sent, so the app would fail on the
+            # first real corpus with a message about streaming rather than
+            # about CVs. The factsheet needs that budget (see
+            # FACTSHEET_MAX_TOKENS), so the transport has to stream.
+            with client.messages.stream(**request) as stream:
+                return text_of(stream.get_final_message())
 
         corpus = extract_corpus(list(paths)).corpus
         if not corpus.usable:

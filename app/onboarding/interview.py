@@ -57,11 +57,18 @@ The recurring distortions, all of which must be avoided:
 - **Past tense for ended roles.** Record start and end dates as the corpus
   gives them. Never volunteer an employment gap and never invent an explanation
   for one.
+- **A qualification absent from the corpus does not exist.** Where the work
+  described sits near a licensed or chartered profession — valuation, appraisal,
+  accountancy, surveying, financial advice — say so explicitly in
+  `must_never_claim`: that no such designation is evidenced and none may be
+  implied. Proximity to the work is how a credential gets implied without ever
+  being stated, and this is the one distortion the recipient is most likely to
+  be qualified to catch.
 
 Also produce a `must_never_claim` list: things that look supportable from the
 corpus but are not — a title held only briefly, a figure whose verb is weaker
-than it appears, a responsibility that was shared. This list is as valuable as
-the claims themselves."""
+than it appears, a responsibility that was shared, a credential implied by
+adjacency. This list is as valuable as the claims themselves."""
 
 FIT_BRIEF_RULES = """\
 You are drafting a fit brief: what kinds of role should be surfaced to this
@@ -200,13 +207,26 @@ FACTSHEET_SCHEMA = {
 }
 
 
+#: `max_tokens` budgets THINKING PLUS OUTPUT, not output alone.
+#:
+#: Measured against Spencer's real five-CV corpus (13,469 input tokens): at
+#: 8,000 the model spent the whole budget reasoning and returned one thinking
+#: block with no text at all — `stop_reason: max_tokens`, zero output, and a
+#: user who could never finish onboarding. A two-CV synthetic corpus fitted
+#: comfortably, which is precisely why every test passed. A real corpus is
+#: several times the size of a plausible fixture, and the factsheet it produces
+#: is long by design: one entry per claim, plus the whole never-claim list.
+FACTSHEET_MAX_TOKENS = 32000
+BRIEF_MAX_TOKENS = 16000
+
+
 def build_factsheet_request(corpus: Corpus, *,
                             model: str = DRAFTING_MODEL) -> dict:
     """The factsheet draft. Uses the strong model: this is the record every
     later claim is checked against, so an error here propagates everywhere."""
     return {
         "model": model,
-        "max_tokens": 8000,
+        "max_tokens": FACTSHEET_MAX_TOKENS,
         "system": [{"type": "text", "text": FACTSHEET_RULES}],
         "messages": [{"role": "user", "content": corpus.as_prompt()}],
         "output_config": {"format": {"type": "json_schema",
@@ -218,12 +238,33 @@ def build_brief_request(corpus: Corpus, stated_aim: str, *,
                         model: str = DRAFTING_MODEL) -> dict:
     return {
         "model": model,
-        "max_tokens": 4000,
+        "max_tokens": BRIEF_MAX_TOKENS,
         "system": [{"type": "text", "text": FIT_BRIEF_RULES}],
         "messages": [{"role": "user", "content":
                       f"{corpus.as_prompt()}\n\n<stated_aim>\n{stated_aim}\n"
                       f"</stated_aim>"}],
     }
+
+
+def text_of(response) -> str:
+    """The text of a response, or a readable failure.
+
+    A truncated response carries no text at all, so the caller's `json.loads`
+    fails with "Expecting value: line 1 column 1" — a message that describes
+    the symptom, names neither the cause nor anything the user could do about
+    it, and is what would otherwise reach the interview screen.
+    """
+    text = "".join(b.text for b in response.content if b.type == "text")
+    if text.strip():
+        return text
+    if getattr(response, "stop_reason", None) == "max_tokens":
+        raise RuntimeError(
+            "the model ran out of room before writing anything — these CVs are "
+            "long enough that the reasoning used the whole budget. Try fewer "
+            "documents, or report it: the limit needs raising.")
+    raise RuntimeError(
+        f"the model returned no text (stop reason: "
+        f"{getattr(response, 'stop_reason', 'unknown')})")
 
 
 #: Verbs the factsheet may record, ordered weakest to strongest. Outreach may
