@@ -215,9 +215,23 @@ machine I do not have.
 4. **Store listing copy, screenshots and the privacy policy.** Write the labels honestly: CVs and
    career data are processed via the Anthropic API and the feed proxy. Make the Worker keep
    behaving that way — it logs counts, never content.
-5. **Trademark clearance on "Dawnlist"** across UKIPO, EUIPO, USPTO and both stores. I attempted
-   this and **could not get a trustworthy answer**: TMview returned "No rows found" for a control
-   term with known live registrations, so any clean result from it would be a false negative.
+5. ~~**Trademark clearance on "Dawnlist"**~~ **DONE 2026-09-06, and it is clean.** An earlier
+   attempt could not get a trustworthy answer because TMview returned nothing for a control term,
+   which would have made any clean result a false negative. Re-run with a working control on
+   every register, so a zero is evidence rather than a broken query:
+
+   | Register | "dawnlist" | control "easypost" |
+   |---|---|---|
+   | UKIPO (GB) | 0 | 8 |
+   | EUIPO (EM) | 0 | 7 |
+   | USPTO (US) | 0 | 10 |
+   | Apple App Store | 0 | 19-21 results for the term, none matching |
+   | Google Play | 0 | 5 real "dawn" apps parsed, none matching |
+
+   The TMview endpoint is `POST https://www.tmdn.org/tmview/api/search/results` with
+   `basicSearch` and an `fOffices` filter. Nearest neighbours are DawnLight, DawnPal, Dawntown
+   and Dawnbound — different words, different categories. **Re-run immediately before submission
+   anyway**: registers move, and finding nothing is never the evidence a found conflict is.
 
 **Commercial**
 6. **The TheirStack licensing reply**, then the tier decision. Do not purchase before it lands —
