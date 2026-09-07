@@ -328,8 +328,13 @@ class ReviewWindow(QMainWindow):
     def _make_tree() -> QTreeWidget:
         t = QTreeWidget()
         t.setHeaderLabels([tr("col.title"), tr("col.company"), tr("col.why")])
-        t.setColumnWidth(0, 215)
-        t.setColumnWidth(1, 130)
+        # 215 elided the most important field in the window: real titles run to
+        # "Head of Asset Management, UK & Ireland", and a truncated title is the
+        # one thing a reader cannot skim past. Company is widened to match —
+        # "KSL Capital Partners" did not fit either. Both stay user-resizable,
+        # and both carry a tooltip, because no width fits every title.
+        t.setColumnWidth(0, 310)
+        t.setColumnWidth(1, 165)
         t.setRootIsDecorated(False)
         t.setAlternatingRowColors(True)
         # "Why" carries the verdict reason and the screen reason — the column
@@ -367,6 +372,7 @@ class ReviewWindow(QMainWindow):
             # The elided column is still fully readable on hover.
             item.setToolTip(2, why)
             item.setToolTip(0, r.title)
+            item.setToolTip(1, r.company)
             if r.bucket == "strong":
                 f = QFont()
                 f.setBold(True)

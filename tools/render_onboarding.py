@@ -46,24 +46,32 @@ def render_hidden(widget, size):
     return widget
 
 
-app = QApplication(sys.argv)
-page = CalibrationPage()
-page.load([CalibrationItem(job_key=str(i), title=t, company=c, description="d",
-                          app_verdict=v, app_reason=r)
-           for i, (t, c, v, r) in enumerate(SAMPLE)])
+def build_calibration():
+    """The calibration gate, part-way through. Returns the page."""
 
-# Part-way through: seven decided, one disagreement still missing its sentence.
-for i in range(7):
-    for btn in page._widgets[i].group.buttons():
-        if btn.property("verdict") == SAMPLE[i][2]:
+    page = CalibrationPage()
+    page.load([CalibrationItem(job_key=str(i), title=t, company=c, description="d",
+                              app_verdict=v, app_reason=r)
+               for i, (t, c, v, r) in enumerate(SAMPLE)])
+
+    # Part-way through: seven decided, one disagreement still missing its sentence.
+    for i in range(7):
+        for btn in page._widgets[i].group.buttons():
+            if btn.property("verdict") == SAMPLE[i][2]:
+                btn.setChecked(True)
+    for btn in page._widgets[1].group.buttons():
+        if btn.property("verdict") == "strong":
             btn.setChecked(True)
-for btn in page._widgets[1].group.buttons():
-    if btn.property("verdict") == "strong":
-        btn.setChecked(True)
 
-render_hidden(page, STORE_SIZE)
-for _ in range(8):
-    app.processEvents()
-out = Path(__file__).resolve().parents[1] / "docs" / "calibration-gate.png"
-page.grab().save(str(out))
-print("wrote", out)
+    render_hidden(page, STORE_SIZE)
+    for _ in range(8):
+        QApplication.instance().processEvents()
+    return page
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    page = build_calibration()
+    out = Path(__file__).resolve().parents[1] / "docs" / "calibration-gate.png"
+    page.grab().save(str(out))
+    print("wrote", out)

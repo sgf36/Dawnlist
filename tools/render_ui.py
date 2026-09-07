@@ -88,6 +88,44 @@ ROWS = [
               "Hotel development pipeline across the UK estate.",
               bucket="possible",
               reason="Development rather than asset management, adjacent"),
+    # Enough rows that the table FILLS the pane. A screenshot of a
+    # half-empty list reads as an app with nothing in it, and the shortlist is
+    # the one screen a buyer judges the product by.
+    ReviewRow("14", "Head of Asset Management, UK & Ireland", "Aprirose",
+              "London", "https://ats.example/14",
+              "Asset management across a mixed hotel and leisure portfolio.",
+              bucket="strong",
+              reason="Hotel asset management at portfolio level, in the band"),
+    ReviewRow("15", "Director, Hotel Investment", "Cheyne Capital", "London",
+              "https://ats.example/15",
+              "Underwriting and asset strategy for hotel investments.",
+              bucket="strong",
+              reason="Investment with an operating-asset mandate"),
+    ReviewRow("16", "Commercial Director", "Dalata Hotel Group", "London",
+              "https://ats.example/16",
+              "Commercial performance across the UK estate.",
+              bucket="possible",
+              reason="Commercial rather than asset-side, but an operator"),
+    ReviewRow("17", "Senior Asset Manager", "Schroders Capital", "London",
+              "https://ats.example/17",
+              "Operational real estate asset management.",
+              bucket="strong",
+              reason="Squarely in the brief; operational real estate"),
+    ReviewRow("18", "Portfolio Manager, Living", "Greystar", "London",
+              "https://ats.example/18",
+              "Asset management across a build-to-rent portfolio.",
+              bucket="possible",
+              reason="Living rather than hospitality, adjacent sector"),
+    ReviewRow("19", "Head of Strategy, Hotels", "IHG", "Windsor",
+              "https://ats.example/19",
+              "Group strategy for the hotel estate.",
+              bucket="strong",
+              reason="Hotel strategy at group level, in the brief"),
+    ReviewRow("20", "Investment Manager", "KSL Capital Partners", "London",
+              "https://ats.example/20",
+              "Travel and leisure investments across Europe.",
+              bucket="strong",
+              reason="Named target employer; travel and leisure mandate"),
 ]
 
 COUNTS = {"swept": 1143, "deduped": 1088, "gated_out": 213,
@@ -113,41 +151,49 @@ def render_hidden(widget, size):
     return widget
 
 
-app = QApplication(sys.argv)
-w = ReviewWindow()
-w.load(ROWS, COUNTS, incomplete_note="context exhausted")
-render_hidden(w, STORE_SIZE)
-# Select the first shortlist row so the detail pane renders real content -
-# an empty pane in a screenshot proves nothing about the pane.
-docs = Path(__file__).resolve().parents[1] / "docs"
+def build_review():
+    """The review window with the shortlist selected. Returns it."""
 
-w.tabs.setCurrentIndex(0)
-# Select by TITLE, not by position: the sort order changes whenever the sample
-# does, and row 0 is not reliably the row worth showing.
-for _i in range(w.shortlist.topLevelItemCount()):
-    if w.shortlist.topLevelItem(_i).text(0) == "General Manager Events":
-        w.shortlist.setCurrentItem(w.shortlist.topLevelItem(_i))
-        break
-for _ in range(8):
-    app.processEvents()
-w.grab().save(str(docs / "review-window.png"))
+    w = ReviewWindow()
+    w.load(ROWS, COUNTS, incomplete_note="context exhausted")
+    render_hidden(w, STORE_SIZE)
+    # Select the first shortlist row so the detail pane renders real content -
+    # an empty pane in a screenshot proves nothing about the pane.
 
-# The "Needs review" tab: a kill term that matched inside a longer role name.
-w.tabs.setCurrentIndex(3)
-w.contained.setCurrentItem(w.contained.topLevelItem(0))
-for _ in range(8):
-    app.processEvents()
-w.grab().save(str(docs / "review-window-contained.png"))
-# Arabic: the whole window must mirror, not just the strings.
-i18n.set_locale("ar")
-i18n.clear_cache()
-rtl = ReviewWindow()
-rtl.load(ROWS, COUNTS, incomplete_note="نفد السياق")
-render_hidden(rtl, STORE_SIZE)
-rtl.tabs.setCurrentIndex(0)
-rtl.shortlist.setCurrentItem(rtl.shortlist.topLevelItem(0))
-for _ in range(8):
-    app.processEvents()
-rtl.grab().save(str(docs / "review-window-ar.png"))
-i18n.set_locale("en")
-print("wrote three to", docs)
+    w.tabs.setCurrentIndex(0)
+    # Select by TITLE, not by position: the sort order changes whenever the sample
+    # does, and row 0 is not reliably the row worth showing.
+    for _i in range(w.shortlist.topLevelItemCount()):
+        if w.shortlist.topLevelItem(_i).text(0) == "General Manager Events":
+            w.shortlist.setCurrentItem(w.shortlist.topLevelItem(_i))
+            break
+    for _ in range(8):
+        QApplication.instance().processEvents()
+    return w
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    w = build_review()
+    docs = Path(__file__).resolve().parents[1] / "docs"
+    w.grab().save(str(docs / "review-window.png"))
+    
+    # The "Needs review" tab: a kill term that matched inside a longer role name.
+    w.tabs.setCurrentIndex(3)
+    w.contained.setCurrentItem(w.contained.topLevelItem(0))
+    for _ in range(8):
+        app.processEvents()
+    w.grab().save(str(docs / "review-window-contained.png"))
+    # Arabic: the whole window must mirror, not just the strings.
+    i18n.set_locale("ar")
+    i18n.clear_cache()
+    rtl = ReviewWindow()
+    rtl.load(ROWS, COUNTS, incomplete_note="نفد السياق")
+    render_hidden(rtl, STORE_SIZE)
+    rtl.tabs.setCurrentIndex(0)
+    rtl.shortlist.setCurrentItem(rtl.shortlist.topLevelItem(0))
+    for _ in range(8):
+        app.processEvents()
+    rtl.grab().save(str(docs / "review-window-ar.png"))
+    i18n.set_locale("en")
+    print("wrote three to", docs)

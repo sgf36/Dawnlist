@@ -184,19 +184,24 @@ Minimum one, up to ten. **1366 × 768 or larger, 16:9.** Take them from the real
 app, not a mockup — and open every one at full size before uploading. A passing
 export proves the file was written, nothing more.
 
-| # | Screen | Caption |
+| # | File | Caption |
 |---|---|---|
-| 1 | Morning shortlist | Your shortlist, with the reasons — and the rejections still visible |
-| 2 | The funnel bar, filled | It always shows what it excluded to get here |
-| 3 | Needs review tab | When a rule reaches too far, it tells you |
-| 4 | The board | Every company you are pursuing, and what is due next |
-| 5 | Calibration gate | It learns your judgement before it runs |
-| 6 | A draft | It writes the follow-up. You send it |
+| 1 | `01-shortlist.png` | Your shortlist, with the reasons — and the rejections still visible |
+| 2 | `02-needs-review.png` | When a rule reaches too far, it tells you |
+| 3 | `03-board.png` | Every company you are pursuing, and what is due next |
+| 4 | `04-understood.png` | It reads your CVs and shows you what it understood |
+| 5 | `05-calibration.png` | It learns your judgement before it runs |
+| 6 | `06-rules.png` | Screening you control, and it refuses a rule that would hide a real role |
 
-`tools/render_ui.py`, `tools/render_board.py`, `tools/render_onboarding.py` and
-`tools/render_ingest.py` produce these at **1708×960** (1366×768 logical at 1.25
-display scaling), which is above the minimum and the right ratio. The finished
-files are in `docs/`.
+`tools/render_store.py` produces all six in one pass, into `store/screenshots/`
+at **2135×1200** — 16:9, comfortably above the 1366×768 minimum. Captions are
+repeated in `store/screenshots/CAPTIONS.md` so the upload order is unambiguous.
+
+**There is deliberately no screenshot of a draft**, though an earlier version of
+this table promised one. Drafts are `.eml` files opened in the user's own mail
+client, so there is no Dawnlist screen to photograph — and the instruction above
+says take them from the real app. A mockup would have advertised a screen that
+does not exist.
 
 `review-window-ar.png` is proof that right-to-left mirrors the whole window —
 it is not a listing asset, and the listing is en-GB.

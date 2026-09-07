@@ -96,13 +96,20 @@ def render_hidden(widget, size):
     return widget
 
 
-app = QApplication(sys.argv)
-page = InterviewPage(drafter=lambda corpus: (FACTSHEET, BRIEF, QUESTIONS))
-render_hidden(page, STORE_SIZE)
-page.run_draft(["cv-2023.docx", "cv-tailored.docx"])
-for _ in range(8):
-    app.processEvents()
+def build_interview():
+    """The interview step, drafted. Returns the page."""
 
-out = Path(__file__).resolve().parents[1] / "docs" / "interview-step.png"
-page.grab().save(str(out))
-print("wrote", out)
+    page = InterviewPage(drafter=lambda corpus: (FACTSHEET, BRIEF, QUESTIONS))
+    render_hidden(page, STORE_SIZE)
+    page.run_draft(["cv-2023.docx", "cv-tailored.docx"])
+    for _ in range(8):
+        QApplication.instance().processEvents()
+    return page
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    page = build_interview()
+    out = Path(__file__).resolve().parents[1] / "docs" / "interview-step.png"
+    page.grab().save(str(out))
+    print("wrote", out)

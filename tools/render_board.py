@@ -36,55 +36,63 @@ def render_hidden(widget, size):
     return widget
 
 
-app = QApplication(sys.argv)
+def build_board():
+    """The board, populated across every stage. Returns the window."""
 
-conn = db.connect(":memory:")
-db.migrate(conn)
 
-a = create_opportunity(conn, "Round Hill Capital", stage=Stage.IDENTIFIED)
-b = create_opportunity(conn, "Landmark Venues", stage=Stage.IDENTIFIED)
-c = create_opportunity(conn, "Rocco Forte Hotels", stage=Stage.CONTACTED)
-d = create_opportunity(conn, "Mandarin Oriental", stage=Stage.IN_DIALOGUE)
-e = create_opportunity(conn, "Highgate", stage=Stage.PHONE_INTERVIEW)
-f = create_opportunity(conn, "The Peninsula", stage=Stage.IN_PERSON_INTERVIEW)
-g = create_opportunity(conn, "Bob W", stage=Stage.ON_HOLD)
-h = create_opportunity(conn, "Grosvenor", stage=Stage.LOST)
-i = create_opportunity(conn, "Marriott Feasibility", stage=Stage.WON)
-poc = create_opportunity(conn, "Amir Mossanen (Truist)",
-                         stage=Stage.CONTACTED, category=JobCategory.MUTUAL_POC)
+    conn = db.connect(":memory:")
+    db.migrate(conn)
 
-record_outbound(conn, str(c), Channel.EMAIL, TUE)
-record_outbound(conn, str(d), Channel.EMAIL, date(2026, 9, 1))
-add_task(conn, str(d), "Second dual touch", date(2026, 9, 15))
-add_task(conn, str(e), "Prepare for the call", date(2026, 9, 10))
+    a = create_opportunity(conn, "Round Hill Capital", stage=Stage.IDENTIFIED)
+    b = create_opportunity(conn, "Landmark Venues", stage=Stage.IDENTIFIED)
+    c = create_opportunity(conn, "Rocco Forte Hotels", stage=Stage.CONTACTED)
+    d = create_opportunity(conn, "Mandarin Oriental", stage=Stage.IN_DIALOGUE)
+    e = create_opportunity(conn, "Highgate", stage=Stage.PHONE_INTERVIEW)
+    f = create_opportunity(conn, "The Peninsula", stage=Stage.IN_PERSON_INTERVIEW)
+    g = create_opportunity(conn, "Bob W", stage=Stage.ON_HOLD)
+    h = create_opportunity(conn, "Grosvenor", stage=Stage.LOST)
+    i = create_opportunity(conn, "Marriott Feasibility", stage=Stage.WON)
+    poc = create_opportunity(conn, "Amir Mossanen (Truist)",
+                             stage=Stage.CONTACTED, category=JobCategory.MUTUAL_POC)
 
-# One parity defect and one bounce, so the audit banner has something real.
-conn.execute("UPDATE opportunities SET status_mirror='open' WHERE id=?", (f,))
-cid = conn.execute("INSERT INTO contacts(opportunity_id, name, email, created_at)"
-                   " VALUES(?, 'Paul', 'paul@travelfusion.com', 'x')",
-                   (b,)).lastrowid
-record_bounce(conn, str(b), cid, TUE)
-conn.execute("UPDATE opportunities SET stage=1, status_mirror='waiting' WHERE id=?", (b,))
-conn.commit()
+    record_outbound(conn, str(c), Channel.EMAIL, TUE)
+    record_outbound(conn, str(d), Channel.EMAIL, date(2026, 9, 1))
+    add_task(conn, str(d), "Second dual touch", date(2026, 9, 15))
+    add_task(conn, str(e), "Prepare for the call", date(2026, 9, 10))
 
-win = BoardWindow()
-rows, findings = board_rows(conn, today=TUE)
-win.load(rows, findings)
-render_hidden(win, STORE_SIZE)
+    # One parity defect and one bounce, so the audit banner has something real.
+    conn.execute("UPDATE opportunities SET status_mirror='open' WHERE id=?", (f,))
+    cid = conn.execute("INSERT INTO contacts(opportunity_id, name, email, created_at)"
+                       " VALUES(?, 'Paul', 'paul@travelfusion.com', 'x')",
+                       (b,)).lastrowid
+    record_bounce(conn, str(b), cid, TUE)
+    conn.execute("UPDATE opportunities SET stage=1, status_mirror='waiting' WHERE id=?", (b,))
+    conn.commit()
 
-# Select the bounced opportunity, so the screenshot shows the audit doing its
-# job rather than whatever row Qt happened to land on.
-# clearSelection first: setCurrentItem moves the CURRENT item but does not
-# clear a selection Qt already made, so two rows end up highlighted.
-win.tree.clearSelection()
-for i in range(win.tree.topLevelItemCount()):
-    group = win.tree.topLevelItem(i)
-    for j in range(group.childCount()):
-        if group.child(j).text(0) == "Landmark Venues":
-            win.tree.setCurrentItem(group.child(j))
-            group.child(j).setSelected(True)
-for _ in range(8):
-    app.processEvents()
-out = Path(__file__).resolve().parents[1] / "docs" / "board-window.png"
-win.grab().save(str(out))
-print("wrote", out)
+    win = BoardWindow()
+    rows, findings = board_rows(conn, today=TUE)
+    win.load(rows, findings)
+    render_hidden(win, STORE_SIZE)
+
+    # Select the bounced opportunity, so the screenshot shows the audit doing its
+    # job rather than whatever row Qt happened to land on.
+    # clearSelection first: setCurrentItem moves the CURRENT item but does not
+    # clear a selection Qt already made, so two rows end up highlighted.
+    win.tree.clearSelection()
+    for i in range(win.tree.topLevelItemCount()):
+        group = win.tree.topLevelItem(i)
+        for j in range(group.childCount()):
+            if group.child(j).text(0) == "Landmark Venues":
+                win.tree.setCurrentItem(group.child(j))
+                group.child(j).setSelected(True)
+    for _ in range(8):
+        QApplication.instance().processEvents()
+    return win
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    win = build_board()
+    out = Path(__file__).resolve().parents[1] / "docs" / "board-window.png"
+    win.grab().save(str(out))
+    print("wrote", out)

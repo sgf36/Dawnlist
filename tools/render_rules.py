@@ -29,18 +29,25 @@ def refuse(field, term):
         pursued_title="Head of Operations", company="Round Hill Capital")])
 
 
-app = QApplication(sys.argv)
-panel = RulesPanel(loader=lambda: TABLE, saver=refuse,
-                   forgetter=lambda f, t: None)
-panel.setAttribute(Qt.WA_DontShowOnScreen, True)
-panel.resize(1366, 560)
-panel.show()
+def build_rules():
+    """The screening rules, showing a refused term. Returns the panel."""
 
-panel._fields["unsupported_titles"].setText("operations")
-panel.add("unsupported_titles")
-for _ in range(8):
-    app.processEvents()
+    panel = RulesPanel(loader=lambda: TABLE, saver=refuse,
+                       forgetter=lambda f, t: None)
+    panel.setAttribute(Qt.WA_DontShowOnScreen, True)
+    panel.resize(1366, 560)
+    panel.show()
 
-out = Path(__file__).resolve().parents[1] / "docs" / "screening-rules.png"
-panel.grab().save(str(out))
-print("wrote", out)
+    panel._fields["unsupported_titles"].setText("operations")
+    panel.add("unsupported_titles")
+    for _ in range(8):
+        QApplication.instance().processEvents()
+    return panel
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    panel = build_rules()
+    out = Path(__file__).resolve().parents[1] / "docs" / "screening-rules.png"
+    panel.grab().save(str(out))
+    print("wrote", out)
