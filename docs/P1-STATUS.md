@@ -1,7 +1,7 @@
 # Build status
 
 **Repo:** `C:\Users\SpencerFields\dawnlist`, deliberately **off OneDrive** per handoff Part 9.
-**Tests:** 499 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
+**Tests:** 520 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
 **Last updated:** 2026-09-07 — P1 engine complete; a frozen build runs
 
 ## Done
@@ -155,6 +155,20 @@ is now an actionable row.
   screenshot of a draft; there is no such screen, and the table now says so rather than mocking
   one up.
 
+- **Kill families are proposed and armed.** `kill_families` was the last table the app read and
+  never wrote. It is not an editor: spec 5.3 anchors a family to two real rejections and rule 8
+  makes arming it the user's call, so the app watches rejections, notices a shape and offers it
+  with the precedents attached. The proposer withholds rather than bend a rule — no SAVES, no
+  proposal; and a family that would not kill its own precedents is inert and is never offered.
+  `docs/kill-families.png`.
+
+- **The housekeeping now runs.** `prune_seen` bounds `seen_jobs`, which had grown for the life of
+  an install. `register_output` and `orphan_outputs` are the two halves of invariant 13 and
+  neither had ever run, so no draft was registered and the orphan check had nothing to check
+  against — the outreach run is a run now, and `--doctor` reports unregistered files without
+  deleting them. That change had a trap: `latest_run_id` took MAX(id), so an outreach run (which
+  sweeps nothing) would have emptied the review window.
+
 - **All 50 locale catalogues**, at 100% coverage, verified for placeholder parity. `--fill` tops
   up catalogues that fall behind the source, and now falls back to the keyring when
   `ANTHROPIC_API_KEY` is absent from the shell.
@@ -224,14 +238,17 @@ key, and the two-tier pricing hypothesis. There is no proxy and there is one pri
     for that. It is also the fastest way to find out whether the onboarding flow actually works.
 12. **Sean's pilot**, if it is doubling as the onboarding test.
 
-## Known gap
+## Known gaps
 
-**Kill families have no editor.** `kill_families` is the last table the app reads and never
-writes. A family is employer + wrong function, and the design requires mandatory SAVES plus two
-anchored precedents before one may be adopted — so the editor is a propose-and-adopt flow, not a
-text box, and the `adopted` flag implies a review step that does not exist yet. Everything else
-in the screen is now reachable; this tier can only be populated by SQL. Worth building before a
-second user, not before Spencer's own first run.
+Both audits are clean of anything user-facing: **every table in the schema is now read and
+written**, and the function audit's remaining entries are library surface, Qt event overrides and
+diagnostics. Two exceptions worth naming rather than leaving implicit:
+
+- **Job-alert digests have no way in.** `alert_email.parse_many` is complete and tested; nothing
+  calls it, so a user cannot drag a digest into the app. It needs a drop target and a place to put
+  the results, which is a screen rather than a wire.
+- **Board tasks cannot be created from the board.** `add_task` has no route, so the "Open task"
+  column is only ever filled by something else writing the row.
 
 ## Blocked, deliberately
 
