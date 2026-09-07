@@ -8,13 +8,19 @@ certificate is enough for Store submission because the Store re-signs on
 publish, so the unsigned package here is the deliverable, not a half-finished
 one.
 
-Two things this script refuses to do quietly, both because they fail LATE:
+Two things this script refuses to do, both because they otherwise fail LATE —
+after certification, in front of a paying customer:
 
-  * build if the store-build flag is missing from the PyInstaller output, so a
-    Store package cannot be cut from a direct-download build;
-  * build if the locale catalogues did not make it into the bundle, because a
-    silently monolingual app passes certification and disappoints every
-    non-English user instead.
+  * build unless the bundle carries the STORE variant flag and only that one,
+    so a Store package cannot be cut from a direct-download build that would
+    demand a licence key the buyer was never issued;
+  * build unless every locale catalogue the app declares in app/i18n.py is in
+    the bundle. Non-empty is not the bar: a partial set certifies cleanly and
+    then falls back to English for the locales it is missing.
+
+Both guards read the BUNDLE, not the source tree. The source tree is where the
+flag was set; the bundle is what ships, and the two diverge whenever someone
+sets a variant and forgets that the flag is read at build time.
 """
 from __future__ import annotations
 
@@ -33,6 +39,13 @@ for _stream in (sys.stdout, sys.stderr):
             pass
 
 project_root = Path(__file__).parent.parent
+
+# The declared locale list and the variant flag names both live in the app, so
+# that this script cannot drift from what the app actually ships.
+sys.path.insert(0, str(project_root))
+from app.i18n import LOCALE_CODES  # noqa: E402
+from app.core.build_variant import FLAGS as VARIANT_FLAGS  # noqa: E402
+
 dist_dir = project_root / "dist"
 pyinstaller_output = dist_dir / "Dawnlist"
 staging_dir = project_root / "build" / "msix_staging"
@@ -111,18 +124,49 @@ def verify_bundle() -> None:
     if not exe.exists():
         fail(f"{exe} not found in the PyInstaller output")
 
-    locales = pyinstaller_output / "_internal" / "app" / "resources" / "locales"
+    bundled_resources = pyinstaller_output / "_internal" / "app" / "resources"
+
+    locales = bundled_resources / "locales"
     catalogues = sorted(locales.glob("*.json")) if locales.exists() else []
     if not catalogues:
         fail("no locale catalogues in the bundle — the app would be silently "
              "monolingual. Check the `datas` entry in build_exe.spec.")
-    print(f"  {len(catalogues)} locale catalogues in the bundle")
 
-    flag = pyinstaller_output / "_internal" / "app" / "resources" / "store_build.flag"
-    if not flag.exists():
-        print("  note: store_build.flag is absent, so this packages the "
-              "DIRECT-DOWNLOAD variant. Create the flag and rebuild before "
-              "submitting to the Store.", file=sys.stderr)
+    # Non-empty is not the bar. A partial set passes certification and then
+    # falls back to English for every locale it is missing, which nobody
+    # notices until a user in that locale complains. Compare against the
+    # declared list, not against zero.
+    expected = set(LOCALE_CODES)
+    bundled = {path.stem for path in catalogues}
+    missing = sorted(expected - bundled)
+    if missing:
+        fail(f"{len(bundled)} of {len(expected)} locale catalogues in the "
+             f"bundle — missing {', '.join(missing)}. The app declares these "
+             f"in app/i18n.py and would silently fall back to English.")
+    print(f"  {len(bundled)} of {len(expected)} locale catalogues in the bundle")
+
+    # The variant is read from the BUNDLE, not the source tree: the source
+    # tree is what the flag was set in, the bundle is what ships. Refusing
+    # here is the whole point — an MSIX is a Store artefact, and one cut from
+    # a direct-download build would ask a paying customer for a licence key
+    # they were never given.
+    present = [name for name, flag in VARIANT_FLAGS.items()
+               if (bundled_resources / flag).exists()]
+    if present == ["store"]:
+        print("  variant: store")
+    elif not present:
+        fail("no build-variant flag in the bundle. Run "
+             "`python tools/set_build_variant.py store` and rebuild — the "
+             "flag is read at BUILD time, so setting it now is not enough.")
+    elif len(present) > 1:
+        fail(f"ambiguous build variant — {', '.join(present)} are all in the "
+             f"bundle. Run `python tools/set_build_variant.py store`, which "
+             f"deletes the others, and rebuild.")
+    else:
+        fail(f"this is the {present[0].upper()} build, not the store build. "
+             f"An MSIX cut from it would gate a Store purchase behind a "
+             f"licence key. Run `python tools/set_build_variant.py store` "
+             f"and rebuild.")
 
 
 def main() -> int:

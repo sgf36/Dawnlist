@@ -24,8 +24,15 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "store" / "screenshots"
 
-#: 1366x768 logical at 1.25 display scaling. Above the Store minimum, and 16:9
-#: to three decimal places — a ratio that is merely close gets letterboxed.
+#: 1366x768 logical at 1.25 display scaling, so the files land at 2135x1200 —
+#: well above the Store's 1366x768 minimum, which is the only dimension rule
+#: the Store actually documents for desktop screenshots.
+#:
+#: 2135x1200 is 1.779, and true 16:9 is 1.778. Earlier text here claimed this
+#: was "16:9 to three decimal places" and that a near-miss ratio gets
+#: letterboxed; neither was verified and the first is arithmetically wrong.
+#: The size is left alone because the layouts are tuned at 1708x960 and the
+#: Store imposes no ratio — but do not restate the 16:9 claim.
 SIZE = (1708, 960)
 
 CAPTIONS = {

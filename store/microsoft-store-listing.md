@@ -180,9 +180,11 @@ job hunt
 
 ## Screenshots
 
-Minimum one, up to ten. **1366 × 768 or larger, 16:9.** Take them from the real
-app, not a mockup — and open every one at full size before uploading. A passing
-export proves the file was written, nothing more.
+Minimum one, up to ten. **PNG, 1366 × 768 or larger.** That minimum is the only
+dimension rule the Store documents for desktop screenshots — it imposes no
+aspect ratio. Take them from the real app, not a mockup — and open every one at
+full size before uploading. A passing export proves the file was written,
+nothing more.
 
 | # | File | Caption |
 |---|---|---|
@@ -194,8 +196,12 @@ export proves the file was written, nothing more.
 | 6 | `06-rules.png` | Screening you control, and it refuses a rule that would hide a real role |
 
 `tools/render_store.py` produces all six in one pass, into `store/screenshots/`
-at **2135×1200** — 16:9, comfortably above the 1366×768 minimum. Captions are
+at **2135×1200**, comfortably above the 1366×768 minimum. Captions are
 repeated in `store/screenshots/CAPTIONS.md` so the upload order is unambiguous.
+
+An earlier version of this line called that size 16:9. It is 1.779 against
+16:9's 1.778 — close, but the claim was wrong and nothing required it to be
+true, so it is gone rather than rounded.
 
 **There is deliberately no screenshot of a draft**, though an earlier version of
 this table promised one. Drafts are `.eml` files opened in the user's own mail
@@ -268,11 +274,65 @@ Honest as written; thin as an experience.
 
 ## Before submitting
 
-- [ ] Confirm the reserved identity matches `AppxManifest.xml` exactly
-- [ ] Create `app/resources/store_build.flag`, then rebuild — otherwise you are
-      shipping the direct-download variant to the Store
-- [ ] Rebuild the MSIX and check `--doctor` reports 50 of 50 catalogues
-- [ ] Sign the package (self-signed is enough; the Store re-signs on publish)
-- [ ] Run WACK and clear everything it raises
-- [ ] Privacy policy live at the URL given
-- [ ] Re-run the free trademark first-pass — a clean result has a shelf life
+Done and verified on 2026-09-07, against the artefact rather than the build log:
+
+- [x] Store variant set and **bundled** — `dist/Dawnlist.msix` contains exactly
+      one variant flag, `store_build.flag`, read straight out of the package
+- [x] 50 of 50 locale catalogues in the package
+- [x] All six manifest-referenced assets present in `Assets/`
+- [x] The built exe's `--doctor` reports `frozen`, `build variant: store`,
+      `catalogues: 50 of 50`, `entitlement: store`
+- [x] Privacy policy live at `https://dawnlist.spencerfields.com/privacy.html`
+      (HTTP 200, and linked from the site footer)
+- [x] Trademark first-pass clean
+
+Still open, and each needs Spencer:
+
+- [ ] **Confirm Partner Center actually reserved `SFields.Dawnlist`.** There is
+      no API that reads a reservation, so this cannot be checked from here. If
+      it differs, correct `Identity Name` in `packaging/msix/AppxManifest.xml`
+      and repack — a mismatch fails ingestion, which surfaces late.
+- [ ] Upload the MSIX and the six screenshots, and paste the listing copy
+- [ ] **WACK: needs an elevated shell.** `appcert.exe` is installed at
+      `C:\Program Files (x86)\Windows Kits\10\App Certification Kit\`.
+
+**Signing is NOT a submission blocker.** Partner Center accepts an unsigned
+`.msix` and re-signs it on publish. A self-signed certificate is only needed to
+*sideload* the package for local testing, and for that there is a simpler route
+that skips MSIX, certificates and elevation entirely — see below.
+
+
+---
+
+## Trying it on your own machine before it is public
+
+**The quickest route needs no package, no certificate and no elevation:** run
+the onedir build directly.
+
+```
+C:\Users\SpencerFields\dawnlist\dist\Dawnlist\Dawnlist.exe
+```
+
+That directory *is* what goes inside the MSIX — same binary, same store
+variant, same 50 catalogues — so it exercises exactly the code that will be
+submitted. Copy the whole `dist\Dawnlist` folder to the laptop and run the exe
+from inside it; it is a onedir build, so the folder must travel intact.
+
+Because it carries the store flag, entitlement is granted by possession and it
+will not ask for a licence key. That is correct for the Store build and correct
+for your own testing.
+
+`Dawnlist.exe --doctor` prints the build variant, the catalogue count and every
+path it uses. Run it first on the laptop: it is the fastest way to confirm the
+copy arrived whole.
+
+**Sideloading the MSIX instead** takes a self-signed certificate whose subject
+matches the manifest Publisher exactly
+(`CN=A7D4B6C0-27D4-4F66-82EB-82F5DD466788`), that certificate trusted on the
+target machine, and an elevated shell. It tests the packaging rather than the
+app, and the Store re-signs on publish anyway — so it is worth doing only when
+you specifically want to prove the MSIX installs.
+
+**The real closed beta is a Partner Center package flight or a private
+audience**, and both require the app to be submitted and through certification
+first. Neither is available until the identity above is confirmed.
