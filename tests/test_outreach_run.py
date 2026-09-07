@@ -213,7 +213,7 @@ def test_a_follow_up_is_told_not_to_reintroduce():
     assert TUE.isoformat() in content, "the date lets it cite the real message"
 
 
-def test_the_rung_reaches_the_draft(conn):
+def test_the_rung_reaches_the_draft(conn, tmp_path):
     """The rung was computed, carried as far as `prepare_drafts`, and then
     dropped — so a third approach used the same instructions as the first."""
     from app.core.board_repo import record_outbound
@@ -229,7 +229,7 @@ def test_the_rung_reaches_the_draft(conn):
 
     items = due_today(conn, today=LATER)
     assert items, "nothing due, so nothing to check"
-    prepare_drafts(conn, items, folder=Path("."), factsheet=FACTS,
+    prepare_drafts(conn, items, folder=tmp_path, factsheet=FACTS,
                    voice=VOICE, send=capture, today=LATER)
     assert "FOLLOW-UP" in seen["content"]
     assert TUE.isoformat() in seen["content"]
