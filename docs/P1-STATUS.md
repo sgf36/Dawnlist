@@ -1,7 +1,7 @@
 # Build status
 
 **Repo:** `C:\Users\SpencerFields\dawnlist`, deliberately **off OneDrive** per handoff Part 9.
-**Tests:** 492 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
+**Tests:** 494 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
 **Last updated:** 2026-09-07 — P1 engine complete; a frozen build runs
 
 ## Done
@@ -114,6 +114,21 @@ is now an actionable row.
 - **Near-duplicate flags are written down.** `dedup` always found them and nothing stored them, so
   `near_duplicates` was the one table the app never touched at all. Both postings still appear —
   flagged, never merged, because merging two real vacancies loses one.
+
+- **A button that said "Applied" in five languages.** "I sent this" gave a translator no
+  referent, so German resolved it to "Beworben" (applied), Italian to "Candidatura inviata", and
+  French, Portuguese and Romanian likewise — on a follow-up, a claim the user never made, in a
+  language they may not be able to check. The English is now "I sent the message", and
+  `tools/translation-notes.json` carries context for keys whose English cannot hold it alone.
+  Two tests keep it honest: one fails if a note names a key that no longer exists, the other if
+  the file ever reaches the build. A spot-check of the other context-dependent keys across eight
+  Latin-script locales came back clean — "Also posted as" correctly took the publish sense, not
+  the postal one.
+
+- **The frozen build and the MSIX are rebuilt** against current source and verified by
+  behaviour, not by the build log: `--doctor` reports 50 of 50 catalogues and the store variant,
+  `--draft` and `--settings` are both present, exit code 2 carries the right message, and the
+  corrected German and Italian strings are readable inside `dist/Dawnlist.msix` itself.
 
 - **All 50 locale catalogues**, at 100% coverage, verified for placeholder parity. `--fill` tops
   up catalogues that fall behind the source, and now falls back to the keyring when
