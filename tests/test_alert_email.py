@@ -180,3 +180,78 @@ def test_parsed_cards_dedup_against_the_feed():
     jobs = parse_html(DIGEST)
     result = dedup(jobs + jobs)
     assert len(result.unique) == 3 and len(result.exact_duplicates) == 3
+
+
+# -- mail-security URL rewriting -------------------------------------------
+SAFELINK = ("https://gbr01.safelinks.protection.outlook.com/?url="
+            "https%3A%2F%2Fwww.linkedin.com%2Fcomm%2Fjobs%2Fview%2F4461835339"
+            "%2F%3FtrackingId%3Dabc&data=05%7C02&reserved=0")
+
+
+def test_a_safelinks_wrapper_is_unwrapped():
+    """Microsoft Defender rewrites EVERY url in mail arriving at a protected
+    tenant. Measured against four real LinkedIn digests: 0 postings parsed,
+    because every href was a safelinks wrapper and the job path was only
+    visible percent-encoded inside it."""
+    from app.feed.alert_email import unwrap_redirect
+    assert unwrap_redirect(SAFELINK).startswith(
+        "https://www.linkedin.com/comm/jobs/view/4461835339")
+
+
+def test_other_mail_filters_unwrap_too():
+    from app.feed.alert_email import unwrap_redirect
+    for host, param in (("protect-eu.mimecast.com", "u"),
+                        ("urldefense.proofpoint.com", "u")):
+        wrapped = (f"https://{host}/s/xyz?{param}="
+                   "https%3A%2F%2Fexample.com%2Fjobs%2Fview%2F99")
+        assert unwrap_redirect(wrapped) == "https://example.com/jobs/view/99"
+
+
+def test_an_ordinary_url_is_untouched():
+    from app.feed.alert_email import unwrap_redirect
+    plain = "https://www.linkedin.com/jobs/view/123/?trk=x"
+    assert unwrap_redirect(plain) == plain
+
+
+def test_nested_wrappers_terminate():
+    """Two filters in the path wrap the wrapper. Bounded, or a malformed link
+    hangs the parse."""
+    from app.feed.alert_email import unwrap_redirect
+    inner = "https%3A%2F%2Fexample.com%2Fjobs%2Fview%2F1"
+    once = f"https://protect-eu.mimecast.com/s/a?u={inner}"
+    twice = ("https://gbr01.safelinks.protection.outlook.com/?url="
+             + once.replace(":", "%3A").replace("/", "%2F").replace("?", "%3F")
+                   .replace("=", "%3D"))
+    assert unwrap_redirect(twice) == "https://example.com/jobs/view/1"
+
+
+def test_a_comm_link_is_a_posting_not_chrome():
+    """`/comm/` was in the chrome exclusion list, and EVERY real LinkedIn digest
+    job link is `linkedin.com/comm/jobs/view/<id>` — so the filter killed
+    precisely the links it exists to find."""
+    from app.feed.alert_email import _looks_like_a_posting
+    assert _looks_like_a_posting(
+        "https://www.linkedin.com/comm/jobs/view/4461835339/")
+
+
+def test_the_digests_own_furniture_is_not_a_posting():
+    """"Your job alert for ..." and "Manage job alerts" link to the same job
+    paths as the cards and survive every URL test."""
+    from app.feed.alert_email import parse_html
+    html = ('<a href="https://www.linkedin.com/comm/jobs/view/1/">'
+            'Your job alert for ("asset management")</a><p>x</p>'
+            '<a href="https://www.linkedin.com/comm/jobs/view/2/">'
+            'Manage job alerts</a><p>y</p>'
+            '<a href="https://www.linkedin.com/comm/jobs/view/3/">'
+            'Head of Asset Management</a><p>Aprirose &middot; London</p>')
+    jobs = parse_html(html, source="test")
+    assert [j.title for j in jobs] == ["Head of Asset Management"]
+
+
+def test_markup_never_reaches_the_employer_field():
+    """Better an empty employer the reader can see than a raw tag."""
+    from app.feed.alert_email import parse_html
+    html = ('<a href="https://www.linkedin.com/comm/jobs/view/9/">'
+            'Senior Asset Manager</a><h2 class="text-md">not a company</h2>')
+    for job in parse_html(html, source="test"):
+        assert "<" not in job.company and ">" not in job.company

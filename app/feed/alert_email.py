@@ -31,7 +31,7 @@ import mailbox
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse, urlunparse
+from urllib.parse import parse_qs, unquote, urlparse, urlunparse
 
 from app.feed.models import Job
 
@@ -52,11 +52,24 @@ MEANINGFUL_PARAMS = {"jk", "jobid", "job_id", "id", "currentjobid", "vjk",
 _CHROME = re.compile(
     r"(unsubscribe|/settings|/help|/legal|/privacy|/preferences|mailto:|"
     r"/feed/?$|/notifications|facebook\.com|twitter\.com|x\.com|"
-    r"instagram\.com|linkedin\.com/company/|/comm/)", re.I)
+    r"instagram\.com|linkedin\.com/company/)", re.I)
+# `/comm/` was in this list and had to come out: EVERY real LinkedIn digest job
+# link is `linkedin.com/comm/jobs/view/<id>`, so the chrome filter was killing
+# precisely the links it exists to find. Chrome is already excluded by the
+# specific paths above plus the requirement that _JOB_PATH match.
 
 _JOB_PATH = re.compile(
     r"(/jobs?/view/|/viewjob|/job/|/jobs/|/vacancy/|/careers?/|/rc/clk|"
     r"/job-details|/apply/|/opportunit)", re.I)
+
+#: The digest's own furniture links to the same job paths as the postings do —
+#: the "Your job alert for ..." header and the "Manage job alerts" footer both
+#: survive every URL test. They differ in their TITLE, which is where they are
+#: caught. Found against four real digests, where they produced two rows whose
+#: company field was raw HTML.
+_CHROME_TITLE = re.compile(
+    r"^\s*(your job alert|manage job alert|see all job|view all job|"
+    r"job alert|unsubscribe|update your)", re.I)
 
 _TAG = re.compile(r"<[^>]+>")
 _WS = re.compile(r"[ \t ]+")
@@ -75,8 +88,48 @@ class ParsedAlert:
         return self.error is None
 
 
+#: Mail-security rewriters that wrap the real link in a redirect. The original
+#: sits percent-encoded in a query parameter.
+#:
+#: Microsoft Defender for Office 365 rewrites EVERY url in mail arriving at a
+#: protected tenant. Measured against four real LinkedIn digests from Spencer's
+#: Exchange account: 0 postings parsed, because the parser looked for
+#: `linkedin.com/jobs/view/<id>` and every href was a
+#: `gbr01.safelinks.protection.outlook.com` wrapper. The feature worked on
+#: fixtures and would have failed for him on every single email — and the error
+#: blamed his file ("is this a job-alert email?") rather than naming the cause.
+REDIRECT_WRAPPERS = {
+    "safelinks.protection.outlook.com": "url",     # Microsoft Defender
+    "protect-eu.mimecast.com": "u",                # Mimecast
+    "urldefense.proofpoint.com": "u",              # Proofpoint
+    "clicktime.symantec.com": "u",                 # Symantec
+}
+
+
+def unwrap_redirect(url: str, _depth: int = 0) -> str:
+    """The real destination behind a mail-security redirect.
+
+    Recursive, but bounded: a wrapper can wrap a wrapper when mail crosses two
+    filters, and an unbounded loop on a malformed link would hang the parse.
+    """
+    if _depth > 3:
+        return url
+    try:
+        parts = urlparse(url)
+    except ValueError:
+        return url
+    host = (parts.netloc or "").lower()
+    for wrapper, param in REDIRECT_WRAPPERS.items():
+        if host.endswith(wrapper) or wrapper in host:
+            inner = parse_qs(parts.query).get(param)
+            if inner and inner[0]:
+                return unwrap_redirect(unquote(inner[0]), _depth + 1)
+    return url
+
+
 def canonical_url(url: str) -> str:
     """Strip per-send tracking, keep what identifies the posting."""
+    url = unwrap_redirect(url)
     try:
         parts = urlparse(url)
     except ValueError:
@@ -151,9 +204,15 @@ def parse_html(body_html: str, *, source: str = "") -> list[Job]:
     seen: set[str] = set()
 
     for url, title, tail in _anchor_blocks(body_html):
+        # Unwrap BEFORE testing: a Safe Links wrapper carries the real path
+        # percent-encoded in a query parameter, so `/jobs/view/` is not visible
+        # to any pattern until the wrapper is removed.
+        url = unwrap_redirect(url)
         if not _looks_like_a_posting(url) or not title:
             continue
         if len(title) < 3 or re.match(r"^(view|apply|see|more)\b", title, re.I):
+            continue
+        if _CHROME_TITLE.match(title):
             continue
 
         provider_job_id = job_id_for(url)
@@ -162,6 +221,10 @@ def parse_html(body_html: str, *, source: str = "") -> list[Job]:
         seen.add(provider_job_id)
 
         company, location = _company_and_location(tail)
+        # Markup in the company field means the surrounding block did not parse
+        # as a card. Better an empty employer the reader can see than a tag.
+        if "<" in company or ">" in company:
+            company = ""
         jobs.append(Job(
             provider=PROVIDER,
             provider_job_id=provider_job_id,

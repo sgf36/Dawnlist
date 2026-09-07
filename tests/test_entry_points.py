@@ -889,12 +889,18 @@ def test_the_calibration_sample_is_a_real_pull(conn, monkeypatch):
     assert items[0].title.startswith("Head of Strategy")
 
 
-def test_no_searches_means_no_sample(conn):
-    """And the gate then reports a setup failure rather than an impossible ask."""
-    from app.core.rules import RuleTable
+def test_no_searches_means_no_sample(conn, tmp_path, monkeypatch):
+    """And the gate then reports a setup failure rather than an impossible ask.
+
+    `alerts_dir` is redirected because the default is the REAL app-data folder:
+    without this the test reads whatever alert emails the developer happens to
+    have on disk, and passes or fails on their mail rather than on the code.
+    """
+    import app.main as main
     from app.main import calibration_sample
     from app.onboarding.calibration import CalibrationResult
 
+    monkeypatch.setattr(main, "alerts_dir", lambda: tmp_path / "no-alerts-here")
     items = calibration_sample(conn, provider=Stub([]), send=verdicts("strong"))
     assert items == []
     reasons = CalibrationResult(items=items).blocking_reasons()
