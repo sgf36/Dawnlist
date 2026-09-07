@@ -49,9 +49,35 @@ Rules:
 - "Dawnlist" is a product name: do not translate it, but transliterate it if
   the target script is non-Latin.
 - Use the register a professional desktop application would use in {language}.
-
+{notes}
 Catalogue:
 {catalogue}"""
+
+#: Beside the tool, not in `app/resources`: it is a build-time input the model
+#: reads, never a runtime resource, and a file sitting in resources that the
+#: PyInstaller spec does not bundle is an invitation to assume it ships.
+NOTES_PATH = Path(__file__).resolve().parent / "translation-notes.json"
+
+
+def context_for(keys) -> str:
+    """The notes block for the keys being translated, or "" when none apply.
+
+    A UI string is translated with no screen around it, so a key whose meaning
+    depends on anything outside the string will drift. "I sent this" came back
+    as "Beworben" (applied) in German and "Candidatura inviata" in Italian:
+    five of ten locales narrowed a button that records ANY outbound message
+    into one about job applications, and nothing in the string said otherwise.
+    """
+    if not NOTES_PATH.exists():
+        return ""
+    notes = json.loads(NOTES_PATH.read_text(encoding="utf-8"))
+    relevant = {k: v for k, v in notes.items()
+                if k in keys and not k.startswith("_")}
+    if not relevant:
+        return ""
+    lines = "\n".join(f"  {k}: {v}" for k, v in sorted(relevant.items()))
+    return ("\nContext for particular keys — where the string appears, and "
+            "what it must not be narrowed to:\n" + lines + "\n")
 
 
 def make_client():
@@ -97,7 +123,7 @@ def translate(client, language: str, code: str, keys: dict) -> dict | None:
     resp = client.messages.create(
         model=MODEL, max_tokens=16000,
         messages=[{"role": "user", "content": PROMPT.format(
-            language=language, code=code,
+            language=language, code=code, notes=context_for(keys),
             catalogue=json.dumps(keys, ensure_ascii=False, indent=2))}],
         output_config={"format": {
             "type": "json_schema",
@@ -212,6 +238,7 @@ def main() -> int:
     failures = []
     for code, name in targets:
         prompt = PROMPT.format(language=name, code=code,
+                               notes=context_for(english),
                                catalogue=json.dumps(english, ensure_ascii=False,
                                                     indent=2))
         resp = client.messages.create(

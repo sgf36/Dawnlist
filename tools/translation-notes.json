@@ -1,0 +1,36 @@
+{
+  "_readme": [
+    "Context for keys whose English cannot carry it alone. Fed to the model by",
+    "tools/translate_catalog.py alongside the catalogue.",
+    "",
+    "This exists because 'I sent this' came back as 'Beworben' (applied) in",
+    "German and 'Candidatura inviata' in Italian: five of ten locales narrowed",
+    "a button that records ANY outbound touch into one that records a job",
+    "application. The English was under-specified and the translator had no",
+    "way to know. Fixing the English fixed that one; this file is for the",
+    "cases where no English phrasing short enough for a button can carry the",
+    "whole meaning.",
+    "",
+    "Add an entry when a key's meaning depends on something not visible in the",
+    "string. Not needed for ordinary labels — this is a cost per key, so keep",
+    "it to the ones that would otherwise drift.",
+    "",
+    "Keys here are NOT part of the catalogue and are never shown to a user.",
+    "The leading underscore keeps this note out of the notes themselves."
+  ],
+
+  "board.mark_sent": "A button. Records that the user sent an outbound message of ANY kind - a first approach, a follow-up, or a posted letter. Do NOT narrow it to a job application: it is used for every rung of the follow-up sequence.",
+
+  "rules.unsupported": "A column heading over a list of job-title words that rule a posting out. The user's own voice, addressed to the app.",
+  "rules.strong": "A column heading over a list of words that guarantee a posting is read. Pairs with 'Never show me' as its opposite.",
+  "rules.contextual": "A column heading. 'the title' means the job title of a posting, not the title of a document or a person's honorific.",
+
+  "detail.near_duplicate": "Introduces another job posting that looks like the same vacancy. Followed by a job title and a company name. 'Posted' here means published as a job advert, not sent by post.",
+
+  "settings.key_forget": "A button that deletes the stored API key from the operating system's credential manager. Not 'forget' in the sense of a person forgetting.",
+
+  "funnel.swept": "A count of job postings fetched from the job-data provider this morning. 'Swept' as in gathered up, not as in cleaned.",
+  "funnel.gated": "A count of postings excluded before any reading, because the user had already permanently rejected them.",
+
+  "tab.needs_review": "A tab holding postings the screen killed on a term that matched INSIDE a longer job title - so the kill may be wrong and wants a human look."
+}

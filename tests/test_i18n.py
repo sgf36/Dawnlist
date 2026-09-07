@@ -125,3 +125,30 @@ def test_a_placeholder_may_be_called_anything_else_awkward():
     sig = inspect.signature(i18n.tr)
     first = list(sig.parameters.values())[0]
     assert first.kind is inspect.Parameter.POSITIONAL_ONLY
+
+
+def test_every_translation_note_names_a_real_key():
+    """Notes rot silently: rename a key and its note keeps being sent to the
+    model for a string that no longer exists, while the key that replaced it
+    goes out with no context at all."""
+    import json
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    notes = json.loads((root / "tools" / "translation-notes.json")
+                       .read_text(encoding="utf-8"))
+    english = json.loads((root / "app" / "resources" / "locales" / "en.json")
+                         .read_text(encoding="utf-8"))
+
+    stale = [k for k in notes if not k.startswith("_") and k not in english]
+    assert stale == [], f"notes for keys that no longer exist: {stale}"
+
+
+def test_the_notes_file_is_not_shipped():
+    """It is a build-time input. Bundling it would put developer prose in the
+    installed app for no reason."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    spec = (root / "packaging" / "build_exe.spec").read_text(encoding="utf-8")
+    assert "translation-notes" not in spec
+    assert not (root / "app" / "resources" / "translation-notes.json").exists()
