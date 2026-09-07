@@ -51,6 +51,44 @@ if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
         pass
 
 
+
+def _company_name(row: dict) -> str:
+    """The employer's NAME, whatever shape the row carries it in.
+
+    The API and the bulk dataset disagree about `company`, and the disagreement
+    is silent. In the dataset it is a JSON-ENCODED STRING of the whole company
+    record — id, domain, funding, the lot — so `row["company"]` is truthy, is a
+    `str`, and passes every "did we get a company" check while being 700 to
+    2,200 characters of JSON.
+
+    Measured against a real 2,000-row sample: every single row would have shown
+    that blob as the employer. It would have reached the board, the company
+    column, `known_employers`, kill-family matching, the dedup name key, and
+    the drafting prompt's "Company:" line.
+
+    So: the flat `company_name` first, then a parsed object, then a JSON string
+    that has to be decoded, and only then whatever was there.
+    """
+    import json
+
+    flat = row.get("company_name")
+    if isinstance(flat, str) and flat.strip():
+        return flat.strip()
+
+    company = row.get("company") or row.get("company_object")
+    if isinstance(company, dict):
+        return str(company.get("name") or "").strip()
+    if isinstance(company, str):
+        text = company.strip()
+        if text.startswith("{"):
+            try:
+                return str(json.loads(text).get("name") or "").strip()
+            except (ValueError, AttributeError):
+                return ""
+        return text
+    return ""
+
+
 class TheirStackProvider(FeedProvider):
     name = "theirstack"
 
@@ -145,8 +183,7 @@ class TheirStackProvider(FeedProvider):
                            credits_estimate=len(jobs))
 
     def _to_job(self, row: dict) -> Job:
-        company = (row.get("company")
-                   or (row.get("company_object") or {}).get("name") or "")
+        company = _company_name(row)
         title = row.get("job_title") or ""
         locations = [x for x in (row.get("location"),
                                  row.get("short_location"),

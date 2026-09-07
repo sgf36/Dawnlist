@@ -73,3 +73,48 @@ def test_would_wait_reports_without_sleeping(monkeypatch):
     before = clock.now
     assert rl.would_wait() > 0
     assert clock.now == before, "would_wait must never sleep"
+
+
+# -- the employer's name, whichever shape the row carries ------------------
+def test_the_flat_company_name_is_preferred():
+    from app.feed.theirstack import _company_name
+    assert _company_name({"company_name": "NOVALAND",
+                          "company": '{"name": "wrong"}'}) == "NOVALAND"
+
+
+def test_a_json_encoded_company_is_decoded():
+    """Measured against a real 2,000-row dataset sample: `company` is a JSON
+    STRING there, so it is truthy, is a `str`, and passes every "did we get a
+    company" check while being 700-2,200 characters of JSON. Every row would
+    have shown that blob as the employer — on the board, in the company column,
+    in `known_employers`, in kill-family matching, in the dedup name key and in
+    the drafting prompt."""
+    from app.feed.theirstack import _company_name
+    blob = ('{"id":"7f90671786a91654d52153aaa5af5124","name":"NOVALAND",'
+            '"domain":"tuyendung.novaland.com.vn","employee_count":2100}')
+    assert _company_name({"company": blob}) == "NOVALAND"
+
+
+def test_a_company_object_still_works():
+    """The API shape, which must not regress."""
+    from app.feed.theirstack import _company_name
+    assert _company_name({"company": {"name": "Acme Hotels"}}) == "Acme Hotels"
+    assert _company_name({"company_object": {"name": "Acme"}}) == "Acme"
+
+
+def test_a_plain_company_string_is_kept():
+    from app.feed.theirstack import _company_name
+    assert _company_name({"company": "Acme Hotels"}) == "Acme Hotels"
+
+
+def test_unparseable_json_yields_nothing_rather_than_a_blob():
+    """Better an empty employer the audit will flag than 2kB of JSON on the
+    board."""
+    from app.feed.theirstack import _company_name
+    assert _company_name({"company": '{"name": broken'}) == ""
+
+
+def test_a_missing_company_is_empty():
+    from app.feed.theirstack import _company_name
+    assert _company_name({}) == ""
+    assert _company_name({"company": None, "company_name": "  "}) == ""
