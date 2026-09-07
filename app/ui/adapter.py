@@ -188,6 +188,19 @@ def connect_window(window, conn: sqlite3.Connection) -> None:
 
 
 def latest_run_id(conn: sqlite3.Connection) -> int | None:
+    """The most recent run that actually swept anything.
+
+    Deliberately not MAX(id): a run row is opened by any run that produces
+    outputs, an outreach run included, and those sweep no jobs. Taking the
+    newest row regardless would empty the review window every time the user
+    drafted their outreach — the shortlist would vanish for no visible reason.
+    """
+    row = conn.execute(
+        "SELECT MAX(id) AS id FROM runs WHERE swept > 0").fetchone()
+    if row and row["id"] is not None:
+        return row["id"]
+    # No run has swept yet: fall back to the newest, so a first run that
+    # fetched nothing still shows its (empty) result rather than nothing at all.
     row = conn.execute("SELECT MAX(id) AS id FROM runs").fetchone()
     return row["id"] if row and row["id"] is not None else None
 

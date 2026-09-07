@@ -582,3 +582,85 @@ def test_a_term_that_both_kills_and_saves_is_not_proposed(conn):
     reject_all(conn, [kier("a", "Site Engineer"), kier("b", "Senior Site Engineer")])
     refresh_kill_family_proposals(conn)
     assert load_rules(conn).kill_families == []
+
+
+# -- housekeeping that never ran --------------------------------------------
+def test_a_run_prunes_the_rolling_seen_window(conn, monkeypatch):
+    """`seen_jobs` is a rolling window, not a record: rejections live in
+    `decisions`, which never expires. Nothing pruned it, so the table grew for
+    the life of the install and every run rebuilt a larger already-seen set."""
+    from datetime import datetime, timedelta, timezone
+    from app.core import db
+    from app.main import morning_run
+
+    old = (datetime.now(timezone.utc) - timedelta(days=400)).isoformat(timespec="seconds")
+    conn.execute("INSERT INTO seen_jobs(provider, provider_job_id, seen_at) "
+                 "VALUES('theirstack','ancient',?)", (old,))
+    conn.commit()
+    assert conn.execute("SELECT COUNT(*) FROM seen_jobs").fetchone()[0] == 1
+
+    save_document(conn, "fit_brief", "b")
+    save_document(conn, "factsheet", FACTS)
+    from app.onboarding.calibration import CALIBRATION_KEY
+    conn.execute("INSERT INTO settings(key, value) VALUES(?, 'done')",
+                 (CALIBRATION_KEY,))
+    conn.execute("INSERT INTO queries(label, params_json, enabled, created_at) "
+                 "VALUES('q','{\"titles\":[\"strategy\"]}',1,'x')")
+    conn.commit()
+    monkeypatch.setattr("app.core.entitlement.require", lambda c: None)
+
+    morning_run(conn, provider=Stub([]), send=verdicts("strong"))
+    rows = conn.execute("SELECT provider_job_id FROM seen_jobs").fetchall()
+    assert "ancient" not in [r[0] for r in rows], "the stale entry survived"
+
+
+def test_a_draft_is_registered_against_a_run(conn, tmp_path, monkeypatch):
+    """Invariant 13: an output cannot exist without the run that produced it.
+    The FK was there and nothing ever opened a run around the writing."""
+    from app.core.board_repo import create_opportunity
+    from app.main import outreach_run
+
+    monkeypatch.setattr("app.core.entitlement.require", lambda c: None)
+    save_document(conn, "factsheet", FACTS)
+    oid = create_opportunity(conn, "Acme")
+    conn.execute("INSERT INTO contacts(opportunity_id,name,email,created_at) "
+                 "VALUES(?,?,?,?)", (oid, "Jo", "jo@example.com", "x"))
+    conn.commit()
+
+    outreach_run(conn, send=lambda r: BODY, today=TUE, folder=tmp_path)
+    registered = conn.execute(
+        "SELECT path, kind FROM run_outputs").fetchall()
+    assert len(registered) == 1
+    assert registered[0]["kind"] == "draft"
+    assert registered[0]["path"].endswith(".eml")
+
+
+def test_an_unregistered_file_is_reported_as_an_orphan(conn, tmp_path):
+    from app.core import db
+    folder = tmp_path / "drafts"          # not tmp_path: the db lives there
+    folder.mkdir()
+    (folder / "stray.eml").write_text("hand-written", encoding="utf-8")
+    orphans = db.orphan_outputs(conn, folder)
+    assert [p.name for p in orphans] == ["stray.eml"]
+
+
+def test_drafting_does_not_empty_the_review_window(conn, tmp_path, monkeypatch):
+    """An outreach run opens a run row and sweeps nothing. Taking the newest
+    row regardless would empty the shortlist every time the user drafted."""
+    from app.core.board_repo import create_opportunity
+    from app.main import outreach_run
+
+    a_run(conn, [Job(provider="theirstack", provider_job_id="a",
+                     title="Head of Strategy", company="Acme",
+                     description_text="Strategy.")])
+    assert len(rows_from_db(conn)) == 1
+
+    monkeypatch.setattr("app.core.entitlement.require", lambda c: None)
+    save_document(conn, "factsheet", FACTS)
+    oid = create_opportunity(conn, "Beta")
+    conn.execute("INSERT INTO contacts(opportunity_id,name,email,created_at) "
+                 "VALUES(?,?,?,?)", (oid, "Jo", "jo@example.com", "x"))
+    conn.commit()
+    outreach_run(conn, send=lambda r: BODY, today=TUE, folder=tmp_path)
+
+    assert len(rows_from_db(conn)) == 1, "the shortlist vanished after drafting"

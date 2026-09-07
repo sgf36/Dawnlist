@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+from app.core import db
 from app.core.board_repo import load_board, load_touches
 from app.core.cadence import Channel, NextStep, next_step
 from app.core.tracker import JobCategory, Opportunity
@@ -156,57 +157,64 @@ def prepare_drafts(conn: sqlite3.Connection, items: list[DueItem], *,
     report = OutreachReport()
     today = today or date.today()
 
-    for item in items:
-        report.due.append(item)
-        if not item.actionable:
-            report.blocked.append(item)
-            continue
+    # Invariant 13: an output cannot exist without the run that produced it.
+    # The FK is what makes an unregistered draft impossible, and it was never
+    # exercised because nothing opened a run around the writing.
+    with db.run(conn) as run:
+        for item in items:
+            report.due.append(item)
+            if not item.actionable:
+                report.blocked.append(item)
+                continue
 
-        opp, contact = item.opportunity, item.contact
-        touches = load_touches(conn, opp.id)
-        sent = [t.occurred_on for t in touches if t.is_evidenced_outbound]
-        brief = DraftBrief(
-            recipient_name=contact.name,
-            recipient_role="",
-            company=opp.company,
-            posting_title="",
-            locale=locale,
-            # The rung was already computed and carried this far, and was then
-            # dropped on the floor — so a third approach was drafted with the
-            # same instructions as the first.
-            rung=item.step.rung,
-            last_contacted_on=max(sent) if sent else None,
-        )
-        request = build_drafting_request(brief, factsheet, voice)
+            opp, contact = item.opportunity, item.contact
+            touches = load_touches(conn, opp.id)
+            sent = [t.occurred_on for t in touches if t.is_evidenced_outbound]
+            brief = DraftBrief(
+                recipient_name=contact.name,
+                recipient_role="",
+                company=opp.company,
+                posting_title="",
+                locale=locale,
+                # The rung was already computed and carried this far, and was then
+                # dropped on the floor — so a third approach was drafted with the
+                # same instructions as the first.
+                rung=item.step.rung,
+                last_contacted_on=max(sent) if sent else None,
+            )
+            request = build_drafting_request(brief, factsheet, voice)
 
-        try:
-            body = send(request)
-        except Exception as exc:  # noqa: BLE001
-            item.blocked = f"drafting failed: {type(exc).__name__}: {exc}"
-            report.blocked.append(item)
-            continue
+            try:
+                body = send(request)
+            except Exception as exc:  # noqa: BLE001
+                item.blocked = f"drafting failed: {type(exc).__name__}: {exc}"
+                report.blocked.append(item)
+                continue
 
-        if not states_the_ask(body):
-            # spec 9.4. An abstract, commentary-led opening reads as a
-            # consulting pitch — two real recipients read one that way. Rather
-            # than silently sending a draft that misrepresents what he wants,
-            # mark it as needing work.
-            body = ("[[the opening must say plainly that this is an individual "
-                    "exploring roles, not a vendor]]\n\n") + body
+            if not states_the_ask(body):
+                # spec 9.4. An abstract, commentary-led opening reads as a
+                # consulting pitch — two real recipients read one that way. Rather
+                # than silently sending a draft that misrepresents what he wants,
+                # mark it as needing work.
+                body = ("[[the opening must say plainly that this is an individual "
+                        "exploring roles, not a vendor]]\n\n") + body
 
-        thread = thread_key_for(opp, contact)
-        draft = Draft(
-            to_name=contact.name,
-            to_email=contact.email,
-            subject=f"{opp.company}",
-            body=body,
-            thread_key=thread,
-        )
-        previous = live_draft_path(conn, thread, contact.id)
-        path = revise_in_place(draft, folder, previous)
-        _record_draft(conn, opp, contact, thread, path, draft)
-        report.drafts.drafts.append(draft)
+            thread = thread_key_for(opp, contact)
+            draft = Draft(
+                to_name=contact.name,
+                to_email=contact.email,
+                subject=f"{opp.company}",
+                body=body,
+                thread_key=thread,
+            )
+            previous = live_draft_path(conn, thread, contact.id)
+            path = revise_in_place(draft, folder, previous)
+            _record_draft(conn, opp, contact, thread, path, draft)
+            run.register_output(path, kind="draft")
+            report.drafts.drafts.append(draft)
 
+
+        run.record_counts(swept=0)
     return report
 
 

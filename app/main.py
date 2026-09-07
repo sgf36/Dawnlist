@@ -363,6 +363,13 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
         send=send or build_send(conn), gates=gates, already_seen=seen,
     )
     persist(conn, outcome)
+
+    # `seen_jobs` is a rolling window, not a permanent record — rejections live
+    # in `decisions`, which never expires. Nothing pruned it, so the table grew
+    # for the life of the install and every run rebuilt a larger and larger
+    # already-seen set to compare against.
+    db.prune_seen(conn)
+
     if not outcome.fetch_errors:
         # Only advance the delta mark on a clean fetch. Advancing it after a
         # failure would skip the window the failed run never actually read.
@@ -650,6 +657,16 @@ def _doctor(conn) -> int:
     print(f"calibrated    : {is_calibrated(conn)}")
     print(f"queries       : {len(load_queries(conn))}")
     print(f"fit brief     : {'yes' if load_document(conn, 'fit_brief') else 'no'}")
+
+    # Invariant 13 from the other side: a file on disk that no run produced.
+    # Reported rather than deleted — an unregistered draft may be the only copy
+    # of something the user wrote, and this is a diagnostic, not a tidy-up.
+    orphans = db.orphan_outputs(conn, drafts_dir())
+    print(f"orphan drafts : {len(orphans)}")
+    for path in orphans[:5]:
+        print(f"  unregistered: {path.name}")
+    if len(orphans) > 5:
+        print(f"  ... and {len(orphans) - 5} more")
     return 0 if shipped else 1
 
 
