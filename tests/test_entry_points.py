@@ -664,3 +664,119 @@ def test_drafting_does_not_empty_the_review_window(conn, tmp_path, monkeypatch):
     outreach_run(conn, send=lambda r: BODY, today=TUE, folder=tmp_path)
 
     assert len(rows_from_db(conn)) == 1, "the shortlist vanished after drafting"
+
+
+# -- job-alert emails, which the listing promises ---------------------------
+DIGEST = """From: LinkedIn Job Alerts <jobs-noreply@example.com>
+Subject: 3 new jobs for asset manager
+Content-Type: text/html; charset="utf-8"
+
+<html><body>
+<a href="https://example.com/jobs/view/111/?trk=x">Head of Asset Management</a>
+<p>Meridian Group &middot; London</p>
+<a href="https://example.com/jobs/view/222/?trk=y">Night Auditor</a>
+<p>Acme Hotels &middot; London</p>
+</body></html>
+"""
+
+
+def a_configured_db(conn, monkeypatch):
+    from app.onboarding.calibration import CALIBRATION_KEY
+    save_document(conn, "fit_brief", "Asset management in London.")
+    save_document(conn, "factsheet", FACTS)
+    conn.execute("INSERT INTO settings(key, value) VALUES(?, 'done')",
+                 (CALIBRATION_KEY,))
+    conn.commit()
+    monkeypatch.setattr("app.core.entitlement.require", lambda c: None)
+
+
+def test_a_dropped_digest_becomes_shortlist_rows(conn, tmp_path, monkeypatch):
+    """The listing promises "add job-alert emails yourself for anything the
+    feeds miss". `parse_many` was complete, tested, and reachable from
+    nowhere."""
+    from app.main import ingest_alerts
+
+    a_configured_db(conn, monkeypatch)
+    path = tmp_path / "alert.eml"
+    path.write_text(DIGEST, encoding="utf-8")
+
+    outcome, problems = ingest_alerts(conn, [path], send=verdicts("strong"))
+    assert outcome is not None, problems
+    titles = {r.title for r in rows_from_db(conn)}
+    assert "Head of Asset Management" in titles
+
+
+def test_alerts_need_no_saved_queries(conn, tmp_path, monkeypatch):
+    """These postings did not come from a query, so requiring one would block
+    exactly the case the feature exists for."""
+    from app.main import ingest_alerts, load_queries
+
+    a_configured_db(conn, monkeypatch)
+    assert load_queries(conn) == []
+    path = tmp_path / "alert.eml"
+    path.write_text(DIGEST, encoding="utf-8")
+    outcome, _ = ingest_alerts(conn, [path], send=verdicts("strong"))
+    assert outcome is not None
+
+
+def test_alerts_do_not_walk_round_the_calibration_gate(conn, tmp_path, monkeypatch):
+    """A gate the user can skip by dragging a file is not a gate."""
+    from app.main import NotConfigured, ingest_alerts
+
+    save_document(conn, "fit_brief", "b")
+    monkeypatch.setattr("app.core.entitlement.require", lambda c: None)
+    path = tmp_path / "alert.eml"
+    path.write_text(DIGEST, encoding="utf-8")
+    with pytest.raises(NotConfigured, match="[Cc]alibration"):
+        ingest_alerts(conn, [path], send=verdicts("strong"))
+
+
+def test_a_previously_rejected_posting_is_not_re_added(conn, tmp_path, monkeypatch):
+    """The permanent-reject gate applies to a dragged posting exactly as it
+    does to a swept one — the whole point of routing both through one path."""
+    from app.main import ingest_alerts
+
+    a_configured_db(conn, monkeypatch)
+    path = tmp_path / "alert.eml"
+    path.write_text(DIGEST, encoding="utf-8")
+    ingest_alerts(conn, [path], send=verdicts("strong"))
+
+    rows = rows_from_db(conn)
+    rejected = rows[0].job_id
+    record_decision(conn, rejected, "reject")
+    assert rejected not in {r.job_id for r in rows_from_db(conn)}
+
+    # Dropping the same digest again must not resurrect it. Suppressed here by
+    # the already-seen set rather than the permanent-reject gate — either is
+    # correct, and asserting the OUTCOME rather than which one fired is what
+    # keeps the test true if the order of the two ever changes.
+    ingest_alerts(conn, [path], send=verdicts("strong"))
+    assert rejected not in {r.job_id for r in rows_from_db(conn)}, (
+        "a rejected posting came back")
+
+
+def test_a_file_with_no_jobs_says_so(conn, tmp_path, monkeypatch):
+    from app.main import ingest_alerts
+    a_configured_db(conn, monkeypatch)
+    path = tmp_path / "not-an-alert.eml"
+    path.write_text("From: a@b\nSubject: hello\n\nplain text", encoding="utf-8")
+    outcome, problems = ingest_alerts(conn, [path], send=verdicts("strong"))
+    assert outcome is None
+    assert problems and "not-an-alert" in problems[0]
+
+
+def test_the_review_window_accepts_only_alert_files(qapp_or_skip):
+    """A window that lights up for any file and then refuses it has already
+    told the user the wrong thing."""
+    from pathlib import Path
+    from PySide6.QtCore import QMimeData, QUrl
+    from app.ui.review import ReviewWindow
+
+    w = ReviewWindow()
+    assert w.acceptDrops()
+
+    mime = QMimeData()
+    mime.setUrls([QUrl.fromLocalFile(str(Path("a.eml").resolve())),
+                  QUrl.fromLocalFile(str(Path("cv.docx").resolve()))])
+    assert [p.suffix for p in w._alert_paths(mime)] == [".eml"]
+    w.close()

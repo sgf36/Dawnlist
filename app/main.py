@@ -315,6 +315,80 @@ def build_send(conn):
     return send
 
 
+
+class AlertProvider:
+    """A feed provider whose postings came from files the user dragged in.
+
+    Wrapping them as a provider means alert digests go through the SAME path as
+    a fetched sweep — dedup, the permanent-reject gate, the screen, assessment,
+    persistence. A second ingestion path would be a second system that drifts
+    from the first, which is the reason the headless run and the windowed run
+    already share everything below the surface.
+    """
+
+    name = "alert"
+
+    def __init__(self, jobs):
+        self._jobs = list(jobs)
+
+    def search(self, query):
+        from app.feed.base import FetchResult
+        return FetchResult(jobs=self._jobs, pages_fetched=1, exhausted=True,
+                           credits_estimate=0)
+
+    def credits_used(self) -> int:
+        return 0            # files cost nothing; only the assessment is billed
+
+
+def ingest_alerts(conn, paths, *, send=None, today: date | None = None):
+    """Add postings from job-alert emails. Returns (outcome, problems).
+
+    Deliberately does NOT require saved queries: these postings did not come
+    from a query. It does require the brief, the calibration gate and an
+    entitlement, exactly as a sweep does — the money is spent on assessment
+    either way, and a gate the user can walk round by dragging a file is not a
+    gate.
+    """
+    from app.feed.alert_email import parse_many
+    from app.onboarding.calibration import is_calibrated
+
+    brief = load_document(conn, "fit_brief")
+    if not brief.strip():
+        raise NotConfigured(
+            "No fit brief yet. Run onboarding first — postings assessed "
+            "against an empty brief produce a shortlist built on nothing.")
+    if not is_calibrated(conn):
+        raise NotConfigured(
+            "Calibration has not been completed. Adding postings by hand does "
+            "not skip the step that transfers your judgement into the brief.")
+
+    from app.core.entitlement import require as require_entitlement
+    require_entitlement(conn)
+
+    jobs, problems = parse_many([Path(p) for p in paths])
+    if not jobs:
+        return None, problems or ["no postings were found in those files"]
+
+    from app.ui.adapter import rejected_keys
+    seen = {(r["provider"], r["provider_job_id"])
+            for r in conn.execute(
+                "SELECT provider, provider_job_id FROM seen_jobs")}
+
+    outcome = run_morning(
+        conn, AlertProvider(jobs),
+        [SearchQuery(label="job alerts", titles=[])],
+        load_rules(conn),
+        fit_brief=brief, factsheet=load_document(conn, "factsheet"),
+        send=send or build_send(conn),
+        gates=[permanent_reject_gate(rejected_keys(conn)),
+               posted_within_gate(DEFAULT_POSTED_WITHIN_DAYS, today=today)],
+        already_seen=seen,
+    )
+    persist(conn, outcome)
+    db.prune_seen(conn)
+    return outcome, problems
+
+
 def morning_run(conn, *, provider=None, send=None, today: date | None = None):
     """One morning run, with the gates the stored state implies."""
     from app.ui.adapter import rejected_keys
@@ -496,6 +570,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="print environment diagnostics and exit")
     parser.add_argument("--draft", action="store_true",
                         help="draft every outreach that is due; sends nothing")
+    parser.add_argument("--add-alerts", nargs="+", metavar="FILE",
+                        help="add postings from saved job-alert emails "
+                             "(.eml or .mbox)")
     parser.add_argument("--settings", action="store_true",
                         help="open settings alone, without the rest of the app")
     parser.add_argument("--onboard", action="store_true",
@@ -547,6 +624,28 @@ def main(argv: list[str] | None = None) -> int:
         # An incomplete run exits non-zero so a scheduler notices. A run that
         # fetched nothing because the endpoint failed must never look like a
         # quiet morning.
+        return 0 if outcome.complete else 1
+
+    if args.add_alerts:
+        from app.core.api_key import KeyProblem
+        from app.core.entitlement import NotEntitled
+
+        try:
+            outcome, problems = ingest_alerts(conn, args.add_alerts)
+        except KeyProblem as exc:
+            print(f"no api key: {exc}", file=sys.stderr)
+            return 4
+        except NotEntitled as exc:
+            print(f"not entitled: {exc}", file=sys.stderr)
+            return 3
+        except NotConfigured as exc:
+            print(f"not configured: {exc}", file=sys.stderr)
+            return 2
+        for problem in problems:
+            print(f"  {problem}", file=sys.stderr)
+        if outcome is None:
+            return 1
+        print_funnel(outcome)
         return 0 if outcome.complete else 1
 
     if args.draft:
@@ -813,6 +912,29 @@ def open_settings(parent=None, conn=None):
     return window
 
 
+def _added_alerts(window, conn, paths) -> None:
+    """Ingest dropped digests, then put the result on screen.
+
+    Reloading is the point: a drop that silently changed the database and left
+    the window showing the previous run would look like nothing happened.
+    """
+    from app.ui.adapter import latest_run_id, rows_from_db
+
+    try:
+        outcome, problems = ingest_alerts(conn, paths)
+    except Exception as exc:  # noqa: BLE001
+        window.funnel.set_counts({}, incomplete_note=str(exc)[:200])
+        return
+
+    note = "; ".join(problems) if problems else ""
+    if outcome is None:
+        window.funnel.set_counts({}, incomplete_note=note or "nothing was added")
+        return
+    window.load(rows_from_db(conn),
+                _stored_funnel(conn, latest_run_id(conn)),
+                incomplete_note=note)
+
+
 def _launch_ui(conn, *, open_board: bool) -> int:
     from PySide6.QtWidgets import QApplication
 
@@ -835,6 +957,8 @@ def _launch_ui(conn, *, open_board: bool) -> int:
     else:
         window = ReviewWindow()
         window.settings_requested.connect(lambda: open_settings(window, conn))
+        window.alerts_dropped.connect(
+            lambda paths: _added_alerts(window, conn, paths))
         connect_window(window, conn)
         # The last run's shortlist, read back from the database rather than
         # held from a run this process did. Opening the app the morning after

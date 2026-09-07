@@ -244,6 +244,10 @@ class FunnelBar(QFrame):
 class ReviewWindow(QMainWindow):
     decided = Signal(str, str)          # (job_id, decision)
     settings_requested = Signal()
+    #: Job-alert emails the user dropped on the window. The listing promises
+    #: "add job-alert emails yourself for anything the feeds miss", and the
+    #: parser for them was complete and reachable from nowhere.
+    alerts_dropped = Signal(list)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -259,6 +263,11 @@ class ReviewWindow(QMainWindow):
         # onboarding can never change their API key, and on a bring-your-own-key
         # app a rotated, revoked or mistyped key then leaves the whole thing
         # inert with nothing on screen that could fix it.
+        # Only .eml and .mbox are accepted, and the check happens on the drag
+        # rather than the drop: a window that lights up for any file and then
+        # refuses it has already told the user the wrong thing.
+        self.setAcceptDrops(True)
+
         self.act_settings = QAction(tr("settings.title"), self)
         self.act_settings.setMenuRole(QAction.MenuRole.PreferencesRole)
         self.act_settings.triggered.connect(self.settings_requested)
@@ -442,6 +451,27 @@ class ReviewWindow(QMainWindow):
         parts.append("<hr>")
         parts.append(f"<div style='white-space:pre-wrap'>{r.description}</div>")
         self.detail.setHtml("".join(parts))
+
+    # -- job-alert emails, dragged in --------------------------------------
+    ALERT_SUFFIXES = {".eml", ".mbox"}
+
+    def _alert_paths(self, mime) -> list:
+        from pathlib import Path
+        if not mime.hasUrls():
+            return []
+        return [Path(u.toLocalFile()) for u in mime.urls()
+                if u.isLocalFile()
+                and Path(u.toLocalFile()).suffix.lower() in self.ALERT_SUFFIXES]
+
+    def dragEnterEvent(self, event):  # noqa: N802 - Qt naming
+        if self._alert_paths(event.mimeData()):
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):  # noqa: N802
+        paths = self._alert_paths(event.mimeData())
+        if paths:
+            self.alerts_dropped.emit(paths)
+            event.acceptProposedAction()
 
     def _decide(self, decision: str):
         r = self._current_row()
