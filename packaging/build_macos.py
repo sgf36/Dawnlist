@@ -37,6 +37,7 @@ invalid the moment it is checked.
 from __future__ import annotations
 
 import argparse
+import json
 import platform
 import plistlib
 import subprocess
@@ -218,23 +219,46 @@ def package_mas(app: Path, pkg: Path, installer_identity: str) -> None:
     print(f"  wrote {pkg}")
 
 
-def notarise(artefact: Path, profile: str) -> None:
-    """Submit and wait, then staple.
+def notarise(artefact: Path, profile: str, *, timeout: str = "30m") -> None:
+    """Submit, record the id, wait, then staple.
 
-    Stapling matters: without it the app needs to reach Apple on first launch,
+    SUBMIT AND WAIT ARE SEPARATE CALLS, and that is not tidiness. `notarytool
+    submit --wait` prints the submission id only to stdout as it polls, so when
+    a poll dies mid-flight the id is buried in a long log and the build looks
+    like it simply hung — a sibling project's run sat here for 1h58m against a
+    dead runner network before giving up. Capturing the id first means it is
+    always recorded and always queryable afterwards, whatever happens to the
+    wait.
+
+    Stapling matters too: without it the app must reach Apple on first launch,
     so a user opening it offline sees Gatekeeper refuse a perfectly notarised
     build.
     """
     res = run(["xcrun", "notarytool", "submit", artefact,
-               "--keychain-profile", profile, "--wait"])
-    print(res.stdout[-1500:])
+               "--keychain-profile", profile, "--no-wait",
+               "--output-format", "json"])
     if res.returncode != 0:
-        fail(f"notarisation failed: {res.stderr.strip()[:400]}")
-    if "status: Accepted" not in res.stdout:
-        # --wait exits 0 for an Invalid submission too, so the exit code alone
+        fail(f"notarisation submit failed: {res.stderr.strip()[:400]}")
+    try:
+        submission_id = json.loads(res.stdout)["id"]
+    except Exception:  # noqa: BLE001
+        fail(f"could not read a submission id from notarytool: {res.stdout[:300]}")
+    print(f"  submission id: {submission_id}")
+    print(f"  query later:   xcrun notarytool info {submission_id} "
+          f"--keychain-profile {profile}")
+
+    # Bounded. Apple normally answers in minutes; an unbounded wait is how a
+    # stalled poll eats the whole job.
+    res = run(["xcrun", "notarytool", "wait", submission_id,
+               "--keychain-profile", profile, "--timeout", timeout])
+    if res.returncode != 0 or "status: Accepted" not in res.stdout:
+        # `wait` exits 0 for an Invalid submission too, so the exit code alone
         # is not evidence that it passed.
-        fail("notarytool did not report 'status: Accepted'. Read the log with "
-             "`xcrun notarytool log <id> --keychain-profile " + profile + "`")
+        print(res.stdout[-1500:])
+        run(["xcrun", "notarytool", "log", submission_id,
+             "--keychain-profile", profile])
+        fail(f"notarisation did not reach Accepted. Submission {submission_id}")
+
     res = run(["xcrun", "stapler", "staple", artefact])
     if res.returncode != 0:
         fail(f"stapling failed: {res.stderr.strip()[:300]}")
@@ -251,6 +275,10 @@ def main() -> int:
     ap.add_argument("--notary-profile", default="dawnlist",
                     help="notarytool keychain profile (direct only)")
     ap.add_argument("--skip-notarise", action="store_true")
+    ap.add_argument("--verify-only", action="store_true",
+                    help="run the bundle and Info.plist guards, then stop. "
+                         "No certificate needed, so CI can catch a broken "
+                         "bundle on every push before any signing exists.")
     args = ap.parse_args()
 
     require_macos()
@@ -262,6 +290,10 @@ def main() -> int:
     print("verifying the PyInstaller output...")
     verify_bundle(app_path, args.variant)
     check_plist(app_path)
+
+    if args.verify_only:
+        print("Verified. Stopping before signing, as asked.")
+        return 0
 
     print("signing...")
     sign(app_path, args.variant, identity)

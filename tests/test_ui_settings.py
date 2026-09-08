@@ -103,7 +103,10 @@ def test_the_cost_is_stated_before_the_field(qapp):
     cost = [l for l in panel.findChildren(QLabel) if l.objectName() == "costNote"]
     assert cost, "no cost note on the key panel"
     text = cost[0].text()
-    assert "£" in text and "no markup" in text
+    # A magnitude, not a precise figure — see the reasoning on
+    # test_the_cost_guidance_gives_a_magnitude_and_says_who_bills. Demanding a
+    # "£" here protected three numbers that were never measured.
+    assert "pound" in text.lower() and "no markup" in text
 
 
 def test_it_says_where_the_key_is_kept(qapp):

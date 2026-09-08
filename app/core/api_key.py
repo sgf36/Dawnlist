@@ -109,12 +109,23 @@ def require() -> str:
     return key
 
 
-#: Rough monthly cost at the operating spec's target volume, so the app can be
-#: honest about what a user is signing up to rather than leaving them to find
-#: out from a bill. Figures from handoff Part 3.3, verified 2026-09-06.
+#: Roughly what a user is signing up to, so the app says it rather than leaving
+#: them to find out from a bill.
+#:
+#: CORRECTED 2026-09-08. The previous wording came from the build handoff's
+#: Part 3.3, which is superseded, and stated three things the measurement does
+#: not support: "roughly £2 a month" for reading (measured $1.56, about £1.20),
+#: a separate "about £1" for drafting (never measured separately), and "a
+#: one-off £2-4" to set up the factsheet (no basis found anywhere). It also
+#: assumed 40 postings a day, which belongs to the capped model; uncapped is
+#: nearer 75.
+#:
+#: Deliberately VAGUE, and that is the point: the figure is model-dependent by
+#: a factor of five. Moving ASSESSMENT_MODEL from Haiku to Sonnet or Opus turns
+#: about a pound into two or six, and a precise number here would then be wrong
+#: with nobody noticing. See dawnlist-credit-cap-assessment.md section 2.2.
 COST_GUIDANCE = (
-    "At about 40 postings a day, reading costs roughly £2 a month on Anthropic's "
-    "cheapest model, and drafting a few follow-ups a day adds about £1. Setting "
-    "up your factsheet is a one-off £2–4. You pay Anthropic directly; Dawnlist "
-    "takes no cut and adds no markup."
+    "At ordinary use this usually costs a pound or two a month, and it scales "
+    "with how much you search. You pay Anthropic directly; Dawnlist takes no "
+    "cut and adds no markup."
 )

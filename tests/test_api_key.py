@@ -148,8 +148,24 @@ def test_there_is_no_managed_route_to_fall_back_to():
 
 
 # -- honesty about cost -----------------------------------------------------
-def test_the_cost_guidance_is_specific_and_says_who_bills():
+def test_the_cost_guidance_gives_a_magnitude_and_says_who_bills():
+    """The user must learn roughly what this costs, and who charges them.
+
+    This asserted a "£" was present, which sounds like specificity and was
+    really a demand for false precision: the figures it protected came from
+    the superseded handoff and overstated the reading cost, invented a
+    drafting split, and carried a one-off setup charge with no basis at all.
+
+    What the user is actually owed is a MAGNITUDE they can act on and the fact
+    that Anthropic bills them, not Dawnlist. A number is not required, and a
+    precise one would be a liability: the cost is model-dependent by a factor
+    of five, so a figure pinned here goes wrong the day ASSESSMENT_MODEL moves
+    and nothing would catch it.
+    """
     text = api_key.COST_GUIDANCE
-    assert "£" in text
+    assert "pound" in text.lower(), "the user must be given a magnitude"
     assert "pay Anthropic directly" in text
     assert "no markup" in text
+    # The specific claims that were never measured must not come back.
+    assert "one-off" not in text.lower()
+    assert "factsheet" not in text.lower()
