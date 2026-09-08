@@ -141,3 +141,38 @@ def test_a_store_build_WITH_a_licence_uses_the_managed_feed(no_keyring, monkeypa
     monkeypatch.setattr("app.core.entitlement.stored_licence",
                         lambda: "DAWN-AAAA-BBBB")
     assert build_provider(conn=None).name == "managed"
+
+
+# ---------------------------------------------------------------------------
+# Apple guideline 3.1.1 — licence keys are named as a prohibited mechanism
+# ---------------------------------------------------------------------------
+
+def test_a_mac_app_store_build_ignores_a_stored_licence(no_keyring, monkeypatch):
+    """3.1.1: "Apps may not use their own mechanisms to unlock content or
+    functionality, such as license keys..."
+
+    Hiding the licence panel in the MAS build is not enough. The keyring is per
+    USER, not per application: anyone who ran the direct-download build and
+    later installed from the Mac App Store still has a licence in their
+    credential store. Without this the MAS build would find it and quietly
+    unlock a subscription bought outside Apple's commerce.
+
+    That is not a hypothetical. It is what happens to the people most likely to
+    buy from the store — the ones who tried the direct build first.
+    """
+    monkeypatch.setattr("app.core.build_variant.variant", lambda: "mas")
+    monkeypatch.setattr("app.core.entitlement.stored_licence",
+                        lambda: "DAWN-BOUGHT-ELSEWHERE")
+    with pytest.raises(NotConfigured) as e:
+        build_provider(conn=None)
+    assert "subscription" in str(e.value).lower()
+
+
+def test_windows_store_is_deliberately_not_covered_by_that_rule(no_keyring, monkeypatch):
+    """Microsoft permits third-party commerce, subject to declaring it in
+    Partner Center. So a Windows Store build MAY honour a licence, and the
+    restriction above is Apple's alone rather than a blanket rule."""
+    monkeypatch.setattr("app.core.build_variant.variant", lambda: "store")
+    monkeypatch.setattr("app.core.entitlement.stored_licence",
+                        lambda: "DAWN-AAAA-BBBB")
+    assert build_provider(conn=None).name == "managed"

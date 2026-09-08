@@ -450,6 +450,34 @@ def build_provider(conn):
 
     from app.core.build_variant import variant
 
+    build = variant()
+
+    # APPLE GUIDELINE 3.1.1 NAMES LICENCE KEYS EXPLICITLY:
+    #
+    #   "Apps may not use their own mechanisms to unlock content or
+    #    functionality, such as license keys, augmented reality markers,
+    #    QR codes, cryptocurrencies and cryptocurrency wallets, etc."
+    #
+    # The Settings screen already hides the licence panel on a MAS build, so
+    # there is no way to TYPE one in. That is not sufficient, because the
+    # keyring is per USER and not per application: someone who ran the
+    # direct-download build and later installed from the Mac App Store still
+    # has a licence sitting in their credential store, and without this the
+    # MAS build would find it and quietly use it — unlocking a subscription
+    # bought outside Apple's commerce, which is the exact prohibited shape.
+    #
+    # It is not a hypothetical path. It is what happens to anyone who tries
+    # the direct build first, which is precisely who buys from the store next.
+    #
+    # Windows is different and deliberately not covered here: Microsoft permits
+    # third-party commerce, subject to declaring it in Partner Center.
+    if build == "mas":
+        raise NotConfigured(
+            "This copy is not linked to a subscription yet, so there is no job "
+            "feed to read. Your board, your brief and everything already on "
+            "this machine stay open. "
+            "SUPPORT: a Mac App Store purchase should link automatically.")
+
     licence = stored_licence()
     if licence:
         from app.feed.managed import ManagedProvider
@@ -475,7 +503,7 @@ def build_provider(conn):
     # Telling that person to "enter your licence key" is advice they cannot
     # act on — no key was ever issued to them — and telling them to put a
     # provider key in their keyring is advice for a product they did not buy.
-    if variant() in ("store", "mas"):
+    if build == "store":
         raise NotConfigured(
             "This copy is not linked to a Dawnlist subscription yet, so there "
             "is no job feed to read. Your board, your brief and everything "
