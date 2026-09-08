@@ -43,21 +43,21 @@ def render_hidden(widget, size):
 #: Posted columns render EMPTY — which is what the store screenshot showed
 #: until 2026-09-08, advertising four blank columns.
 #:
-#: Not every row has one, deliberately: `Amir Mossanen (Truist)` is a mutual
-#: contact and `Marriott Feasibility` is not a posting, so both are genuinely
+#: Not every row has one, deliberately: `Thornfield referral` is a mutual
+#: contact and `Harrowgate Feasibility` is not a posting, so both are genuinely
 #: role-less. A fixture where every cell is populated would hide the fact that
 #: an empty cell is normal and has to look acceptable.
 FIXTURE_POSTINGS = {
-    "Round Hill Capital": ("Asset Management Associate", "London",
+    "Oakmere Capital": ("Asset Management Associate", "London",
                            "£65,000 - £75,000", "2026-09-05"),
-    "Landmark Venues": ("Head of Events", "London", "", "2026-09-04"),
-    "Rocco Forte Hotels": ("Hotel Manager", "Rome", "€70,000", "2026-08-28"),
-    "Mandarin Oriental": ("Director of Operations", "London",
+    "Ellerby Venues": ("Head of Events", "London", "", "2026-09-04"),
+    "Castellan Hotels": ("Hotel Manager", "Rome", "€70,000", "2026-08-28"),
+    "Saffron Court Hotels": ("Director of Operations", "London",
                           "Competitive", "2026-08-24"),
-    "Highgate": ("Area General Manager", "New York", "$120,000", "2026-08-20"),
-    "The Peninsula": ("Front Office Manager", "Paris", "", "2026-08-18"),
-    "Bob W": ("Head of Property", "Berlin", "", "2026-08-15"),
-    "Grosvenor": ("Development Manager", "London", "£80,000", "2026-08-02"),
+    "Cresthill": ("Area General Manager", "New York", "$120,000", "2026-08-20"),
+    "The Ashvale": ("Front Office Manager", "Paris", "", "2026-08-18"),
+    "Loftly": ("Head of Property", "Berlin", "", "2026-08-15"),
+    "Belmayne Estates": ("Development Manager", "London", "£80,000", "2026-08-02"),
 }
 
 
@@ -95,16 +95,16 @@ def build_board():
     conn = db.connect(":memory:")
     db.migrate(conn)
 
-    a = _opp(conn, "Round Hill Capital", stage=Stage.IDENTIFIED)
-    b = _opp(conn, "Landmark Venues", stage=Stage.IDENTIFIED)
-    c = _opp(conn, "Rocco Forte Hotels", stage=Stage.CONTACTED)
-    d = _opp(conn, "Mandarin Oriental", stage=Stage.IN_DIALOGUE)
-    e = _opp(conn, "Highgate", stage=Stage.PHONE_INTERVIEW)
-    f = _opp(conn, "The Peninsula", stage=Stage.IN_PERSON_INTERVIEW)
-    g = _opp(conn, "Bob W", stage=Stage.ON_HOLD)
-    h = _opp(conn, "Grosvenor", stage=Stage.LOST)
-    i = _opp(conn, "Marriott Feasibility", stage=Stage.WON)
-    poc = _opp(conn, "Amir Mossanen (Truist)",
+    a = _opp(conn, "Oakmere Capital", stage=Stage.IDENTIFIED)
+    b = _opp(conn, "Ellerby Venues", stage=Stage.IDENTIFIED)
+    c = _opp(conn, "Castellan Hotels", stage=Stage.CONTACTED)
+    d = _opp(conn, "Saffron Court Hotels", stage=Stage.IN_DIALOGUE)
+    e = _opp(conn, "Cresthill", stage=Stage.PHONE_INTERVIEW)
+    f = _opp(conn, "The Ashvale", stage=Stage.IN_PERSON_INTERVIEW)
+    g = _opp(conn, "Loftly", stage=Stage.ON_HOLD)
+    h = _opp(conn, "Belmayne Estates", stage=Stage.LOST)
+    i = _opp(conn, "Harrowgate Feasibility", stage=Stage.WON)
+    poc = _opp(conn, "Thornfield referral",
                              stage=Stage.CONTACTED, category=JobCategory.MUTUAL_POC)
 
     record_outbound(conn, str(c), Channel.EMAIL, TUE)
@@ -134,7 +134,7 @@ def build_board():
     for i in range(win.tree.topLevelItemCount()):
         group = win.tree.topLevelItem(i)
         for j in range(group.childCount()):
-            if group.child(j).text(0) == "Landmark Venues":
+            if group.child(j).text(0) == "Ellerby Venues":
                 win.tree.setCurrentItem(group.child(j))
                 group.child(j).setSelected(True)
     for _ in range(8):

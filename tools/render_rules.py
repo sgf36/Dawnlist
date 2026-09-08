@@ -19,14 +19,14 @@ TABLE = RuleTable(
                         "commis chef", "site engineer"],
     strong_terms=["asset management", "asset strategy", "portfolio strategy"],
     contextual_terms=["hospitality", "hotel", "leisure", "portfolio"],
-    known_employers=["Meridian Group", "Round Hill Capital", "Bob W"],
+    known_employers=["Northaven Hotels", "Oakmere Capital", "Loftly"],
 )
 
 
 def refuse(field, term):
     raise RuleConflictError([RuleConflict(
         term="operations", field="unsupported_titles",
-        pursued_title="Head of Operations", company="Round Hill Capital")])
+        pursued_title="Head of Operations", company="Oakmere Capital")])
 
 
 def build_rules():

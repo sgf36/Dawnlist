@@ -11,18 +11,18 @@ from app.onboarding.calibration import CalibrationItem  # noqa: E402
 from app.ui.onboarding import CalibrationPage  # noqa: E402
 
 SAMPLE = [
-    ("Director of Asset Management", "Round Hill Capital", "possible",
+    ("Director of Asset Management", "Oakmere Capital", "possible",
      "operational real estate, but the brief asks for hospitality"),
-    ("General Manager Events", "Landmark Venues", "rejected",
+    ("General Manager Events", "Ellerby Venues", "rejected",
      "tagged Entertainment Providers, outside the brief"),
-    ("Senior Project Manager", "Kier", "rejected", "tagged Construction"),
-    ("Head of Revenue", "Bob W", "strong", "revenue leadership in hospitality"),
-    ("Asset Manager", "Aviva", "rejected", "10 year floor, stated"),
-    ("Analyst, Portfolio Oversight", "Legal & General", "possible",
+    ("Senior Project Manager", "Bramwell Construction", "rejected", "tagged Construction"),
+    ("Head of Revenue", "Loftly", "strong", "revenue leadership in hospitality"),
+    ("Asset Manager", "Thornfield", "rejected", "10 year floor, stated"),
+    ("Analyst, Portfolio Oversight", "Wardley & Vance", "possible",
      "description could not be fetched in full"),
-    ("Cluster Revenue Manager", "Accor", "strong", "multi-property revenue"),
+    ("Cluster Revenue Manager", "Calderwood Hotels", "strong", "multi-property revenue"),
     ("Front Office Manager", "Grand Hotel", "rejected", "below the band"),
-    ("Head of Commercial Strategy", "Rocco Forte", "strong",
+    ("Head of Commercial Strategy", "Castellan Hotels", "strong",
      "strategy at a luxury operator"),
     ("Operations Analyst", "Greene King", "rejected", "pub estate operations"),
 ]

@@ -15,17 +15,17 @@ from app.core.rules import KillFamily  # noqa: E402
 from app.ui.settings import FamiliesPanel  # noqa: E402
 
 FAMILIES = [
-    KillFamily(name="Kier", employers=("Kier",),
+    KillFamily(name="Bramwell Construction", employers=("Bramwell Construction",),
                kill_titles=("engineer", "site"),
                saves_titles=("asset management", "strategy", "feasibility"),
-               precedents=(("Kier", "Site Engineer"),
-                           ("Kier", "Senior Site Engineer, Highways")),
+               precedents=(("Bramwell Construction", "Site Engineer"),
+                           ("Bramwell Construction", "Senior Site Engineer, Highways")),
                adopted=False),
-    KillFamily(name="Landmark Venues", employers=("Landmark Venues",),
+    KillFamily(name="Ellerby Venues", employers=("Ellerby Venues",),
                kill_titles=("catering", "banqueting"),
                saves_titles=("commercial", "strategy", "revenue"),
-               precedents=(("Landmark Venues", "Head of Catering"),
-                           ("Landmark Venues", "Banqueting Operations Manager")),
+               precedents=(("Ellerby Venues", "Head of Catering"),
+                           ("Ellerby Venues", "Banqueting Operations Manager")),
                adopted=True),
 ]
 
