@@ -43,31 +43,35 @@ measurement rather than an argument. Read it before switching.
 
 ## What to buy, and when
 
-**A $199 one-time pack — 5,000 credits — and nothing else.** The runbook gives
-the ordering; this is why that shape rather than another.
+**The $100/month API tier — 5,000 API credits — bought at submission.** The
+runbook gives the ordering; this is why that shape rather than another.
 
-The earlier answer here was "nothing yet", on two grounds. One has gone and one
-has changed:
+**THERE ARE TWO CREDIT POOLS AND ONLY ONE REACHES THE API.** One-time packs
+($109/1,000 up to $999/200,000, rolling over twelve months) buy **company
+credits**, spent revealing companies in the provider's own web app. The API,
+webhooks and the MCP server spend **API credits**, which are sold **only** as a
+monthly subscription. This file said "one-time packs, not a subscription" until
+2026-09-08; that advice would have bought a currency the Worker cannot spend.
 
-1. **The licence question is no longer a hard blocker.** The provider's
-   published terms answer five of the seven questions ticket #5008 asked, and
-   answer them favourably — reselling their data partially through your own
-   platform is expressly authorised. What is left is one clause tension, and it
-   is confirmation of a favourable reading rather than discovery of an unknown
-   one. Chase no earlier than Tue 2026-09-15, and never a Monday or a Friday.
-2. **"No subscribers and nothing submitted" argued against a SUBSCRIPTION, and
-   still does — but it does not argue against buying anything at all.** A store
-   reviewer runs the application. A reviewer whose search returns an error
-   because the feed has no credit is a rejection, so *something* has to be
-   bought before submission. A one-time pack is the instrument that fits: its
-   credits roll over twelve months and survive cancellation, so an idle month
-   in a review queue costs nothing.
+The earlier answer here was "nothing yet", on two grounds. Both have moved:
+
+1. **The licence question is closed.** Ticket #5008 is CLOSED ON OUR SIDE by
+   Spencer's decision of 2026-09-08 — no chase will be sent. The published
+   terms answer five of its seven questions favourably; reselling their data
+   partially through your own platform is expressly authorised. The remaining
+   §4.5-versus-§4.12 tension is an **accepted risk**, not a pending question.
+   Do not record it as awaiting a reply.
+2. **"No subscribers and nothing submitted" argued against buying EARLY, and
+   still does.** A store reviewer runs the application, and a search that errors
+   for want of credit is a rejection — so a subscription is needed, timed to
+   submission rather than taken out in advance. There is no rollover to lean
+   on: that belongs to the pool that cannot be used.
 
 **When the base is steady**, the first tier worth moving to is **$900/month for
-200,000 credits** ($0.0045/credit). At ~15,400 credits per user that block
-serves about **13 users**, which is also roughly where per-subscriber
-contribution turns positive — no smaller tier does, because $0.0050/credit
-against $74.55 net is already the whole margin.
+200,000 API credits** ($0.0045/credit). At ~15,400 credits per user that block
+serves about **13 users**, which is also where per-subscriber contribution turns
+positive — no smaller tier does. It does not become comfortable until
+$1,200/500,000, where the cost per subscriber roughly halves to $37.
 
 Break-even at $79 is **18 subscribers on Paddle and 20 through a store's own
 commerce**, measured 2026-09-08. Not "mid-teens", which was a conversational
@@ -159,13 +163,15 @@ value was stored, not that it was the right one:
 
 ## Still blocked, and by whom
 
-| Item | Owner |
-|---|---|
-| Ticket #5008 — the licence answer | TheirStack |
-| Partner Center **package identity** confirmed against the manifest | Spencer |
-| WACK — needs an elevated shell | Spencer |
-| macOS build — cannot be produced from Windows | Spencer, on a Mac |
-| Paddle products and price ids | Spencer |
+| Item | Owner | State |
+|---|---|---|
+| Ticket #5008 — the licence answer | — | **CLOSED 2026-09-08.** Spencer's decision: no chase. Proceeding on the published terms |
+| Partner Center **package identity** | — | **DONE.** `SFields.DawnlistJobSearch`, confirmed live 2026-09-08 |
+| macOS build | — | **DONE.** Built, signed and notarised in CI, 2026-09-08. It never needed a Mac of our own |
+| WACK — needs an elevated shell | Spencer | `pwsh -File packaging\run_wack.ps1`, Run as administrator |
+| Windows signing — Entra federated credential | Spencer | The three secrets and the variable are set; the credential subject `repo:sgf36/Dawnlist:ref:refs/heads/master` is missing |
+| API credit subscription, at submission | Spencer | $100/month, 5,000 API credits |
+| Paddle product and price id | Spencer | One price: $79/month |
 
 The package identity is the irreversible one. A displayed name can change after
 publish; the identity cannot, and getting it wrong means the app can only be

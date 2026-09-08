@@ -36,46 +36,72 @@ the same application, not a lesser one.
 
 ## Step 1 — Buy the feed credits
 
-**Buy the $199 one-time pack: 5,000 credits.** Not a subscription.
+> **CORRECTED 2026-09-08, and it is the correction that matters most in this
+> file.** This step previously said "buy the $199 one-time pack, 5,000
+> credits". **That buys the wrong currency and Dawnlist could not spend a
+> penny of it.** Spencer challenged the figure and was right to.
 
-Store review runs the application. A reviewer who searches and gets an error
-because the feed has no credit is a rejection, so something must be bought
-before submission — but a *subscription* would bill monthly against a key
-serving nobody while the review sits in a queue.
+### There are two credit pools, and only one of them reaches the API
 
-5,000 covers end-to-end verification, both store reviews, and the first few
-trials, and unused credits roll over twelve months. $109/1,000 is the tempting
-one and it is too tight: a single comprehensive day's sweep is ~513 credits, so
-1,000 is two days.
+| Pool | How it is sold | What spends it |
+|---|---|---|
+| **Company credits** | **One-time packs** — $109/1,000 up to $999/200,000, rolling over twelve months | Revealing or exporting a company **in the web app** at `app.theirstack.com` |
+| **API credits** | **Monthly subscription only** — $49/1,500 up to $5,500/5M | **Jobs returned by the API or a webhook** (1 each); companies (3 each); technographics (3 each) |
+
+Dawnlist's Worker calls the API. It spends **API credits** and nothing else.
+A one-time pack would leave $199 spent and a store reviewer still watching a
+search fail. Spencer's own balance is the proof the two pools are separate:
+50 web-app credits unused alongside 195 of 200 API credits spent.
+
+The twelve-month rollover — the appealing half of the old reasoning — belongs
+entirely to the pool that cannot be used.
+
+### What to buy before submission
+
+**The $100/month tier: 5,000 API credits. Time it to submission, not before.**
+
+An API subscription bills every month whether anyone searches or not, so
+buying early to sit in a review queue is money for nothing. Buy it the week
+the first package is submitted.
+
+$49/1,500 is the entry tier and it is too tight to be safe: one comprehensive
+search is ~513 credits, so a single unscoped test run costs a third of the
+month's allowance. 5,000 covers end-to-end verification, both store reviews and
+the first trials, with room for a mistake. **Reviewer workload has not been
+measured** — this is sized for headroom, not from data. A trial code caps a
+reviewer at 30 postings a day, which bounds the risk.
 
 ### What to buy afterwards, and when
 
 One credit is one job returned. A subscriber running a comprehensive daily
 search consumes roughly **15,400 credits a month** (~513/day). Against $79 on
-Paddle, which nets ~$74.55:
+Paddle, which nets ~$74.55 — **all API subscription tiers**, the only ones that
+can serve the product:
 
-| What you are on | $/credit | Feed cost per subscriber/month | Contribution |
-|---|---|---|---|
-| $399 pack, 20,000 | $0.0200 | $308 | heavily negative |
-| $549 pack, 50,000 | $0.0110 | $169 | negative |
-| $749 pack, 100,000 | $0.0075 | $115 | negative |
-| $999 pack, 200,000 | $0.0050 | $77 | about zero |
-| **$900/mo subscription, 200,000** | **$0.0045** | **$69.30** | **+$5.25** |
+| Tier | Credits | $/credit | Subscribers it serves | Feed cost each | Contribution |
+|---|---|---|---|---|---|
+| $240/mo | 20,000 | $0.0120 | 1 | $240 | heavily negative |
+| $400/mo | 50,000 | $0.0080 | 3 | $123 | negative |
+| $600/mo | 100,000 | $0.0060 | 6 | $92 | negative |
+| **$900/mo** | **200,000** | **$0.0045** | **13** | **$69.30** | **+$5.25** |
+| $1,200/mo | 500,000 | $0.0024 | 32 | $37 | +$37 |
+| $1,500/mo | 1,000,000 | $0.0015 | 64 | $23 | +$51 |
 
-**Per-subscriber contribution only turns positive at the 200,000 tier.** That is
-not a pricing failure, it is block granularity: the provider sells credits in
-blocks, so the first block has to be bought before there are users to spread it
-over. Below roughly **18 subscribers** the product loses money whatever you buy,
-and the cheapest way to lose it is to buy small packs that match actual burn
-rather than committing $900/month to serve two people.
+**Per-subscriber contribution only turns positive at the 200,000 tier**, and it
+does not become comfortable until 500,000. That is not a pricing failure, it is
+block granularity: credits are sold in blocks, so a block must be bought before
+there are users to spread it over. Below roughly **18 subscribers** the product
+loses money whatever you buy.
 
 So:
 
-1. **Now:** $199 / 5,000 pack.
-2. **First paying subscribers:** step packs up to match measured burn.
-3. **At about 13 subscribers:** move to the **$900/month, 200,000** subscription.
-   Read `usage_daily.postings` to decide — the number is instrumented precisely
-   so this is a measurement and not an argument.
+1. **At submission:** $100/month, 5,000 credits.
+2. **First paying subscribers:** step up the tier to match measured burn. Each
+   step is a downgrade away if it was premature.
+3. **At about 13 subscribers:** the **$900/month, 200,000** tier, which is where
+   the product stops losing money per head. Read `usage_daily.postings` to
+   decide — the number is instrumented precisely so this is a measurement and
+   not an argument.
 4. **Above roughly 65 daily-active users:** re-open the Datasets question. Bulk
    delivery costs the same whether there is one subscriber or a hundred, so
    there is a crossover, and it is around 1M records a month.
@@ -361,16 +387,26 @@ it has to move, that is a code change and it has to happen before release.
 
 - **Measure a multi-region sweep** and set the Global ceiling from the result,
   before that plan is ever sold.
-- **Chase ticket #5008**, narrowed to the one question the published terms do
-  not settle: whether §4.5's prohibition on CRM-shaped integrations reaches a
-  productised offering, or whether §4.12 — which is more specific and plainly
-  contemplates end users — governs. Not before **Tuesday 15 September**, and
-  never on a Monday or a Friday.
-- **Do not name the data provider publicly** until that answer lands.
+- **Ticket #5008: CLOSED ON OUR SIDE. Do not chase.** Spencer's decision,
+  2026-09-08. The drafted chase was deleted and nothing further will be sent.
+
+  This is not "awaiting a reply" and must not be recorded as one. The licensing
+  position is settled on the published terms, and the **§4.5-versus-§4.12
+  tension is an ACCEPTED RISK** rather than a pending question. What that means
+  concretely: if the provider ever reads §4.5 broadly, the remedy is injunctive
+  — stop using the feed — not damages. That is the risk being accepted, and it
+  is a reason to keep the first credit tier small, which step 1 already does.
+- **Do not name the data provider publicly.** Still holds. It was tied to the
+  ticket; it now stands on its own, because naming them invites the question
+  the terms leave open.
 
 ---
 
-## The one thing that is still an open risk
+## The accepted risk
+
+Not an open question any more — **Spencer closed it on 2026-09-08 and decided
+to proceed.** Recorded here so the decision is legible later, and so nobody
+reopens it as though it were still pending.
 
 The published terms answered five of the seven questions the ticket asked, and
 answered them favourably: job postings are the most permissively treated data
@@ -378,10 +414,14 @@ class in the whole agreement, and reselling them partially through your own
 platform is expressly authorised. What they do not settle is §4.5 against
 §4.12, above.
 
-§4.12 is the better reading and I would proceed on it. But it is a judgement
-and it is theirs to make, so it is worth knowing what the downside actually is:
-worldwide injunctive relief is available for a §4.5 breach, and the remedy would
-be to stop using the feed rather than to pay damages. That argues for keeping
-the first credit purchase to $199 and the first block small — which is what
-step 1 recommends for unrelated reasons, and is the cheap version of being
-wrong.
+§4.12 is the better reading. But it is a judgement and it is the provider's to
+make, so the downside is worth stating plainly: worldwide injunctive relief is
+available for a §4.5 breach, and the remedy would be to **stop using the feed**
+rather than to pay damages. A product built on a feed it can be ordered to stop
+reading is the shape of the risk.
+
+Two things make it a sensible risk rather than a reckless one. The first credit
+tier is $100/month and cancellable, so being wrong costs a month rather than a
+year. And Dawnlist does considerably less than §4.3 expressly permits — it
+shows postings privately, to the one person who searched for them, against a
+licence that allows publishing them on an indexed public page.
