@@ -33,7 +33,17 @@
     ProcessorArchitecture="x64" />
 
   <Properties>
-    <DisplayName>Dawnlist — Job Search</DisplayName>
+    <!-- MUST BE A NAME RESERVED IN PARTNER CENTER, character for character.
+         Not a marketing decision: Partner Center refuses the package outright
+         with "uses a display name that you have not reserved". This said
+         "Dawnlist — Job Search" with an em dash on 2026-09-08 and was rejected
+         at upload; the reserved name is "Dawnlist Job Search".
+
+         The name customers SEE comes from the Store listing, where you pick
+         from your reserved names — so this being the plain form costs nothing
+         visually. To use the em-dash form publicly, reserve it first under
+         Product management > Manage app names, then change this to match. -->
+    <DisplayName>Dawnlist Job Search</DisplayName>
     <PublisherDisplayName>SFields</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
@@ -58,7 +68,7 @@
   <Applications>
     <Application Id="Dawnlist" Executable="Dawnlist.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-        DisplayName="Dawnlist — Job Search"
+        DisplayName="Dawnlist Job Search"
         Description="Reads the world's job feeds every morning, judges every posting against your fit brief, and writes your follow-ups as drafts you send yourself."
         BackgroundColor="#1E4B45"
         Square150x150Logo="Assets\Square150x150Logo.png"
