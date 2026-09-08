@@ -227,7 +227,12 @@ def test_no_personal_content_is_sent_upstream(monkeypatch):
     for forbidden in ("cv", "factsheet", "brief", "description_text", "resume"):
         assert forbidden not in sent
     assert set(body) == {"label", "titles", "countries", "companies",
-                         "postedWithinDays", "discoveredSince", "maxResults"}
+                         "postedWithinDays", "discoveredSince",
+                         "excludeJobIds", "maxResults"}
+    # excludeJobIds carries PROVIDER IDS ONLY — opaque strings the provider
+    # issued. It is a billing control, and it must never become a channel for
+    # anything about the user.
+    assert all(isinstance(x, str) for x in body["excludeJobIds"])
 
 
 # ---------------------------------------------------------------------------

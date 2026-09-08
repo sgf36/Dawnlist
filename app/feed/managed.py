@@ -159,6 +159,7 @@ class ManagedProvider(FeedProvider):
             "postedWithinDays": query.posted_within_days,
             "discoveredSince": (query.discovered_since.isoformat()
                                 if query.discovered_since else None),
+            "excludeJobIds": list(query.exclude_job_ids),
             "maxResults": query.max_results,
         }
         status, payload = self._call(SEARCH_PATH, body, method="POST")

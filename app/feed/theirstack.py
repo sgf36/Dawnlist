@@ -146,6 +146,10 @@ class TheirStackProvider(FeedProvider):
             body["company_name_or"] = q.companies
         if q.posted_within_days:
             body["posted_at_max_age_days"] = q.posted_within_days
+        if q.exclude_job_ids:
+            # Billing control: a row we already hold is re-bought when it comes
+            # back, because the provider does not cache.
+            body["job_id_not"] = list(q.exclude_job_ids)
         if q.discovered_since:
             # The delta pull. Only postings first indexed since the last run.
             body["discovered_at_gte"] = q.discovered_since.astimezone(

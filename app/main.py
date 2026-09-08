@@ -70,8 +70,31 @@ def load_document(conn, kind: str) -> str:
     return row["body"] if row else ""
 
 
+#: How many already-held job ids to send with each query, newest first.
+#:
+#: The delta pull (`discovered_at_gte`) is the primary billing control and
+#: handles the ordinary case. This is the second line, and it earns its place
+#: on the day the delta mark FAILS TO ADVANCE — which happens deliberately
+#: after a failed fetch, so a broken run is never recorded as complete. The
+#: next run then re-requests the same window and, without this, re-buys every
+#: row in it: ~513 postings at the measured rate.
+#:
+#: 1,000 is about two days' worth. Larger stops paying for itself, because the
+#: list is sent in full with every query in every run.
+RECENT_HELD_IDS = 1000
+
+
 def load_queries(conn) -> list[SearchQuery]:
     import json
+
+    # Rows we have ALREADY BEEN BILLED FOR. The provider does not cache, so a
+    # row we hold is re-bought whenever it comes back. Ordered by id DESC
+    # because that is insertion order, and insertion order is recency here —
+    # `jobs` carries no discovered-at column of its own.
+    held = tuple(str(r["provider_job_id"]) for r in conn.execute(
+        "SELECT provider_job_id FROM jobs ORDER BY id DESC LIMIT ?",
+        (RECENT_HELD_IDS,)))
+
     out: list[SearchQuery] = []
     for row in conn.execute("SELECT * FROM queries WHERE enabled=1 ORDER BY id"):
         params = json.loads(row["params_json"])
@@ -89,6 +112,7 @@ def load_queries(conn) -> list[SearchQuery]:
             posted_within_days=params.get("posted_within_days",
                                           DEFAULT_POSTED_WITHIN_DAYS),
             discovered_since=since,
+            exclude_job_ids=held,
             max_results=params.get("max_results", 500),
         ))
     return out

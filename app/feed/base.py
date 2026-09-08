@@ -31,6 +31,17 @@ class SearchQuery:
     # not ~1,000 — the difference between $3.30 and $33 per user per month at
     # the top tier, and between $98 and $981 at the bottom one.
     discovered_since: datetime | None = None
+    #: Provider job ids we have ALREADY BEEN BILLED FOR, so the provider can
+    #: leave them out. This is a billing control, not a tidiness one: the
+    #: provider does not cache, so a row we already hold is re-bought every
+    #: time it comes back.
+    #:
+    #: The delta pull above is the primary defence and this is the second. It
+    #: earns its place on the day the delta mark FAILS TO ADVANCE — after a
+    #: failed fetch, deliberately, so the run is not recorded as complete —
+    #: because the next run then re-requests the same window and, without
+    #: this, re-buys every row in it.
+    exclude_job_ids: tuple[str, ...] = ()
     max_results: int = 500
 
 

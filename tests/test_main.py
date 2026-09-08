@@ -278,3 +278,57 @@ def test_a_calibrated_launch_goes_straight_to_the_shortlist(dbfile, monkeypatch)
     main_mod._launch_ui(c, open_board=False)
     assert routed == [], "a calibrated user must not be sent back through setup"
     c.close()
+
+
+# ---------------------------------------------------------------------------
+# The billing control: rows we already hold must not be re-bought
+# ---------------------------------------------------------------------------
+
+def test_held_job_ids_are_sent_so_they_are_not_re_bought(tmp_path):
+    """The provider does not cache: a row we hold is re-bought if it returns.
+
+    The Worker has honoured `excludeJobIds` since it was written and the app
+    never sent it, so the control did nothing. It matters most on the day the
+    delta mark fails to advance — deliberately, after a failed fetch — because
+    the next run then re-requests the same window.
+    """
+    from app.core import db
+    from app.main import RECENT_HELD_IDS, load_queries
+
+    conn = db.connect(":memory:")
+    db.migrate(conn)
+    conn.execute(
+        "INSERT INTO queries(label, params_json, enabled, created_at) "
+        "VALUES('q','{}',1,datetime('now'))")
+    for i in range(3):
+        conn.execute(
+            "INSERT INTO jobs(provider, provider_job_id, title, company) "
+            "VALUES('theirstack', ?, 't', 'c')", (f"held-{i}",))
+    conn.commit()
+
+    q = load_queries(conn)[0]
+    assert set(q.exclude_job_ids) == {"held-0", "held-1", "held-2"}
+
+
+def test_the_exclusion_list_is_bounded(tmp_path):
+    """It travels in every request body, so it cannot grow without limit."""
+    from app.core import db
+    from app.main import RECENT_HELD_IDS, load_queries
+
+    conn = db.connect(":memory:")
+    db.migrate(conn)
+    conn.execute(
+        "INSERT INTO queries(label, params_json, enabled, created_at) "
+        "VALUES('q','{}',1,datetime('now'))")
+    conn.executemany(
+        "INSERT INTO jobs(provider, provider_job_id, title, company) "
+        "VALUES('theirstack', ?, 't', 'c')",
+        [(f"j{i}",) for i in range(RECENT_HELD_IDS + 250)])
+    conn.commit()
+
+    q = load_queries(conn)[0]
+    assert len(q.exclude_job_ids) == RECENT_HELD_IDS
+    # Newest first: the most recently inserted ids are the ones most likely to
+    # come back, so those are the ones worth excluding.
+    assert f"j{RECENT_HELD_IDS + 249}" in q.exclude_job_ids
+    assert "j0" not in q.exclude_job_ids
