@@ -17,55 +17,51 @@ LinkedIn code and the marketing must not imply otherwise.
 | Field | Value |
 |---|---|
 | Product name | Dawnlist — Job Search |
-| Package identity | **UNRESOLVED — see the box below. Do not submit until it is settled.** |
+| Package identity | `SFields.DawnlistJobSearch` — **confirmed against Partner Center 2026-09-08** |
 | Category | Productivity |
 | Subcategory | Personal finance & productivity → Productivity |
 | Pricing | **Paid, one price, up front.** No in-app purchase and no free tier. **Bring-your-own-key:** the buyer supplies an Anthropic API key and is billed by Anthropic directly. |
 
 ---
 
-## The Partner Center name is wrong, and it is two problems
+## Partner Center identity — RESOLVED 2026-09-08
 
-Observed in Partner Center on 2026-09-08: the product is listed as
-**`SFields.Dawnlist`**, status *Not started*, no markets and no price. The
-sibling product on the same account reads `Easy-Post Desktop`, which is what a
-product name is supposed to look like.
+Both problems found on 2026-09-08 are fixed and verified.
 
-**Problem one — that is a package identity string sitting in the product-name
-field.** `SFields.Dawnlist` is what customers would see in the Store: in search
-results, on the product page and in their library. It reads as a namespace, not
-a product, and it is not the name this listing is written for.
+**The product name** was `SFields.Dawnlist` — a package-identity string sitting
+in the field customers read. It is now **Dawnlist Job Search**.
 
-**Problem two — the manifest's `Identity Name` was never confirmed against
-Partner Center, and this does not confirm it.** A reserved product name and a
-package identity are different things that happen to look alike here. The
-authoritative values live in Partner Center under **Product management →
-Product identity**, which shows `Package/Identity/Name`,
-`Package/Identity/Publisher` and `Package/Properties/PublisherDisplayName`.
-Those three must be copied into `packaging/msix/AppxManifest.xml` **verbatim**.
-A mismatch fails ingestion after upload, which is late and reads as an
-unrelated error.
+**The package identity was wrong in the manifest**, and this is the one that
+mattered. The manifest carried `SFields.Dawnlist`; Partner Center had assigned
+`SFields.DawnlistJobSearch`. The Store assigns the identity — it is not the
+display name with the spaces removed, and it is not predictable. A mismatch
+fails **ingestion** rather than certification, so it surfaces after upload and
+reads as an unrelated error.
 
-**Fix, in this order:**
+Read live from Product management → Product identity, Store ID `9PF25H395BB8`:
 
-1. **Reserve the real product name.** Product management → Manage product
-   names → reserve `Dawnlist — Job Search`, and make it the one shown. Keep
-   `SFields.Dawnlist` reserved rather than deleting it: releasing a reserved
-   name frees it for anyone. If the em dash is refused, reserve
-   `Dawnlist - Job Search` with a hyphen and let the listing's Display name
-   carry the typographic version.
-2. **Read Product identity** and correct the manifest if any of the three
-   values differ from what is in it now (`Name="SFields.Dawnlist"`,
-   `Publisher="CN=A7D4B6C0-27D4-4F66-82EB-82F5DD466788"`,
-   `PublisherDisplayName="SFields"`).
-3. **Repack** — `python packaging/build_msix.py` — because the manifest is
-   copied into the package at pack time.
+| Manifest element | Value |
+|---|---|
+| `Package/Identity/Name` | `SFields.DawnlistJobSearch` |
+| `Package/Identity/Publisher` | `CN=A7D4B6C0-27D4-4F66-82EB-82F5DD466788` |
+| `Package/Properties/PublisherDisplayName` | `SFields` |
 
-This is cheap to fix now and expensive later: the product is *Not started*, so
-nothing has been submitted and no customer has seen the name. Once a product is
-published the displayed name can still change, but the **package identity
-cannot** — it is the key the Store uses to recognise updates, and getting it
-wrong means the app cannot be updated, only replaced.
+Derived, and deliberately **not** declared in the manifest:
+
+| | |
+|---|---|
+| Package Family Name | `SFields.DawnlistJobSearch_qhnp6qavahs3g` |
+| Store ID | `9PF25H395BB8` |
+| Listing URL once live | `https://apps.microsoft.com/detail/9PF25H395BB8` |
+
+`packaging/msix/AppxManifest.xml` was corrected and the package repacked. All
+three values were then read back **out of the packed MSIX** rather than out of
+the source manifest, because the manifest is copied in at pack time and that is
+where a stale package would hide.
+
+**Do not change any of the three.** The identity establishes the package family
+and is the key the Store uses to recognise an update. Wrong after publication
+means the app can only be replaced, never updated.
 
 ---
 

@@ -6,17 +6,28 @@
   IgnorableNamespaces="uap rescap">
 
   <!--
-    Identity.Name MUST match the name reserved in Partner Center for this app.
-    "SFields.Dawnlist" is the expected value but is NOT yet reserved — reserve
-    it before submitting, and correct this line if Partner Center hands back
-    anything different. A mismatch fails ingestion, not certification, so it
-    surfaces late and confusingly.
+    CONFIRMED against Partner Center on 2026-09-08, read from
+    Product management -> Product identity for Store ID 9PF25H395BB8.
+
+    Name was "SFields.Dawnlist" and that was WRONG. The Store assigns the
+    identity; it is not the reserved display name with the spaces removed, and
+    it is not something to predict. The real value is SFields.DawnlistJobSearch.
+    A mismatch fails INGESTION rather than certification, so it surfaces after
+    upload and reads as an unrelated error.
+
+    Do not "tidy" any of these three. The identity establishes the package
+    family, and it is the key the Store uses to recognise an update: get it
+    wrong after publishing and the app can only be replaced, never updated.
 
     Publisher is the account-wide publisher ID, the same value Easy-Post
     Desktop uses. It is not app-specific and does not change per product.
+
+    For reference, both derived and NOT declared here:
+      Package Family Name  SFields.DawnlistJobSearch_qhnp6qavahs3g
+      Store listing URL    https://apps.microsoft.com/detail/9PF25H395BB8
   -->
   <Identity
-    Name="SFields.Dawnlist"
+    Name="SFields.DawnlistJobSearch"
     Publisher="CN=A7D4B6C0-27D4-4F66-82EB-82F5DD466788"
     Version="1.0.0.0"
     ProcessorArchitecture="x64" />
