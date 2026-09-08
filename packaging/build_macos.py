@@ -299,7 +299,15 @@ def main() -> int:
     sign(app_path, args.variant, identity)
 
     if args.variant == "direct":
-        dmg = dist_dir / "Dawnlist.dmg"
+        # VERSIONED, to match the Windows download. An unversioned Dawnlist.dmg
+        # sitting in somebody's Downloads folder cannot be told apart from the
+        # last release, and a cached copy of the old file under the same name
+        # is indistinguishable from the new one. The version is read from the
+        # BUNDLE rather than taken as an argument, so the filename cannot
+        # disagree with what the application reports about itself.
+        with (app_path / "Contents" / "Info.plist").open("rb") as fh:
+            marketing_version = plistlib.load(fh)["CFBundleShortVersionString"]
+        dmg = dist_dir / f"Dawnlist-{marketing_version}.dmg"
         print("packaging...")
         package_direct(app_path, dmg)
         if args.skip_notarise:
