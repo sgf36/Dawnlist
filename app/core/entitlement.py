@@ -1,24 +1,30 @@
 """Is this copy of Dawnlist paid for?
 
-**Dawnlist is a PAID APP.** Not free-with-an-unlock, not free-with-a-trial. You
-buy it, then you have it. That decision (Spencer, 2026-09-06) supersedes the
-build handoff's Part 7, which described a free download gated by a licence and
-a store "Production Unlock" add-on. If you are reading the handoff, this file
-is the newer decision.
+**Dawnlist is a $79/month SUBSCRIPTION**, and where it is bought depends
+entirely on which store's rules apply. Decided by Spencer on 2026-09-08; this
+supersedes both the build handoff's Part 7 and the one-time-purchase model
+that stood here until that date.
 
-That makes the entitlement question almost trivial, and deliberately so:
+  WINDOWS — BOTH THE MICROSOFT STORE AND DIRECT DOWNLOAD — NEEDS A KEY.
+  Microsoft permits third-party commerce for non-game PC apps (Store Policies
+  10.8.1 and 10.8.6), so both Windows channels sell through Paddle and both
+  ask for the same licence key. The Store listing is FREE, which means the
+  key is the only thing standing between a download and the product.
 
-  STORE BUILDS ARE ENTITLED BY POSSESSION.
-  The Microsoft Store and the Mac App Store do not hand the binary to someone
-  who has not bought it. Re-asking the store whether the person holding the app
-  is allowed to hold the app adds a network call, a failure mode, and a way to
-  lock out a paying customer during an outage — in exchange for nothing. There
-  is no add-on to read and no receipt to check, because there is no in-app
-  purchase.
+  MAC APP STORE SELLS THE SUBSCRIPTION ITSELF, AND THERE IS NO MAC DIRECT
+  DOWNLOAD.
+  Apple's guideline 3.1.1 forbids licence keys outright, so a MAS build must
+  never accept one. Entitlement comes from the App Store receipt, exchanged
+  for a session token by the Worker in `build_provider` — see
+  `app/core/mac_receipt.py` for why that is the right side of 3.1.1.
 
-  DIRECT DOWNLOAD NEEDS A LICENCE KEY.
-  Nothing stops a copied folder being run, so the direct build checks a licence
-  issued by Paddle at purchase, or by an override code.
+WHAT CHANGED, AND WHY IT MATTERS
+--------------------------------
+Store builds used to be entitled by POSSESSION, on the reasoning that a store
+does not hand the binary to someone who has not paid. That reasoning holds for
+a paid-upfront app and fails completely for a subscription behind a free
+listing: it would have given every Microsoft Store customer the entire product
+for nothing. Do not reintroduce it.
 
 WHAT IS GATED
 -------------
@@ -141,12 +147,36 @@ def check(conn: sqlite3.Connection, *, verifier=None,
     now = now or _now()
     build = variant()
 
-    # --- store builds: entitled by possession -----------------------------
-    if build in ("store", "mas"):
-        where = "the Microsoft Store" if build == "store" else "the Mac App Store"
-        return Entitlement(True, build, f"purchased through {where}")
+    # --- Mac App Store: Apple's commerce, enforced one layer down ---------
+    #
+    # A MAS build carries no pasted key at all (guideline 3.1.1), so there is
+    # nothing here for this gate to check. The real gate is `build_provider`,
+    # which trades the App Store receipt for a licence and refuses when Apple
+    # reports no active subscription — so a copy without one reaches no feed.
+    #
+    # Possession is NOT proof of payment here either: the Mac App Store listing
+    # is free to download and the subscription is bought inside it. This says
+    # entitled only because the paying check lives at the feed.
+    if build == "mas":
+        return Entitlement(True, "mas", "subscribed through the Mac App Store")
 
-    # --- direct download: a licence key -----------------------------------
+    # --- Windows, BOTH the Store and direct download: a Paddle licence ----
+    #
+    # THE MICROSOFT STORE BUILD IS NOT ENTITLED BY POSSESSION, and used to be.
+    # That was a hole, not a simplification: the Store listing is free, so
+    # every Store customer would have received the whole subscription for
+    # nothing, forever, with no payment anywhere in the loop.
+    #
+    # Microsoft permits third-party commerce for non-game PC apps (Store
+    # Policies 10.8.1 and 10.8.6), subject only to declaring it in Partner
+    # Center — which is done. So Windows sells through Paddle on both
+    # channels, and the Store build asks for the same key the direct build
+    # does. `app/ui/settings.py` already shows the licence panel on `store`
+    # for exactly this reason; this is the half that was missing.
+    #
+    # Do not "restore" the possession shortcut for `store`. Apple is the store
+    # that forbids keys; Microsoft is not, and applying Apple's rule to both
+    # by assumption is what produced the hole.
     key = stored_licence()
     if not key:
         return Entitlement(

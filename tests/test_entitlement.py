@@ -28,34 +28,58 @@ def as_variant(monkeypatch, name):
     monkeypatch.setattr(ent, "variant", lambda: name)
 
 
-# -- store builds -----------------------------------------------------------
-def test_a_store_build_is_entitled_by_possession(conn, monkeypatch):
-    """The Store does not hand the binary to someone who has not bought it.
-    Re-asking adds a failure mode in exchange for nothing."""
-    as_variant(monkeypatch, "store")
-    e = check(conn, now=NOW)
-    assert e.entitled and e.source == "store"
-    assert "Microsoft Store" in e.reason
+# -- the Microsoft Store build is NOT entitled by possession -----------------
+#
+# It was until 2026-09-08. The Store listing is FREE and Windows sells through
+# Paddle on both channels, so possession would have handed every Store customer
+# the whole subscription for nothing. These four tests exist to keep that hole
+# shut; if one of them starts failing, read why before "fixing" it.
 
-
-def test_a_mac_store_build_is_entitled_by_possession(conn, monkeypatch):
-    as_variant(monkeypatch, "mas")
-    assert check(conn, now=NOW).entitled
-
-
-def test_a_store_build_never_calls_the_network(conn, monkeypatch):
-    as_variant(monkeypatch, "store")
-
-    def explode(_key):
-        raise AssertionError("a store build must not verify anything remotely")
-
-    assert check(conn, verifier=explode, now=NOW).entitled
-
-
-def test_a_store_build_does_not_need_a_licence_key(conn, monkeypatch):
+def test_a_microsoft_store_build_is_not_entitled_by_possession(conn, monkeypatch):
+    """A free Store download with no key buys nothing."""
     as_variant(monkeypatch, "store")
     monkeypatch.setattr(ent, "stored_licence", lambda: None)
+    e = check(conn, now=NOW)
+    assert not e.entitled
+    assert "licence key" in e.reason.lower()
+
+
+def test_a_microsoft_store_build_is_entitled_by_a_paddle_licence(conn, monkeypatch):
+    """The same key the direct-download build takes, on the same path."""
+    as_variant(monkeypatch, "store")
+    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    e = check(conn, verifier=lambda _k: True, now=NOW)
+    assert e.entitled and e.source == "licence"
+
+
+def test_a_microsoft_store_build_does_verify_remotely(conn, monkeypatch):
+    """The opposite of the old rule, and the point of the change: the Store
+    build asks the Worker, because nothing else establishes that it was paid
+    for."""
+    as_variant(monkeypatch, "store")
+    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    asked = []
+    check(conn, verifier=lambda k: asked.append(k) or True, now=NOW)
+    assert asked == ["DAWN-XXXX"]
+
+
+# -- the Mac App Store build IS, because Apple forbids keys ------------------
+def test_a_mac_store_build_is_entitled_without_a_key(conn, monkeypatch):
+    """Guideline 3.1.1 leaves nothing for this gate to check. The real gate is
+    `build_provider`, which trades the App Store receipt for a licence and
+    refuses when Apple reports no active subscription."""
+    as_variant(monkeypatch, "mas")
+    monkeypatch.setattr(ent, "stored_licence", lambda: None)
     assert check(conn, now=NOW).entitled
+
+
+def test_a_mac_store_build_never_calls_the_network(conn, monkeypatch):
+    as_variant(monkeypatch, "mas")
+
+    def explode(_key):
+        raise AssertionError("a MAS build must not verify a key remotely")
+
+    assert check(conn, verifier=explode, now=NOW).entitled
 
 
 # -- direct download --------------------------------------------------------
@@ -139,8 +163,16 @@ def test_require_raises_when_not_entitled(conn, monkeypatch):
         require(conn, now=NOW)
 
 
-def test_require_passes_on_a_store_build(conn, monkeypatch):
+def test_require_refuses_a_store_build_with_no_licence(conn, monkeypatch):
+    """The gate a free Store download actually meets."""
     as_variant(monkeypatch, "store")
+    monkeypatch.setattr(ent, "stored_licence", lambda: None)
+    with pytest.raises(NotEntitled, match="No licence key"):
+        require(conn, now=NOW)
+
+
+def test_require_passes_on_a_mac_store_build(conn, monkeypatch):
+    as_variant(monkeypatch, "mas")
     assert require(conn, now=NOW).entitled
 
 

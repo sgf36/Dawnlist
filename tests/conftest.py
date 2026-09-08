@@ -39,18 +39,27 @@ def _never_show_windows():
 def _variant_is_not_ambient(monkeypatch):
     """Pin the build variant so tests do not read the developer's tree.
 
-    `tools/set_build_variant.py` writes a flag file into `app/resources`, and
-    `entitlement.require` treats a store or MAS build as entitled by
-    possession. So every test that reaches `morning_run` passed on this
-    machine only because a `store_build.flag` happened to be sitting there
-    from the last packaging run — and the first CI run on a clean checkout
-    failed fifteen tests with NotEntitled, because no flag had been written
-    yet at the point the suite ran.
+    `tools/set_build_variant.py` writes a flag file into `app/resources`, so
+    every test that reaches `morning_run` used to pass on this machine only
+    because a `store_build.flag` happened to be sitting there from the last
+    packaging run — and the first CI run on a clean checkout failed fifteen
+    tests with NotEntitled, because no flag had been written yet.
 
     That is a test suite whose result depends on local state that nothing
     declares. Pinning it here makes the outcome the same everywhere; the gate
     itself is still tested directly and deliberately in test_entitlement.py
     and test_provider_selection.py, which override this.
+
+    A LICENCE IS PINNED TOO, and that is not the same belt-and-braces it looks
+    like. Until 2026-09-08 a `store` build was entitled by POSSESSION, so
+    pinning the variant alone was enough to get through the gate. Windows now
+    sells through Paddle on both channels, so a Store build needs a key like
+    any other — and without one pinned here, ten tests that are about the
+    morning run, not about payment, would fail on the licence check.
+
+    Pin the variant WITHOUT the licence and you are testing the gate by
+    accident; pin the licence without the variant and you are back to reading
+    the developer's tree.
     """
     # BOTH names, and that is not belt-and-braces. `entitlement.py` does
     # `from app.core.build_variant import variant` at module level, so the name
@@ -61,3 +70,10 @@ def _variant_is_not_ambient(monkeypatch):
                         raising=False)
     monkeypatch.setattr("app.core.entitlement.variant", lambda: "store",
                         raising=False)
+    # The Windows shipping path in full: a stored key that verifies. Not a
+    # possession shortcut — the same code a real Store customer runs down.
+    # Tests that are ABOUT entitlement override both of these.
+    monkeypatch.setattr("app.core.entitlement.stored_licence",
+                        lambda: "DAWN-TEST-LICENCE", raising=False)
+    monkeypatch.setattr("app.core.entitlement.verify_against_worker",
+                        lambda _key: True, raising=False)
