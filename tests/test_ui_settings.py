@@ -599,3 +599,43 @@ def test_the_window_omits_searches_without_a_database(qapp):
     w = SettingsWindow(variant="direct")
     assert w.searches is None
     w.close()
+
+
+# ---------------------------------------------------------------------------
+# The API-key step is the biggest adoption barrier; make it clickable
+# ---------------------------------------------------------------------------
+
+def test_the_console_address_is_a_real_link(qapp):
+    """Not decoration. "Go and get a key from a company you have not heard of"
+    is the largest single obstacle between a buyer and a working app, and the
+    address was plain text they had to retype into a browser."""
+    from PySide6.QtWidgets import QLabel
+    panel = key_panel(qapp)
+    body = [l for l in panel.findChildren(QLabel) if l.objectName() == "stepBody"]
+    assert body, "no explanatory body on the key panel"
+    html = body[0].text()
+    assert "<a href=" in html
+    assert "console.anthropic.com" in html
+    assert body[0].openExternalLinks(), "a link that does not open is not a link"
+
+
+def test_it_deep_links_to_the_keys_page_not_the_dashboard():
+    """The front page lands on a dashboard several clicks from the keys page."""
+    from app.ui.settings import CONSOLE_KEYS_URL
+    assert CONSOLE_KEYS_URL.endswith("/settings/keys")
+    assert CONSOLE_KEYS_URL.startswith("https://")
+
+
+def test_linkify_leaves_text_alone_when_the_address_is_absent():
+    """A future rewording that drops the address must degrade to plain text,
+    not to a broken link or an exception."""
+    from app.ui.settings import _linkify_console
+    assert _linkify_console("no address here") == "no address here"
+
+
+def test_linkify_escapes_the_surrounding_text():
+    """The label is rich text once linkified, so anything around the anchor
+    has to be escaped or a stray angle bracket silently eats the sentence."""
+    from app.ui.settings import _linkify_console
+    out = _linkify_console("a < b at console.anthropic.com & c")
+    assert "&lt;" in out and "&amp;" in out

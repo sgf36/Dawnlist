@@ -72,6 +72,35 @@ def masked(key: str) -> str:
     return f"{key[:11]}…{key[-4:]}"
 
 
+
+#: Deep link, not the front page. `console.anthropic.com` lands on a dashboard
+#: from which the keys page is several clicks away; this is the page the user
+#: actually needs. Anthropic has kept this path stable, and if it ever moves the
+#: worst case is a redirect — strictly better than the plain text it replaces.
+CONSOLE_KEYS_URL = "https://console.anthropic.com/settings/keys"
+
+
+def _linkify_console(text: str) -> str:
+    """Make the console address clickable, in every language.
+
+    The domain survives translation intact in all fifty catalogues (checked,
+    not assumed), so matching the literal is safe and needs no per-locale
+    handling.
+
+    Returns the text UNCHANGED when the domain is absent, so a future
+    rewording that drops the address degrades to plain text rather than to a
+    broken link or an exception.
+    """
+    needle = "console.anthropic.com"
+    if needle not in text:
+        return text
+    from html import escape
+    before, _, after = text.partition(needle)
+    return (escape(before)
+            + f'<a href="{CONSOLE_KEYS_URL}">{needle}</a>'
+            + escape(after))
+
+
 class KeyPanel(QWidget):
     """Enter and verify the user's own Anthropic key."""
 
@@ -93,9 +122,14 @@ class KeyPanel(QWidget):
         heading.setObjectName("stepHeading")
         layout.addWidget(heading)
 
-        body = QLabel(reflow(tr("settings.key_body")))
+        body = QLabel(_linkify_console(reflow(tr("settings.key_body"))))
         body.setObjectName("stepBody")
         body.setWordWrap(True)
+        # The single biggest adoption barrier in this product is "go and get an
+        # API key from a company you have never heard of". Making the address
+        # something you can click, rather than something you must copy into a
+        # browser by hand, is the cheapest reduction of it available.
+        body.setOpenExternalLinks(True)
         layout.addWidget(body)
 
         # Above the input, deliberately. Someone is about to attach their own

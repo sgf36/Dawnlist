@@ -18,6 +18,7 @@
  * truth that drifts the first time an increment succeeds and the matching
  * insert does not.
  */
+import { PLANS, capsFor } from './plans.js';
 
 const ROLES = ['byo', 'managed', 'admin'];
 const MAX_FAILED_ATTEMPTS_PER_DAY = 20;
@@ -117,9 +118,19 @@ export async function handleRedeem(request, env, newLicenceKey) {
   }
 
   const licenceKey = newLicenceKey();
+  // The caps the CODE carries. Without this a redeemed code took the Worker's
+  // 700/day default, so a code meant as a short trial was indistinguishable
+  // from a paid subscription in the only place that decides what a licence can
+  // actually do — and a card-free trial could not be offered at all.
+  const caps = capsFor(row.plan || 'standard');
   await env.DB.prepare(
-    `INSERT INTO licences (licence_key, tier, status) VALUES (?1, ?2, 'active')`
-  ).bind(licenceKey, row.role === 'admin' ? 'managed' : row.role).run();
+    `INSERT INTO licences (licence_key, tier, status, plan,
+                           max_postings_per_day, max_refreshes_per_day,
+                           max_saved_queries)
+     VALUES (?1, ?2, 'active', ?3, ?4, ?5, ?6)`
+  ).bind(licenceKey, row.role === 'admin' ? 'managed' : row.role,
+         caps.plan, caps.max_postings_per_day, caps.max_refreshes_per_day,
+         caps.max_saved_queries).run();
 
   await env.DB.prepare(
     `INSERT INTO licence_roles (licence_key, role, from_code) VALUES (?1, ?2, ?3)`
@@ -174,7 +185,7 @@ export async function handleAdmin(request, env) {
   // --- list codes --------------------------------------------------------
   if (path === '/admin/codes' && request.method === 'GET') {
     const { results } = await env.DB.prepare(
-      `SELECT c.code, c.note, c.role, c.max_uses, c.revoked, c.created_at,
+      `SELECT c.code, c.note, c.role, c.plan, c.max_uses, c.revoked, c.created_at,
               c.expires_at,
               (SELECT COUNT(*) FROM redemptions r WHERE r.code = c.code) AS uses
          FROM codes c ORDER BY c.created_at DESC`
@@ -188,6 +199,11 @@ export async function handleAdmin(request, env) {
     try { body = await request.json(); } catch { return json({ error: 'bad_json' }, 400); }
 
     const role = ROLES.includes(body.role) ? body.role : 'byo';
+    // Which plan the code grants. Defaults to `trial` DELIBERATELY: the usual
+    // reason to mint a code is to let somebody try the product, and the safe
+    // default for a credential handed to a stranger is the smallest allowance,
+    // not the largest. A reviewer or comp code names its plan explicitly.
+    const plan = PLANS[body.plan] ? body.plan : 'trial';
     const maxUses = Number.isInteger(body.max_uses) && body.max_uses > 0
       ? body.max_uses : 1;
     const note = (body.note || '').slice(0, 200);
@@ -199,11 +215,14 @@ export async function handleAdmin(request, env) {
 
     const code = newCode();
     await env.DB.prepare(
-      `INSERT INTO codes (code, note, max_uses, revoked, created_at, expires_at, role)
-       VALUES (?1, ?2, ?3, 0, datetime('now'), ?4, ?5)`
-    ).bind(code, note, maxUses, body.expires_at || null, role).run();
+      `INSERT INTO codes (code, note, max_uses, revoked, created_at, expires_at, role, plan)
+       VALUES (?1, ?2, ?3, 0, datetime('now'), ?4, ?5, ?6)`
+    ).bind(code, note, maxUses, body.expires_at || null, role, plan).run();
 
-    return json({ ok: true, code, role, max_uses: maxUses, note });
+    // The plan is returned so whoever mints a code can see what they just
+    // handed out. A trial code and a comp code are otherwise identical to look
+    // at, and the difference between them is the entire allowance.
+    return json({ ok: true, code, role, plan, max_uses: maxUses, note });
   }
 
   // --- withdraw a code ---------------------------------------------------
