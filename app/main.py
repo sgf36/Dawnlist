@@ -297,17 +297,40 @@ def save_query(conn, label: str, titles: list[str], *,
     """
     label = label.strip()
     titles = [t.strip() for t in titles if t.strip()]
+    countries = [c.strip().upper() for c in (countries or []) if c.strip()]
     if not label:
         raise ValueError("a search needs a name")
     if not titles:
         raise ValueError("a search needs at least one job title to look for")
+    if not countries and enabled:
+        # SCOPE IS A COST CONTROL, and this one is measured rather than assumed.
+        #
+        # On the 2,000-row sample, an unscoped global sweep put 7.6% of fetched
+        # rows in front of the user. Scoped to one country that doubles to
+        # 13.7% — the same money buys nearly twice the relevant postings, so
+        # this refusal costs the user nothing they wanted.
+        #
+        # WHAT THIS IS NOT: an industry or seniority filter. Narrowing THOSE at
+        # source was measured on the same sample and keeps only 48% of the
+        # postings that reach assessment while cutting the corpus to 32% — it
+        # buys cost by losing real roles, which is the opposite trade. Do not
+        # add one here because it looks like the same idea.
+        #
+        # A genuinely global search is still available and still supported: name
+        # the regions. The requirement is that breadth be DELIBERATE, not the
+        # default that a blank field silently produces.
+        raise ValueError(
+            "a search needs at least one country, so it does not sweep the "
+            "whole world by accident. Naming where you are looking roughly "
+            "doubles how many of the postings you pay for are ones you would "
+            "actually read. To search widely, list the countries you mean.")
 
     conn.execute(
         """INSERT INTO queries(label, params_json, enabled, created_at)
            VALUES(?,?,?,?)
            ON CONFLICT(label) DO UPDATE SET params_json = excluded.params_json""",
         (label, json.dumps({"titles": titles,
-                            "countries": countries or [],
+                            "countries": countries,
                             "posted_within_days": posted_within_days}),
          int(enabled),
          datetime.now(timezone.utc).isoformat(timespec="seconds")))

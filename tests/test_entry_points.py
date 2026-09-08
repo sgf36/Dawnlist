@@ -820,7 +820,8 @@ def test_a_search_can_be_saved_and_swept(conn):
     one — so the run could never happen at all."""
     from app.main import load_queries, save_query
     assert load_queries(conn) == []
-    save_query(conn, "asset management", ["asset manager", "asset management"])
+    save_query(conn, "asset management", ["asset manager", "asset management"],
+               countries=["GB"])
     labels = [q.label for q in load_queries(conn)]
     assert labels == ["asset management"]
 
@@ -865,7 +866,7 @@ def test_seeding_twice_does_not_duplicate(conn):
 
 def test_a_search_can_be_removed(conn):
     from app.main import all_queries, forget_query, save_query
-    save_query(conn, "asset management", ["asset manager"])
+    save_query(conn, "asset management", ["asset manager"], countries=["GB"])
     forget_query(conn, "asset management")
     assert all_queries(conn) == []
 
@@ -876,7 +877,7 @@ def test_the_calibration_sample_is_a_real_pull(conn, monkeypatch):
     decisions, so onboarding could never be completed by anyone."""
     from app.main import CALIBRATION_SAMPLE, calibration_sample, save_query
 
-    save_query(conn, "strategy", ["strategy"])
+    save_query(conn, "strategy", ["strategy"], countries=["GB"])
     jobs = [Job(provider="theirstack", provider_job_id=str(i),
                 title=f"Head of Strategy {i}", company="Acme",
                 description_text="Strategy work.")
@@ -912,7 +913,7 @@ def test_a_screened_out_posting_still_reaches_the_gate(conn):
     hiding those rows would hide the failure the gate exists to surface."""
     from app.main import calibration_sample, save_query, save_rule_term
 
-    save_query(conn, "strategy", ["strategy"])
+    save_query(conn, "strategy", ["strategy"], countries=["GB"])
     save_rule_term(conn, "strong_terms", "strategy")
     jobs = [Job(provider="theirstack", provider_job_id="a",
                 title="Head of Strategy", company="Acme",
@@ -972,7 +973,7 @@ def test_the_feed_is_still_preferred_when_present(conn, tmp_path, monkeypatch):
 
     save_document(conn, "fit_brief", "b")
     save_document(conn, "factsheet", FACTS)
-    save_query(conn, "strategy", ["strategy"])
+    save_query(conn, "strategy", ["strategy"], countries=["GB"])
     monkeypatch.setattr(main, "alerts_dir", lambda: an_alerts_folder(tmp_path))
 
     feed_jobs = [Job(provider="theirstack", provider_job_id=f"f{i}",
@@ -991,7 +992,7 @@ def test_a_short_feed_is_topped_up_from_alerts(conn, tmp_path, monkeypatch):
 
     save_document(conn, "fit_brief", "b")
     save_document(conn, "factsheet", FACTS)
-    save_query(conn, "strategy", ["strategy"])
+    save_query(conn, "strategy", ["strategy"], countries=["GB"])
     monkeypatch.setattr(main, "alerts_dir", lambda: an_alerts_folder(tmp_path))
 
     feed_jobs = [Job(provider="theirstack", provider_job_id=f"f{i}",
@@ -1019,3 +1020,54 @@ def test_no_feed_and_no_alerts_is_still_a_named_setup_failure(conn, tmp_path, mo
 def test_the_alerts_folder_is_not_a_synced_one():
     from app.main import alerts_dir
     assert "OneDrive" not in str(alerts_dir())
+
+
+# ---------------------------------------------------------------------------
+# Scope is a cost control, and it is measured
+# ---------------------------------------------------------------------------
+
+def test_an_enabled_search_must_name_where_it_is_looking(conn):
+    """An unscoped sweep is the expensive default, and it WAS the default.
+
+    Measured on the 2,000-row sample: an unscoped global sweep puts 7.6% of
+    fetched rows in front of the user; scoped to one country that is 13.7%. The
+    same money buys nearly twice the relevant postings, so refusing a blank
+    scope costs the user nothing they wanted.
+    """
+    from app.main import save_query
+    with pytest.raises(ValueError) as e:
+        save_query(conn, "anything anywhere", ["manager"])
+    assert "country" in str(e.value).lower()
+
+
+def test_breadth_is_allowed_when_it_is_deliberate(conn):
+    """Global coverage is a REQUIREMENT of this product, not something to block.
+
+    The rule is that breadth must be chosen, not produced by a blank field.
+    """
+    from app.main import all_queries, save_query
+    save_query(conn, "wide", ["general manager"],
+               countries=["GB", "US", "FR", "DE", "ES", "IT", "NL", "AE"])
+    assert "wide" in [lbl for lbl, _t, _on in all_queries(conn)]
+
+
+def test_a_disabled_seed_needs_no_scope(conn):
+    """Seeds arrive switched OFF and cost nothing until enabled.
+
+    Requiring a country here would break `seed_queries_from_aim`, which turns
+    an aim into candidate searches the user then chooses between. A search that
+    cannot run cannot spend.
+    """
+    from app.main import all_queries, save_query
+    save_query(conn, "a candidate", ["asset manager"], enabled=False)
+    assert "a candidate" in [lbl for lbl, _t, _on in all_queries(conn)]
+
+
+def test_country_codes_are_normalised(conn):
+    import json
+
+    from app.main import save_query
+    save_query(conn, "normalised", ["manager"], countries=[" gb ", "us"])
+    row = conn.execute(
+        "SELECT params_json FROM queries WHERE label='normalised'").fetchone()
+    assert json.loads(row["params_json"])["countries"] == ["GB", "US"]
