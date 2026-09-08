@@ -1,7 +1,21 @@
 # Launch readiness — the API path
 
-**Written 2026-09-08.** Assumes TheirStack's **API** is the route, not Datasets.
-Every step below is ordered, and each says who can do it.
+**Written 2026-09-08.** Assumes the provider's **API** is the route, not their
+bulk Datasets product.
+
+> **The ordered owner checklist now lives in `LAUNCH-RUNBOOK.md` at the
+> repository root**, because launch is not only a Worker deployment — it is
+> also two store submissions, three signed packages and a website obligation,
+> and splitting the order of operations across two files is how a step gets
+> skipped. This file keeps the *reasoning* behind the Worker's configuration,
+> which the runbook deliberately does not repeat.
+>
+> **Superseded here, corrected there:** the "buy nothing yet" position below,
+> and the "break-even around the mid-teens" figure. Launch now needs a small
+> credit pack before submission — a store reviewer runs the application, and a
+> feed with no credit is a rejection. Break-even at $79 is **18 subscribers on
+> Paddle, 20 through a store's own commerce**, measured on 2026-09-08. "Mid-
+> teens" was a conversational round-down and should not be quoted.
 
 ---
 
@@ -29,25 +43,36 @@ measurement rather than an argument. Read it before switching.
 
 ## What to buy, and when
 
-**Nothing yet.** Two things gate it, and neither is about money:
+**A $199 one-time pack — 5,000 credits — and nothing else.** The runbook gives
+the ordering; this is why that shape rather than another.
 
-1. **Ticket #5008 is unanswered.** It asks whether the standard API licence
-   permits surfacing postings to individual paying end users through a
-   server-side proxy. If the answer is no, the right product is Datasets, and
-   an API tier bought now is the wrong purchase rather than an early one.
-   Raised Sun 2026-09-06, chased Tue 2026-09-08. Next chase no earlier than
-   Tue 2026-09-15, and never a Monday or a Friday.
-2. **There are no subscribers and nothing is submitted.** A subscription bills
-   monthly against an idle key.
+The earlier answer here was "nothing yet", on two grounds. One has gone and one
+has changed:
 
-**When it is time**, the first tier is **$900/month for 200,000 credits**
-($0.0045/credit). At ~15,400 credits per user that block serves about **13
-users**, and at $79/month on Paddle the product is at break-even around the
-**mid-teens** — not the 66 that belongs to the discarded $19.99 model.
+1. **The licence question is no longer a hard blocker.** The provider's
+   published terms answer five of the seven questions ticket #5008 asked, and
+   answer them favourably — reselling their data partially through your own
+   platform is expressly authorised. What is left is one clause tension, and it
+   is confirmation of a favourable reading rather than discovery of an unknown
+   one. Chase no earlier than Tue 2026-09-15, and never a Monday or a Friday.
+2. **"No subscribers and nothing submitted" argued against a SUBSCRIPTION, and
+   still does — but it does not argue against buying anything at all.** A store
+   reviewer runs the application. A reviewer whose search returns an error
+   because the feed has no credit is a rejection, so *something* has to be
+   bought before submission. A one-time pack is the instrument that fits: its
+   credits roll over twelve months and survive cancellation, so an idle month
+   in a review queue costs nothing.
 
-**Launch on one-time packs, not a subscription**, until the base is steady:
-pack credits roll over twelve months and survive cancellation, which suits a
-base that is small and uncertain.
+**When the base is steady**, the first tier worth moving to is **$900/month for
+200,000 credits** ($0.0045/credit). At ~15,400 credits per user that block
+serves about **13 users**, which is also roughly where per-subscriber
+contribution turns positive — no smaller tier does, because $0.0050/credit
+against $74.55 net is already the whole margin.
+
+Break-even at $79 is **18 subscribers on Paddle and 20 through a store's own
+commerce**, measured 2026-09-08. Not "mid-teens", which was a conversational
+round-down, and certainly not the 66 that belongs to the discarded $19.99
+model.
 
 ---
 

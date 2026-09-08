@@ -1,6 +1,6 @@
 name: Build
 
-# Windows and macOS packages, built on GitHub's runners.
+# Every artefact the launch needs, from one push.
 #
 # THIS IS THE ANSWER TO "macOS CANNOT BE BUILT FROM SPENCER'S MACHINE".
 # It cannot — PyInstaller does not cross-compile — but it does not have to be
@@ -8,42 +8,81 @@ name: Build
 # to both the Mac App Store and Developer ID this way since August 2026. This
 # workflow is modelled on that one, including the lessons its comments record.
 #
-# WHAT IT DELIBERATELY DOES NOT DO: duplicate the packaging logic in YAML.
-# Signing, notarising and the two bundle guards live in
-# `packaging/build_macos.py`, so they can be read, reviewed and run by hand on
-# a Mac. A workflow that reimplements them in bash is a second source of truth
-# that drifts, and it can only be tested by pushing.
+# WHY THE MATRIX LISTS VARIANTS AND NOT JUST OPERATING SYSTEMS
+# ------------------------------------------------------------
+# It used to be `os: [windows-latest, macos-latest]` with the variant chosen
+# per OS, which meant one run produced ONE package per platform. Windows built
+# the Store MSIX and nothing else, so the Windows direct download did not
+# exist — and nothing failed, because nothing was looking for it. "Direct
+# download and the stores, shipped together" was not reachable from this
+# repository at all.
 #
-# The macOS job runs WITHOUT signing secrets too. It still builds the .app and
-# still runs the guards, so a broken bundle is caught on every push even before
-# any certificate exists. Only the signing and upload steps are skipped.
+# The variant is now part of the matrix, so a single push produces the whole
+# release: Store MSIX, Windows ZIP, macOS .dmg.
+#
+# WHY `mas` IS NOT HERE
+# ---------------------
+# A Mac App Store build cannot be submitted today, and a workflow that keeps
+# producing one implies otherwise. Apple's guideline 3.1.1 forbids unlocking an
+# app with a licence key, which is exactly how the entitlement works; the
+# compliant route (3.1.3(b) Multiplatform Services) needs a StoreKit in-app
+# subscription and user accounts, and neither exists. See
+# store/STORE-COMPLIANCE.md. `packaging/build_macos.py --variant mas` still
+# works and can be run by hand on a Mac when that project starts.
+#
+# WHAT THIS DELIBERATELY DOES NOT DO: duplicate the packaging logic in YAML.
+# Signing, notarising and the bundle guards live in the packaging scripts, so
+# they can be read, reviewed and run by hand. A workflow that reimplements them
+# in bash is a second source of truth that drifts, and it can only be tested by
+# pushing.
 
 on:
   push:
     branches: [master, main]
   pull_request:
   workflow_dispatch:
-    inputs:
-      variant:
-        description: "Build variant"
-        required: false
-        default: store
-        type: choice
-        options: [store, direct, mas]
 
 permissions:
   contents: read
 
 jobs:
+  # The Worker is half the product — caps, entitlement and the Paddle webhook
+  # all live there — and its tests were not run by CI at all. A cap regression
+  # would have reached production with a green build.
+  worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # An explicit glob, not the directory. `node --test test/` collects
+      # nothing and still exits reporting one failed "test", which reads like a
+      # real failure and is not one.
+      - name: Run the Worker tests
+        working-directory: server/dawnlist-feed-worker
+        run: node --test test/*.test.mjs
+
   build:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            variant: store        # Microsoft Store  -> dist/Dawnlist.msix
+          - os: windows-latest
+            variant: direct       # Website download -> dist/Dawnlist-windows-*.zip
+          - os: macos-latest
+            variant: direct       # Website download -> dist/Dawnlist-*.dmg
     runs-on: ${{ matrix.os }}
     # GitHub's default is six hours, which is far longer than anything here
     # should legitimately take.
     timeout-minutes: 60
+
+    permissions:
+      contents: read
+      id-token: write   # OIDC federated-credential exchange for azure/login
 
     steps:
       - uses: actions/checkout@v5
@@ -63,20 +102,11 @@ jobs:
       - name: Run tests
         run: python -m pytest -q
 
+      # The flag is baked into the bundle by PyInstaller, so this must happen
+      # BEFORE the build and not after. Every packaging script re-checks the
+      # bundle rather than trusting this step.
       - name: Select the build variant
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ "${{ matrix.os }}" = "macos-latest" ]; then
-            VARIANT="${{ inputs.variant || 'mas' }}"
-            [ "$VARIANT" = "store" ] && VARIANT="mas"
-          else
-            VARIANT="${{ inputs.variant || 'store' }}"
-            [ "$VARIANT" = "mas" ] && VARIANT="store"
-          fi
-          echo "Building the $VARIANT variant"
-          python tools/set_build_variant.py "$VARIANT"
-          echo "VARIANT=$VARIANT" >> "$GITHUB_ENV"
+        run: python tools/set_build_variant.py ${{ matrix.variant }}
 
       - name: Build with PyInstaller
         run: python -m PyInstaller packaging/build_exe.spec --noconfirm
@@ -106,7 +136,7 @@ jobs:
           rm -f "$RUNNER_TEMP/cert.p12"
 
       - name: Store the notarisation credentials
-        if: matrix.os == 'macos-latest' && env.HAS_NOTARY == 'true' && github.event_name != 'pull_request' && env.VARIANT == 'direct'
+        if: matrix.os == 'macos-latest' && env.HAS_NOTARY == 'true' && github.event_name != 'pull_request'
         env:
           HAS_NOTARY: ${{ secrets.APPLE_ID != '' }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -122,9 +152,9 @@ jobs:
       # Runs with or without secrets. Without them the guards still execute,
       # so a bundle missing its locale catalogues or carrying the wrong variant
       # flag fails here rather than at submission.
-      - name: Verify the bundle
+      - name: Verify the bundle (macOS)
         if: matrix.os == 'macos-latest'
-        run: python packaging/build_macos.py --variant "$VARIANT" --verify-only
+        run: python packaging/build_macos.py --variant ${{ matrix.variant }} --verify-only
 
       - name: Sign, package and notarise (macOS)
         if: matrix.os == 'macos-latest' && env.HAS_SIGNING == 'true' && github.event_name != 'pull_request'
@@ -134,42 +164,110 @@ jobs:
         env:
           HAS_SIGNING: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 != '' }}
           IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
-          INSTALLER_IDENTITY: ${{ secrets.MAS_SIGN_INSTALLER_IDENTITY }}
         run: |
           set -euo pipefail
-          if [ "$VARIANT" = "mas" ]; then
-            # App Review notarises store builds, so this must NOT notarise.
-            python packaging/build_macos.py --variant mas \
-              --identity "$IDENTITY" \
-              --installer-identity "$INSTALLER_IDENTITY"
-          else
-            python packaging/build_macos.py --variant direct \
-              --identity "$IDENTITY" \
-              --notary-profile dawnlist
-          fi
+          python packaging/build_macos.py --variant direct \
+            --identity "$IDENTITY" \
+            --notary-profile dawnlist
 
-      # -------------------------------------------------------------- Windows
+      # ------------------------------------------------- Windows, Store build
       - name: Build the MSIX
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && matrix.variant == 'store'
         run: python packaging/build_msix.py
+
+      # Partner Center refuses an unsigned package, and the Store strips this
+      # signature and re-signs on publish — so a throwaway certificate is the
+      # right instrument, not a shortcut. What must be exact is its subject.
+      - name: Sign the MSIX for upload
+        if: matrix.os == 'windows-latest' && matrix.variant == 'store'
+        shell: pwsh
+        run: pwsh -NoProfile -File packaging\sign_msix.ps1
+
+      # ------------------------------------------------ Windows, direct build
+      # A real Microsoft-managed Public Trust certificate through Azure
+      # Artifact Signing. This is the one buyers meet: a ZIP from the website
+      # runs exactly as shipped, so an unsigned executable is a SmartScreen
+      # wall for every one of them.
+      #
+      # No-op until the repo variable AZURE_SIGNING_READY is 'true'. The three
+      # AZURE_* repo secrets are directory identifiers, not credentials — the
+      # OIDC federated credential is what proves this workflow may use them, so
+      # no client secret exists to leak. Because that credential is bound to a
+      # branch subject, signing can only ever happen on the default branch.
+      #
+      # The signing action reads the Azure credential from the CLI session
+      # azure/login leaves behind, so the login step is not optional. Account,
+      # endpoint and profile are properties of the resource: see Easy-Post
+      # Desktop's CI-AZURE-SIGNING-SETUP.md before changing any of the three.
+      - name: Azure login (OIDC) for signing
+        if: matrix.os == 'windows-latest' && matrix.variant == 'direct' && vars.AZURE_SIGNING_READY == 'true' && github.event_name != 'pull_request'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sign the Windows build (Azure Artifact Signing)
+        if: matrix.os == 'windows-latest' && matrix.variant == 'direct' && vars.AZURE_SIGNING_READY == 'true' && github.event_name != 'pull_request'
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: https://weu.codesigning.azure.net/
+          # The account is named for the product it was first created for; the
+          # profile is named for the publisher, because one profile signs
+          # everything the business ships. They are NOT the same string, and
+          # that is the single easiest thing here to get wrong.
+          signing-account-name: EasyPostDesktop
+          certificate-profile-name: SpencerFieldsSoftware
+          files-folder: ${{ github.workspace }}\dist\Dawnlist
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      # Packaging comes AFTER signing, deliberately. Signing rewrites the
+      # executable in place, so a ZIP or a checksum made beforehand describes a
+      # file nobody will ever download. build_windows_direct.py enforces the
+      # ordering itself: it refuses to package an unsigned exe unless told to.
+      - name: Package the Windows download
+        if: matrix.os == 'windows-latest' && matrix.variant == 'direct'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ vars.AZURE_SIGNING_READY }}" = "true" ] && [ "${{ github.event_name }}" != "pull_request" ]; then
+            # No --allow-unsigned: if the signing step above silently signed
+            # nothing, the guard fails the build here rather than letting a
+            # SmartScreen prompt find it on a stranger's machine.
+            python packaging/build_windows_direct.py
+          else
+            # Signing is not configured yet. Still build the package, so the
+            # guards run on every push and the artefact can be smoke-tested —
+            # but say so in the log and in the file name, because an unsigned
+            # ZIP is indistinguishable from a signed one once it is downloaded.
+            python packaging/build_windows_direct.py --allow-unsigned
+            # The checksum goes, rather than being renamed alongside. A hash
+            # published for an unsigned binary teaches buyers to verify
+            # something that says nothing about where the file came from, and
+            # a .sha256 sitting in an artefact is an invitation to publish it.
+            rm -f dist/Dawnlist-windows-*.zip.sha256
+            for f in dist/Dawnlist-windows-*.zip; do
+              mv "$f" "dist/UNSIGNED-DO-NOT-PUBLISH-$(basename "$f")"
+            done
+          fi
 
       # -------------------------------------------------------------- artefacts
       - name: Upload
         uses: actions/upload-artifact@v5
         with:
-          name: dawnlist-${{ matrix.os }}-${{ env.VARIANT }}
-          # `error` only when a package is genuinely expected. Windows always
-          # produces an MSIX; macOS produces a .dmg or .pkg ONLY once signing
+          name: dawnlist-${{ matrix.os }}-${{ matrix.variant }}
+          # `error` only when a package is genuinely expected. Both Windows
+          # legs always produce one; macOS produces a .dmg ONLY once signing
           # secrets exist, because an unsigned run stops after the guards.
           # Hard-coding `error` failed the first green macOS build for having
           # correctly produced nothing — the job had passed every real step.
-          #
-          # `warn` is right for the unsigned case and wrong as a blanket
-          # default: on Windows, or on a signed macOS run, an empty dist means
-          # the packaging silently produced nothing and that must fail.
           if-no-files-found: ${{ (matrix.os == 'windows-latest' || secrets.MACOS_CERTIFICATE_P12_BASE64 != '') && 'error' || 'warn' }}
           retention-days: 14
           path: |
             dist/*.msix
+            dist/*.zip
+            dist/*.sha256
             dist/*.dmg
-            dist/*.pkg

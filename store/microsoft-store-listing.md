@@ -336,10 +336,47 @@ Honest as written; thin as an experience.
 
 ---
 
-## BLOCKER — a store purchase does not yet reach the feed
+## RESOLVED — how a Store customer reaches the feed
 
-Found 2026-09-08 by simulating a store customer's first run, and it stops
-submission on its own.
+**Resolved 2026-09-08 by a decision, not by code: Dawnlist is listed in the
+Microsoft Store as a FREE install, and the subscription is bought on the
+website through Paddle.** There is no Store subscription add-on, so there is no
+Store entitlement to exchange, and the licence a Store customer holds is the
+same licence a direct-download customer holds — issued by Paddle at purchase,
+pasted into Settings, metered per licence by the Worker.
+
+That is expressly permitted. Microsoft allows third-party commerce and takes
+**0%** on it. Two obligations come with it and both are satisfied:
+
+1. The commerce provider must be identified, the user authenticated, and
+   confirmation taken at the time of the transaction. The app does not transact
+   at all — this happens at the website checkout, where Paddle is the merchant
+   of record.
+2. **The third-party-purchase box must be ticked in Partner Center.** Using
+   third-party commerce without declaring it is the compliance failure; the
+   commerce itself is fine. This is on the submission checklist.
+
+It also means the Settings licence panel must stay visible on `store` builds,
+which it is (`shows_licence = build != "mas"`). Hiding it there would leave a
+Store customer holding a key with nowhere to put it.
+
+**The alternative was to build the Store add-on path**, and it is written up
+below because it may be the right answer later — a Store customer who cannot
+buy inside the Store is a conversion cost. It is not the right answer now: it
+needs a `StoreContext` exchange that does not exist, and it would hand
+Microsoft a revenue share the third-party route does not.
+
+**One thing this does add to the submission**: a reviewer installing a free app
+that then asks for a licence key sees a product that does nothing. Mint an
+override code on the `trial` plan and put it in the submission notes with a
+one-line instruction. That is what override codes are for, and a reviewer who
+cannot run the app is a rejection.
+
+---
+
+### The problem this decision answers, kept for the record
+
+Found 2026-09-08 by simulating a store customer's first run.
 
 `entitlement.require` treats a store build as **entitled by possession**: the
 storefront does not hand the binary to someone who has not bought it, so there
@@ -360,20 +397,20 @@ buy. That wording is fixed and the failure now names itself as a fault rather
 than as something the customer did wrong, but **an honest error message is not
 a working product.**
 
-**What has to happen before the Store version can ship:**
+**What selling INSIDE the Store would take**, if that is ever wanted:
 
 1. Create a **recurring subscription add-on** in Partner Center for $79/month.
 2. Have the app read the Store entitlement (`StoreContext.GetAppLicenseAsync`
    or the equivalent) and exchange a valid subscription for a Dawnlist licence
    key from the Worker, storing it exactly where the direct build stores one.
+   The `winrt` packages are already collected by `build_exe.spec` for this.
 3. Then `build_provider` needs no change at all: it already prefers a licence
    over everything else, and a store build holding one uses the managed feed
    like any other. That path is tested.
 
-Until then, **the direct-download build is the only one that can actually run**,
-because Paddle issues a licence at purchase. The Windows package builds and
-verifies, but shipping it to the Store today would sell a subscription that
-cannot fetch a single posting.
+None of that is needed to ship. It is worth doing only if the Store turns out
+to be a real acquisition channel and the checkout hand-off is measurably losing
+buyers — which is a thing to find out, not to assume.
 
 ---
 
