@@ -1,8 +1,11 @@
 # Build status
 
 **Repo:** `C:\Users\SpencerFields\dawnlist`, deliberately **off OneDrive** per handoff Part 9.
-**Tests:** 552 app + 33 Worker, all passing — `.venv/Scripts/python -m pytest -q`
-**Last updated:** 2026-09-07 — P1 engine complete; a frozen build runs
+**Tests:** 631 app, all passing — `.venv/Scripts/python -m pytest -q`
+**Worker:** 5 suites, all passing — `cd server/dawnlist-feed-worker && node --test test/*.test.mjs`
+(an explicit glob, not the directory: `node --test test/` collects nothing and
+still exits reporting one failed "test")
+**Last updated:** 2026-09-08 — all three launch packages build; see `LAUNCH-RUNBOOK.md`
 
 ## Done
 

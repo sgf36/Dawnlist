@@ -430,10 +430,16 @@ Done and verified on 2026-09-07, against the artefact rather than the build log:
 
 Still open, and each needs Spencer:
 
-- [ ] **Confirm Partner Center actually reserved `SFields.Dawnlist`.** There is
-      no API that reads a reservation, so this cannot be checked from here. If
-      it differs, correct `Identity Name` in `packaging/msix/AppxManifest.xml`
-      and repack — a mismatch fails ingestion, which surfaces late.
+- [x] **Package identity confirmed against Partner Center, 2026-09-08.** It was
+      reserved as `SFields.DawnlistJobSearch`, not the `SFields.Dawnlist` the
+      manifest carried; the manifest is corrected and the MSIX has been rebuilt
+      and signed from it. A mismatch fails ingestion, which surfaces late.
+- [ ] **Do not create a subscription add-on.** The app is listed free and the
+      subscription is bought on the website — see the third-party commerce
+      decision above. Tick the third-party-purchase declaration instead.
+- [ ] **Put a `trial`-plan override code in the submission notes.** A reviewer
+      installing a free app that asks for a licence key sees a product that
+      does nothing, which is a rejection.
 - [ ] Upload the MSIX and the six screenshots, and paste the listing copy
 - [ ] **WACK: needs an elevated shell.** `appcert.exe` is installed at
       `C:\Program Files (x86)\Windows Kits\10\App Certification Kit\`.
