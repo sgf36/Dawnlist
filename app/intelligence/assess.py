@@ -233,7 +233,71 @@ def assess(jobs: list[Job], fit_brief: str, factsheet: str, *,
         missing = [j for j in chunk if j.provider_job_id not in judged]
         report.unread.extend(missing)
 
+    _second_pass(report, fit_brief, factsheet, send=send, model=model)
     return report
+
+
+def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
+                 send, model: str) -> None:
+    """spec 7.6 — re-read the FULL description before trusting a strong verdict.
+
+    The first pass truncates to FIRST_PASS_CHARS (1,200) and says so in the
+    prompt. Descriptions average about 7,400 characters, so a first-pass
+    verdict is formed on roughly a sixth of the posting. That is fine for
+    setting most of them aside; it is not enough to put one at the top of
+    someone's shortlist, which is exactly what a STRONG verdict does.
+
+    This existed only as an unasked question until 2026-09-08: `needs_full_read`
+    computed the answer, `render_posting` honoured `full=True`, and nothing
+    joined them — so every strong verdict was issued on a truncated read while
+    the product's stated differentiator was that it reads every posting in
+    full.
+
+    Cost note: this is CHEAPER than sending full text on the first pass, not
+    more expensive. Only strong candidates are re-read, and they are a small
+    fraction of what is assessed.
+
+    A failed re-read does NOT silently promote or demote anything. The verdict
+    stands as the model gave it, `full_read` stays False so `needs_full_read`
+    still reports True, and the failure is recorded on the report — a run that
+    could not complete its second pass must not be reportable as a clean one.
+    """
+    pending = [v for v in report.verdicts if v.needs_full_read]
+    if not pending:
+        return
+
+    by_ref = {v.job.provider_job_id: v for v in pending}
+
+    for chunk in batches([v.job for v in pending]):
+        try:
+            payload = send(build_request(chunk, fit_brief, factsheet,
+                                         model=model, full=True))
+        except Exception as exc:  # noqa: BLE001
+            report.errors.append(
+                f"full re-read failed for {len(chunk)} strong verdict(s) "
+                f"({type(exc).__name__}: {exc}) — they were judged on a "
+                f"truncated description")
+            continue
+
+        rereads, errs = parse_verdicts(payload, {j.provider_job_id: j for j in chunk})
+        report.errors.extend(errs)
+
+        for fresh in rereads:
+            ref = fresh.job.provider_job_id
+            original = by_ref.get(ref)
+            if original is None:
+                continue
+            fresh.full_read = True
+            # A re-read that CHANGES the verdict is the whole point, and the
+            # change is surfaced rather than quietly applied: the first answer
+            # was formed on a sixth of the text, and the user is entitled to
+            # know the fuller read disagreed.
+            if fresh.bucket != original.bucket:
+                fresh.downgraded_from = original.bucket
+                fresh.downgrade_reason = (
+                    "re-read in full: the complete description changed the "
+                    f"verdict from {original.bucket}")
+            report.verdicts[report.verdicts.index(original)] = fresh
 
 
 def merge_batch_results(results: Iterable[Any],

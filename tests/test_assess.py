@@ -206,3 +206,92 @@ def test_a_strong_verdict_from_a_truncated_pass_is_flagged_for_re_read():
     v = enforce_quote_rule({"bucket": "strong", "reason": "fits",
                             "requirement_checked": True}, job())
     assert v.needs_full_read, "spec 7.6: re-read in full before a strong verdict"
+
+
+# ---------------------------------------------------------------------------
+# spec 7.6 — the full re-read before a strong verdict
+# ---------------------------------------------------------------------------
+#
+# The first pass truncates to 1,200 characters and descriptions average ~7,400,
+# so a strong verdict formed on the first pass has seen roughly a sixth of the
+# posting. These assert that the SECOND request actually happens and actually
+# carries the full text — the mechanism existed for weeks with nothing calling
+# it, and every test passed throughout.
+
+def _job(ref, description):
+    return Job(provider="theirstack", provider_job_id=ref, title="GM",
+               company="Co", locations=("London",),
+               description_text=description, url="")
+
+
+# The marker sits BEYOND FIRST_PASS_CHARS on purpose: if it fell inside the
+# truncation window the test would pass whether or not the re-read happened.
+LONG = "A" * (FIRST_PASS_CHARS + 100) + " unique-marker-deep-in-the-text " + "B" * 6000
+
+
+def _payload(ref, bucket, reason="because"):
+    return {"verdicts": [{"job_ref": ref, "bucket": bucket, "reason": reason,
+                          "requirement_checked": True}]}
+
+
+def test_a_strong_verdict_triggers_a_second_request_with_the_full_text():
+    sent = []
+
+    def send(request):
+        sent.append(request)
+        return _payload("j1", "strong")
+
+    report = assess([_job("j1", LONG)], "brief", "facts", send=send)
+
+    assert len(sent) == 2, "a strong verdict must be re-read in full"
+    first = str(sent[0])
+    second = str(sent[1])
+    assert "TRUNCATED" in first, "the first pass must truncate, and say so"
+    assert "unique-marker-deep-in-the-text" not in first
+    assert "unique-marker-deep-in-the-text" in second, "the re-read must carry the whole description"
+    assert report.verdicts[0].full_read is True
+    assert report.verdicts[0].needs_full_read is False
+
+
+def test_a_rejection_is_not_re_read():
+    """Only STRONG verdicts earn a second look. Re-reading everything would
+    cost more than sending full text once and defeat the point."""
+    sent = []
+
+    def send(request):
+        sent.append(request)
+        return _payload("j1", "rejected")
+
+    assess([_job("j1", LONG)], "brief", "facts", send=send)
+    assert len(sent) == 1
+
+
+def test_a_re_read_that_changes_its_mind_says_so():
+    calls = []
+
+    def send(request):
+        calls.append(request)
+        return _payload("j1", "strong" if len(calls) == 1 else "possible")
+
+    report = assess([_job("j1", LONG)], "brief", "facts", send=send)
+    v = report.verdicts[0]
+    assert v.bucket == "possible"
+    assert v.downgraded_from == "strong"
+    assert "re-read in full" in v.downgrade_reason
+
+
+def test_a_failed_re_read_is_recorded_and_never_hidden():
+    """The verdict stands, but the run cannot be reported as clean."""
+    calls = []
+
+    def send(request):
+        calls.append(request)
+        if len(calls) > 1:
+            raise RuntimeError("upstream down")
+        return _payload("j1", "strong")
+
+    report = assess([_job("j1", LONG)], "brief", "facts", send=send)
+    assert report.verdicts[0].bucket == "strong"
+    assert report.verdicts[0].full_read is False
+    assert report.verdicts[0].needs_full_read is True
+    assert any("truncated" in e.lower() for e in report.errors)
