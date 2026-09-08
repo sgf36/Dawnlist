@@ -122,3 +122,18 @@ CREATE TABLE IF NOT EXISTS licence_roles (
 ALTER TABLE usage_daily ADD COLUMN input_tokens INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE usage_daily ADD COLUMN output_tokens INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE licences ADD COLUMN max_tokens_per_day INTEGER;
+
+-- Which plan the licence is on. The CAPS are the enforced truth (the columns
+-- above); this records WHICH plan set them, so support can answer "what am I
+-- paying for?" without reverse-engineering it from three cap numbers, and so a
+-- plan whose caps are later revised can be found and re-applied.
+--
+-- Nullable deliberately: licences issued before plans existed have no answer,
+-- and inventing 'standard' for them would assert something nobody verified.
+ALTER TABLE licences ADD COLUMN plan TEXT;
+
+-- Set when a Paddle event's price id matched nothing configured, so the
+-- licence took the fallback plan. A row with this set is a customer who may be
+-- on the wrong caps, and it is the only way to find them later — the webhook
+-- logs counts, not payloads, so the event itself is gone.
+ALTER TABLE licences ADD COLUMN plan_unmatched INTEGER NOT NULL DEFAULT 0;

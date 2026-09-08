@@ -17,10 +17,55 @@ LinkedIn code and the marketing must not imply otherwise.
 | Field | Value |
 |---|---|
 | Product name | Dawnlist — Job Search |
-| Package identity | `SFields.Dawnlist` *(confirm against what Partner Center actually reserved, and correct `packaging/msix/AppxManifest.xml` if it differs — a mismatch fails ingestion, not certification)* |
+| Package identity | **UNRESOLVED — see the box below. Do not submit until it is settled.** |
 | Category | Productivity |
 | Subcategory | Personal finance & productivity → Productivity |
 | Pricing | **Paid, one price, up front.** No in-app purchase and no free tier. **Bring-your-own-key:** the buyer supplies an Anthropic API key and is billed by Anthropic directly. |
+
+---
+
+## The Partner Center name is wrong, and it is two problems
+
+Observed in Partner Center on 2026-09-08: the product is listed as
+**`SFields.Dawnlist`**, status *Not started*, no markets and no price. The
+sibling product on the same account reads `Easy-Post Desktop`, which is what a
+product name is supposed to look like.
+
+**Problem one — that is a package identity string sitting in the product-name
+field.** `SFields.Dawnlist` is what customers would see in the Store: in search
+results, on the product page and in their library. It reads as a namespace, not
+a product, and it is not the name this listing is written for.
+
+**Problem two — the manifest's `Identity Name` was never confirmed against
+Partner Center, and this does not confirm it.** A reserved product name and a
+package identity are different things that happen to look alike here. The
+authoritative values live in Partner Center under **Product management →
+Product identity**, which shows `Package/Identity/Name`,
+`Package/Identity/Publisher` and `Package/Properties/PublisherDisplayName`.
+Those three must be copied into `packaging/msix/AppxManifest.xml` **verbatim**.
+A mismatch fails ingestion after upload, which is late and reads as an
+unrelated error.
+
+**Fix, in this order:**
+
+1. **Reserve the real product name.** Product management → Manage product
+   names → reserve `Dawnlist — Job Search`, and make it the one shown. Keep
+   `SFields.Dawnlist` reserved rather than deleting it: releasing a reserved
+   name frees it for anyone. If the em dash is refused, reserve
+   `Dawnlist - Job Search` with a hyphen and let the listing's Display name
+   carry the typographic version.
+2. **Read Product identity** and correct the manifest if any of the three
+   values differ from what is in it now (`Name="SFields.Dawnlist"`,
+   `Publisher="CN=A7D4B6C0-27D4-4F66-82EB-82F5DD466788"`,
+   `PublisherDisplayName="SFields"`).
+3. **Repack** — `python packaging/build_msix.py` — because the manifest is
+   copied into the package at pack time.
+
+This is cheap to fix now and expensive later: the product is *Not started*, so
+nothing has been submitted and no customer has seen the name. Once a product is
+published the displayed name can still change, but the **package identity
+cannot** — it is the key the Store uses to recognise updates, and getting it
+wrong means the app cannot be updated, only replaced.
 
 ---
 

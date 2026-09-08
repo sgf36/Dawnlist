@@ -18,6 +18,7 @@
  *      point at this URL, the correct secret is the one matching THIS
  *      destination — the most convincingly named one may be dead.
  */
+import { planForEvent, capsFor } from './plans.js';
 
 const SIGNATURE_TOLERANCE_SECONDS = 5 * 60;
 
@@ -30,6 +31,20 @@ const GRANTING = new Set([
 const REVOKING = new Set([
   'subscription.canceled',
   'subscription.paused',
+]);
+/**
+ * A plan change. This is the event that makes "pay more for a higher cap"
+ * actually work: without it an upgrade takes the customer's money and leaves
+ * their caps exactly where they were.
+ *
+ * It fires for many reasons besides a plan change — a new card, a billing
+ * address, a scheduled change being applied — so the handler re-derives the
+ * plan from the items and writes only when it differs. Treating every one of
+ * these as a plan change would rewrite caps on a card update, silently
+ * resetting a licence that support had raised by hand.
+ */
+const UPDATING = new Set([
+  'subscription.updated',
 ]);
 
 function timingSafeEqual(a, b) {
@@ -150,10 +165,27 @@ export async function handlePaddleWebhook(request, env) {
       result = { ok: true, action: 'reactivated' };
     } else {
       const key = newLicenceKey();
+      // The caps the customer actually paid for. Before this, every licence
+      // fell back to the Worker's anti-abuse default and paying more bought
+      // nothing at all.
+      const chosen = planForEvent(env, event);
+      const caps = capsFor(chosen.plan);
       await env.DB.prepare(
-        `INSERT INTO licences (licence_key, tier, status, paddle_subscription_id)
-         VALUES (?1, ?2, 'active', ?3)`
-      ).bind(key, tierFor(event), subscriptionId).run();
+        `INSERT INTO licences (licence_key, tier, status, paddle_subscription_id,
+                               plan, plan_unmatched,
+                               max_postings_per_day, max_refreshes_per_day,
+                               max_saved_queries)
+         VALUES (?1, ?2, 'active', ?3, ?4, ?5, ?6, ?7, ?8)`
+      ).bind(key, tierFor(event), subscriptionId, caps.plan,
+             chosen.matched ? 0 : 1,
+             caps.max_postings_per_day, caps.max_refreshes_per_day,
+             caps.max_saved_queries).run();
+      if (!chosen.matched) {
+        // Counts and ids only, never the payload. A customer on the fallback
+        // may be on the wrong caps and this is the only trace left.
+        console.warn('paddle: no price id matched a plan; used fallback',
+                     { plan: caps.plan, subscription: subscriptionId ? 'yes' : 'no' });
+      }
       // The key is NOT returned in the response: the webhook response goes to
       // Paddle, not to the customer. Delivery is a separate, deliberate step.
       result = { ok: true, action: 'issued' };
@@ -165,6 +197,56 @@ export async function handlePaddleWebhook(request, env) {
         "UPDATE licences SET status = 'expired' WHERE paddle_subscription_id = ?1"
       ).bind(subscriptionId).run();
       result = { ok: true, action: 'revoked' };
+    }
+  } else if (UPDATING.has(type)) {
+    const subscriptionId = event.data?.id || event.data?.subscription_id;
+    const row = subscriptionId
+      ? await env.DB.prepare(
+          `SELECT licence_key, plan FROM licences WHERE paddle_subscription_id = ?1`
+        ).bind(subscriptionId).first()
+      : null;
+
+    if (!row) {
+      // An update for a subscription we never issued a licence for. Not an
+      // error worth a retry — Paddle would redeliver forever — but it is worth
+      // saying, because it means an earlier grant was missed.
+      result = { ok: true, action: 'update_no_licence' };
+    } else {
+      const chosen = planForEvent(env, event);
+      if (!chosen.matched) {
+        // Do NOT fall back here. On the issue path the fallback is the least
+        // bad option because a licence must exist; on an update it would
+        // DOWNGRADE a paying customer to Standard because a price id was not
+        // configured. Leave the caps alone and say so.
+        console.warn('paddle: subscription.updated matched no plan; caps unchanged',
+                     { had: row.plan || 'unset' });
+        result = { ok: true, action: 'update_unmatched_ignored' };
+      } else if (chosen.plan === row.plan) {
+        result = { ok: true, action: 'update_no_plan_change' };
+      } else {
+        const caps = capsFor(chosen.plan);
+        // Read the previous plan BEFORE the update. Do not rely on the driver
+        // handing back a detached row: if it returns a live reference, the
+        // UPDATE below rewrites it and the "from" reported here becomes the
+        // value it was changed TO — an audit line that says a licence moved
+        // from global to global.
+        const previous = row.plan || 'unset';
+        await env.DB.prepare(
+          `UPDATE licences
+              SET plan = ?1, plan_unmatched = 0,
+                  max_postings_per_day = ?2,
+                  max_refreshes_per_day = ?3,
+                  max_saved_queries = ?4
+            WHERE licence_key = ?5`
+        ).bind(caps.plan, caps.max_postings_per_day, caps.max_refreshes_per_day,
+               caps.max_saved_queries, row.licence_key).run();
+        // Today's usage is deliberately NOT reset. An upgrade raises the
+        // ceiling, which immediately gives back headroom on the same day; a
+        // downgrade lowers it, and a customer already above the new cap simply
+        // has no headroom until tomorrow. Zeroing the meter on either would
+        // make repeated plan changes a way to fetch without limit.
+        result = { ok: true, action: 'plan_changed', from: previous, to: caps.plan };
+      }
     }
   }
 

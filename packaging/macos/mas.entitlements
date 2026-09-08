@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Mac App Store: APP SANDBOX, which is mandatory there.
+
+  Deliberately NOT a copy of direct.entitlements. The two hardened-runtime
+  allowances that build needs are the ones App Review scrutinises hardest, and
+  a sandboxed store build should not be asking for either.
+
+  What is requested, and why each is genuinely needed:
+
+    * app-sandbox — required for the Mac App Store. Not optional.
+
+    * network.client — OUTBOUND ONLY. The app calls Anthropic on the user's
+      own key and the Dawnlist feed service. There is deliberately no
+      network.server: nothing listens.
+
+    * files.user-selected.read-only — the user adds CVs through the open
+      panel or by dragging them onto the window. Read-only is correct: the
+      app never writes back to a file the user picked. Asking for read-write
+      would be a larger claim than the app can justify.
+
+  What is NOT requested, and must stay that way:
+
+    * No downloads or desktop folder access. The database, drafts and voice
+      samples live in the app's own container, which needs no entitlement.
+    * No com.apple.security.files.bookmarks — the app does not need to reopen
+      a file across launches; it reads a CV once and keeps what it extracted.
+    * No network.server, no camera, no microphone, no location, no address
+      book, no print. The app uses none of them.
+-->
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <key>com.apple.security.files.user-selected.read-only</key>
+    <true/>
+</dict>
+</plist>

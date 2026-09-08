@@ -28,9 +28,38 @@ npx wrangler deploy
 ## Caps
 
 Per-licence columns override the Worker defaults (10 saved queries, 3
-refreshes/day, 600 postings/day), so one licence can be raised without a
-deploy. The posting cap matches the operating spec's "target 30–60 reaching
-assessment" dial, applied at the screen's input.
+refreshes/day, 700 postings/day), so one licence can be raised without a
+deploy.
+
+**The cap is counted in postings FETCHED, and that is not interchangeable with
+postings assessed.** The billable event is the fetch — 1 credit = 1 job
+RETURNED — and it happens before the free local screen runs. Capping the
+assessed count instead would govern roughly a tenth of variable cost and leave
+the rest open: a licence could spend an unbounded amount of credit without ever
+tripping it. The spec's "target 30–60 reaching assessment" dial is a
+*consequence* of this cap, not the cap itself — measured 2026-09-07, ~513
+fetched/day yields ~68–93 reaching assessment.
+
+Three properties the tests in `test/caps.test.mjs` hold in place:
+
+1. **The cap cannot be overshot.** The page size is clamped to the licence's
+   remaining headroom before the upstream call, so the request that crosses the
+   cap lands exactly on it rather than a full page past it.
+2. **Being capped is always reported.** `include_total_results` rides along on
+   the page we were fetching anyway — free — so the response can say how many
+   postings matched and how many were skipped. A separate `limit=1` sizing call
+   would cost a credit ("a count costs one record"); do not add one.
+3. **A cache hit spends the receiving licence's allowance.** Metering the
+   upstream fetch instead would make the cache an unmetered bypass, and would
+   make two users' caps depend on who ran the query first. Spencer still pays
+   only once.
+
+The default of 700/day is an **anti-abuse ceiling, not a product tier**. A
+comprehensive UK user measures ~513 fetched/day, so the default sits above
+normal use: it stops a runaway query, it does not decide coverage. If the cap
+is ever set low enough to shape what the user sees, that is a pricing decision
+and belongs in the licence row, not here. Full working:
+`Apps/Claude/dawnlist-credit-cap-assessment.md`.
 
 ## Deployed
 

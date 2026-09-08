@@ -382,18 +382,38 @@ def mark_queries_run(conn, when: datetime | None = None) -> None:
 def build_provider(conn):
     """The feed provider, from the stored settings.
 
-    Kept behind a function so a BYO-keys user, a managed-tier user routed
-    through the Worker, and a future dataset adapter all enter the same way.
+    ORDER MATTERS, and the managed route wins.
+
+    A Dawnlist licence means the user is on a paid plan whose feed is metered
+    and capped server-side, and going through the Worker is what makes that
+    plan real: the caps, the cross-user cache and the ability to change
+    provider without a release all live there. Preferring a raw provider key
+    when both are present would take a subscriber's money and then bypass
+    everything they are paying for — and spend Spencer's credits off-meter.
+
+    A raw `dawnlist-feed` key is the DEVELOPER path. It is what the coverage
+    replays and Spencer's own tooling use, and it is deliberately the fallback
+    rather than the default: bring-your-own-feed was assessed and dropped
+    (roughly two and a half times the managed price for half the allowance), so
+    no customer should ever be on it.
     """
     import keyring
+
+    from app.core.entitlement import stored_licence
+
+    licence = stored_licence()
+    if licence:
+        from app.feed.managed import ManagedProvider
+        return ManagedProvider(licence)
 
     from app.feed.theirstack import TheirStackProvider
 
     key = keyring.get_password("dawnlist-feed", "api-key")
     if not key:
         raise NotConfigured(
-            "No feed credential found. Store one under the keyring service "
-            "'dawnlist-feed', account 'api-key', or sign in to the managed tier.")
+            "No feed credential found. Enter your Dawnlist licence key in "
+            "Settings, or — for a development build — store a provider key "
+            "under the keyring service 'dawnlist-feed', account 'api-key'.")
     return TheirStackProvider(key)
 
 

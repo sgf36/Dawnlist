@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Direct download: HARDENED RUNTIME, no App Sandbox.
+
+  Notarisation requires the hardened runtime. The sandbox is deliberately not
+  applied here: a direct build is not distributed by Apple, and sandboxing it
+  would add a container without adding any guarantee the user is relying on.
+
+  The two allowances below are what a bundled CPython actually needs. Neither
+  is decorative and neither should be copied into the App Store entitlements,
+  where they invite rejection:
+
+    * allow-unsigned-executable-memory — CPython and several of its extension
+      modules allocate writable-executable pages. Without this the app is
+      killed at launch by the runtime, with a crash log that names no cause.
+
+    * disable-library-validation — PyInstaller collects dylibs from wheels
+      that carry their own signatures from other teams. Library validation
+      refuses to load a library signed by a different Team ID, so the app dies
+      importing Qt.
+
+  Nothing else is requested. No camera, no microphone, no location, no address
+  book, no Apple Events: the app uses none of them, and an entitlement it does
+  not use is something to justify later for no benefit now.
+-->
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>

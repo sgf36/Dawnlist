@@ -8,12 +8,22 @@
 # droppers. Onedir avoids that runtime self-extraction. It reduces false
 # positives for an unsigned build; only code signing removes the warning.
 
+import os
 import sys
 from pathlib import Path
 
 block_cipher = None
 project_root = Path(SPECPATH).parent
 icons_dir = project_root / "packaging" / "icons"
+
+# --------------------------------------------------------------------------
+# Version. The marketing version is read from the app so there is one source
+# of truth; the build number is separate because App Store Connect refuses an
+# upload whose build number it has already seen, even for an identical
+# marketing version.
+# --------------------------------------------------------------------------
+VERSION = os.environ.get("DAWNLIST_VERSION", "1.0.0")
+BUILD_NUMBER = os.environ.get("DAWNLIST_BUILD", "1")
 
 # --------------------------------------------------------------------------
 # Locale catalogues — the single most important line in this file.
@@ -164,5 +174,29 @@ if sys.platform == "darwin":
             # app requests none of those, and declaring one it does not use is
             # a review rejection.
             "LSMinimumSystemVersion": "12.0",
+
+            # Both are REQUIRED and they are not interchangeable.
+            # CFBundleShortVersionString is the marketing version a buyer
+            # sees; CFBundleVersion is the build number, and App Store Connect
+            # rejects an upload whose build number is not higher than the last
+            # one it accepted — including a rebuild of the same marketing
+            # version. Bump the build for every upload, the short string only
+            # when the release changes.
+            "CFBundleShortVersionString": VERSION,
+            "CFBundleVersion": BUILD_NUMBER,
+
+            # Required for the Mac App Store. Absent, the upload validates and
+            # then the listing has no category to sit in.
+            "LSApplicationCategoryType": "public.app-category.productivity",
+
+            # Answers the export-compliance question once, here, instead of
+            # once per submission in the web form. False is correct: the app
+            # uses HTTPS through the operating system and implements no
+            # cryptography of its own, which is the exemption.
+            "ITSAppUsesNonExemptEncryption": False,
+
+            # The app is a single window and has no document types. Declaring
+            # none is deliberate: an empty CFBundleDocumentTypes would offer to
+            # open files it cannot read.
         },
     )

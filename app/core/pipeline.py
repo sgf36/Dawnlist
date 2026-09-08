@@ -33,6 +33,33 @@ class Gate:
     reason: str
 
 
+
+def cap_remedy(provider) -> str:
+    """The sentence that follows "you were capped": what would lift it.
+
+    Duck-typed on purpose. Only the managed provider knows about plans, and
+    the developer provider has no plan to report — asking it should be a
+    no-op, not an AttributeError in the middle of a morning run.
+
+    Returns "" whenever it cannot say something true: no plan support, the
+    lookup failed, or the licence is already on the largest plan. Offering an
+    upgrade that does not exist is worse than saying nothing.
+    """
+    ask = getattr(provider, "plan", None)
+    if not callable(ask):
+        return ""
+    try:
+        status = ask()
+    except Exception:  # noqa: BLE001 - a failed lookup must not fail the run
+        return ""
+    nxt = getattr(status, "next_plan_up", None)
+    if not nxt:
+        return ""
+    return (f"the {status.plan or 'current'} plan covers "
+            f"{status.postings_per_day} postings a day; "
+            f"{nxt['key']} covers {nxt['postings_per_day']}")
+
+
 def permanent_reject_gate(rejected_ids: set[tuple[str, str]]) -> Gate:
     """Rejections are permanent and never expire (spec 4)."""
     return Gate("already-rejected",
@@ -120,12 +147,23 @@ def run_morning(
                 # run cannot later be reported as a clean one.
                 outcome.fetch_errors.append(f"{q.label}: {result.error}")
                 run.record_fetch_failure(f"{q.label}: {result.error}")
-            elif not result.exhausted:
-                outcome.fetch_errors.append(
-                    f"{q.label}: pagination did not reach exhaustion — "
-                    f"results are partial")
+            elif result.shortfall:
+                # spec 6.2 again, and the wording carries weight. A capped run
+                # and an under-paginated one are both partial, but only one of
+                # them is the user's own plan doing what it was bought to do —
+                # so the reason is named, with its numbers, rather than
+                # flattened into "results are partial".
+                outcome.fetch_errors.append(f"{q.label}: {result.shortfall}")
             per_query[q.label] = result.jobs
             all_jobs.extend(result.jobs)
+
+        # Once per run, not per query: if the plan's ceiling is what stopped
+        # any of them, say what would lift it. A cap message without a remedy
+        # is a dead end, and the user cannot act on a number alone.
+        if any(r.capped for r in outcome.fetch.values()):
+            remedy = cap_remedy(provider)
+            if remedy:
+                outcome.fetch_errors.append(remedy)
 
         run.record_counts(swept=len(all_jobs))
 

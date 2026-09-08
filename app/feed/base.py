@@ -42,10 +42,41 @@ class FetchResult:
     exhausted: bool = False          # spec 10.1: paginated to exhaustion?
     credits_estimate: int = 0
     error: str | None = None
+    #: How many postings the query actually MATCHED upstream, when the provider
+    #: reports it. `None` means unsized, which is not the same as zero.
+    matched: int | None = None
+    #: Matched but deliberately not fetched. Non-zero means the user is being
+    #: shown less than exists, and something has to say so.
+    not_fetched: int = 0
+    #: True when the LICENCE CAP is the reason, as opposed to a page limit or a
+    #: query that simply matched fewer rows. The distinction is what lets the
+    #: app name the cause instead of reporting a vague shortfall.
+    capped: bool = False
 
     @property
     def ok(self) -> bool:
         return self.error is None
+
+    @property
+    def shortfall(self) -> str | None:
+        """The sentence the user is owed when the run saw less than existed.
+
+        spec 6.2: a truncated fetch is NEVER presented as "no new jobs", and a
+        cap is never presented as a short list. Being capped is a fact about
+        the user's plan, so it is named as one, with the numbers, rather than
+        folded into a generic "results are partial".
+        """
+        if self.capped:
+            total = self.matched if self.matched is not None else "?"
+            return (f"capped: {total} postings matched today, "
+                    f"{len(self.jobs)} fetched, {self.not_fetched} not fetched "
+                    f"— the plan's daily limit was reached")
+        if self.not_fetched:
+            return (f"partial: {self.not_fetched} of {self.matched} matched "
+                    f"postings were not fetched")
+        if not self.exhausted:
+            return "partial: pagination did not reach exhaustion"
+        return None
 
     def raise_if_failed(self) -> "FetchResult":
         if self.error:
