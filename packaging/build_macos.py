@@ -37,6 +37,7 @@ invalid the moment it is checked.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import platform
 import plistlib
@@ -280,6 +281,28 @@ def notarise(artefact: Path, profile: str, *, timeout: str = "30m") -> None:
     print("  notarised and stapled")
 
 
+def write_checksum(artefact: Path) -> Path:
+    """A .sha256 beside the disk image, matching the Windows download.
+
+    AFTER notarisation and stapling, and the ordering is the whole reason this
+    is a separate call rather than a line inside `package_direct`: STAPLING
+    REWRITES THE FILE. A checksum taken before it describes a disk image nobody
+    will ever download — the same mistake the Windows path made until it was
+    reordered, and the reason that ordering is written down in two places now.
+
+    It exists at all because the download page publishes a checksum for the
+    Windows ZIP. A page offering one for one platform and not the other reads
+    as an oversight on the platform that has none.
+    """
+    digest = hashlib.sha256(artefact.read_bytes()).hexdigest()
+    target = artefact.with_suffix(artefact.suffix + ".sha256")
+    # The two-space form both `sha256sum -c` and `shasum -c` expect, so a buyer
+    # on either platform can verify it without being told how.
+    target.write_text(f"{digest}  {artefact.name}\n", encoding="utf-8")
+    print(f"  sha256 {digest}")
+    return target
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--variant", required=True, choices=["direct", "mas"])
@@ -331,6 +354,9 @@ def main() -> int:
         else:
             print("notarising...")
             notarise(dmg, args.notary_profile)
+        # AFTER stapling, always: stapling rewrites the file, so a checksum
+        # taken any earlier describes a disk image nobody will download.
+        write_checksum(dmg)
         print(f"\nDone: {dmg}")
     else:
         installer = args.installer_identity or "3rd Party Mac Developer Installer"

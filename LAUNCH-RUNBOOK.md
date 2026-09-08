@@ -365,6 +365,39 @@ exist. The reasoning is in `store/microsoft-store-listing.md`.
 
 ---
 
+## Step 6a — Getting the artefacts to the website
+
+The repository is **private**, so GitHub release assets are not publicly
+downloadable and the website session cannot fetch them. Making a public mirror
+repository just to host two files is a moving part nobody needs.
+
+So the files travel by hand, once per release:
+
+```bash
+gh run download <run-id> -R sgf36/Dawnlist -D dist-release
+```
+
+That needs your GitHub login, which is why it is here rather than automated.
+It writes three directories; the four files the site needs are:
+
+| From | Publish as |
+|---|---|
+| `dawnlist-windows-latest-direct/Dawnlist-windows-1.0.0.zip` | `/download/Dawnlist-windows-1.0.0.zip` |
+| `dawnlist-windows-latest-direct/Dawnlist-windows-1.0.0.zip.sha256` | beside it |
+| `dawnlist-macos-latest-direct/Dawnlist-1.0.0.dmg` | `/download/Dawnlist-1.0.0.dmg` |
+| `dawnlist-macos-latest-direct/Dawnlist-1.0.0.dmg.sha256` | beside it |
+
+**If any filename begins `UNSIGNED-DO-NOT-PUBLISH-`, stop.** It means signing
+did not run, and the file must not reach the site. There will be no checksum
+beside it either — that is deliberate, not an omission.
+
+Before uploading, confirm Bluehost will serve files of this size: the ZIP is
+about 70 MB and the disk image larger. Test with the real file rather than a
+placeholder — the deploy tooling on that host has failure modes that report
+success.
+
+---
+
 ## Step 7 — Website
 
 Owned by the other session, listed here so nothing falls between the two.

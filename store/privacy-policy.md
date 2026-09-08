@@ -83,20 +83,45 @@ Dawnlist will stop working rather than fall back to anything else.
 
 ## What goes to Dawnlist's servers
 
-Only two things:
+Three things:
 
 **Job searches.** The search terms, job titles, locations and filters you save
 are sent to Dawnlist's feed service, which queries job-data providers and
 returns matching postings. These are searches, not documents: no CV, no
 factsheet, no draft, and no assessment ever passes through this service.
 
+**Identifiers of postings you have already been shown.** So the same posting is
+not fetched twice. Identifiers only — never the posting, never its content, and
+never anything you did with it.
+
 **Licence and usage counts.** Your licence key, whether it is active, and a
 daily count of how many postings were returned to it. Counts only — never the
 postings themselves, and never their content. This is what stops one licence
 being shared indefinitely.
 
-Our servers log errors by type, never by content. Records are kept while your
-licence is active and for twelve months afterwards, for accounting.
+Our servers log errors by type, never by content.
+
+## How long things are kept
+
+Split by purpose, because no single period is right for all of them:
+
+- **Usage counts and posting identifiers** — while your licence is active and
+  for twelve months afterwards, to answer support and billing questions.
+- **Your record of accepting these terms** — for as long as your subscription
+  runs and for six years afterwards. It is contractual evidence, and destroying
+  it when a subscription ends would destroy it at exactly the point a
+  disagreement becomes likely.
+- **Everything on your own machine** — for as long as you keep it. You can
+  export or delete it from inside the app, and there is no copy elsewhere to
+  ask us for.
+
+## Payment
+
+Subscriptions are handled by **Paddle**, who are the merchant of record. Your
+name, email address and payment details go to them; Spencer Fields Software
+never sees or stores your card details. Paddle also records that you accepted
+these terms at the point of purchase, and that record is mirrored against your
+licence.
 
 ## Job postings themselves
 
