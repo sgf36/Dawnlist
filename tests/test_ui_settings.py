@@ -216,13 +216,17 @@ def test_both_buttons_keep_the_same_metrics(qapp):
     panel.close()
 
 
-# -- the licence panel is build-dependent -----------------------------------
-def test_a_store_build_shows_no_licence_box(qapp):
-    """Entitlement there is by possession and no licence key exists. Asking for
-    one sends a paying user hunting for something nobody sent them."""
+# -- the licence panel is build-dependent, and the two stores DIFFER --------
+def test_a_windows_store_build_DOES_show_the_licence_box(qapp):
+    """Microsoft permits third-party commerce, subject to declaring it.
+
+    This was hidden on Windows too, by applying Apple's rule to both stores.
+    That is what left a paying Store customer with no route to the feed: the
+    subscription is bought on the website, the licence arrives by email, and
+    there was nowhere to put it.
+    """
     w = SettingsWindow(variant="store")
-    assert not w.shows_licence
-    assert w.licence is not None, "the attribute must stay stable for callers"
+    assert w.shows_licence
     w.close()
 
 
@@ -232,9 +236,13 @@ def test_a_direct_download_build_shows_the_licence_box(qapp):
     w.close()
 
 
-def test_the_mac_app_store_build_matches_the_windows_one(qapp):
+def test_the_mac_app_store_build_shows_NO_licence_box(qapp):
+    """Apple guideline 3.1.1 names licence keys as a prohibited mechanism, so
+    a MAS build must sell through StoreKit and never accept a key. This is the
+    one place the two stores genuinely diverge."""
     w = SettingsWindow(variant="mas")
     assert not w.shows_licence
+    assert w.licence is not None, "the attribute must stay stable for callers"
     w.close()
 
 

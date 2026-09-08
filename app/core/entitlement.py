@@ -57,6 +57,9 @@ GRACE_DAYS = 14
 VERIFIED_AT = "entitlement_verified_at"
 VERIFIED_SOURCE = "entitlement_verified_source"
 
+#: The Worker. One constant so the endpoints cannot drift apart.
+WORKER_BASE = "https://dawnlist-feed-worker.sgf36.workers.dev"
+
 LICENCE_SERVICE = "dawnlist-licence"
 LICENCE_ACCOUNT = "key"
 
@@ -206,6 +209,40 @@ def store_licence(key: str) -> None:
     """
     import keyring
     keyring.set_password(LICENCE_SERVICE, LICENCE_ACCOUNT, key.strip())
+
+
+def exchange_mac_receipt(receipt: bytes, *, base: str | None = None) -> str | None:
+    """Trade a Mac App Store receipt for a licence the Worker will honour.
+
+    Returns the licence key, or None when Apple does not recognise an active
+    subscription — which is a legitimate answer (lapsed, refunded, or a
+    sandbox receipt against production) and not an error to hide.
+
+    THE RECEIPT IS SENT AS OPAQUE BYTES. The app forms no view about what is
+    inside it; the Worker validates against Apple and decides. A client-side
+    check is one a determined user patches out, and one that is subtly wrong
+    fails open while looking fine.
+
+    The licence this returns is NOT a key the user could have typed. It is a
+    session token derived from an Apple-issued receipt, and a MAS build has no
+    route to obtain one any other way — which is what keeps this the right side
+    of guideline 3.1.1.
+    """
+    import base64
+    import json
+    import urllib.error
+    import urllib.request
+
+    url = (base or WORKER_BASE).rstrip("/") + "/v1/apple"
+    body = json.dumps({"receipt": base64.b64encode(receipt).decode()}).encode()
+    req = urllib.request.Request(url, data=body, method="POST")
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            payload = json.loads(r.read().decode())
+    except Exception:  # noqa: BLE001 - an outage is not a refusal
+        return None
+    return payload.get("licence_key") or None
 
 
 def redeem_override_code(code: str, *, opener=None) -> str:

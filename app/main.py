@@ -472,11 +472,33 @@ def build_provider(conn):
     # Windows is different and deliberately not covered here: Microsoft permits
     # third-party commerce, subject to declaring it in Partner Center.
     if build == "mas":
-        raise NotConfigured(
-            "This copy is not linked to a subscription yet, so there is no job "
-            "feed to read. Your board, your brief and everything already on "
-            "this machine stay open. "
-            "SUPPORT: a Mac App Store purchase should link automatically.")
+        # The ONLY entitlement route Apple permits here. The receipt is written
+        # into the bundle by the App Store, is never seen or typed by the user,
+        # and cannot be obtained any other way — so the entitlement originates
+        # with Apple throughout, which is what a stored key would not.
+        #
+        # A stored licence is deliberately NOT consulted, even if one exists:
+        # the keyring is per user, so somebody who ran the direct build first
+        # still has one, and honouring it here would unlock an Apple build with
+        # a subscription bought outside Apple's commerce.
+        from app.core.entitlement import exchange_mac_receipt
+        from app.core.mac_receipt import read_receipt
+
+        receipt = read_receipt()
+        if receipt is None:
+            raise NotConfigured(
+                "This copy has no App Store receipt yet, so there is no job "
+                "feed to read. Your board, your brief and everything already "
+                "on this machine stay open.")
+        mac_licence = exchange_mac_receipt(receipt)
+        if not mac_licence:
+            raise NotConfigured(
+                "The App Store could not confirm an active subscription, so "
+                "there is no job feed to read. If you have just subscribed it "
+                "can take a moment. Everything already on this machine stays "
+                "open.")
+        from app.feed.managed import ManagedProvider
+        return ManagedProvider(mac_licence)
 
     licence = stored_licence()
     if licence:
@@ -504,12 +526,13 @@ def build_provider(conn):
     # act on — no key was ever issued to them — and telling them to put a
     # provider key in their keyring is advice for a product they did not buy.
     if build == "store":
+        # Windows Store: the licence box IS shown (Microsoft permits
+        # third-party commerce), so this is something the user can act on
+        # rather than a fault to report.
         raise NotConfigured(
-            "This copy is not linked to a Dawnlist subscription yet, so there "
-            "is no job feed to read. Your board, your brief and everything "
-            "already on this machine stay open. "
-            "SUPPORT: this is a fault, not something you have done wrong — "
-            "a store purchase should link automatically.")
+            "No licence key yet, so there is no job feed to read. Enter the "
+            "key from your subscription email in Settings. Your board, your "
+            "brief and everything already on this machine stay open.")
 
     raise NotConfigured(
         "No licence key found. Enter the key from your purchase email in "

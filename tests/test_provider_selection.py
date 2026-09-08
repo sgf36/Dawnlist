@@ -113,11 +113,12 @@ def test_a_store_build_without_a_licence_says_so_honestly(no_keyring, monkeypatc
     with pytest.raises(NotConfigured) as e:
         build_provider(conn=None)
     message = str(e.value)
-    assert "subscription" in message.lower()
+    # Windows CAN accept a licence, so the message names the action the user
+    # can take rather than reporting a fault they cannot do anything about.
+    assert "licence" in message.lower()
+    assert "settings" in message.lower()
     assert "keyring" not in message.lower()
     assert "dawnlist-feed" not in message
-    # It must not blame the user for a fault in the purchase link.
-    assert "support" in message.lower()
 
 
 def test_the_mac_app_store_build_gets_the_same_treatment(no_keyring, monkeypatch):
@@ -163,6 +164,42 @@ def test_a_mac_app_store_build_ignores_a_stored_licence(no_keyring, monkeypatch)
     monkeypatch.setattr("app.core.build_variant.variant", lambda: "mas")
     monkeypatch.setattr("app.core.entitlement.stored_licence",
                         lambda: "DAWN-BOUGHT-ELSEWHERE")
+    monkeypatch.setattr("app.core.mac_receipt.read_receipt", lambda: None)
+    # Refuses outright. It must NOT fall through to the stored key.
+    with pytest.raises(NotConfigured) as e:
+        build_provider(conn=None)
+    assert "receipt" in str(e.value).lower()
+
+
+def test_a_mac_build_uses_the_receipt_and_never_the_stored_key(monkeypatch, no_keyring):
+    """Even with BOTH present, the Apple receipt is the only route taken."""
+    monkeypatch.setattr("app.core.build_variant.variant", lambda: "mas")
+    monkeypatch.setattr("app.core.entitlement.stored_licence",
+                        lambda: "DAWN-BOUGHT-ELSEWHERE")
+    monkeypatch.setattr("app.core.mac_receipt.read_receipt", lambda: b"opaque")
+    seen = {}
+
+    def fake_exchange(receipt, **kw):
+        seen["receipt"] = receipt
+        return "DAWN-FROM-APPLE"
+
+    monkeypatch.setattr("app.core.entitlement.exchange_mac_receipt", fake_exchange)
+    prov = build_provider(conn=None)
+    assert prov.name == "managed"
+    assert seen["receipt"] == b"opaque"
+    # The licence in play came from Apple, not from the credential store.
+    assert prov._licence == "DAWN-FROM-APPLE"
+
+
+def test_a_lapsed_mac_subscription_is_refused_not_guessed(monkeypatch, no_keyring):
+    """Apple declining is a legitimate answer — lapsed, refunded, or a sandbox
+    receipt against production — and must not fall back to anything."""
+    monkeypatch.setattr("app.core.build_variant.variant", lambda: "mas")
+    monkeypatch.setattr("app.core.entitlement.stored_licence",
+                        lambda: "DAWN-BOUGHT-ELSEWHERE")
+    monkeypatch.setattr("app.core.mac_receipt.read_receipt", lambda: b"opaque")
+    monkeypatch.setattr("app.core.entitlement.exchange_mac_receipt",
+                        lambda r, **kw: None)
     with pytest.raises(NotConfigured) as e:
         build_provider(conn=None)
     assert "subscription" in str(e.value).lower()

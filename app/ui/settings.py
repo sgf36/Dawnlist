@@ -390,7 +390,18 @@ class SettingsWindow(QWidget):
 
         self.licence = LicencePanel()
         build = variant if variant is not None else read_variant()
-        self.shows_licence = build not in ("store", "mas")
+        # ONLY Apple prohibits this, and the two stores are not the same.
+        #
+        # Apple's guideline 3.1.1 names licence keys as a mechanism an app may
+        # not use to unlock functionality, so a MAS build must sell through
+        # StoreKit and must never accept a key.
+        #
+        # Microsoft permits third-party commerce and takes nothing on it,
+        # subject to declaring it in Partner Center. So a Windows Store build
+        # MAY accept a licence bought on the website — and hiding the box there
+        # was the reason a Store customer could pay and then reach no feed at
+        # all. The restriction was Apple's, applied to both by assumption.
+        self.shows_licence = build != "mas"
         if self.shows_licence:
             layout.addWidget(_divider())
             layout.addWidget(self.licence)
