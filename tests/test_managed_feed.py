@@ -278,3 +278,44 @@ def test_a_provider_with_no_plans_is_a_no_op_not_a_crash():
 
 def test_a_failed_plan_lookup_does_not_fail_the_run():
     assert cap_remedy(_Provider(raises=True)) == ""
+
+
+# ---------------------------------------------------------------------------
+# The user-agent, without which the shipped app cannot reach its own service
+# ---------------------------------------------------------------------------
+
+def test_every_request_identifies_itself(monkeypatch):
+    """urllib sends "Python-urllib/3.x" and Cloudflare refuses it — error 1010,
+    "banned based on your browser's signature".
+
+    Found by the first end-to-end run against the live service on 2026-09-08.
+    Nothing else could have found it: every other test injects the transport,
+    and the manual checks used curl, whose agent is not blocked. So the manual
+    verification passed while the real client could not connect at all.
+    """
+    from app.feed.managed import USER_AGENT, ManagedProvider
+
+    seen = {}
+
+    class Response:
+        status = 200
+
+        def read(self):
+            return b'{"ok":true,"plan":"standard","caps":{},"used_today":{},"remaining_today":{}}'
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def fake_urlopen(req, timeout=None):
+        seen["agent"] = req.get_header("User-agent")
+        return Response()
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    ManagedProvider("DAWN-TEST").plan()
+
+    assert seen["agent"] == USER_AGENT
+    assert "Python-urllib" not in (seen["agent"] or "")
+    assert "Dawnlist" in seen["agent"], "name the product, not just any agent"

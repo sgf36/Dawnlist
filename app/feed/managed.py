@@ -51,6 +51,14 @@ DEFAULT_BASE = "https://dawnlist-feed-worker.sgf36.workers.dev"
 SEARCH_PATH = "/v1/search"
 PLAN_PATH = "/v1/plan"
 
+#: Identifies the client to our own service, and is REQUIRED rather than
+#: courteous: Cloudflare blocks urllib's default agent with error 1010.
+#:
+#: Names the product and a contact, which is what a well-behaved client sends
+#: and what makes an anomalous pattern in the Worker's logs traceable to a
+#: version rather than to "some Python".
+USER_AGENT = "Dawnlist/1.0 (+https://dawnlist.spencerfields.com)"
+
 
 @dataclass(frozen=True)
 class PlanStatus:
@@ -116,6 +124,20 @@ class ManagedProvider(FeedProvider):
         req = urllib.request.Request(self._base + path, data=data, method=method)
         req.add_header("Authorization", f"Bearer {self._licence}")
         req.add_header("Content-Type", "application/json")
+        # AN EXPLICIT USER-AGENT, AND THE APP DOES NOT WORK WITHOUT ONE.
+        #
+        # urllib sends "Python-urllib/3.x" by default, and Cloudflare — which
+        # fronts the Worker — refuses it outright with error 1010, "banned
+        # based on your browser's signature". Every request from a shipped
+        # build would have failed, on every machine, with a message naming
+        # neither Dawnlist nor Cloudflare.
+        #
+        # Found on 2026-09-08 by the first end-to-end run against the live
+        # service. It could not have been found any other way: every test
+        # injects the transport, and `curl` was used for the manual checks —
+        # curl's own user-agent is not blocked, so the manual verification
+        # passed while the actual client could not connect at all.
+        req.add_header("User-Agent", USER_AGENT)
         try:
             with urllib.request.urlopen(req, timeout=self._timeout) as r:
                 return r.status, json.loads(r.read().decode())
