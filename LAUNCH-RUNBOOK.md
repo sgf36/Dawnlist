@@ -115,16 +115,48 @@ So:
 
 ---
 
+## A note on running these commands
+
+**Every command here works from anywhere, including `C:\Windows\System32`.**
+That is deliberate. `npx wrangler secret put THEIRSTACK_API_KEY` run from a
+console that happened to open in System32 fails with *"Required Worker name
+missing"* — which reads like a broken configuration and is only a wrong
+directory. Passing `--config` removes the question entirely, so the commands
+below carry it.
+
+For brevity these define the path once:
+
+```powershell
+$W = "C:\Users\SpencerFields\dawnlist\server\dawnlist-feed-worker\wrangler.jsonc"
+```
+
+Everything is verified on **PowerShell 7.6.5 (Core)**. The three `.ps1` scripts
+resolve their own paths from `$PSScriptRoot`, so they too may be launched from
+anywhere, and all three parse and run under 7.x — `Import-Certificate`, the
+`Cert:` drive and `Get-AuthenticodeSignature` are all present in PowerShell 7
+on Windows.
+
+---
+
 ## Step 2 — Migrate the database
+
+> **DONE 2026-09-08, and verified.** Both migrations were applied to the
+> live database. All three existing licences and all five override codes
+> backfilled to `standard` with 700/3/10 caps — the allowance they already
+> had by default, so nothing about anybody's behaviour changed. Kept here
+> because a second run FAILS, and somebody working down this list needs to
+> know that is expected rather than a fault.
 
 Once each, in order. SQLite has no `ADD COLUMN IF NOT EXISTS`, so a second run
 stops at "duplicate column name" — which is the documented behaviour, not a
 fault.
 
-```bash
-cd server/dawnlist-feed-worker
-npx wrangler d1 execute dawnlist --remote --file migrations/001-plans.sql
-npx wrangler d1 execute dawnlist --remote --file migrations/002-code-plans.sql
+```powershell
+npx wrangler d1 execute dawnlist --remote --config $W --file "C:\Users\SpencerFields\dawnlist\server\dawnlist-feed-worker\migrations\001-plans.sql"
+```
+
+```powershell
+npx wrangler d1 execute dawnlist --remote --config $W --file "C:\Users\SpencerFields\dawnlist\server\dawnlist-feed-worker\migrations\002-code-plans.sql"
 ```
 
 001 adds the plan columns to `licences` and backfills existing rows to
@@ -133,9 +165,8 @@ anybody's behaviour changes. 002 does the same for override codes.
 
 **Proves it worked:**
 
-```bash
-npx wrangler d1 execute dawnlist --remote --command \
-  "SELECT plan, COUNT(*) FROM licences GROUP BY plan;"
+```powershell
+npx wrangler d1 execute dawnlist --remote --config $W --command "SELECT plan, COUNT(*) FROM licences GROUP BY plan;"
 ```
 
 Every row should have a plan. A NULL means the backfill did not run.
@@ -144,10 +175,30 @@ Every row should have a plan. A NULL means the backfill did not run.
 
 ## Step 3 — Configure the Worker
 
-```bash
-npx wrangler secret put THEIRSTACK_API_KEY
-npx wrangler secret put PADDLE_WEBHOOK_SECRET
+```powershell
+npx wrangler secret put THEIRSTACK_API_KEY --config $W
 ```
+
+```powershell
+npx wrangler secret put PADDLE_WEBHOOK_SECRET --config $W
+```
+
+**Two more, added 2026-09-08 when licence delivery was built.** Without
+them a customer pays, a licence is created, and nothing reaches them:
+
+```powershell
+npx wrangler secret put RESEND_API_KEY --config $W
+```
+
+```powershell
+npx wrangler secret put PADDLE_API_KEY --config $W
+```
+
+`RESEND_API_KEY` sends the mail. `PADDLE_API_KEY` looks the buyer up:
+`subscription.created` carries a customer id and no address, so without it
+the Worker knows a licence is owed to somebody it cannot name. A read-only
+key is enough. Both failures are logged by cause rather than swallowed —
+`licence issued but NOT delivered` is the line to search for.
 
 **`wrangler secret put` takes the secret's NAME.** The value goes at the
 interactive prompt and nowhere else. Typing it into the command creates a
@@ -179,6 +230,12 @@ curl https://dawnlist-feed-worker.sgf36.workers.dev/health
 ---
 
 ## Step 4 — Create the Paddle product
+
+> **DONE 2026-09-08.** Product `pro_01m217zsvqcexs9atdswvja3sf`, price
+> `pri_01m217zszynjmwmcx6xqpewxc1`, $79/month recurring, quantity locked
+> to 1, **tax exclusive** so the same $79 arrives from every country.
+> The price id is committed in `wrangler.jsonc` and the Worker is
+> deployed with it. `PADDLE_PRICE_GLOBAL` remains deliberately unset.
 
 **One product, one price: $79 per month, recurring.**
 
