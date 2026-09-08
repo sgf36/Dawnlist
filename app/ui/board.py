@@ -236,6 +236,13 @@ class BoardWindow(QWidget):
     #: that opened its own database connection would be the exception that
     #: makes the rule useless.
     columns_changed = Signal(str)
+    #: Write the application for this opportunity — a tailored CV and a
+    #: covering letter, and an interview brief when asked for.
+    #:
+    #: Emitted, not done here. This is the one board action that SPENDS the
+    #: user's own tokens, and a widget that could spend money by itself is
+    #: exactly the boundary the rest of this class exists to keep.
+    application_requested = Signal(str, bool)   # (opportunity_id, want_brief)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -294,9 +301,11 @@ class BoardWindow(QWidget):
         self.btn_sent = QPushButton(tr("board.mark_sent"))
         self.btn_repair = QPushButton(tr("board.repair_mirror"))
         self.btn_repair_bounce = QPushButton(tr("board.repair_stage"))
+        self.btn_apply = QPushButton(tr("board.write_application"))
+        self.btn_brief = QPushButton(tr("board.interview_brief"))
         actions.addWidget(self.field_task, 1)
-        for b in (self.btn_task, self.btn_sent, self.btn_repair,
-                  self.btn_repair_bounce):
+        for b in (self.btn_task, self.btn_sent, self.btn_apply,
+                  self.btn_brief, self.btn_repair, self.btn_repair_bounce):
             b.setObjectName("boardAction")
             b.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
             b.setEnabled(False)
@@ -312,6 +321,10 @@ class BoardWindow(QWidget):
         self.btn_sent.clicked.connect(self._emit_sent)
         self.btn_repair.clicked.connect(self._emit_repair)
         self.btn_repair_bounce.clicked.connect(self._emit_bounce_repair)
+        self.btn_apply.clicked.connect(
+            lambda: self._emit_application(want_brief=False))
+        self.btn_brief.clicked.connect(
+            lambda: self._emit_application(want_brief=True))
 
     # -- population --------------------------------------------------------
     def load(self, rows: list[BoardRow], findings: dict[str, list]) -> None:
@@ -446,6 +459,12 @@ class BoardWindow(QWidget):
         self.field_task.setEnabled(can_add)
         self.btn_repair.setEnabled(bool(row and row.parity_defect))
         self.btn_repair_bounce.setEnabled(bool(row and row.bounce_defect))
+        # Only a live pursuit. Writing a covering letter for something already
+        # Won or Lost spends the user's own tokens on a document nobody will
+        # send, and a live button implies pressing it is worth doing.
+        live = bool(row and row.stage.is_live)
+        self.btn_apply.setEnabled(live)
+        self.btn_brief.setEnabled(live)
         if row:
             self.opportunity_selected.emit(row.opportunity_id)
 
@@ -460,6 +479,19 @@ class BoardWindow(QWidget):
         row = self._current()
         if row and row.stage.is_live:
             self.sent_recorded.emit(row.opportunity_id)
+
+    def _emit_application(self, *, want_brief: bool):
+        """Two buttons rather than one with a modifier key.
+
+        The brief is for an interview nobody has offered yet and it spends the
+        user's own tokens, so it must be asked for — but hiding that behind
+        shift-click makes a paid action undiscoverable, which is worse than
+        one more button on a row that already has four.
+        """
+        row = self._current()
+        if row is None:
+            return
+        self.application_requested.emit(row.opportunity_id, want_brief)
 
     def _emit_repair(self):
         row = self._current()

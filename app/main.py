@@ -980,6 +980,28 @@ def apply_run(conn, job_id: str, *, send=None, folder: Path | None = None,
         folder=folder or applications_dir(), want_brief=want_brief)
 
 
+def apply_for_opportunity(conn, opportunity_id: str, *, want_brief: bool = False,
+                          send=None, folder: Path | None = None):
+    """Write the application for a board row.
+
+    The board knows an opportunity; `apply_run` knows a posting. This is the
+    join, and it is here rather than in the widget because the widget must not
+    reach the database — and because this is the one board action that spends
+    the user's own tokens.
+    """
+    row = conn.execute(
+        """SELECT j.provider, j.provider_job_id
+             FROM opportunities o JOIN jobs j ON j.id = o.job_id
+            WHERE o.id = ?""", (opportunity_id,)).fetchone()
+    if row is None:
+        raise NotConfigured(
+            "That opportunity is not linked to a posting, so there is no "
+            "advert to write against. Applications are written from the "
+            "posting, never from the company name alone.")
+    return apply_run(conn, f"{row['provider']}:{row['provider_job_id']}",
+                     send=send, folder=folder, want_brief=want_brief)
+
+
 def add_posting(conn, path: Path, url: str = ""):
     """Bring in a posting found somewhere the feed does not reach.
 
@@ -1492,6 +1514,45 @@ def open_settings(parent=None, conn=None):
     return window
 
 
+def _write_application(window, conn, opportunity_id: str,
+                       want_brief: bool) -> None:
+    """Run the pack from the board, and say what happened in plain words.
+
+    Failures are SHOWN, never swallowed into a disabled button. This action
+    spends the user's own tokens, so silence after pressing it is the one
+    outcome that is unacceptable: they would press it again.
+    """
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication, QMessageBox
+
+    from app.apply.run import summarise
+    from app.core.api_key import KeyProblem
+    from app.core.entitlement import NotEntitled
+    from app.i18n import tr
+
+    QApplication.setOverrideCursor(Qt.WaitCursor)
+    try:
+        pack = apply_for_opportunity(conn, opportunity_id,
+                                     want_brief=want_brief)
+    except (NotConfigured, KeyProblem, NotEntitled) as exc:
+        QApplication.restoreOverrideCursor()
+        QMessageBox.warning(window, tr("board.write_application"), str(exc))
+        return
+    except Exception as exc:  # noqa: BLE001
+        QApplication.restoreOverrideCursor()
+        QMessageBox.warning(window, tr("board.write_application"),
+                            f"{type(exc).__name__}: {exc}")
+        return
+    QApplication.restoreOverrideCursor()
+
+    # Leads with what is missing rather than with what was produced, and names
+    # the folder, because a document written somewhere the user cannot find is
+    # the same as one that was not written.
+    QMessageBox.information(
+        window, tr("board.write_application"),
+        summarise(pack) + "\n\n" + str(applications_dir()))
+
+
 def _added_alerts(window, conn, paths) -> None:
     """Ingest dropped digests, then put the result on screen.
 
@@ -1532,10 +1593,20 @@ def _launch_ui(conn, *, open_board: bool) -> int:
     if open_board:
         window = BoardWindow()
         connect_board(window, conn)
+        window.application_requested.connect(
+            lambda oid, brief: _write_application(window, conn, oid, brief))
         rows, findings = board_rows(conn)
         window.load(rows, findings)
     else:
         window = ReviewWindow()
+        # The factsheet and the CV corpus, so the detail pane can say what a
+        # posting asks for that the evidence does not support. Costs nothing
+        # to compute and needs no key, so it is supplied here rather than
+        # behind a button: the pursue-or-reject moment is the only one where
+        # it changes anything. Empty until onboarding, and the section stays
+        # hidden while it is.
+        window.evidence = (load_document(conn, "factsheet") + "\n\n"
+                           + load_cv_text()).strip()
         window.settings_requested.connect(lambda: open_settings(window, conn))
         window.alerts_dropped.connect(
             lambda paths: _added_alerts(window, conn, paths))

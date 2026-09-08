@@ -201,3 +201,73 @@ def test_the_funnel_captions_fit_their_labels(win):
         assert hint > 0
         assert label.height() == 0 or label.height() >= hint, (
             f"{label.text()!r} is allotted less height than it needs")
+
+
+# ---------------------------------------------------------------------------
+# The gap analysis, in the pane where the decision is actually made
+# ---------------------------------------------------------------------------
+
+REQUIREMENTS = ("Requirements\n"
+                "- Experience in revenue management required\n"
+                "- Experience in feasibility studies required\n"
+                "Desirable\n"
+                "- Familiarity with Power BI is desirable\n")
+
+
+def test_no_evidence_means_no_gap_section(win):
+    """Before onboarding every requirement is unsupported, and a list of forty
+    missing things teaches the reader to skip the section."""
+    win.load([row("1", bucket="strong", description=REQUIREMENTS)], {})
+    win.tabs.setCurrentIndex(0)
+    win.shortlist.setCurrentItem(win.shortlist.topLevelItem(0))
+    assert "What this posting asks for" not in win.detail.toPlainText()
+
+
+def test_an_unsupported_requirement_is_named(win):
+    win.evidence = "Feasibility studies across a portfolio."
+    win.load([row("1", bucket="strong", description=REQUIREMENTS)], {})
+    win.tabs.setCurrentIndex(0)
+    win.shortlist.setCurrentItem(win.shortlist.topLevelItem(0))
+    text = win.detail.toPlainText()
+    assert "does not support" in text
+    assert "revenue management" in text
+
+
+def test_a_preference_is_not_shown_as_a_bar(win):
+    """Presenting a nice-to-have as a requirement costs somebody an
+    afternoon."""
+    win.evidence = "Feasibility studies across a portfolio."
+    win.load([row("1", bucket="strong", description=REQUIREMENTS)], {})
+    win.tabs.setCurrentIndex(0)
+    win.shortlist.setCurrentItem(win.shortlist.topLevelItem(0))
+    text = win.detail.toPlainText()
+    unsupported = text.split("does not support")[1].split("Preferred")[0]
+    assert "power bi" not in unsupported.lower()
+    assert "Preferred, not required" in text
+
+
+def test_full_coverage_says_so_rather_than_showing_nothing(win):
+    win.evidence = "Revenue management and feasibility studies, ten years."
+    win.load([row("1", bucket="strong", description=REQUIREMENTS)], {})
+    win.tabs.setCurrentIndex(0)
+    win.shortlist.setCurrentItem(win.shortlist.topLevelItem(0))
+    assert "covers every stated requirement" in win.detail.toPlainText()
+
+
+def test_a_posting_stating_nothing_shows_no_section(win):
+    """An empty gap list must never render as though the person qualified."""
+    win.evidence = "Anything at all."
+    win.load([row("1", bucket="strong",
+                  description="We want someone great to join the team.")], {})
+    win.tabs.setCurrentIndex(0)
+    win.shortlist.setCurrentItem(win.shortlist.topLevelItem(0))
+    assert "What this posting asks for" not in win.detail.toPlainText()
+
+
+def test_the_description_is_still_shown_below_the_gaps(win):
+    win.evidence = "Feasibility studies."
+    win.load([row("1", bucket="strong", description=REQUIREMENTS)], {})
+    win.tabs.setCurrentIndex(0)
+    win.shortlist.setCurrentItem(win.shortlist.topLevelItem(0))
+    text = win.detail.toPlainText()
+    assert text.index("What this posting asks for") < text.index("Desirable")

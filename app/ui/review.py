@@ -273,6 +273,14 @@ class ReviewWindow(QMainWindow):
         self.act_settings.triggered.connect(self.settings_requested)
         self.menuBar().addMenu(tr("menu.app")).addAction(self.act_settings)
 
+        #: The factsheet and CV text, joined. Set by whoever opens the window.
+        #:
+        #: Empty by default, and the gap section stays hidden while it is —
+        #: before onboarding every requirement is unsupported, and a list of
+        #: forty missing things teaches the reader to skip the section rather
+        #: than telling them anything.
+        self.evidence = ""
+
         root = QWidget()
         outer = QVBoxLayout(root)
         outer.setContentsMargins(12, 12, 12, 12)
@@ -448,9 +456,49 @@ class ReviewWindow(QMainWindow):
             parts.append("<p style='color:#666'><i>"
                          + tr("detail.screen", reason=r.screen_reason)
                          + "</i></p>")
+        parts.extend(self._gap_html(r))
         parts.append("<hr>")
         parts.append(f"<div style='white-space:pre-wrap'>{r.description}</div>")
         self.detail.setHtml("".join(parts))
+
+    def _gap_html(self, r) -> list[str]:
+        """What this posting states that the evidence does not support.
+
+        Rendered here, in the pane where the pursue-or-reject decision is
+        actually made, because that is the only moment it changes anything.
+        It costs nothing to compute — no API call, no token — so it runs on
+        every selection rather than behind a button nobody presses.
+
+        Silent when there is no evidence yet. Before onboarding, EVERY
+        requirement is unsupported, and a list of forty missing things is not
+        a finding, it is noise that teaches the reader to skip the section.
+        """
+        if not self.evidence.strip() or not r.description.strip():
+            return []
+
+        from app.apply.keywords import analyse
+
+        report = analyse(r.description, self.evidence)
+        if report.is_empty:
+            return []
+
+        out = [f"<p style='margin-top:10px'><b>{tr('detail.gaps_title')}</b></p>"]
+        missing = [q.phrase for q in report.missing_required]
+        if missing:
+            out.append(
+                f"<p style='color:#8a6d3b'>{tr('detail.gaps_missing')} "
+                + ", ".join(missing) + "</p>")
+        else:
+            out.append(f"<p style='color:#3d6b52'>{tr('detail.gaps_none')}</p>")
+
+        # Preferences are shown separately and quietly. Presenting a
+        # nice-to-have as though it were a bar is the false positive that
+        # costs somebody an afternoon.
+        preferred = [q.phrase for q in report.missing_preferred]
+        if preferred:
+            out.append(f"<p style='color:#666'><i>{tr('detail.gaps_preferred')} "
+                       + ", ".join(preferred) + "</i></p>")
+        return out
 
     # -- job-alert emails, dragged in --------------------------------------
     ALERT_SUFFIXES = {".eml", ".mbox"}

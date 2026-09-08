@@ -12,7 +12,7 @@ from app.core.board_repo import (add_task, create_opportunity, record_bounce,  #
                                  record_outbound, set_stage)
 from app.core.cadence import Channel  # noqa: E402
 from app.core.tracker import Stage  # noqa: E402
-from app.ui.board import BoardWindow  # noqa: E402
+from app.ui.board import BoardRow, BoardWindow  # noqa: E402
 from app.ui.board_adapter import board_rows, connect_board  # noqa: E402
 
 TUE = date(2026, 9, 8)
@@ -366,3 +366,48 @@ def test_a_closed_opportunity_takes_no_new_task(qapp):
     w.tree.setCurrentItem(_find_item(w, "1"))
     assert not w.btn_task.isEnabled()
     w.close()
+
+
+# ---------------------------------------------------------------------------
+# Writing the application — the one board action that spends money
+# ---------------------------------------------------------------------------
+
+def test_the_application_buttons_are_dead_without_a_selection(win):
+    assert not win.btn_apply.isEnabled()
+    assert not win.btn_brief.isEnabled()
+
+
+def test_a_closed_pursuit_cannot_have_an_application_written(win):
+    """A covering letter for something already Won or Lost spends the user's
+    own tokens on a document nobody will send."""
+    win.load([BoardRow(opportunity_id="o1", company="Done", stage=Stage.WON, status="Won")], {})
+    win.tree.setCurrentItem(win.tree.topLevelItem(0).child(0))
+    assert not win.btn_apply.isEnabled()
+    assert not win.btn_brief.isEnabled()
+
+
+def test_a_live_pursuit_can(win):
+    win.load([BoardRow(opportunity_id="o2", company="Live", stage=Stage.IN_DIALOGUE, status="In Dialogue")], {})
+    win.tree.setCurrentItem(win.tree.topLevelItem(0).child(0))
+    assert win.btn_apply.isEnabled()
+    assert win.btn_brief.isEnabled()
+
+
+def test_the_two_buttons_ask_for_different_things(win):
+    """Two buttons rather than one with a modifier key: hiding a paid action
+    behind shift-click makes it undiscoverable."""
+    win.load([BoardRow(opportunity_id="o3", company="Live", stage=Stage.IN_DIALOGUE, status="In Dialogue")], {})
+    win.tree.setCurrentItem(win.tree.topLevelItem(0).child(0))
+    seen = []
+    win.application_requested.connect(lambda oid, brief: seen.append((oid, brief)))
+    win.btn_apply.click()
+    win.btn_brief.click()
+    assert seen == [("o3", False), ("o3", True)]
+
+
+def test_the_board_never_writes_anything_itself(win):
+    """It emits intent. A widget that could spend the user's tokens by itself
+    is the boundary the rest of this class exists to keep."""
+    win.load([BoardRow(opportunity_id="o4", company="Live", stage=Stage.IN_DIALOGUE, status="In Dialogue")], {})
+    win.tree.setCurrentItem(win.tree.topLevelItem(0).child(0))
+    win.btn_apply.click()          # nothing connected: must not raise

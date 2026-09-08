@@ -234,9 +234,24 @@ def notarise(artefact: Path, profile: str, *, timeout: str = "30m") -> None:
     so a user opening it offline sees Gatekeeper refuse a perfectly notarised
     build.
     """
-    res = run(["xcrun", "notarytool", "submit", artefact,
-               "--keychain-profile", profile, "--no-wait",
-               "--output-format", "json"])
+    # BOUNDED, and this is not belt-and-braces. On 2026-09-08 a run reached
+    # exactly here and went silent: `notarytool submit` hung, the job's own
+    # 45-minute ceiling eventually killed it, and the runner reported
+    # "Terminate orphan process: notarytool". Splitting submit from wait was
+    # supposed to guarantee the submission id is always captured — and it does
+    # not, if the SUBMIT is what hangs, because the id is only printed once it
+    # returns. Ten minutes is generous for an upload that normally takes
+    # seconds, and failing here leaves a message that names the cause instead
+    # of a job that looks stuck.
+    try:
+        res = run(["xcrun", "notarytool", "submit", artefact,
+                   "--keychain-profile", profile, "--no-wait",
+                   "--output-format", "json"], timeout=600)
+    except subprocess.TimeoutExpired:
+        fail("notarytool submit did not return within 10 minutes. Nothing was "
+             "recorded, so there is no submission to query — re-run. If it "
+             "recurs, check Apple's system status before changing anything "
+             "here: this has been a transient every time so far.")
     if res.returncode != 0:
         fail(f"notarisation submit failed: {res.stderr.strip()[:400]}")
     try:

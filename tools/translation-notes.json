@@ -36,5 +36,11 @@
   "board.col.salary": "A column heading. The pay stated in the job advertisement, as free text (it may be a range, or blank when the advert says nothing).",
   "settings.data_heading": "A heading over a legal notice in an app's settings screen. 'Job postings' means advertisements for jobs. Keep it plain and factual, not marketing.",
   "settings.data_body": "A legal notice about licensed data. 'Redistribute' and 'resell' are legal terms of art - use the equivalents a licence agreement would use in this language, not casual synonyms. 'Shortlist' means the postings the user has marked to pursue. 'Competing job service' means a rival job board or job-data product.",
-  "settings.data_terms_link": "Link text to a terms-and-conditions page. 'Terms' here means the legal agreement, not conditions in general and not search terms."
+  "settings.data_terms_link": "Link text to a terms-and-conditions page. 'Terms' here means the legal agreement, not conditions in general and not search terms.",
+  "detail.gaps_title": "Heading above a list of the requirements a job advert states. Not 'keywords' and not a score. Keep it neutral: it introduces both good and bad news.",
+  "detail.gaps_missing": "Followed by a comma-separated list. 'Evidence' means the person's own CV and career factsheet, not proof in a legal sense. Do NOT translate as 'you are unqualified' — the list is informative, not a verdict.",
+  "detail.gaps_none": "Reassuring but factual. Avoid congratulation; it means only that nothing STATED is unsupported.",
+  "detail.gaps_preferred": "Introduces things the advert says it would LIKE, not things it requires. The distinction is the whole point — never render this as a requirement.",
+  "board.write_application": "Button. Produces a tailored CV and a covering letter for this application. 'Write' as in compose a document, not as in save to disk.",
+  "board.interview_brief": "Button. Produces a private briefing document for the person to read before an interview. Not a summary of the job and not something sent to anyone."
 }
