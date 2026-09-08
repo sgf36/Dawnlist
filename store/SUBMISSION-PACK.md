@@ -1,5 +1,15 @@
 # Microsoft Store submission — everything Partner Center will ask for
 
+> **WINDOWS SHIPS FIRST. macOS IS DECOUPLED (decided 2026-09-09).**
+> Windows is one package upload from submission. macOS cannot be submitted at
+> all until the Mac App Store build can SELL its subscription, which is a
+> missing feature rather than a setting — see `store/MACOS-STOREKIT-GAP.md`.
+> Do not hold this submission for it.
+>
+> Windows sells through **Paddle on both channels**, the Store build and the
+> direct download alike. There is no Store subscription add-on. If any document
+> in this folder says otherwise, it is out of date and this line wins.
+
 **Written 2026-09-08.** One page, in the order the Partner Center forms ask.
 `microsoft-store-listing.md` holds the copy and the reasoning; this is the
 walk-through, so you are not reading a 460-line document with a browser open.

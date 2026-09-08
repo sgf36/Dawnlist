@@ -44,15 +44,26 @@ build now refuses a stored licence outright, and is tested for it.
 
 ## The three routes that are actually allowed
 
-### A. Direct download only — no Apple commerce rules at all
+### A. Direct download only — WITHDRAWN 2026-09-08, DO NOT SHIP
 
-A notarised `.dmg` distributed from the website is outside the App Store, so
-3.1.1 does not apply. Licence keys, Paddle, trials by override code: all fine.
+**Spencer decided on 2026-09-08: macOS goes to the Mac App Store and NOWHERE
+ELSE. There is to be no macOS direct download.** Route B below is the live one.
 
-- **Available today.** The CI workflow already builds and notarises it; it
-  needs certificates, not code.
-- **Keeps 100% of revenue** less Paddle's ~5.6%.
-- **Costs discovery.** Nobody browses a website the way they browse a store.
+The reasoning below still holds on its own terms — a notarised `.dmg` is
+outside the App Store, so 3.1.1 genuinely does not apply to it — which is
+exactly why this section is dangerous rather than merely out of date. It reads
+as a live option and it is not one.
+
+`packaging/build_macos.py --variant direct` still BUILDS a notarised `.dmg`,
+deliberately, and that is the trap: somebody finds one in the build output,
+sees no download button on the site, and "fixes" it. The website session has
+removed every macOS download route and written the reason into the page's hold
+comment for the same purpose.
+
+- ~~Available today.~~ Builds, but must not be published.
+- ~~Keeps 100% of revenue less Paddle's ~5.6%.~~ True and irrelevant.
+- **Costs discovery.** Nobody browses a website the way they browse a store —
+  which is part of why the store won.
 
 ### B. Mac App Store with StoreKit, plus sign-in for web subscribers
 
@@ -130,3 +141,49 @@ path. Doing it badly is worse than not doing it.
 **Windows can ship as designed**, with the Partner Center declaration ticked
 and the store-subscription blocker in `microsoft-store-listing.md` resolved
 first.
+
+---
+
+## Policy 11.16 — live generative AI, and the half everyone forgets
+
+The policy has TWO requirements and the second is the one with teeth:
+
+> Disclose the use of live generative AI in the metadata. Note the use of live
+> generative AI in Partner Center during the submission process. Ensure that
+> dynamic content created by generative AI models complies with all applicable
+> Store Policies. **Provide a means for users to report inappropriate content
+> to the developer. You must take appropriate actions based on those reported
+> concerns.**
+
+**Disclosure** — the Partner Center declaration "This product incorporates
+generative AI features" is ticked (2026-09-08).
+
+**The means to report** — `ReportPanel` in the app's Settings, on every build,
+and a section plus a footer entry on all eight website pages. Both point at
+the SAME address with the SAME subject line:
+
+    Apps@spencerfields.com
+    Subject: Dawnlist — reporting AI-generated content
+
+One address and one subject, deliberately. Two inboxes for one obligation is
+how one of them stops being read.
+
+**Taking appropriate action** — this is the part an address does not satisfy,
+and a reviewer may ask. The arrangement is:
+
+1. A mail rule labels anything carrying that subject so it cannot sit unread
+   among ordinary support. **Spencer's action; not automated from here.**
+2. Every report is read and answered by a person. There is one person, so
+   there is no routing to get wrong.
+3. Where a report shows the model produced something that should not have been
+   produced, the fix goes into the prompt or the evidence rules, not into a
+   filter on the output. `app/apply/documents.py` carries `EVIDENCE_RULES` and
+   is the place that changes.
+
+**A report is written by a person, not sent by the application.** Dawnlist
+transmits no document at any point — not a draft, not an assessment, not a CV.
+The reporting copy must never say "attach", "send us the message" or anything
+that implies otherwise: it would contradict the privacy policy on two surfaces
+at once, and it is exactly the helpful-sounding edit somebody makes later. The
+app string says "report it and it will be read" and stops there, on purpose.
+

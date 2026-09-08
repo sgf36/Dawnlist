@@ -16,11 +16,11 @@ LinkedIn code and the marketing must not imply otherwise.
 
 | Field | Value |
 |---|---|
-| Product name | Dawnlist — Job Search |
+| Product name | **Dawnlist Job Search** — the RESERVED name, no em dash. `Dawnlist — Job Search` is not reserved and was rejected at package upload on 2026-09-08. To use the em-dash form publicly, reserve it first under Product management > Manage app names. |
 | Package identity | `SFields.DawnlistJobSearch` — **confirmed against Partner Center 2026-09-08** |
 | Category | Productivity |
 | Subcategory | Personal finance & productivity → Productivity |
-| Pricing | **Subscription, $79/month.** Sold in the Store as a recurring add-on; via Paddle on direct download. **Bring-your-own-key:** the buyer supplies an Anthropic API key and is billed by Anthropic directly. |
+| Pricing | **Subscription, $79/month, sold through Paddle on BOTH Windows channels** — the Store build and the direct download take the same licence key. There is NO Store subscription add-on; see line ~343, which has always said so. Microsoft permits third-party commerce and takes 0%, subject to the Partner Center declaration. **Bring-your-own-key:** the buyer supplies an Anthropic API key and is billed by Anthropic directly. |
 
 ---
 

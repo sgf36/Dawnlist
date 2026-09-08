@@ -54,9 +54,17 @@ no purchases inside the app, no location sharing.
 
 ### Product name
 
+**Use the reserved name. No em dash.**
+
 ```
-Dawnlist — Job Search
+Dawnlist Job Search
 ```
+
+`Dawnlist — Job Search` is NOT a reserved name and Partner Center rejected the
+package for it on 2026-09-08 ("uses a display name that you have not
+reserved"). The Store listing name is picked from your reserved names, so the
+em-dash form is not available here at all. To use it publicly, reserve it first
+under Product management > Manage app names, then change the manifest to match.
 
 ### Short description  (181 of 200 characters)
 
@@ -194,7 +202,20 @@ One subscription, the whole app — the job feed is included
 Uses your own Anthropic key — you hold it, you see the usage
 ```
 
-### Search terms  (7 of 7 — one per box)
+### Search terms — THERE IS NO FIELD FOR THESE
+
+**Verified live 2026-09-09: the MSIX Store listing form has no search-terms
+section at all.** Its sections are Description, What's new in this version,
+Product features, Screenshots, Store logos, Store display images, and Trailers.
+Nothing else.
+
+Store Policy 10.1.3 still describes search-term rules ("not exceed seven unique
+terms or phrases", "not include pricing terms"), which is what makes this
+confusing — the policy outlived the field. Do not go hunting for it and do not
+raise a support ticket; the terms below are kept only in case the field returns
+or a future product type exposes one.
+
+### Search terms  (kept for reference — nowhere to enter them)
 
 ```
 job search
