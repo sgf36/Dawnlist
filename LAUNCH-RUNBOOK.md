@@ -255,6 +255,37 @@ matches nothing makes the webhook fall back to Standard and set
 only plan; the moment Global exists it means a customer paid for one thing and
 received another.
 
+> **BLOCKER FOUND 2026-09-08. THERE IS NO DAWNLIST WEBHOOK DESTINATION.**
+>
+> Every notification destination on the live Paddle account points at
+> **Easy-Post's** Worker:
+>
+>     ntfset_REDACTED  "USE ME!"
+>     -> https://easypost-license-webhook.sgf36.workers.dev/paddle/webhook
+>     subscribed to subscription.created, subscription.activated,
+>     transaction.completed — everything
+>
+> Nothing points at `dawnlist-feed-worker`. So a Dawnlist purchase today would
+> charge the customer, deliver `subscription.created` to **Easy-Post's**
+> Worker, and deliver nothing to Dawnlist's. The buyer would receive no key,
+> and the wrong service would be asked to issue one.
+>
+> **This also puts the secret in doubt.** `PADDLE_WEBHOOK_SECRET` is set on the
+> Dawnlist Worker, and a destination for Dawnlist does not exist — so whatever
+> that value is, it did not come from a Dawnlist destination. A Paddle secret
+> embeds its own destination id; a secret from the wrong destination fails
+> signature verification and reads as a wrong secret rather than a wrong
+> destination. That is the failure the Easy-Post runbook records breaking four
+> times.
+>
+> **`notificationSettings.list()` returns `[]` on this account** while those
+> destinations demonstrably exist — confirmed empirically today, not assumed.
+> Do not enumerate destinations that way and do not read an empty list as
+> "none". Read them in the dashboard, or `get` them by id.
+>
+> **"USE ME!" is the hazard.** It is the most convincingly-named destination
+> and it belongs to a different product.
+
 Then point a Paddle notification destination at
 `https://dawnlist-feed-worker.sgf36.workers.dev/paddle/webhook` and put its
 signing secret in `PADDLE_WEBHOOK_SECRET`.
