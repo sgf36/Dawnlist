@@ -77,6 +77,25 @@ def prepare_application(job: Job, *, factsheet: str, cv_text: str, send,
     servers: every request goes to Anthropic on the user's own key, exactly as
     assessment and drafting already do.
     """
+    # THE SOURCE CV IS REQUIRED, and the guard belongs here rather than only
+    # at the caller. `main.apply_run` already refuses an empty one — and the
+    # first real run went straight past it, because the verification called
+    # this function directly and handed it "". The result looked completely
+    # fine: a fluent, well-structured CV written out of the factsheet alone.
+    #
+    # That is the failure this package is supposed to make impossible. A
+    # factsheet is a distillation; a CV reordered from it is a NEW document
+    # describing a career nobody had, however true each individual line is.
+    # "Reorder and re-emphasise; do not rewrite history" cannot hold when
+    # there is no history to reorder.
+    #
+    # A guard that exists only at one entry point is not a guard.
+    if want_cv and not cv_text.strip():
+        raise ValueError(
+            "No curriculum vitae text. A tailored CV reorders the person's own "
+            "document; without it the model writes a new one from the "
+            "factsheet, which reads as a CV and is not theirs.")
+
     gaps = analyse(job.description_text, _evidence(factsheet, cv_text))
     pack = ApplicationPack(job=job, gaps=gaps)
 

@@ -181,3 +181,32 @@ def test_nothing_reaches_dawnlists_servers(monkeypatch):
     monkeypatch.setattr(urllib.request, "urlopen", refuse)
     prepare_application(JOB, factsheet=FACTSHEET, cv_text=CV,
                         send=recorder()[0])
+
+
+# ---------------------------------------------------------------------------
+# The source CV, which the first real run proved was not actually required
+# ---------------------------------------------------------------------------
+
+def test_a_cv_cannot_be_written_without_a_cv_to_reorder():
+    """The guard existed only at the caller, so the first live verification
+    walked straight past it and produced a fluent CV out of the factsheet
+    alone. Every line was true and the document was not the person's.
+
+    A guard that exists at one entry point is not a guard.
+    """
+    import pytest
+
+    with pytest.raises(ValueError) as exc:
+        prepare_application(JOB, factsheet=FACTSHEET, cv_text="   ",
+                            send=recorder()[0])
+    assert "reorders the person's own document" in str(exc.value)
+
+
+def test_a_letter_alone_does_not_need_the_cv():
+    """A covering letter is written FROM the evidence, not reordered from a
+    document, so the same requirement would be an invented obstacle."""
+    send, seen = recorder()
+    pack = prepare_application(JOB, factsheet=FACTSHEET, cv_text="",
+                               send=send, want_cv=False)
+    assert pack.letter is not None
+    assert len(seen) == 1
