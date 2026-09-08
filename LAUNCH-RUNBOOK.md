@@ -188,8 +188,17 @@ value was stored, not that it was the right one:
 
 ## Step 5 — GitHub secrets, so CI can sign
 
-One push to `main` now produces all three artefacts. It needs credentials it
-does not have yet.
+> **Status, 2026-09-08 17:11 — macOS is DONE and PROVEN.** Run `34255301944`
+> imported the certificate, validated the notarisation credentials against
+> Apple, signed 15 nested binaries plus the bundle, verified the signature,
+> built the `.dmg`, notarised it (submission `d50f9f9a-f515-4a6f-a781-
+> e7f6f4837f45`) and stapled the ticket — in 2m58s. All three artefacts now
+> exist on every run.
+>
+> **Only Windows direct-download signing is outstanding**, and only the
+> federated credential and the `AZURE_SIGNING_READY` variable — the three
+> `AZURE_*` secrets are set. Until then the ZIP is produced but named
+> `UNSIGNED-DO-NOT-PUBLISH-…`, with no checksum, exactly as intended.
 
 ### 5a. Windows signing — reuse the existing certificate
 
@@ -233,14 +242,23 @@ every guard, but names it `UNSIGNED-DO-NOT-PUBLISH-…` and writes no checksum.
 
 ### 5b. macOS signing and notarisation
 
-> **The distribution provisioning profile is not used here.** A provisioning
-> profile is a Mac App Store artefact: it names an App ID, a team and a set of
-> entitlements, and it is embedded in a `.pkg` that Apple's own review will
-> run. The direct-download `.dmg` is signed with Developer ID and cleared by
-> **notarisation**, which reads the signature and the hardened runtime and
-> knows nothing about profiles. Keep the file — it is the first thing the Mac
-> App Store project will need — but nothing in this launch consumes it, and
-> there is no secret to create from it.
+> **The distribution provisioning profile is not used here, and this was
+> checked rather than assumed.** The certificate embedded inside
+> `Dawnlist_Job_Search.provisionprofile` is **`Apple Distribution: Spencer
+> Fields (7WA4F8P743)`** — Apple Distribution is the App Store certificate, so
+> this is a Mac App Store profile. The direct-download `.dmg` is signed with
+> Developer ID and cleared by **notarisation**, which reads the signature and
+> the hardened runtime and knows nothing about profiles.
+>
+> It is filed at `Apps\Claude MacOS\signing\Dawnlist_Job_Search.provisionprofile`,
+> beside `EasyPost_Desktop.provisionprofile`. Nothing in this launch consumes
+> it and there is no secret to create from it yet; when the Mac App Store
+> project starts it becomes `MAS_PROVISION_PROFILE_BASE64`, matching Easy-Post.
+>
+> Two facts from it worth having now: the App ID
+> **`7WA4F8P743.com.spencerfields.dawnlist` is registered** — which matches the
+> bundle identifier in `build_exe.spec`, so that step is already done — and both
+> the profile and its Apple Distribution certificate **expire 4 August 2027**.
 
 Direct download needs a **Developer ID Application** certificate — the same one
 Easy-Post Desktop already uses, because a Developer ID certificate belongs to
