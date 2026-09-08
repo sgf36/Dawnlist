@@ -409,6 +409,11 @@ class SettingsWindow(QWidget):
             # Constructed but not laid out, so `window.licence` stays a stable
             # attribute for callers and tests rather than sometimes-missing.
             self.licence.hide()
+
+        # Always shown, on every build. Two obligations meet here.
+        layout.addWidget(_divider())
+        layout.addWidget(DataTermsPanel())
+
         self.setStyleSheet(SETTINGS_STYLESHEET)
 
         # A scroll area reports a tiny minimum, so the window would otherwise
@@ -427,6 +432,57 @@ RULE_TIERS = (
     ("strong_terms", "rules.strong", "rules.strong_help"),
     ("contextual_terms", "rules.contextual", "rules.contextual_help"),
 )
+
+
+
+#: Where the end-user terms live. They must be PUBLISHED and ACCEPTED, not
+#: merely linked: the data licence requires every downstream recipient to be
+#: "bound by written terms", and a page nobody agreed to binds nobody. This
+#: link is the app's part of that, not the whole of it — acceptance happens at
+#: purchase.
+TERMS_URL = "https://dawnlist.spencerfields.com/terms.html"
+
+
+class DataTermsPanel(QWidget):
+    """Where the postings come from, and what may be done with them.
+
+    TWO OBLIGATIONS, both from the feed provider's licence.
+
+    ATTRIBUTION. Their §4.5 requires materials integrated into a CRM to carry
+    identifying information showing they originated with the provider. Whether
+    Dawnlist's tracker counts as a CRM is genuinely arguable — it is
+    CRM-shaped, and the clause is aimed at leakage through internal systems.
+    Attributing anyway costs a line of text and removes the argument entirely,
+    which is a good trade against a clause that carries injunctive relief.
+
+    FLOW-THROUGH. Their §4.11 requires every downstream recipient — which is
+    every subscriber — to be bound by written terms at least as restrictive as
+    their own §4. A link is not binding on its own; acceptance at purchase is
+    what binds. This panel exists so the terms are FINDABLE afterwards by
+    someone who has already agreed to them, which is the part a purchase flow
+    cannot do.
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(8)
+
+        heading = QLabel(tr("settings.data_heading"))
+        heading.setObjectName("stepHeading")
+        layout.addWidget(heading)
+
+        body = QLabel(reflow(tr("settings.data_body")))
+        body.setObjectName("stepBody")
+        body.setWordWrap(True)
+        layout.addWidget(body)
+
+        link = QLabel(f'<a href="{TERMS_URL}">{tr("settings.data_terms_link")}</a>')
+        link.setObjectName("dataTerms")
+        link.setOpenExternalLinks(True)
+        link.setWordWrap(True)
+        layout.addWidget(link)
 
 
 class RulesPanel(QWidget):

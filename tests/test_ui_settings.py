@@ -647,3 +647,43 @@ def test_linkify_escapes_the_surrounding_text():
     from app.ui.settings import _linkify_console
     out = _linkify_console("a < b at console.anthropic.com & c")
     assert "&lt;" in out and "&amp;" in out
+
+
+# ---------------------------------------------------------------------------
+# The data-source notice: two obligations from the feed licence
+# ---------------------------------------------------------------------------
+
+def test_the_data_notice_is_shown_on_every_build(qapp):
+    """Attribution and the flow-through terms apply regardless of storefront."""
+    from PySide6.QtWidgets import QLabel
+    for build in ("direct", "store", "mas"):
+        w = SettingsWindow(variant=build)
+        links = [l for l in w.findChildren(QLabel) if l.objectName() == "dataTerms"]
+        assert links, f"no data-terms notice on the {build} build"
+        w.close()
+
+
+def test_the_terms_are_reachable_and_open(qapp):
+    """A link nobody can follow does not help someone who has already agreed."""
+    from PySide6.QtWidgets import QLabel
+    w = SettingsWindow(variant="direct")
+    link = [l for l in w.findChildren(QLabel) if l.objectName() == "dataTerms"][0]
+    assert "<a href=" in link.text()
+    assert link.openExternalLinks()
+    w.close()
+
+
+def test_the_notice_states_the_restrictions_it_has_to_pass_on(qapp):
+    """The feed licence requires downstream recipients to be bound by terms at
+    least as restrictive as its own. The app cannot bind anyone — acceptance
+    happens at purchase — but the substance has to be findable afterwards by
+    someone who already agreed to it."""
+    from PySide6.QtWidgets import QLabel
+    w = SettingsWindow(variant="direct")
+    body = [l for l in w.findChildren(QLabel)
+            if l.objectName() == "stepBody" and "licensed" in l.text().lower()]
+    assert body, "no explanation of where the postings come from"
+    text = body[0].text().lower()
+    for restriction in ("redistribute", "resell", "competing"):
+        assert restriction in text, f"the notice does not mention {restriction}"
+    w.close()

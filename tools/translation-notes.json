@@ -33,5 +33,8 @@
   "board.col.first_tracked": "A column heading over a DATE. When this employer was first added to the user's tracker. Not when the job was posted, and not when the user first made contact.",
   "board.col.url": "A column heading. A web link to the original job advertisement. 'Posting' here means the advertisement, not postal mail.",
   "board.col.location": "A column heading. Where the JOB is based - a city or region. Not the user's own location and not the employer's head office.",
-  "board.col.salary": "A column heading. The pay stated in the job advertisement, as free text (it may be a range, or blank when the advert says nothing)."
+  "board.col.salary": "A column heading. The pay stated in the job advertisement, as free text (it may be a range, or blank when the advert says nothing).",
+  "settings.data_heading": "A heading over a legal notice in an app's settings screen. 'Job postings' means advertisements for jobs. Keep it plain and factual, not marketing.",
+  "settings.data_body": "A legal notice about licensed data. 'Redistribute' and 'resell' are legal terms of art - use the equivalents a licence agreement would use in this language, not casual synonyms. 'Shortlist' means the postings the user has marked to pursue. 'Competing job service' means a rival job board or job-data product.",
+  "settings.data_terms_link": "Link text to a terms-and-conditions page. 'Terms' here means the legal agreement, not conditions in general and not search terms."
 }
