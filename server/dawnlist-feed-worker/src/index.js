@@ -188,7 +188,21 @@ const ADAPTERS = {
      *          not to fetch instead of presenting a clamped page as the lot.
      */
     async search(env, q, headroom) {
-      const limit = Math.max(1, Math.min(q.limit || MAX_PAGE, MAX_PAGE, headroom));
+      // `maxResults` FIRST, because that is the name the application actually
+      // sends. This read `q.limit` only, and the app has never sent that key —
+      // it sends `maxResults` (app/feed/managed.py). So the user's own
+      // "how many do you want" setting was received and silently discarded,
+      // and every search fell back to MAX_PAGE.
+      //
+      // The cap still bounded the damage, which is why nothing looked wrong.
+      // But on a feed billed per row returned, a control that quietly does
+      // nothing is the expensive kind of defect: someone asks for 20 postings,
+      // is billed for 100, and neither side has anything to point at.
+      //
+      // `limit` is still accepted so a hand-made request against the Worker
+      // keeps working, but it is now the fallback rather than the only name.
+      const asked = q.maxResults ?? q.limit ?? MAX_PAGE;
+      const limit = Math.max(1, Math.min(asked, MAX_PAGE, headroom));
       const body = {
         limit,
         page: q.page || 0,
