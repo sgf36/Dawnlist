@@ -401,6 +401,8 @@ def build_provider(conn):
 
     from app.core.entitlement import stored_licence
 
+    from app.core.build_variant import variant
+
     licence = stored_licence()
     if licence:
         from app.feed.managed import ManagedProvider
@@ -409,12 +411,35 @@ def build_provider(conn):
     from app.feed.theirstack import TheirStackProvider
 
     key = keyring.get_password("dawnlist-feed", "api-key")
-    if not key:
+    if key:
+        return TheirStackProvider(key)
+
+    # No licence and no developer key. WHAT TO SAY DEPENDS ON THE BUILD, and
+    # getting it wrong is worse than saying nothing.
+    #
+    # A store build reaches here with the entitlement gate already satisfied —
+    # `entitlement.require` treats a store build as entitled BY POSSESSION,
+    # because the storefront does not hand the binary to someone who has not
+    # bought it. That reasoning holds for a one-time purchase and does NOT hold
+    # here: the feed is metered per licence server-side, so possession alone
+    # gives the app nothing to meter against and no way to fetch. The customer
+    # has paid and cannot run.
+    #
+    # Telling that person to "enter your licence key" is advice they cannot
+    # act on — no key was ever issued to them — and telling them to put a
+    # provider key in their keyring is advice for a product they did not buy.
+    if variant() in ("store", "mas"):
         raise NotConfigured(
-            "No feed credential found. Enter your Dawnlist licence key in "
-            "Settings, or — for a development build — store a provider key "
-            "under the keyring service 'dawnlist-feed', account 'api-key'.")
-    return TheirStackProvider(key)
+            "This copy is not linked to a Dawnlist subscription yet, so there "
+            "is no job feed to read. Your board, your brief and everything "
+            "already on this machine stay open. "
+            "SUPPORT: this is a fault, not something you have done wrong — "
+            "a store purchase should link automatically.")
+
+    raise NotConfigured(
+        "No licence key found. Enter the key from your purchase email in "
+        "Settings. (Development builds may instead store a provider key under "
+        "the keyring service 'dawnlist-feed', account 'api-key'.)")
 
 
 def build_send(conn):

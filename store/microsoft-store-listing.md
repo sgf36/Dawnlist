@@ -20,7 +20,7 @@ LinkedIn code and the marketing must not imply otherwise.
 | Package identity | `SFields.DawnlistJobSearch` — **confirmed against Partner Center 2026-09-08** |
 | Category | Productivity |
 | Subcategory | Personal finance & productivity → Productivity |
-| Pricing | **Paid, one price, up front.** No in-app purchase and no free tier. **Bring-your-own-key:** the buyer supplies an Anthropic API key and is billed by Anthropic directly. |
+| Pricing | **Subscription, $79/month.** Sold in the Store as a recurring add-on; via Paddle on direct download. **Bring-your-own-key:** the buyer supplies an Anthropic API key and is billed by Anthropic directly. |
 
 ---
 
@@ -78,8 +78,10 @@ means the app can only be replaced, never updated.
 *(Max 10,000 characters. Plain text; Partner Center strips most markup.)*
 
 ```
-Dawnlist is a paid app. You buy it once, and it is yours — there is nothing to
-unlock inside it and nothing held back.
+Dawnlist is a subscription. While it is running it reads job feeds for you
+every day, and that reading costs money every day — so it is priced the way it
+costs. There is nothing held back from subscribers and no second payment
+inside the app.
 
 BEFORE YOU BUY: Dawnlist uses your own Anthropic API key to read job postings
 and draft messages. You will need one, and Anthropic bills you directly for
@@ -164,19 +166,23 @@ that it runs every morning.
 
 WHAT YOU PAY FOR
 
-One purchase, and the whole app. No subscription inside it, nothing locked
-behind a second payment, and no features held back from the version you bought.
+One subscription, and the whole app. Nothing is locked behind a second payment
+and no feature is held back.
 
-Separately, you pay Anthropic for what Dawnlist reads, on your own API key. At
-about forty postings a day that is roughly two pounds a month for the reading
-and about one for the drafting, plus a one-off two to four pounds when you first
-set up your factsheet. You hold the key, you see the usage, and you can revoke
-it at any moment. Dawnlist never sees a bill and takes no share of one.
+The job feed is included. Searching costs real money every day Dawnlist runs,
+and that is what the subscription pays for.
 
-Why it works this way: reading is the cost that grows with how hard you use the
-app, and it belongs with the person doing the using. Charging everyone a
-subscription to cover the heaviest users would mean the lightest users
-subsidised them.
+The reading and drafting are separate, and you pay Anthropic directly on your
+own API key. At about forty postings a day that is roughly two pounds a month
+for the reading and about one for the drafting, plus a one-off two to four
+pounds when you first set up your factsheet. You hold the key, you see the
+usage, and you can revoke it at any moment. Dawnlist never sees that bill and
+takes no share of it.
+
+Why your own key rather than ours: your CVs, your fit brief and the job
+descriptions Dawnlist reads are your employment history. Sending them through
+our infrastructure would make us the custodian of your career record. Your key
+means that traffic is between you and Anthropic, and we are not part of it.
 ```
 
 ---
@@ -199,7 +205,7 @@ subsidised them.
 13. Never sends anything — you send it yourself
 14. No mailbox access and no passwords to hand over
 15. Your CVs and tracker stay on your machine
-16. One purchase, the whole app — no in-app unlocks
+16. One subscription, the whole app — the job feed is included
 17. Uses your own Anthropic key — you hold it, you see the usage
 
 ---
@@ -310,6 +316,47 @@ yourself"*. True — Dawnlist reads `.eml`, `.txt` and `.md` files from the voic
 folder beside the database, and `--doctor` prints the path — but there is no
 drag-and-drop for it, so in practice only a user who goes looking will find it.
 Honest as written; thin as an experience.
+
+---
+
+## BLOCKER — a store purchase does not yet reach the feed
+
+Found 2026-09-08 by simulating a store customer's first run, and it stops
+submission on its own.
+
+`entitlement.require` treats a store build as **entitled by possession**: the
+storefront does not hand the binary to someone who has not bought it, so there
+is no receipt to check. That reasoning is sound for a **one-time purchase** and
+does not survive the move to a subscription, because the job feed is metered
+**per licence, server-side**. Possession gives the app nothing to meter against.
+
+Simulated result — the customer pays, passes the gate, and cannot run:
+
+```
+entitlement gate: entitled=True  source='store'  reason='purchased through the Microsoft Store'
+provider:         FAILS -> No feed credential found...
+```
+
+Worse, the old message told them to enter a licence key they were never issued,
+or to put a provider key in their keyring — advice for a product they did not
+buy. That wording is fixed and the failure now names itself as a fault rather
+than as something the customer did wrong, but **an honest error message is not
+a working product.**
+
+**What has to happen before the Store version can ship:**
+
+1. Create a **recurring subscription add-on** in Partner Center for $79/month.
+2. Have the app read the Store entitlement (`StoreContext.GetAppLicenseAsync`
+   or the equivalent) and exchange a valid subscription for a Dawnlist licence
+   key from the Worker, storing it exactly where the direct build stores one.
+3. Then `build_provider` needs no change at all: it already prefers a licence
+   over everything else, and a store build holding one uses the managed feed
+   like any other. That path is tested.
+
+Until then, **the direct-download build is the only one that can actually run**,
+because Paddle issues a licence at purchase. The Windows package builds and
+verifies, but shipping it to the Store today would sell a subscription that
+cannot fetch a single posting.
 
 ---
 

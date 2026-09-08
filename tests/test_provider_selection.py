@@ -58,12 +58,20 @@ def test_a_raw_feed_key_is_the_developer_fallback(no_keyring):
     assert prov.name != "managed"
 
 
-def test_neither_credential_raises_and_names_the_licence_first(no_keyring):
+def test_neither_credential_raises_and_names_the_licence_first(no_keyring, monkeypatch):
     """The message a real customer sees must lead with the licence.
 
     Telling a paying user to put a TheirStack key in their keyring is advice
     for a product they did not buy.
+
+    The variant is PINNED. Without it this test read whichever build flag
+    happened to be sitting in the source tree, so its result depended on what
+    the developer last ran `set_build_variant.py` with — it passed for months
+    only because that flag was `store`, and started failing the moment the
+    store message stopped mentioning the keyring at all. A test whose subject
+    is chosen by local state is not testing what it claims to.
     """
+    monkeypatch.setattr("app.core.build_variant.variant", lambda: "direct")
     with pytest.raises(NotConfigured) as e:
         build_provider(conn=None)
     message = str(e.value)
@@ -82,3 +90,54 @@ def test_the_managed_module_is_importable_from_a_frozen_build():
     """
     import app.feed.managed as managed
     assert hasattr(managed, "ManagedProvider")
+
+
+# ---------------------------------------------------------------------------
+# The store build has no feed route — the launch blocker
+# ---------------------------------------------------------------------------
+
+def test_a_store_build_without_a_licence_says_so_honestly(no_keyring, monkeypatch):
+    """A paying store customer must not be told to do something impossible.
+
+    `entitlement.require` treats a store build as entitled BY POSSESSION,
+    which is sound for a one-time purchase and unsound here: the feed is
+    metered per licence server-side, so possession gives the app nothing to
+    meter against. The customer has paid and cannot run.
+
+    Until a store purchase issues a licence, the least this can do is fail in
+    words the person can act on. Telling them to "enter your licence key" is
+    advice they cannot follow — no key was ever issued — and pointing them at
+    a keyring entry is advice for a product they did not buy.
+    """
+    monkeypatch.setattr("app.core.build_variant.variant", lambda: "store")
+    with pytest.raises(NotConfigured) as e:
+        build_provider(conn=None)
+    message = str(e.value)
+    assert "subscription" in message.lower()
+    assert "keyring" not in message.lower()
+    assert "dawnlist-feed" not in message
+    # It must not blame the user for a fault in the purchase link.
+    assert "support" in message.lower()
+
+
+def test_the_mac_app_store_build_gets_the_same_treatment(no_keyring, monkeypatch):
+    monkeypatch.setattr("app.core.build_variant.variant", lambda: "mas")
+    with pytest.raises(NotConfigured) as e:
+        build_provider(conn=None)
+    assert "keyring" not in str(e.value).lower()
+
+
+def test_a_direct_build_is_still_told_about_the_purchase_email(no_keyring, monkeypatch):
+    """The direct-download customer DOES have a key, and it came by email."""
+    monkeypatch.setattr("app.core.build_variant.variant", lambda: "direct")
+    with pytest.raises(NotConfigured) as e:
+        build_provider(conn=None)
+    assert "purchase email" in str(e.value).lower()
+
+
+def test_a_store_build_WITH_a_licence_uses_the_managed_feed(no_keyring, monkeypatch):
+    """Once a store purchase does issue a licence, nothing else has to change."""
+    monkeypatch.setattr("app.core.build_variant.variant", lambda: "store")
+    monkeypatch.setattr("app.core.entitlement.stored_licence",
+                        lambda: "DAWN-AAAA-BBBB")
+    assert build_provider(conn=None).name == "managed"
