@@ -5,7 +5,24 @@
   "observability": { "enabled": true },
   "d1_databases": [
     { "binding": "DB", "database_name": "dawnlist", "database_id": "8c272845-1e82-4660-ab71-01bef14c897e" }
-  ]
+  ],
+  "vars": {
+    // The LIVE Paddle price for the Standard plan, created 2026-09-08 on
+    // product pro_01m217zsvqcexs9atdswvja3sf at $79/month recurring.
+    //
+    // Committed deliberately. A price id is a public identifier — it appears
+    // in the checkout every customer sees — and keeping it in the repository
+    // is what makes a mismatch findable. Hidden as a secret, nobody could
+    // tell which id was configured when a customer landed on the wrong plan.
+    //
+    // Comma-separate when annual or per-currency ids are added.
+    "PADDLE_PRICE_STANDARD": "pri_01m217zszynjmwmcx6xqpewxc1"
+
+    // PADDLE_PRICE_GLOBAL is deliberately ABSENT. The Global plan is not sold
+    // until its 2,500/day ceiling has been measured against a real
+    // multi-region sweep — selling an untested allowance is how a cap quietly
+    // becomes the thing that decides coverage.
+  }
   // Secrets (wrangler secret put <NAME> — the command takes the secret's NAME,
   // never its value; the value goes at the interactive prompt only):
   //   THEIRSTACK_API_KEY      the feed credential. The ONLY place it lives.

@@ -74,9 +74,33 @@ $imported = Import-Certificate -FilePath $cerPath -CertStoreLocation Cert:\Local
 
 try {
     # 2) Reset any prior state, then run the certification tests.
+    #
+    # THE REPORT IS DELETED FIRST, AND THIS IS NOT TIDINESS. appcert refuses
+    # outright if the report path already exists — "Please specify a unique
+    # report file name" — and it refuses in a way that is easy to miss, because
+    # it writes that line and exits while the stale XML sits there looking like
+    # a result. On 2026-09-08 this script then parsed the OLD report and
+    # announced "OVERALL RESULT: PASS. No failed tests." for a run that never
+    # happened. A verifier that reports the previous answer is worse than one
+    # that reports nothing.
+    Remove-Item $report -Force -ErrorAction SilentlyContinue
+    $startedAt = Get-Date
+
     Write-Host "Running the Windows App Certification Kit — this takes several minutes ..."
     & $appcert.FullName reset | Out-Null
     & $appcert.FullName test -appxpackagepath "$MsixPath" -reportoutputpath "$report"
+    if ($LASTEXITCODE -ne 0) {
+        throw "appcert.exe exited with code $LASTEXITCODE. No report was produced, so there is no result — do not treat anything below as one."
+    }
+
+    # Two independent checks that THIS run produced the file, because the exit
+    # code alone did not catch the failure above.
+    if (-not (Test-Path $report)) {
+        throw "appcert.exe reported success but wrote no report at $report."
+    }
+    if ((Get-Item $report).LastWriteTime -lt $startedAt) {
+        throw "The report at $report predates this run. It is a stale file from an earlier attempt and must not be read as a result."
+    }
 
     # 3) Summarise. OVERALL_RESULT is the verdict; the failed tests are pulled
     #    out so the answer is readable without opening the XML.
