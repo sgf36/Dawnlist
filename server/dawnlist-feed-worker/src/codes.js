@@ -19,6 +19,7 @@
  * insert does not.
  */
 import { PLANS, capsFor } from './plans.js';
+import { licenceEmail, localeFor, sendEmail } from './email.js';
 
 const ROLES = ['byo', 'managed', 'admin'];
 const MAX_FAILED_ATTEMPTS_PER_DAY = 20;
@@ -270,6 +271,96 @@ export async function handleAdmin(request, env) {
         ORDER BY l.created_at DESC LIMIT 200`
     ).all();
     return json({ licences: results || [] });
+  }
+
+  // --- do the credentials actually WORK ----------------------------------
+  //
+  // `wrangler secret list` proves a value was stored under a name. It proves
+  // nothing about whether the value is right, and the sibling project lost
+  // four separate afternoons to exactly that gap — a secret whose NAME was the
+  // credential, a secret from the wrong destination, a secret that was simply
+  // stale. Every one of them listed perfectly.
+  //
+  // So this asks each upstream a cheap read-only question and reports what came
+  // back. It sends nothing and spends nothing.
+  if (path === '/admin/selftest' && request.method === 'GET') {
+    const out = {};
+
+    if (!env.RESEND_API_KEY) {
+      out.resend = { ok: false, reason: 'not set' };
+    } else {
+      const r = await fetch('https://api.resend.com/domains', {
+        headers: { authorization: `Bearer ${env.RESEND_API_KEY}` },
+      });
+      // 401 is a wrong key; 200 is a working one. Anything else is reported
+      // as itself rather than collapsed into "failed".
+      out.resend = { ok: r.ok, status: r.status };
+    }
+
+    if (!env.PADDLE_API_KEY) {
+      out.paddle = { ok: false, reason: 'not set' };
+    } else {
+      const base = env.PADDLE_API_BASE || 'https://api.paddle.com';
+      const r = await fetch(`${base}/customers?per_page=1`, {
+        headers: { authorization: `Bearer ${env.PADDLE_API_KEY}` },
+      });
+      out.paddle = { ok: r.ok, status: r.status };
+    }
+
+    out.theirstack = { ok: Boolean(env.THEIRSTACK_API_KEY), checked: false,
+                       note: 'not called — a feed request costs a credit' };
+    out.paddle_webhook_secret = { ok: Boolean(env.PADDLE_WEBHOOK_SECRET),
+                                  checked: false,
+                                  note: 'only a signed delivery can prove it' };
+    out.price_id = env.PADDLE_PRICE_STANDARD || null;
+
+    const ready = out.resend.ok && out.paddle.ok;
+    return json({ ok: ready, checks: out });
+  }
+
+  // --- send somebody their licence key again -----------------------------
+  //
+  // A support tool first and a test second. The commonest thing a paying
+  // customer will ever ask for is the key they lost, and without this the only
+  // answer is to read it out of the database by hand and paste it into a mail
+  // client — which is slower, less consistent, and puts the key through a
+  // second system.
+  if (path === '/admin/resend' && request.method === 'POST') {
+    let body;
+    try { body = await request.json(); } catch { return json({ error: 'bad_json' }, 400); }
+
+    const target = (body.licence_key || '').trim();
+    const to = (body.to || '').trim();
+    if (!target || !to) {
+      return json({ error: 'need_licence_and_address',
+                    message: 'Both licence_key and to are required' }, 400);
+    }
+
+    const row = await env.DB.prepare(
+      `SELECT licence_key, status, plan, max_postings_per_day
+         FROM licences WHERE licence_key = ?1`
+    ).bind(target).first();
+    if (!row) return json({ error: 'unknown_licence' }, 404);
+    if (row.status !== 'active') {
+      // Re-sending a revoked key would have somebody paste it in and be
+      // refused, with no way to tell that from the key being wrong.
+      return json({ error: 'licence_inactive',
+                    message: `That licence is ${row.status}` }, 409);
+    }
+
+    const mail = licenceEmail({
+      licenceKey: row.licence_key,
+      postingsPerDay: row.max_postings_per_day,
+      lang: localeFor(body.lang),
+    });
+    const sent = await sendEmail(env, { to, ...mail });
+    if (!sent.ok) {
+      return json({ error: 'send_failed', detail: sent.error,
+                    status: sent.status }, 502);
+    }
+    // The address is not logged or echoed. The id is enough to find it in
+    // Resend if somebody says it never arrived.
+    return json({ ok: true, id: sent.id, lang: mail.lang });
   }
 
   return json({ error: 'not_found' }, 404);

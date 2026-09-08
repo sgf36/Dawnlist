@@ -8,6 +8,19 @@
  * degrades to the previous behaviour rather than to blank paragraphs.
  */
 export const EMAIL_STRINGS = {
+  "am": {
+    "subject": "የእርስዎ Dawnlist የፍቃድ ቁልፍ",
+    "preheader": "ይህንን በቅንብሮች ውስጥ ለጥፈው መተግበሪያውን ይክፈቱ።",
+    "heading": "የእርስዎ Dawnlist የፍቃድ ቁልፍ",
+    "thanks": "ስለተመዘገቡ እናመሰግናለን። መተግበሪያውን የሚከፍተው ቁልፍ ይህ ነው።",
+    "to_use_heading": "ለመጠቀም",
+    "to_use_body": "Dawnlist ይክፈቱ፣ ወደ ቅንብሮች ይሂዱ፣ እና ቁልፉን በፍቃድ መስክ ውስጥ ይለጥፉ። በሚያዙዋቸው ሁሉም ኮምፒውተሮች ላይ፣ እንዲሁም በዊንዶውስ እና በማክኦኤስ እትሞች ላይ ይሰራል።",
+    "allowance": "የእርስዎ ዕቅድ በቀን እስከ {count} ማስታወቂያዎችን ይሸፍናል።",
+    "own_key": "የራስዎ የሆነ የAnthropic API ቁልፍ ያስፈልግዎታል — Dawnlist ማስታወቂያዎችን የሚያነብበው እና መልዕክቶችን የሚያረቅቅበት በእርስዎ አካውንት ነው እንጂ በእኛ አካውንት አይደለም፣ ስለዚህ የእርስዎ ሲቪ እና የደብዳቤ ልውውጥዎ ወደ አገልጋዮቻችን በጭራሽ አይደርሱም። መተግበሪያው በማዋቀር ጊዜ እንዴት እንደሚጨምሩት ይመራዎታል።",
+    "not_installed": "ገና አልጫኑትም? ሁሉም ነገር እዚህ ላይ ነው፦",
+    "reply_note": "የሆነ ነገር የማይሰራ ከሆነ፣ ለዚህ መልዕክት ምላሽ ይስጡ — ወደ አንድ ሰው ይደርሳል።",
+    "footer": "Dawnlist — የSpencer Fields Software ውጤት።"
+  },
   "ar": {
     "subject": "مفتاح ترخيص Dawnlist الخاص بك",
     "preheader": "الصقه في الإعدادات لتفعيل التطبيق.",
@@ -21,6 +34,32 @@ export const EMAIL_STRINGS = {
     "reply_note": "إذا واجهت أي مشكلة، ردّ على هذه الرسالة — فهي تصل إلى شخص حقيقي.",
     "footer": "Dawnlist — أحد منتجات Spencer Fields Software."
   },
+  "bn": {
+    "subject": "আপনার Dawnlist লাইসেন্স কী",
+    "preheader": "অ্যাপ্লিকেশনটি আনলক করতে এটি সেটিংস-এ পেস্ট করুন।",
+    "heading": "আপনার Dawnlist লাইসেন্স কী",
+    "thanks": "সাবস্ক্রাইব করার জন্য ধন্যবাদ। এই কী-টি দিয়ে অ্যাপ্লিকেশনটি আনলক হবে।",
+    "to_use_heading": "ব্যবহার পদ্ধতি",
+    "to_use_body": "Dawnlist খুলুন, সেটিংসে যান, এবং লাইসেন্স ফিল্ডে কী-টি পেস্ট করুন। এটি আপনার মালিকানাধীন প্রতিটি কম্পিউটারে, এবং Windows ও macOS উভয় সংস্করণেই কাজ করে।",
+    "allowance": "আপনার প্ল্যানে দিনে সর্বোচ্চ {count}টি পোস্টিং কভার করা হয়।",
+    "own_key": "আপনার নিজস্ব একটি Anthropic API কী-ও লাগবে — Dawnlist পোস্টিং পড়ে ও বার্তা তৈরি করে আপনার নিজের অ্যাকাউন্ট থেকে, আমাদের কোনো সার্ভার থেকে নয়, তাই আপনার সিভি বা কোনো চিঠিপত্র কখনো আমাদের সার্ভারে পৌঁছায় না। সেটআপের সময় অ্যাপ্লিকেশনটি এটি যোগ করার ধাপগুলো দেখিয়ে দেবে।",
+    "not_installed": "এখনও ইনস্টল করেননি? সবকিছু পাবেন এখানে",
+    "reply_note": "কিছু কাজ না করলে এই বার্তার উত্তর দিন — এটি একজন প্রকৃত মানুষের কাছেই পৌঁছায়।",
+    "footer": "Dawnlist — Spencer Fields Software-এর একটি পণ্য।"
+  },
+  "cs": {
+    "subject": "Váš licenční klíč pro Dawnlist",
+    "preheader": "Vložte ho do Nastavení a odemkněte aplikaci.",
+    "heading": "Váš licenční klíč pro Dawnlist",
+    "thanks": "Děkujeme za předplatné. Zde je klíč, který odemyká aplikaci.",
+    "to_use_heading": "Jak na to",
+    "to_use_body": "Otevřete Dawnlist, přejděte do Nastavení a vložte klíč do pole pro licenci. Funguje na každém počítači, který vlastníte, a to jak ve verzi pro Windows, tak pro macOS.",
+    "allowance": "Váš plán zahrnuje až {count} nabídek práce denně.",
+    "own_key": "Budete také potřebovat vlastní API klíč od Anthropic — Dawnlist totiž čte nabídky práce a připravuje zprávy pod vaším účtem, nikoli naším, takže se váš životopis ani korespondence nikdy nedostanou na naše servery. Aplikace vás jeho přidáním provede během nastavení.",
+    "not_installed": "Ještě jste ji nenainstalovali? Vše najdete na",
+    "reply_note": "Pokud něco nefunguje, odpovězte na tento e-mail — čte ho skutečný člověk.",
+    "footer": "Dawnlist — produkt společnosti Spencer Fields Software."
+  },
   "de": {
     "subject": "Dein Dawnlist-Lizenzschlüssel",
     "preheader": "Füge diesen unter Einstellungen ein, um die Anwendung freizuschalten.",
@@ -33,6 +72,19 @@ export const EMAIL_STRINGS = {
     "not_installed": "Noch nicht installiert? Alles Weitere findest du unter",
     "reply_note": "Falls etwas nicht funktioniert, antworte einfach auf diese Nachricht — sie erreicht einen echten Menschen.",
     "footer": "Dawnlist — ein Produkt von Spencer Fields Software."
+  },
+  "el": {
+    "subject": "Ο κωδικός άδειας σας για το Dawnlist",
+    "preheader": "Επικολλήστε τον στις Ρυθμίσεις για να ενεργοποιήσετε την εφαρμογή.",
+    "heading": "Ο κωδικός άδειας σας για το Dawnlist",
+    "thanks": "Ευχαριστούμε για την εγγραφή σας. Ορίστε ο κωδικός που ενεργοποιεί την εφαρμογή.",
+    "to_use_heading": "Πώς να τον χρησιμοποιήσετε",
+    "to_use_body": "Ανοίξτε το Dawnlist, πηγαίνετε στις Ρυθμίσεις και επικολλήστε τον κωδικό στο πεδίο άδειας. Λειτουργεί σε κάθε υπολογιστή που κατέχετε, καθώς και στις εκδόσεις για Windows και macOS.",
+    "allowance": "Το πλάνο σας καλύπτει έως {count} αγγελίες την ημέρα.",
+    "own_key": "Θα χρειαστείτε επίσης ένα δικό σας κλειδί Anthropic API — το Dawnlist διαβάζει αγγελίες και συντάσσει μηνύματα μέσω του δικού σας λογαριασμού και όχι του δικού μας, οπότε το βιογραφικό και η αλληλογραφία σας δεν φτάνουν ποτέ στους διακομιστές μας. Η εφαρμογή σάς καθοδηγεί στην προσθήκη του κατά τη ρύθμιση.",
+    "not_installed": "Δεν έχετε εγκαταστήσει ακόμα την εφαρμογή; Όλα βρίσκονται στο",
+    "reply_note": "Αν κάτι δεν λειτουργεί, απαντήστε σε αυτό το μήνυμα — το διαβάζει άνθρωπος.",
+    "footer": "Dawnlist — ένα προϊόν της Spencer Fields Software."
   },
   "en": {
     "subject": "Your Dawnlist licence key",
@@ -86,6 +138,45 @@ export const EMAIL_STRINGS = {
     "reply_note": "Si quelque chose ne fonctionne pas, répondez à ce message — il est lu par une personne.",
     "footer": "Dawnlist — un produit de Spencer Fields Software."
   },
+  "gu": {
+    "subject": "તમારી Dawnlist લાયસન્સ કી",
+    "preheader": "એપ્લિકેશન અનલૉક કરવા માટે આને સેટિંગ્સમાં પેસ્ટ કરો.",
+    "heading": "તમારી Dawnlist લાયસન્સ કી",
+    "thanks": "સબ્સ્ક્રાઇબ કરવા બદલ આભાર. આ રહી એપ્લિકેશન અનલૉક કરતી કી.",
+    "to_use_heading": "તેનો ઉપયોગ કરવા માટે",
+    "to_use_body": "Dawnlist ખોલો, સેટિંગ્સમાં જાઓ, અને કીને લાયસન્સ ફીલ્ડમાં પેસ્ટ કરો. તે તમારા માલિકીના દરેક કમ્પ્યુટર પર, અને Windows તથા macOS બંને આવૃત્તિઓ પર કામ કરે છે.",
+    "allowance": "તમારી યોજના દરરોજ {count} સુધીની જાહેરાતોને આવરી લે છે.",
+    "own_key": "તમારે તમારી પોતાની Anthropic API કીની પણ જરૂર પડશે — Dawnlist જાહેરાતો વાંચે છે અને સંદેશાઓનો ડ્રાફ્ટ તમારા એકાઉન્ટ પર બનાવે છે, અમારા પર નહીં, જેથી તમારું CV અને તમારો પત્રવ્યવહાર ક્યારેય અમારા સર્વર સુધી પહોંચતો નથી. સેટઅપ દરમિયાન એપ્લિકેશન તમને તે ઉમેરવાની પ્રક્રિયામાંથી પસાર કરે છે.",
+    "not_installed": "હજી ઇન્સ્ટોલ નથી કર્યું? બધું અહીં છે",
+    "reply_note": "જો કંઈ કામ ન કરે, તો આ સંદેશનો જવાબ આપો — તે એક વ્યક્તિ સુધી પહોંચે છે.",
+    "footer": "Dawnlist — Spencer Fields Software નું ઉત્પાદન."
+  },
+  "ha": {
+    "subject": "Lambar lasisin Dawnlist naka",
+    "preheader": "Manna wannan a cikin Saituna don buɗe aikace-aikacen.",
+    "heading": "Lambar lasisin Dawnlist naka",
+    "thanks": "Na gode da biyan kuɗi. Ga lambar da za ta buɗe aikace-aikacen.",
+    "to_use_heading": "Amfani da shi",
+    "to_use_body": "Buɗe Dawnlist, je zuwa Saituna, sannan a manna lambar a filin lasisi. Yana aiki a kowace kwamfuta da kake da ita, da kuma a nau'ukan Windows da macOS.",
+    "allowance": "Tsarin ka yana ba ka damar sanya sanarwar ayyuka har zuwa {count} kowace rana.",
+    "own_key": "Za ka kuma buƙaci maɓallin API na Anthropic naka — Dawnlist yana karanta sanarwar ayyuka da rubuta saƙonni a asusun ka maimakon namu, don haka CV ɗin ka da saƙonnin ka ba za su taɓa isa ga sabar mu ba. Aikace-aikacen zai jagorance ka wajen ƙara shi lokacin saitin farko.",
+    "not_installed": "Har yanzu ba ka sanya shi ba? Duk abin da kake bukata yana nan a",
+    "reply_note": "Idan wani abu bai yi aiki ba, ka amsa wannan saƙon — mutum ne zai karɓe shi.",
+    "footer": "Dawnlist — samfurin Spencer Fields Software."
+  },
+  "he": {
+    "subject": "מפתח הרישיון שלך ל-Dawnlist",
+    "preheader": "הדביקו אותו במסך ההגדרות כדי להפעיל את האפליקציה.",
+    "heading": "מפתח הרישיון שלך ל-Dawnlist",
+    "thanks": "תודה על ההרשמה. הנה המפתח שמפעיל את האפליקציה.",
+    "to_use_heading": "איך משתמשים בו",
+    "to_use_body": "פתחו את Dawnlist, עברו למסך ההגדרות, והדביקו את המפתח בשדה הרישיון. הוא עובד על כל מחשב שבבעלותכם, וגם בגרסאות Windows וגם ב-macOS.",
+    "allowance": "התוכנית שלכם כוללת עד {count} מודעות דרושים ביום.",
+    "own_key": "תזדקקו גם למפתח API משלכם מ-Anthropic — Dawnlist קורא מודעות וכותב הודעות דרך החשבון שלכם ולא שלנו, כך שקורות החיים וההתכתבויות שלכם לעולם לא מגיעים לשרתים שלנו. האפליקציה תדריך אתכם בהוספתו בתהליך ההגדרה.",
+    "not_installed": "עדיין לא התקנתם? הכול נמצא בכתובת",
+    "reply_note": "אם משהו לא עובד, פשוט השיבו להודעה הזו — היא מגיעה לבן אדם.",
+    "footer": "Dawnlist — מוצר של Spencer Fields Software."
+  },
   "hi": {
     "subject": "आपकी Dawnlist लाइसेंस कुंजी",
     "preheader": "एप्लिकेशन को अनलॉक करने के लिए इसे सेटिंग्स में पेस्ट करें।",
@@ -98,6 +189,32 @@ export const EMAIL_STRINGS = {
     "not_installed": "अभी तक इंस्टॉल नहीं किया? सब कुछ यहां है:",
     "reply_note": "अगर कुछ काम न करे, तो इस संदेश का जवाब दें — यह एक व्यक्ति तक पहुंचता है।",
     "footer": "Dawnlist — Spencer Fields Software का एक उत्पाद।"
+  },
+  "hr": {
+    "subject": "Vaš licencni ključ za Dawnlist",
+    "preheader": "Zalijepite ga u Postavke kako biste otključali aplikaciju.",
+    "heading": "Vaš licencni ključ za Dawnlist",
+    "thanks": "Hvala vam na pretplati. Evo ključa koji otključava aplikaciju.",
+    "to_use_heading": "Kako ga koristiti",
+    "to_use_body": "Otvorite Dawnlist, idite na Postavke i zalijepite ključ u polje za licencu. Radi na svakom računalu koje posjedujete, kao i na Windows i macOS inačicama.",
+    "allowance": "Vaš plan pokriva do {count} oglasa dnevno.",
+    "own_key": "Trebat će vam i vlastiti Anthropic API ključ — Dawnlist čita oglase i sastavlja poruke putem vašeg računa, a ne našeg, tako da vaš životopis i korespondencija nikada ne stižu na naše poslužitelje. Aplikacija vas provodi kroz postupak dodavanja ključa tijekom postavljanja.",
+    "not_installed": "Još niste instalirali aplikaciju? Sve se nalazi na",
+    "reply_note": "Ako nešto ne radi, odgovorite na ovu poruku — čita je stvarna osoba.",
+    "footer": "Dawnlist — proizvod tvrtke Spencer Fields Software."
+  },
+  "hu": {
+    "subject": "A Dawnlist licenckulcsod",
+    "preheader": "Illeszd be a Beállításokba az alkalmazás feloldásához.",
+    "heading": "A Dawnlist licenckulcsod",
+    "thanks": "Köszönjük az előfizetést. Íme a kulcs, amely feloldja az alkalmazást.",
+    "to_use_heading": "Használat",
+    "to_use_body": "Nyisd meg a Dawnlistet, lépj a Beállításokba, és illeszd be a kulcsot a licencmezőbe. Minden általad birtokolt számítógépen működik, mind a Windows, mind a macOS kiadásban.",
+    "allowance": "Az előfizetésed napi {count} hirdetést tesz lehetővé.",
+    "own_key": "Szükséged lesz továbbá egy saját Anthropic API-kulcsra is — a Dawnlist a te fiókodon keresztül olvassa a hirdetéseket és fogalmazza meg az üzeneteket, nem a miénken, így az önéletrajzod és a levelezésed soha nem kerül a szervereinkre. Az alkalmazás végigvezet a beállításán.",
+    "not_installed": "Még nem telepítetted? Mindent itt találsz:",
+    "reply_note": "Ha bármi nem működik, válaszolj erre az üzenetre — egy élő ember olvassa.",
+    "footer": "Dawnlist — a Spencer Fields Software terméke."
   },
   "id": {
     "subject": "Kunci lisensi Dawnlist Anda",
@@ -112,6 +229,32 @@ export const EMAIL_STRINGS = {
     "reply_note": "Jika ada yang tidak berfungsi, balas pesan ini — akan dibaca langsung oleh orang kami.",
     "footer": "Dawnlist — sebuah produk dari Spencer Fields Software."
   },
+  "ig": {
+    "subject": "Igodo ikike Dawnlist gị",
+    "preheader": "Kwụba nke a na Ntọala iji mepee ngwa ahụ.",
+    "heading": "Igodo ikike Dawnlist gị",
+    "thanks": "Daalu maka ịdebanye aha. Nke a bụ igodo na-emeghe ngwa ahụ.",
+    "to_use_heading": "Iji ya",
+    "to_use_body": "Meghee Dawnlist, gaa na Ntọala, wee kwụba igodo ahụ n'ebe ikike. Ọ na-arụ ọrụ na kọmputa ọ bụla i nwere, na na ụdị Windows na macOS abụọ.",
+    "allowance": "Atụmatụ gị kwadoro ihe ruru {count} ọkwa ọrụ kwa ụbọchị.",
+    "own_key": "Ị ga-achọkwa igodo API Anthropic nke gị — Dawnlist na-agụ ọkwa ọrụ ma na-edepụta ozi n'akaụntụ gị karịa nke anyị, yabụ CV gị na mkparịta ụka gị adịghị eru na sava anyị. Ngwa ahụ ga-eduzi gị ka ị na-agbakwunye ya n'oge nhazi.",
+    "not_installed": "Ị kabeghị wụnye ya? Ihe niile dị na",
+    "reply_note": "Ọ bụrụ na ihe ọ bụla adịghị arụ ọrụ, zaghachi ozi a — ọ na-eru mmadụ.",
+    "footer": "Dawnlist — ngwaahịa Spencer Fields Software."
+  },
+  "it": {
+    "subject": "La tua chiave di licenza Dawnlist",
+    "preheader": "Incollala in Impostazioni per sbloccare l'applicazione.",
+    "heading": "La tua chiave di licenza Dawnlist",
+    "thanks": "Grazie per l'abbonamento. Ecco la chiave che sblocca l'applicazione.",
+    "to_use_heading": "Come usarla",
+    "to_use_body": "Apri Dawnlist, vai su Impostazioni e incolla la chiave nel campo della licenza. Funziona su tutti i computer che possiedi, sia nella versione Windows che macOS.",
+    "allowance": "Il tuo piano copre fino a {count} annunci al giorno.",
+    "own_key": "Ti servirà anche una tua chiave API Anthropic — Dawnlist legge gli annunci e redige i messaggi usando il tuo account anziché il nostro, quindi il tuo CV e la tua corrispondenza non raggiungono mai i nostri server. L'applicazione ti guiderà nell'aggiungerla durante la configurazione.",
+    "not_installed": "Non l'hai ancora installata? Trovi tutto su",
+    "reply_note": "Se qualcosa non funziona, rispondi a questo messaggio: arriva a una persona vera.",
+    "footer": "Dawnlist — un prodotto di Spencer Fields Software."
+  },
   "ja": {
     "subject": "Dawnlistのライセンスキー",
     "preheader": "これを設定に貼り付けて、アプリを有効化してください。",
@@ -124,6 +267,32 @@ export const EMAIL_STRINGS = {
     "not_installed": "まだインストールがお済みでない方は、こちらから",
     "reply_note": "うまくいかない場合は、このメールにご返信ください。担当者が直接お読みします。",
     "footer": "Dawnlist — Spencer Fields Softwareの製品です。"
+  },
+  "jv": {
+    "subject": "Kunci Lisensi Dawnlist Panjenengan",
+    "preheader": "Tempelaken menika wonten Setelan kangge mbikak aplikasi.",
+    "heading": "Kunci Lisensi Dawnlist Panjenengan",
+    "thanks": "Matur nuwun sampun langganan. Menika kuncinipun ingkang mbikak aplikasi.",
+    "to_use_heading": "Cara Ngginakaken",
+    "to_use_body": "Bikak Dawnlist, tumuju Setelan, lajeng tempelaken kunci wonten kolom lisensi. Kunci menika saged dipunginakaken wonten sedaya komputer ingkang panjenengan gadhahi, ugi wonten edisi Windows saha macOS.",
+    "allowance": "Paket panjenengan nyekapi ngantos {count} lowongan saben dinten.",
+    "own_key": "Panjenengan ugi mbetahaken kunci API Anthropic piyambak — Dawnlist maos lowongan lan nyerat pesen ing akun panjenengan piyambak, sanes akun kula, satemah CV saha serat-serat panjenengan mboten badhe dumugi server kula. Aplikasi badhe nuntun panjenengan nalika masang kunci menika sasampunipun setup.",
+    "not_installed": "Dereng masang aplikasinipun? Sedanten wonten ing",
+    "reply_note": "Menawi wonten ingkang mboten lancar, wangsulan kemawon wonten pesen menika — badhe dipuntampi dening tiyang, sanes sistem otomatis.",
+    "footer": "Dawnlist — produk saking Spencer Fields Software."
+  },
+  "kn": {
+    "subject": "ನಿಮ್ಮ Dawnlist ಲೈಸೆನ್ಸ್ ಕೀ",
+    "preheader": "ಅಪ್ಲಿಕೇಶನ್ ಅನ್‌ಲಾಕ್ ಮಾಡಲು ಇದನ್ನು ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ ಅಂಟಿಸಿ.",
+    "heading": "ನಿಮ್ಮ Dawnlist ಲೈಸೆನ್ಸ್ ಕೀ",
+    "thanks": "ಚಂದಾದಾರರಾದದ್ದಕ್ಕೆ ಧನ್ಯವಾದಗಳು. ಅಪ್ಲಿಕೇಶನ್ ಅನ್‌ಲಾಕ್ ಮಾಡುವ ಕೀ ಇಲ್ಲಿದೆ.",
+    "to_use_heading": "ಇದನ್ನು ಬಳಸಲು",
+    "to_use_body": "Dawnlist ತೆರೆಯಿರಿ, ಸೆಟ್ಟಿಂಗ್‌ಗಳಿಗೆ ಹೋಗಿ, ಮತ್ತು ಕೀಯನ್ನು ಲೈಸೆನ್ಸ್ ಫೀಲ್ಡ್‌ನಲ್ಲಿ ಅಂಟಿಸಿ. ಇದು ನಿಮ್ಮ ಸ್ವಂತದ ಪ್ರತಿಯೊಂದು ಕಂಪ್ಯೂಟರ್‌ನಲ್ಲಿ, ಮತ್ತು Windows ಹಾಗೂ macOS ಆವೃತ್ತಿಗಳೆರಡರಲ್ಲೂ ಕಾರ್ಯನಿರ್ವಹಿಸುತ್ತದೆ.",
+    "allowance": "ನಿಮ್ಮ ಯೋಜನೆಯು ದಿನಕ್ಕೆ {count} ಪೋಸ್ಟಿಂಗ್‌ಗಳವರೆಗೆ ಒಳಗೊಂಡಿದೆ.",
+    "own_key": "ನಿಮಗೆ ನಿಮ್ಮ ಸ್ವಂತ Anthropic API ಕೀ ಕೂಡ ಬೇಕಾಗುತ್ತದೆ — Dawnlist ಪೋಸ್ಟಿಂಗ್‌ಗಳನ್ನು ಓದುವುದು ಮತ್ತು ಸಂದೇಶಗಳನ್ನು ಬರೆಯುವುದು ನಮ್ಮ ಖಾತೆಯಲ್ಲಿ ಅಲ್ಲ, ನಿಮ್ಮ ಸ್ವಂತ ಖಾತೆಯಲ್ಲಿ ನಡೆಯುತ್ತದೆ, ಆದ್ದರಿಂದ ನಿಮ್ಮ CV ಮತ್ತು ನಿಮ್ಮ ಪತ್ರವ್ಯವಹಾರ ಎಂದಿಗೂ ನಮ್ಮ ಸರ್ವರ್‌ಗಳನ್ನು ತಲುಪುವುದಿಲ್ಲ. ಸೆಟಪ್ ಸಮಯದಲ್ಲಿ ಅಪ್ಲಿಕೇಶನ್ ಅದನ್ನು ಸೇರಿಸಲು ನಿಮಗೆ ಮಾರ್ಗದರ್ಶನ ನೀಡುತ್ತದೆ.",
+    "not_installed": "ಇನ್ನೂ ಸ್ಥಾಪಿಸಿಲ್ಲವೇ? ಎಲ್ಲವೂ ಇಲ್ಲಿದೆ:",
+    "reply_note": "ಏನಾದರೂ ಕೆಲಸ ಮಾಡದಿದ್ದರೆ, ಈ ಸಂದೇಶಕ್ಕೆ ಪ್ರತ್ಯುತ್ತರಿಸಿ — ಅದು ಒಬ್ಬ ವ್ಯಕ್ತಿಯನ್ನು ತಲುಪುತ್ತದೆ.",
+    "footer": "Dawnlist — Spencer Fields Software ನ ಒಂದು ಉತ್ಪನ್ನ."
   },
   "ko": {
     "subject": "Dawnlist 라이선스 키",
@@ -138,6 +307,123 @@ export const EMAIL_STRINGS = {
     "reply_note": "문제가 있으시면 이 메일에 답장해 주세요 — 실제 담당자가 확인합니다.",
     "footer": "Dawnlist — Spencer Fields Software의 제품입니다."
   },
+  "ml": {
+    "subject": "നിങ്ങളുടെ Dawnlist ലൈസൻസ് കീ",
+    "preheader": "ആപ്ലിക്കേഷൻ അൺലോക്ക് ചെയ്യാൻ ഇത് സെറ്റിംഗ്സിൽ പേസ്റ്റ് ചെയ്യുക.",
+    "heading": "നിങ്ങളുടെ Dawnlist ലൈസൻസ് കീ",
+    "thanks": "സബ്സ്ക്രൈബ് ചെയ്തതിന് നന്ദി. ആപ്ലിക്കേഷൻ അൺലോക്ക് ചെയ്യുന്ന കീ ഇതാ.",
+    "to_use_heading": "ഉപയോഗിക്കുന്ന വിധം",
+    "to_use_body": "Dawnlist തുറന്ന്, സെറ്റിംഗ്സിലേക്ക് പോയി, കീ ലൈസൻസ് ഫീൽഡിൽ പേസ്റ്റ് ചെയ്യുക. ഇത് നിങ്ങളുടെ എല്ലാ കമ്പ്യൂട്ടറുകളിലും, Windows, macOS പതിപ്പുകളിലും പ്രവർത്തിക്കും.",
+    "allowance": "നിങ്ങളുടെ പ്ലാൻ ദിവസം {count} തൊഴിൽ പരസ്യങ്ങൾ വരെ ഉൾക്കൊള്ളുന്നു.",
+    "own_key": "നിങ്ങൾക്ക് സ്വന്തമായി ഒരു Anthropic API കീയും ആവശ്യമാണ് — Dawnlist പോസ്റ്റിംഗുകൾ വായിക്കുന്നതും സന്ദേശങ്ങൾ തയ്യാറാക്കുന്നതും ഞങ്ങളുടെ അക്കൗണ്ടിലല്ല, നിങ്ങളുടെ സ്വന്തം അക്കൗണ്ടിലാണ്, അതിനാൽ നിങ്ങളുടെ സിവിയും കത്തിടപാടുകളും ഒരിക്കലും ഞങ്ങളുടെ സെർവറുകളിൽ എത്തുന്നില്ല. സെറ്റപ്പിനിടെ ഇത് ചേർക്കാൻ ആപ്ലിക്കേഷൻ നിങ്ങളെ സഹായിക്കും.",
+    "not_installed": "ഇതുവരെ ഇൻസ്റ്റാൾ ചെയ്തിട്ടില്ലേ? എല്ലാം ഇവിടെയുണ്ട്",
+    "reply_note": "എന്തെങ്കിലും പ്രവർത്തിക്കുന്നില്ലെങ്കിൽ, ഈ സന്ദേശത്തിന് മറുപടി നൽകുക — അത് ഒരു വ്യക്തിയിലേക്ക് എത്തും.",
+    "footer": "Dawnlist — Spencer Fields Software-ന്റെ ഒരു ഉൽപ്പന്നം."
+  },
+  "mr": {
+    "subject": "तुमची Dawnlist परवाना की",
+    "preheader": "अॅप्लिकेशन अनलॉक करण्यासाठी हे Settings मध्ये पेस्ट करा.",
+    "heading": "तुमची Dawnlist परवाना की",
+    "thanks": "सबस्क्राइब केल्याबद्दल धन्यवाद. अॅप्लिकेशन अनलॉक करणारी की खाली दिली आहे.",
+    "to_use_heading": "वापरण्यासाठी",
+    "to_use_body": "Dawnlist उघडा, Settings मध्ये जा, आणि की परवाना फील्डमध्ये पेस्ट करा. ही तुमच्या मालकीच्या प्रत्येक संगणकावर, तसेच Windows आणि macOS या दोन्ही आवृत्त्यांवर काम करते.",
+    "allowance": "तुमची योजना दररोज {count} पोस्टिंग्जपर्यंत समाविष्ट करते.",
+    "own_key": "तुम्हाला स्वतःची Anthropic API की देखील लागेल — Dawnlist पोस्टिंग्ज वाचते आणि संदेशांचा मसुदा तुमच्या खात्यावर तयार करते, आमच्या खात्यावर नाही, त्यामुळे तुमचा CV आणि तुमचा पत्रव्यवहार आमच्या सर्व्हरपर्यंत कधीच पोहोचत नाही. सेटअप दरम्यान अॅप्लिकेशन ती जोडण्यासाठी तुम्हाला मार्गदर्शन करते.",
+    "not_installed": "अजून इंस्टॉल केलेले नाही? सर्व काही इथे आहे:",
+    "reply_note": "काही काम करत नसेल, तर या मेसेजला उत्तर द्या — ते एका व्यक्तीपर्यंत पोहोचते.",
+    "footer": "Dawnlist — Spencer Fields Software चे उत्पादन."
+  },
+  "ms": {
+    "subject": "Kunci lesen Dawnlist anda",
+    "preheader": "Tampal ini dalam Tetapan untuk membuka kunci aplikasi.",
+    "heading": "Kunci lesen Dawnlist anda",
+    "thanks": "Terima kasih kerana melanggan. Berikut ialah kunci yang membuka kunci aplikasi ini.",
+    "to_use_heading": "Cara menggunakannya",
+    "to_use_body": "Buka Dawnlist, pergi ke Tetapan, dan tampal kunci tersebut ke dalam medan lesen. Ia berfungsi pada setiap komputer yang anda miliki, serta pada kedua-dua edisi Windows dan macOS.",
+    "allowance": "Pelan anda merangkumi sehingga {count} iklan jawatan sehari.",
+    "own_key": "Anda juga memerlukan kunci API Anthropic anda sendiri — Dawnlist membaca iklan jawatan dan merangka mesej menggunakan akaun anda sendiri, bukan akaun kami, jadi CV dan surat-menyurat anda tidak akan sampai ke pelayan kami. Aplikasi ini akan memandu anda menambahkannya semasa persediaan.",
+    "not_installed": "Belum memasangnya lagi? Semuanya ada di",
+    "reply_note": "Jika ada sesuatu yang tidak berfungsi, balas mesej ini — ia akan sampai kepada seseorang.",
+    "footer": "Dawnlist — produk daripada Spencer Fields Software."
+  },
+  "my": {
+    "subject": "သင့် Dawnlist လိုင်စင်ကီး",
+    "preheader": "အက်ပ်ကို အသုံးပြုနိုင်ရန် ဤကီးကို Settings တွင် ကူးထည့်ပါ။",
+    "heading": "သင့် Dawnlist လိုင်စင်ကီး",
+    "thanks": "စာရင်းသွင်းပေးသည့်အတွက် ကျေးဇူးတင်ပါသည်။ အက်ပ်ကို အသုံးပြုနိုင်စေမည့် ကီးမှာ အောက်ပါအတိုင်းဖြစ်ပါသည်။",
+    "to_use_heading": "အသုံးပြုပုံ",
+    "to_use_body": "Dawnlist ကိုဖွင့်ပြီး Settings သို့သွားကာ licence field တွင် ကီးကို ကူးထည့်ပါ။ ၎င်းသည် သင်ပိုင်ဆိုင်သည့် ကွန်ပျူတာတိုင်းတွင်၊ ၎င်းအပြင် Windows နှင့် macOS မူကွဲနှစ်မျိုးလုံးတွင် အသုံးပြုနိုင်ပါသည်။",
+    "allowance": "သင့်အစီအစဉ်သည် တစ်နေ့လျှင် အလုပ်ကြော်ငြာ {count} ခုအထိ လွှမ်းခြုံပါသည်။",
+    "own_key": "သင့်ကိုယ်ပိုင် Anthropic API key ကိုလည်း လိုအပ်ပါလိမ့်မည် — Dawnlist သည် အလုပ်ကြော်ငြာများကို ဖတ်ရှုပြီး သင့်အကောင့်ကိုအသုံးပြု၍ စာများရေးသားပေးခြင်းဖြစ်သောကြောင့် သင့် CV နှင့် သင့်စာများသည် ကျွန်ုပ်တို့၏ ဆာဗာများသို့ လုံးဝမရောက်ပါ။ ထည့်သွင်းသတ်မှတ်နေစဉ် အက်ပ်က ၎င်းထည့်သွင်းနည်းကို လမ်းညွှန်ပေးပါလိမ့်မည်။",
+    "not_installed": "မထည့်သွင်းရသေးဘူးလား? အားလုံးကို ဤနေရာတွင် ရနိုင်ပါသည် -",
+    "reply_note": "တစ်ခုခုအလုပ်မလုပ်ပါက ဤစာကို ပြန်ပေးပို့ပါ — လူတစ်ဦးကိုယ်တိုင် ဖတ်ရှုပါလိမ့်မည်။",
+    "footer": "Dawnlist — Spencer Fields Software ၏ ထုတ်ကုန်တစ်ခု။"
+  },
+  "ne": {
+    "subject": "तपाईंको Dawnlist लाइसेन्स कुञ्जी",
+    "preheader": "एप्लिकेसन अनलक गर्न यसलाई सेटिङमा टाँस्नुहोस्।",
+    "heading": "तपाईंको Dawnlist लाइसेन्स कुञ्जी",
+    "thanks": "सदस्यता लिनुभएकोमा धन्यवाद। एप्लिकेसन अनलक गर्ने कुञ्जी यहाँ छ।",
+    "to_use_heading": "प्रयोग गर्ने तरिका",
+    "to_use_body": "Dawnlist खोल्नुहोस्, सेटिङमा जानुहोस्, र कुञ्जीलाई लाइसेन्स फिल्डमा टाँस्नुहोस्। यो तपाईंको स्वामित्वमा रहेको हरेक कम्प्युटरमा, र Windows तथा macOS दुवै संस्करणमा काम गर्छ।",
+    "allowance": "तपाईंको योजनाले दिनको {count} पोस्टिङसम्म समेट्छ।",
+    "own_key": "तपाईंलाई आफ्नै Anthropic API कुञ्जी पनि चाहिन्छ — Dawnlistले पोस्टिङहरू पढ्छ र सन्देशहरूको मस्यौदा तयार पार्छ तपाईंकै खातामा, हाम्रोमा होइन, त्यसैले तपाईंको बायोडाटा र पत्राचार कहिल्यै हाम्रो सर्भरमा पुग्दैन। सेटअपको क्रममा एप्लिकेसनले तपाईंलाई यो थप्ने तरिका देखाउँछ।",
+    "not_installed": "अझै इन्स्टल गर्नुभएको छैन? सबै कुरा यहाँ छ:",
+    "reply_note": "केही काम नगरेमा, यो सन्देशलाई जवाफ दिनुहोस् — यो एक व्यक्तिसम्म पुग्छ।",
+    "footer": "Dawnlist — Spencer Fields Software को एक उत्पादन।"
+  },
+  "nl": {
+    "subject": "Je Dawnlist-licentiesleutel",
+    "preheader": "Plak deze in Instellingen om de applicatie te ontgrendelen.",
+    "heading": "Je Dawnlist-licentiesleutel",
+    "thanks": "Bedankt voor je abonnement. Hier is de sleutel die de applicatie ontgrendelt.",
+    "to_use_heading": "Zo gebruik je hem",
+    "to_use_body": "Open Dawnlist, ga naar Instellingen en plak de sleutel in het licentieveld. Hij werkt op elke computer die je bezit, en op zowel de Windows- als de macOS-versie.",
+    "allowance": "Je abonnement dekt tot {count} vacatures per dag.",
+    "own_key": "Daarnaast heb je een eigen Anthropic API-sleutel nodig — Dawnlist leest vacatures en stelt berichten op via jouw account in plaats van het onze, zodat je cv en je correspondentie nooit onze servers bereiken. De applicatie begeleidt je bij het toevoegen ervan tijdens de installatie.",
+    "not_installed": "Nog niet geïnstalleerd? Alles staat op",
+    "reply_note": "Werkt er iets niet? Beantwoord dan dit bericht — het komt bij een echt persoon terecht.",
+    "footer": "Dawnlist — een product van Spencer Fields Software."
+  },
+  "or": {
+    "subject": "ଆପଣଙ୍କର Dawnlist ଲାଇସେନ୍ସ କି",
+    "preheader": "ଆପ୍ଲିକେସନ୍ ଅନଲକ୍ କରିବାକୁ ଏହାକୁ Settings ରେ ପେଷ୍ଟ କରନ୍ତୁ।",
+    "heading": "ଆପଣଙ୍କର Dawnlist ଲାଇସେନ୍ସ କି",
+    "thanks": "ସବସ୍କ୍ରାଇବ୍ କରିଥିବାରୁ ଧନ୍ୟବାଦ। ଏଠାରେ ଅଛି ସେହି କି ଯାହା ଆପ୍ଲିକେସନ୍‌କୁ ଅନଲକ୍ କରେ।",
+    "to_use_heading": "ଏହାକୁ ବ୍ୟବହାର କରିବାକୁ",
+    "to_use_body": "Dawnlist ଖୋଲନ୍ତୁ, Settings କୁ ଯାଆନ୍ତୁ, ଏବଂ ଲାଇସେନ୍ସ ଫିଲ୍ଡରେ କି ପେଷ୍ଟ କରନ୍ତୁ। ଏହା ଆପଣଙ୍କର ପ୍ରତ୍ୟେକ କମ୍ପ୍ୟୁଟରରେ, ଏବଂ Windows ଓ macOS ଉଭୟ ସଂସ୍କରଣରେ କାମ କରେ।",
+    "allowance": "ଆପଣଙ୍କର ପ୍ଲାନ୍ ଦିନକୁ {count} ପୋଷ୍ଟିଂ ପର୍ଯ୍ୟନ୍ତ ଆବରଣ କରେ।",
+    "own_key": "ଆପଣଙ୍କୁ ନିଜର ଏକ Anthropic API କି ମଧ୍ୟ ଆବଶ୍ୟକ ହେବ — Dawnlist ଆପଣଙ୍କର ନିଜ ଖାତାରେ ପୋଷ୍ଟିଂ ପଢ଼େ ଏବଂ ମେସେଜ୍ ଡ୍ରାଫ୍ଟ କରେ, ଆମର ଖାତାରେ ନୁହେଁ, ତେଣୁ ଆପଣଙ୍କର CV ଏବଂ ଚିଠିପତ୍ର କେବେ ବି ଆମର ସର୍ଭରକୁ ପହଞ୍ଚେ ନାହିଁ। ସେଟଅପ୍ ସମୟରେ ଆପ୍ଲିକେସନ୍ ଆପଣଙ୍କୁ ଏହା ଯୋଡ଼ିବାରେ ମାର୍ଗଦର୍ଶନ କରେ।",
+    "not_installed": "ଏପର୍ଯ୍ୟନ୍ତ ଇନଷ୍ଟଲ୍ କରିନାହାଁନ୍ତି? ସବୁକିଛି ଏଠାରେ ଅଛି",
+    "reply_note": "ଯଦି କିଛି କାମ କରୁନାହିଁ, ଏହି ମେସେଜ୍‌କୁ ରିପ୍ଲାଏ କରନ୍ତୁ — ଏହା ଜଣେ ବ୍ୟକ୍ତି ପାଖରେ ପହଞ୍ଚେ।",
+    "footer": "Dawnlist — Spencer Fields Software ର ଏକ ଉତ୍ପାଦ।"
+  },
+  "pa": {
+    "subject": "ਤੁਹਾਡੀ Dawnlist ਲਾਇਸੈਂਸ ਕੁੰਜੀ",
+    "preheader": "ਐਪਲੀਕੇਸ਼ਨ ਨੂੰ ਅਨਲੌਕ ਕਰਨ ਲਈ ਇਸਨੂੰ ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਪੇਸਟ ਕਰੋ।",
+    "heading": "ਤੁਹਾਡੀ Dawnlist ਲਾਇਸੈਂਸ ਕੁੰਜੀ",
+    "thanks": "ਸਬਸਕ੍ਰਾਈਬ ਕਰਨ ਲਈ ਧੰਨਵਾਦ। ਇਹ ਰਹੀ ਉਹ ਕੁੰਜੀ ਜੋ ਐਪਲੀਕੇਸ਼ਨ ਨੂੰ ਅਨਲੌਕ ਕਰਦੀ ਹੈ।",
+    "to_use_heading": "ਇਸਨੂੰ ਵਰਤਣ ਲਈ",
+    "to_use_body": "Dawnlist ਖੋਲ੍ਹੋ, ਸੈਟਿੰਗਾਂ ਵਿੱਚ ਜਾਓ, ਅਤੇ ਕੁੰਜੀ ਨੂੰ ਲਾਇਸੈਂਸ ਖੇਤਰ ਵਿੱਚ ਪੇਸਟ ਕਰੋ। ਇਹ ਤੁਹਾਡੇ ਹਰ ਕੰਪਿਊਟਰ 'ਤੇ ਕੰਮ ਕਰਦੀ ਹੈ, ਅਤੇ Windows ਅਤੇ macOS ਦੋਵੇਂ ਸੰਸਕਰਣਾਂ 'ਤੇ।",
+    "allowance": "ਤੁਹਾਡੀ ਯੋਜਨਾ ਪ੍ਰਤੀ ਦਿਨ {count} ਤੱਕ ਪੋਸਟਿੰਗਾਂ ਨੂੰ ਕਵਰ ਕਰਦੀ ਹੈ।",
+    "own_key": "ਤੁਹਾਨੂੰ ਆਪਣੀ ਖੁਦ ਦੀ Anthropic API ਕੁੰਜੀ ਦੀ ਵੀ ਲੋੜ ਹੋਵੇਗੀ — Dawnlist ਪੋਸਟਿੰਗਾਂ ਪੜ੍ਹਦਾ ਹੈ ਅਤੇ ਸੁਨੇਹੇ ਤੁਹਾਡੇ ਖੁਦ ਦੇ ਖਾਤੇ 'ਤੇ ਤਿਆਰ ਕਰਦਾ ਹੈ, ਸਾਡੇ ਖਾਤੇ 'ਤੇ ਨਹੀਂ, ਇਸ ਲਈ ਤੁਹਾਡਾ CV ਅਤੇ ਤੁਹਾਡੀ ਪੱਤਰ-ਵਿਹਾਰ ਕਦੇ ਵੀ ਸਾਡੇ ਸਰਵਰਾਂ ਤੱਕ ਨਹੀਂ ਪਹੁੰਚਦੇ। ਐਪਲੀਕੇਸ਼ਨ ਸੈੱਟਅੱਪ ਦੌਰਾਨ ਇਸਨੂੰ ਜੋੜਨ ਵਿੱਚ ਤੁਹਾਡੀ ਅਗਵਾਈ ਕਰਦੀ ਹੈ।",
+    "not_installed": "ਅਜੇ ਤੱਕ ਇੰਸਟਾਲ ਨਹੀਂ ਕੀਤਾ? ਸਭ ਕੁਝ ਇੱਥੇ ਹੈ:",
+    "reply_note": "ਜੇ ਕੁਝ ਵੀ ਕੰਮ ਨਹੀਂ ਕਰਦਾ, ਤਾਂ ਇਸ ਸੁਨੇਹੇ ਦਾ ਜਵਾਬ ਦਿਓ — ਇਹ ਇੱਕ ਵਿਅਕਤੀ ਤੱਕ ਪਹੁੰਚਦਾ ਹੈ।",
+    "footer": "Dawnlist — Spencer Fields Software ਦਾ ਇੱਕ ਉਤਪਾਦ।"
+  },
+  "pl": {
+    "subject": "Twój klucz licencyjny do Dawnlist",
+    "preheader": "Wklej go w Ustawieniach, aby odblokować aplikację.",
+    "heading": "Twój klucz licencyjny do Dawnlist",
+    "thanks": "Dziękujemy za subskrypcję. Oto klucz, który odblokowuje aplikację.",
+    "to_use_heading": "Jak go użyć",
+    "to_use_body": "Otwórz Dawnlist, przejdź do Ustawień i wklej klucz w pole licencji. Działa na każdym Twoim komputerze, zarówno w wersji na Windows, jak i na macOS.",
+    "allowance": "Twój plan obejmuje do {count} ogłoszeń dziennie.",
+    "own_key": "Będziesz też potrzebować własnego klucza API Anthropic — Dawnlist odczytuje ogłoszenia i tworzy wiadomości na Twoim koncie, a nie na naszym, dzięki czemu Twoje CV i korespondencja nigdy nie trafiają na nasze serwery. Aplikacja przeprowadzi Cię przez dodanie go podczas konfiguracji.",
+    "not_installed": "Nie zainstalowałeś jeszcze aplikacji? Wszystko znajdziesz na",
+    "reply_note": "Jeśli coś nie działa, odpowiedz na tę wiadomość — trafi do prawdziwej osoby.",
+    "footer": "Dawnlist — produkt firmy Spencer Fields Software."
+  },
   "pt": {
     "subject": "A sua chave de licença do Dawnlist",
     "preheader": "Cole isto em Definições para desbloquear a aplicação.",
@@ -150,6 +436,19 @@ export const EMAIL_STRINGS = {
     "not_installed": "Ainda não instalou? Encontra tudo em",
     "reply_note": "Se algo não funcionar, responda a esta mensagem — chega a uma pessoa real.",
     "footer": "Dawnlist — um produto da Spencer Fields Software."
+  },
+  "ro": {
+    "subject": "Cheia ta de licență Dawnlist",
+    "preheader": "Adaug-o în Setări pentru a debloca aplicația.",
+    "heading": "Cheia ta de licență Dawnlist",
+    "thanks": "Îți mulțumim pentru abonare. Iată cheia care deblochează aplicația.",
+    "to_use_heading": "Cum o folosești",
+    "to_use_body": "Deschide Dawnlist, mergi la Setări și lipește cheia în câmpul de licență. Funcționează pe fiecare calculator pe care îl deții și atât pe ediția pentru Windows, cât și pe cea pentru macOS.",
+    "allowance": "Planul tău acoperă până la {count} anunțuri de angajare pe zi.",
+    "own_key": "Vei avea nevoie și de propria cheie API Anthropic — Dawnlist citește anunțurile și redactează mesajele folosind contul tău, nu al nostru, astfel încât CV-ul și corespondența ta nu ajung niciodată pe serverele noastre. Aplicația te ghidează pas cu pas la adăugarea ei în timpul configurării.",
+    "not_installed": "Nu ai instalat-o încă? Găsești tot ce ai nevoie la",
+    "reply_note": "Dacă ceva nu funcționează, răspunde la acest mesaj — ajunge la o persoană reală.",
+    "footer": "Dawnlist — un produs Spencer Fields Software."
   },
   "ru": {
     "subject": "Ваш лицензионный ключ Dawnlist",
@@ -164,6 +463,97 @@ export const EMAIL_STRINGS = {
     "reply_note": "Если что-то не работает, ответьте на это письмо — его читает живой человек.",
     "footer": "Dawnlist — продукт компании Spencer Fields Software."
   },
+  "si": {
+    "subject": "ඔබේ Dawnlist බලපත්‍ර යතුර",
+    "preheader": "යෙදුම අගුළු හැරීමට මෙය සැකසුම් තුළට අලවන්න.",
+    "heading": "ඔබේ Dawnlist බලපත්‍ර යතුර",
+    "thanks": "දායක වීම ගැන ස්තුතියි. යෙදුම අගුළු හරින යතුර මෙන්න.",
+    "to_use_heading": "එය භාවිතා කිරීමට",
+    "to_use_body": "Dawnlist විවෘත කර, සැකසුම් වෙත ගොස්, යතුර බලපත්‍ර ක්ෂේත්‍රයට අලවන්න. එය ඔබ සතු සෑම පරිගණකයක්ම මත, සහ Windows සහ macOS සංස්කරණ දෙකෙහිම ක්‍රියා කරයි.",
+    "allowance": "ඔබේ සැලැස්ම දිනකට රැකියා දැන්වීම් {count} දක්වා ආවරණය කරයි.",
+    "own_key": "ඔබට ඔබේම Anthropic API යතුරක් ද අවශ්‍ය වේ — Dawnlist රැකියා දැන්වීම් කියවා පණිවිඩ කෙටුම්පත් කරන්නේ අපගේ ගිණුම මත නොව ඔබේ ගිණුම මත බැවින්, ඔබේ CV එක සහ ඔබේ ලිපි ලේඛන කිසිදා අපගේ සර්වර වෙත ළඟා නොවේ. එය එක් කිරීම සඳහා යෙදුම පිහිටුවීමේදී ඔබට මඟ පෙන්වයි.",
+    "not_installed": "තවම ස්ථාපනය කර නැද්ද? සියල්ල මෙහි ඇත:",
+    "reply_note": "යමක් ක්‍රියා නොකරයි නම්, මෙම පණිවිඩයට පිළිතුරු දෙන්න — එය පුද්ගලයෙකු වෙත ළඟා වේ.",
+    "footer": "Dawnlist — Spencer Fields Software හි නිෂ්පාදනයකි."
+  },
+  "so": {
+    "subject": "Furaha Shatiga Dawnlist",
+    "preheader": "Ku dheji tan Settings-ka si aad u furto barnaamijka.",
+    "heading": "Furaha Shatiga Dawnlist",
+    "thanks": "Waad ku mahadsan tahay isdiiwaangelinta. Waa kan furaha kaa furaya barnaamijka.",
+    "to_use_heading": "Sida loo isticmaalo",
+    "to_use_body": "Fur Dawnlist, tag Settings, kadibna ku dheji furaha goobta furaha shatiga. Wuxuu ku shaqeeyaa kombiyuutar kasta oo aad leedahay, iyo labada nooc ee Windows iyo macOS.",
+    "allowance": "Qorshahaagu wuxuu daboolaa ilaa {count} xayeysiin shaqo maalintii.",
+    "own_key": "Waxaad sidoo kale u baahan doontaa furaha API-ga Anthropic ee aad qudhaadu leedahay — Dawnlist wuxuu xayeysiisyada kaga akhriyaa oo fariimaha kaga qabanqaabiyaa akoonkaaga halkii uu ka isticmaali lahaa kayaga, taasoo la micno ah in CV-gaaga iyo warqadahaaga aanay marnaba gaarin serverkayaga. Barnaamijku wuxuu ku hagi doonaa sida loo daro intii lagu jiro isku-dubbaridka.",
+    "not_installed": "Weli ma rakibin? Wax walba waxaa laga helayaa",
+    "reply_note": "Haddii wax aan si sax ah u shaqaynayn, ka jawaab fariintan — waxay gaadhaysaa qof dhab ah.",
+    "footer": "Dawnlist — waa alaab ka soo baxday Spencer Fields Software."
+  },
+  "sv": {
+    "subject": "Din licensnyckel för Dawnlist",
+    "preheader": "Klistra in den i Inställningar för att låsa upp applikationen.",
+    "heading": "Din licensnyckel för Dawnlist",
+    "thanks": "Tack för att du prenumererar. Här är nyckeln som låser upp applikationen.",
+    "to_use_heading": "Så använder du den",
+    "to_use_body": "Öppna Dawnlist, gå till Inställningar och klistra in nyckeln i licensfältet. Den fungerar på alla datorer du äger, och i både Windows- och macOS-versionen.",
+    "allowance": "Din plan täcker upp till {count} annonser per dag.",
+    "own_key": "Du behöver också en egen Anthropic API-nyckel — Dawnlist läser annonser och skriver utkast till meddelanden på ditt konto istället för vårt, så ditt CV och din korrespondens når aldrig våra servrar. Applikationen guidar dig genom hur du lägger till den under installationen.",
+    "not_installed": "Har du inte installerat den än? Allt finns på",
+    "reply_note": "Om något inte fungerar, svara på det här meddelandet — det når fram till en människa.",
+    "footer": "Dawnlist — en produkt från Spencer Fields Software."
+  },
+  "sw": {
+    "subject": "Nambari yako ya leseni ya Dawnlist",
+    "preheader": "Bandika hii kwenye Mipangilio ili kufungua programu.",
+    "heading": "Nambari yako ya leseni ya Dawnlist",
+    "thanks": "Asante kwa kujiandikisha. Hii ndiyo nambari inayofungua programu.",
+    "to_use_heading": "Jinsi ya kuitumia",
+    "to_use_body": "Fungua Dawnlist, nenda kwenye Mipangilio, kisha ubandike nambari hiyo kwenye sehemu ya leseni. Inafanya kazi kwenye kila kompyuta unayomiliki, na kwenye matoleo yote mawili ya Windows na macOS.",
+    "allowance": "Mpango wako unaruhusu hadi matangazo {count} ya kazi kwa siku.",
+    "own_key": "Pia utahitaji nambari yako mwenyewe ya API ya Anthropic — Dawnlist husoma matangazo na kuandaa ujumbe kwa kutumia akaunti yako badala ya yetu, hivyo wasifu wako (CV) na mawasiliano yako havifiki kwenye seva zetu kamwe. Programu itakuongoza jinsi ya kuiongeza wakati wa usanidi.",
+    "not_installed": "Bado hujaisakinisha? Kila kitu kipo hapa:",
+    "reply_note": "Ikiwa kuna kitu hakifanyi kazi, jibu ujumbe huu — unafika kwa mtu halisi.",
+    "footer": "Dawnlist — bidhaa ya Spencer Fields Software."
+  },
+  "ta": {
+    "subject": "உங்கள் Dawnlist உரிம விசை",
+    "preheader": "பயன்பாட்டைத் திறக்க இதை Settings-இல் ஒட்டவும்.",
+    "heading": "உங்கள் Dawnlist உரிம விசை",
+    "thanks": "சந்தா சேர்ந்ததற்கு நன்றி. பயன்பாட்டைத் திறக்கும் விசை இதோ.",
+    "to_use_heading": "பயன்படுத்துவது எப்படி",
+    "to_use_body": "Dawnlist-ஐத் திறந்து, Settings-க்குச் சென்று, விசையை உரிம புலத்தில் ஒட்டவும். இது நீங்கள் வைத்திருக்கும் ஒவ்வொரு கணினியிலும், Windows மற்றும் macOS பதிப்புகள் இரண்டிலும் வேலை செய்யும்.",
+    "allowance": "உங்கள் திட்டம் ஒரு நாளைக்கு {count} வேலை அறிவிப்புகள் வரை உள்ளடக்கியது.",
+    "own_key": "உங்களுக்கு சொந்தமான Anthropic API விசையும் தேவைப்படும் — Dawnlist எங்கள் கணக்கிலல்ல, உங்கள் கணக்கில் வேலை அறிவிப்புகளைப் படித்து செய்திகளை வரைவு செய்கிறது, எனவே உங்கள் வாழ்க்கை வரலாறும் உங்கள் கடிதப் பரிமாற்றமும் எங்கள் சேவையகங்களை ஒருபோதும் அடையாது. அமைப்பின் போது அதைச் சேர்க்க பயன்பாடு உங்களுக்கு வழிகாட்டும்.",
+    "not_installed": "இன்னும் நிறுவவில்லையா? எல்லாம் இங்கே உள்ளது:",
+    "reply_note": "ஏதேனும் வேலை செய்யவில்லை என்றால், இந்த செய்திக்கு பதிலளிக்கவும் — அது ஒரு நபரை சென்றடையும்.",
+    "footer": "Dawnlist — Spencer Fields Software நிறுவனத்தின் தயாரிப்பு."
+  },
+  "te": {
+    "subject": "మీ Dawnlist లైసెన్స్ కీ",
+    "preheader": "అప్లికేషన్‌ని అన్‌లాక్ చేయడానికి దీన్ని సెట్టింగ్‌లలో పేస్ట్ చేయండి.",
+    "heading": "మీ Dawnlist లైసెన్స్ కీ",
+    "thanks": "సబ్‌స్క్రయిబ్ చేసినందుకు ధన్యవాదాలు. అప్లికేషన్‌ని అన్‌లాక్ చేసే కీ ఇదిగో.",
+    "to_use_heading": "ఉపయోగించే విధానం",
+    "to_use_body": "Dawnlist తెరిచి, సెట్టింగ్‌లకు వెళ్లి, కీని లైసెన్స్ ఫీల్డ్‌లో పేస్ట్ చేయండి. ఇది మీకు సొంతమైన ప్రతి కంప్యూటర్‌లోనూ, Windows మరియు macOS రెండు ఎడిషన్లలోనూ పనిచేస్తుంది.",
+    "allowance": "మీ ప్లాన్ రోజుకు {count} పోస్టింగ్‌ల వరకు కవర్ చేస్తుంది.",
+    "own_key": "మీకు మీ స్వంత Anthropic API కీ కూడా అవసరం అవుతుంది — Dawnlist పోస్టింగ్‌లను చదివి, సందేశాలను మీ ఖాతాలో డ్రాఫ్ట్ చేస్తుంది, మా ఖాతాలో కాదు, కాబట్టి మీ CV మరియు మీ కరస్పాండెన్స్ మా సర్వర్‌లకు ఎప్పుడూ చేరవు. సెటప్ సమయంలో దాన్ని జోడించడంలో అప్లికేషన్ మీకు మార్గనిర్దేశం చేస్తుంది.",
+    "not_installed": "ఇంకా ఇన్‌స్టాల్ చేయలేదా? ప్రతిదీ ఇక్కడ ఉంది",
+    "reply_note": "ఏదైనా పని చేయకపోతే, ఈ సందేశానికి రిప్లై ఇవ్వండి — అది ఒక వ్యక్తికే చేరుతుంది.",
+    "footer": "Dawnlist — Spencer Fields Software యొక్క ఒక ఉత్పత్తి."
+  },
+  "th": {
+    "subject": "รหัสใบอนุญาต Dawnlist ของคุณ",
+    "preheader": "วางรหัสนี้ในหน้าการตั้งค่าเพื่อปลดล็อกแอปพลิเคชัน",
+    "heading": "รหัสใบอนุญาต Dawnlist ของคุณ",
+    "thanks": "ขอบคุณที่สมัครใช้งาน นี่คือรหัสที่ใช้ปลดล็อกแอปพลิเคชัน",
+    "to_use_heading": "วิธีใช้งาน",
+    "to_use_body": "เปิด Dawnlist ไปที่การตั้งค่า แล้ววางรหัสลงในช่องใบอนุญาต ใช้งานได้กับคอมพิวเตอร์ทุกเครื่องที่คุณมี ทั้งรุ่น Windows และ macOS",
+    "allowance": "แผนของคุณรองรับประกาศงานได้สูงสุด {count} รายการต่อวัน",
+    "own_key": "คุณจะต้องมีคีย์ API ของ Anthropic เป็นของคุณเอง — Dawnlist จะอ่านประกาศงานและร่างข้อความโดยใช้บัญชีของคุณเอง ไม่ใช่ของเรา ดังนั้นเรซูเม่และการติดต่อของคุณจะไม่มีวันไปถึงเซิร์ฟเวอร์ของเรา แอปพลิเคชันจะแนะนำขั้นตอนการเพิ่มคีย์นี้ให้คุณระหว่างการตั้งค่าเริ่มต้น",
+    "not_installed": "ยังไม่ได้ติดตั้งใช่ไหม ดูทุกอย่างได้ที่",
+    "reply_note": "หากมีปัญหาอะไร ตอบกลับอีเมลนี้ได้เลย จะมีคนอ่านและตอบกลับคุณจริง ๆ",
+    "footer": "Dawnlist — ผลิตภัณฑ์จาก Spencer Fields Software"
+  },
   "tr": {
     "subject": "Dawnlist lisans anahtarınız",
     "preheader": "Uygulamanın kilidini açmak için bunu Ayarlar'a yapıştırın.",
@@ -176,6 +566,19 @@ export const EMAIL_STRINGS = {
     "not_installed": "Henüz kurmadınız mı? Her şey şurada:",
     "reply_note": "Bir şey çalışmazsa bu mesaja yanıt verin — bir kişiye ulaşır.",
     "footer": "Dawnlist — bir Spencer Fields Software ürünüdür."
+  },
+  "uk": {
+    "subject": "Ваш ліцензійний ключ Dawnlist",
+    "preheader": "Вставте його в Налаштування, щоб розблокувати застосунок.",
+    "heading": "Ваш ліцензійний ключ Dawnlist",
+    "thanks": "Дякуємо за оформлення підписки. Ось ключ, який розблоковує застосунок.",
+    "to_use_heading": "Як користуватися",
+    "to_use_body": "Відкрийте Dawnlist, перейдіть у Налаштування та вставте ключ у поле ліцензії. Він працює на кожному вашому комп’ютері, а також у версіях для Windows і macOS.",
+    "allowance": "Ваш план дозволяє опрацьовувати до {count} вакансій на день.",
+    "own_key": "Вам також знадобиться власний API-ключ Anthropic — Dawnlist опрацьовує вакансії та складає повідомлення у вашому обліковому записі, а не в нашому, тож ваше резюме та листування ніколи не потрапляють на наші сервери. Застосунок підкаже, як додати ключ під час налаштування.",
+    "not_installed": "Ще не встановили застосунок? Усе необхідне ви знайдете за посиланням",
+    "reply_note": "Якщо щось не працює, відповідайте на цей лист — його читає жива людина.",
+    "footer": "Dawnlist — продукт компанії Spencer Fields Software."
   },
   "ur": {
     "subject": "آپ کی Dawnlist لائسنس کلید",
@@ -190,6 +593,19 @@ export const EMAIL_STRINGS = {
     "reply_note": "اگر کچھ کام نہ کرے تو اس پیغام کا جواب دیں — یہ ایک شخص تک پہنچتا ہے۔",
     "footer": "Dawnlist — Spencer Fields Software کی ایک پروڈکٹ۔"
   },
+  "uz": {
+    "subject": "Dawnlist litsenziya kaliti",
+    "preheader": "Ilovani faollashtirish uchun buni Sozlamalar bo'limiga joylashtiring.",
+    "heading": "Dawnlist litsenziya kaliti",
+    "thanks": "Obuna bo'lganingiz uchun rahmat. Ilovani faollashtiradigan kalit quyida.",
+    "to_use_heading": "Foydalanish uchun",
+    "to_use_body": "Dawnlist'ni oching, Sozlamalar bo'limiga o'ting va kalitni litsenziya maydoniga joylashtiring. U sizga tegishli barcha kompyuterlarda, shuningdek Windows va macOS versiyalarining ikkalasida ham ishlaydi.",
+    "allowance": "Tarifingiz kuniga {count} tagacha e'lonni qamrab oladi.",
+    "own_key": "Sizga o'zingizning shaxsiy Anthropic API kaliti ham kerak bo'ladi — Dawnlist e'lonlarni o'qish va xabarlar tayyorlashni bizning emas, balki sizning hisobingiz orqali amalga oshiradi, shuning uchun sizning rezyumeingiz va yozishmalaringiz hech qachon bizning serverlarimizga tushmaydi. Ilova sozlash jarayonida uni qo'shishda sizga yo'l-yo'riq ko'rsatadi.",
+    "not_installed": "Hali o'rnatmadingizmi? Hammasi shu yerda:",
+    "reply_note": "Agar biror narsa ishlamasa, shu xabarga javob bering — u shaxsga yetib boradi.",
+    "footer": "Dawnlist — Spencer Fields Software mahsuloti."
+  },
   "vi": {
     "subject": "Mã bản quyền Dawnlist của bạn",
     "preheader": "Dán mã này vào Cài đặt để mở khóa ứng dụng.",
@@ -203,6 +619,19 @@ export const EMAIL_STRINGS = {
     "reply_note": "Nếu có gì không hoạt động, hãy trả lời email này — sẽ có người đọc và phản hồi.",
     "footer": "Dawnlist — một sản phẩm của Spencer Fields Software."
   },
+  "yo": {
+    "subject": "Kọ́kọ́rọ́ Ìwé-àṣẹ Dawnlist Rẹ",
+    "preheader": "Fi èyí sínú Ètò láti ṣí ìlò náà.",
+    "heading": "Kọ́kọ́rọ́ Ìwé-àṣẹ Dawnlist Rẹ",
+    "thanks": "A dúpẹ́ pé o ṣe alábapin. Èyí ni kọ́kọ́rọ́ tí yóò ṣí ìlò náà.",
+    "to_use_heading": "Láti Lò Ó",
+    "to_use_body": "Ṣí Dawnlist, lọ sí Ètò, kí o sì fi kọ́kọ́rọ́ náà sínú àyè ìwé-àṣẹ. Ó ń ṣiṣẹ́ lórí gbogbo kọ̀mpútà tí o ní, àti lórí àwọn ẹ̀yà Windows àti macOS méjèèjì.",
+    "allowance": "Ètò rẹ n bo títí dé {count} ìpolówó iṣẹ́ lójoojúmọ́.",
+    "own_key": "Wàá tún nílò kọ́kọ́rọ́ API Anthropic tìrẹ — Dawnlist ń kà àwọn ìpolówó, ó sì ń kọ àwọn ìránṣẹ́ lórí àkántì rẹ dípò tiwa, nítorí náà, CV rẹ àti ìbánisọ̀rọ̀ rẹ kì í dé sí àwọn sáfà wa rárá. Ìlò náà yóò fi ọ́ mọ̀nà bí o ṣe lè ṣàfikún rẹ̀ nígbà ìṣètò.",
+    "not_installed": "O ò tíì fi sí i? Ohun gbogbo wà ní",
+    "reply_note": "Bí ohunkóhun kò bá ṣiṣẹ́, dá èsì sí ìránṣẹ́ yìí — ènìyàn ni yóò kà á.",
+    "footer": "Dawnlist — ọjà kan láti ọwọ́ Spencer Fields Software."
+  },
   "zh": {
     "subject": "您的 Dawnlist 许可证密钥",
     "preheader": "将其粘贴到“设置”中以解锁应用程序。",
@@ -215,6 +644,19 @@ export const EMAIL_STRINGS = {
     "not_installed": "还没有安装吗？一切都在",
     "reply_note": "如果遇到任何问题，请直接回复此邮件——会有专人查看。",
     "footer": "Dawnlist — Spencer Fields Software 出品。"
+  },
+  "zu": {
+    "subject": "Ikhiye lakho lelayisensi le-Dawnlist",
+    "preheader": "Namathisela lokhu ku-Izilungiselelo ukuze uvule uhlelo lokusebenza.",
+    "heading": "Ikhiye lakho lelayisensi le-Dawnlist",
+    "thanks": "Siyabonga ngokubhalisa. Nasi ikhiye eliv​ula uhlelo lokusebenza.",
+    "to_use_heading": "Ukuyisebenzisa",
+    "to_use_body": "Vula i-Dawnlist, uye ku-Izilungiselelo, bese unamathisela ikhiye endaweni yelayisensi. Isebenza kuwo wonke amakhompyutha owaziyo, kuzo zombili izinguqulo ze-Windows ne-macOS.",
+    "allowance": "Uhlelo lwakho luvumela kufikela ku-{count} izikhangiso zemisebenzi ngosuku.",
+    "own_key": "Uzodinga futhi ikhiye lakho siqu le-Anthropic API — i-Dawnlist ifunda izikhangiso futhi ibhale imilayezo isebenzisa i-akhawunti yakho, hhayi eyethu, ngakho i-CV yakho nemiyalezo yakho ayifinyeleli ezinsizakalweni zethu zeseva. Uhlelo lokusebenza luzokuqondisa ekulifakeni ngesikhathi sokusetha.",
+    "not_installed": "Awukayifaki okwamanje? Konke kutholakala ku-",
+    "reply_note": "Uma kukhona okungasebenzi kahle, phendula lo myalezo — ufinyelela kumuntu ngempela.",
+    "footer": "Dawnlist — umkhiqizo we-Spencer Fields Software."
   }
 };
 

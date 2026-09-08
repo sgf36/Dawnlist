@@ -128,8 +128,19 @@ def translate(client, code: str) -> dict:
         f"plain, warm, not marketing copy and not officialese.\n\n"
         f"{json.dumps(ENGLISH, ensure_ascii=False, indent=2)}"
     )
+    # 2,000 was not enough and failed in a way that looked like a bad model
+    # rather than a small ceiling: seventeen locales came back as
+    # "Unterminated string", every one of them in a script that spends far more
+    # tokens per character than Latin — Amharic, Burmese, Malayalam, Sinhala,
+    # Kannada, Gujarati, Odia, Thai, Nepali, Hebrew, Yoruba, Somali. The JSON
+    # was truncated mid-value, so the parse error pointed at the text rather
+    # than at the limit that caused it.
+    #
+    # Sized for the worst case rather than the average, because the cost of
+    # being generous here is a few cents and the cost of being tight is a
+    # language silently left in English.
     reply = client.messages.create(
-        model=MODEL, max_tokens=2000,
+        model=MODEL, max_tokens=6000,
         messages=[{"role": "user", "content": prompt}])
     body = "".join(b.text for b in reply.content if b.type == "text").strip()
     body = re.sub(r"^```(?:json)?\s*\n", "", body)
