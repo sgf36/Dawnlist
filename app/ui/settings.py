@@ -414,6 +414,12 @@ class SettingsWindow(QWidget):
         layout.addWidget(_divider())
         layout.addWidget(DataTermsPanel())
 
+        # Also every build: Store Policy 11.16 wants a reporting route for
+        # generated content, and generated content is in all three variants.
+        layout.addWidget(_divider())
+        self.report = ReportPanel()
+        layout.addWidget(self.report)
+
         self.setStyleSheet(SETTINGS_STYLESHEET)
 
         # A scroll area reports a tiny minimum, so the window would otherwise
@@ -441,6 +447,24 @@ RULE_TIERS = (
 #: link is the app's part of that, not the whole of it — acceptance happens at
 #: purchase.
 TERMS_URL = "https://dawnlist.spencerfields.com/terms.html"
+
+#: Where a person reports what the model wrote. Microsoft Store Policy 11.16
+#: requires products with live generative AI to "provide a means for users to
+#: report inappropriate content to the developer" and to act on what comes in.
+#:
+#: A support address in a footer is not a MEANS. It is an address someone has
+#: to guess is the right one, for a purpose it never mentions. This is a
+#: mailto with the subject already written, so the route is one click and the
+#: reports arrive already labelled — which is what makes acting on them
+#: possible rather than notional.
+#:
+#: Same address the website uses. Deliberately not a second channel: two
+#: inboxes for one obligation is how one of them stops being read.
+REPORT_EMAIL = "Apps@spencerfields.com"
+REPORT_MAILTO = (
+    "mailto:" + REPORT_EMAIL
+    + "?subject=Dawnlist%20%E2%80%94%20reporting%20AI-generated%20content"
+)
 
 
 class DataTermsPanel(QWidget):
@@ -479,6 +503,49 @@ class DataTermsPanel(QWidget):
         layout.addWidget(body)
 
         link = QLabel(f'<a href="{TERMS_URL}">{tr("settings.data_terms_link")}</a>')
+        link.setObjectName("dataTerms")
+        link.setOpenExternalLinks(True)
+        link.setWordWrap(True)
+        layout.addWidget(link)
+
+
+class ReportPanel(QWidget):
+    """How to report what the model wrote.
+
+    Microsoft Store Policy 11.16 applies to any product whose content is
+    generated live by AI in response to user input, which is exactly what a
+    verdict on a posting and a drafted follow-up are. It requires the use of
+    live generative AI to be disclosed AND a means for users to report
+    inappropriate content to the developer.
+
+    Dawnlist declares the generative-AI use in Partner Center. Until this
+    panel existed it had NO reporting route anywhere — not in the app, not on
+    the website — while telling reviewers to expect one. That is a rejection
+    waiting to happen, and worse, a person with a genuine complaint about
+    something written under their own name had nowhere to take it.
+
+    ALWAYS SHOWN, ON EVERY BUILD. The obligation follows the generated
+    content, and the generated content is in all three variants. It sits
+    beside the data terms because both are things the person is owed rather
+    than features they chose.
+    """
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(8)
+
+        heading = QLabel(tr("settings.report_heading"))
+        heading.setObjectName("stepHeading")
+        layout.addWidget(heading)
+
+        body = QLabel(reflow(tr("settings.report_body")))
+        body.setObjectName("stepBody")
+        body.setWordWrap(True)
+        layout.addWidget(body)
+
+        link = QLabel(f'<a href="{REPORT_MAILTO}">{tr("settings.report_link")}</a>')
         link.setObjectName("dataTerms")
         link.setOpenExternalLinks(True)
         link.setWordWrap(True)
