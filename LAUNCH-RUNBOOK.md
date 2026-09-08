@@ -204,7 +204,15 @@ credential is bound to a repository subject:
 
 1. In the Entra app registration **EasyPostDesktop-GitHubActions**, add a second
    federated credential with subject
-   `repo:sgf36/Dawnlist:ref:refs/heads/main`.
+
+   ```
+   repo:sgf36/Dawnlist:ref:refs/heads/master
+   ```
+
+   **`master`, not `main`.** Easy-Post's credential says `main` because that is
+   Easy-Post's default branch; this repository's is `master`, and the subject
+   is matched literally. A one-word mismatch fails the OIDC exchange with a
+   message about the credential rather than about the branch.
 2. Confirm the *Artifact Signing Certificate Profile Signer* role is scoped to
    the signing account rather than to the EasyPost repo. If it is scoped
    correctly it already covers this.
