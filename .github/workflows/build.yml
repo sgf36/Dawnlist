@@ -46,9 +46,9 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -155,10 +155,19 @@ jobs:
 
       # -------------------------------------------------------------- artefacts
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: dawnlist-${{ matrix.os }}-${{ env.VARIANT }}
-          if-no-files-found: error
+          # `error` only when a package is genuinely expected. Windows always
+          # produces an MSIX; macOS produces a .dmg or .pkg ONLY once signing
+          # secrets exist, because an unsigned run stops after the guards.
+          # Hard-coding `error` failed the first green macOS build for having
+          # correctly produced nothing — the job had passed every real step.
+          #
+          # `warn` is right for the unsigned case and wrong as a blanket
+          # default: on Windows, or on a signed macOS run, an empty dist means
+          # the packaging silently produced nothing and that must fail.
+          if-no-files-found: ${{ (matrix.os == 'windows-latest' || secrets.MACOS_CERTIFICATE_P12_BASE64 != '') && 'error' || 'warn' }}
           retention-days: 14
           path: |
             dist/*.msix
