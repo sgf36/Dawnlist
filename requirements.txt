@@ -14,3 +14,8 @@ openpyxl>=3.1.0
 # defect a second machine exists to catch.
 pypdf>=4.0.0
 python-docx>=1.1.0
+
+# MSIX asset generation (packaging/build_msix.py resizes the 1024px source into
+# the six tile sizes AppxManifest.xml references). Undeclared until 2026-09-08,
+# so the Windows CI job would have failed at "Build the MSIX" on a clean runner.
+Pillow>=10.0.0

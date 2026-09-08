@@ -52,11 +52,22 @@ staging_dir = project_root / "build" / "msix_staging"
 manifest_src = Path(__file__).parent / "msix" / "AppxManifest.xml"
 output_msix = dist_dir / "Dawnlist.msix"
 
+# The REPOSITORY copy comes first, deliberately.
+#
+# This looked in Spencer's OneDrive brand folder first and fell back to the
+# repository — but `packaging/icons/` was never committed, so the fallback did
+# not exist and the only working source was one person's Documents folder. A CI
+# runner would have failed at `source_icon()` with "no source icon found", and
+# the MSIX could only ever be built on one machine. A build that depends on
+# somebody's OneDrive is not a build.
+#
+# The brand folder stays as a SECOND choice so a fresh export can be picked up
+# without a commit, but nothing requires it any more.
 BRAND = Path(r"C:\Users\SpencerFields\OneDrive - Spencer Fields\Apps\Claude"
              r"\brand-dawnlist\png")
 SOURCE_ICON_CANDIDATES = [
-    BRAND / "mark-tile-1024.png",
     project_root / "packaging" / "icons" / "dawnlist-1024.png",
+    BRAND / "mark-tile-1024.png",
 ]
 
 # (output filename, pixel size). Every one is referenced by AppxManifest.xml;
