@@ -883,6 +883,146 @@ def outreach_run(conn, *, send=None, today: date | None = None,
         locale=settings.get("locale", "en"), today=today)
 
 
+#: The user's own CV files, as FILES rather than a table.
+#:
+#: `documents` is constrained by CHECK to the fit brief and the factsheet, and
+#: widening that constraint means rebuilding the table — SQLite cannot alter a
+#: CHECK in place. More to the point, the reasoning that put sent mail in a
+#: folder applies here too: these are documents a person put somewhere, in
+#: their own formats, that Dawnlist reads and never rewrites.
+CV_DIRNAME = "cv"
+
+
+def cv_dir() -> Path:
+    return db.default_db_path().parent / CV_DIRNAME
+
+
+def load_cv_text(folder: Path | None = None) -> str:
+    """Every readable CV in the folder, joined.
+
+    Several versions rather than one on purpose: different versions describe
+    the same role in different words, and that spread is what a tailored CV
+    draws on. Unreadable files are skipped rather than fatal — one scanned PDF
+    must not stop the others, which is the same rule onboarding applies.
+    """
+    from app.onboarding.extract import extract_corpus, gather
+
+    folder = folder or cv_dir()
+    if not folder.exists():
+        return ""
+    result = extract_corpus(gather(folder))
+    return "\n\n".join(f"# {d.name}\n\n{d.text}" for d in result.corpus.usable)
+
+
+def applications_dir() -> Path:
+    """Where tailored CVs, letters and interview briefs land.
+
+    Beside the database and never a synced folder, for the same reason as
+    `drafts_dir`: a CV carrying an unresolved placeholder has no business in
+    OneDrive, where a blocked document and a finished one look identical in a
+    file listing on somebody's phone.
+    """
+    return db.default_db_path().parent / "applications"
+
+
+def apply_run(conn, job_id: str, *, send=None, folder: Path | None = None,
+              want_brief: bool = False):
+    """Produce the application pack for one posting already in the tracker.
+
+    `job_id` is `provider:provider_job_id` — the form the board and the review
+    window already use, so a posting can be named from what is on screen
+    rather than from a row number nobody sees.
+    """
+    import json
+
+    from app.apply.run import prepare_application
+    from app.feed.models import Job
+    from app.ui.adapter import split_job_id
+
+    factsheet = load_document(conn, "factsheet")
+    if not factsheet.strip():
+        raise NotConfigured(
+            "No background factsheet yet. Run onboarding first — every claim "
+            "in a tailored CV has to come from it, so without one the document "
+            "is either empty or invented.")
+
+    # The CV is the SOURCE document, not a generated one. A curriculum vitae
+    # written from a factsheet alone is fluent and describes a career nobody
+    # had; without the real one there is nothing honest to reorder.
+    cv_text = load_cv_text()
+    if not cv_text.strip():
+        raise NotConfigured(
+            f"No curriculum vitae found in {cv_dir()}. Put your CV there — a "
+            f"tailored CV reorders your own document, it does not write a new "
+            f"one, so without it there is nothing honest to work from.")
+
+    from app.core.entitlement import require as require_entitlement
+    require_entitlement(conn)
+
+    provider, provider_job_id = split_job_id(job_id)
+    row = conn.execute(
+        "SELECT * FROM jobs WHERE provider=? AND provider_job_id=?",
+        (provider, provider_job_id)).fetchone()
+    if row is None:
+        raise NotConfigured(f"No posting {job_id!r} in the tracker.")
+
+    job = Job(
+        provider=row["provider"], provider_job_id=row["provider_job_id"],
+        title=row["title"], company=row["company"],
+        locations=tuple(json.loads(row["locations_json"])),
+        description_text=row["description_text"],
+        salary=row["salary"], url=row["url"],
+        raw_criteria=json.loads(row["raw_criteria_json"]),
+    )
+    return prepare_application(
+        job, factsheet=factsheet, cv_text=cv_text,
+        send=send or build_send(conn),
+        folder=folder or applications_dir(), want_brief=want_brief)
+
+
+def add_posting(conn, path: Path, url: str = ""):
+    """Bring in a posting found somewhere the feed does not reach.
+
+    Reads a file the user saved by copying a job advert — a page, an email,
+    the text of a PDF. Nothing is fetched: `app/feed/ingest.py` explains why
+    that is a refusal rather than an omission.
+    """
+    import json
+
+    from app.feed.ingest import parse_pasted
+    from app.feed.models import name_key
+
+    parsed = parse_pasted(path.read_text(encoding="utf-8", errors="replace"),
+                          url=url)
+    if not parsed.is_usable:
+        raise NotConfigured(
+            "Could not read a posting from that file — missing "
+            + ", ".join(parsed.unresolved)
+            + ". Copy the whole advert, including the heading.")
+
+    # Written directly rather than through `pipeline.persist`, which takes a
+    # RunOutcome and records screen verdicts. A hand-entered posting has not
+    # been screened and must not arrive carrying a verdict it never received:
+    # the person chose it deliberately, and the screen exists to thin a sweep
+    # nobody asked for.
+    job = parsed.to_job()
+    conn.execute(
+        """INSERT INTO jobs(provider, provider_job_id, title, company,
+               locations_json, description_text, salary, url,
+               raw_criteria_json, name_key, funnel_status)
+           VALUES (?,?,?,?,?,?,?,?,?,?, 'likely')
+           ON CONFLICT(provider, provider_job_id) DO UPDATE SET
+               title=excluded.title, company=excluded.company,
+               description_text=excluded.description_text,
+               salary=excluded.salary, url=excluded.url""",
+        (job.provider, job.provider_job_id, job.title, job.company,
+         json.dumps(list(job.locations)), job.description_text, job.salary,
+         job.url, json.dumps(job.raw_criteria),
+         name_key(job.company, job.title)))
+    conn.commit()
+    return parsed
+
+
 #: Sent mail the user has supplied, for measuring how they write. Files rather
 #: than a table, and deliberately: `documents` is constrained to the fit brief
 #: and the factsheet, and widening that CHECK to admit a mail archive would put
@@ -948,6 +1088,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--add-alerts", nargs="+", metavar="FILE",
                         help="add postings from saved job-alert emails "
                              "(.eml or .mbox)")
+    parser.add_argument("--add-posting", metavar="FILE",
+                        help="add one posting from a copied job advert saved "
+                             "as a text file; nothing is fetched")
+    parser.add_argument("--posting-url", default="",
+                        help="the advert's URL, kept with --add-posting for "
+                             "provenance")
+    parser.add_argument("--apply", metavar="JOB_ID",
+                        help="write a tailored CV and covering letter for one "
+                             "posting, as provider:id")
+    parser.add_argument("--brief", action="store_true",
+                        help="with --apply, also write an interview brief")
     parser.add_argument("--settings", action="store_true",
                         help="open settings alone, without the rest of the app")
     parser.add_argument("--onboard", action="store_true",
@@ -975,6 +1126,42 @@ def main(argv: list[str] | None = None) -> int:
             for item in findings[key]:
                 print(f"  {key}: {item}")
         return 0
+
+    if args.add_posting:
+        try:
+            parsed = add_posting(conn, Path(args.add_posting),
+                                 url=args.posting_url)
+        except NotConfigured as exc:
+            print(f"not configured: {exc}", file=sys.stderr)
+            return 2
+        print(f"added: {parsed.title} — {parsed.company or 'company unknown'}")
+        if parsed.unresolved:
+            # Reported rather than filled in. A silently wrong company name is
+            # worse than an empty one: the empty one gets corrected.
+            print("could not read: " + ", ".join(parsed.unresolved))
+        return 0
+
+    if args.apply:
+        from app.apply.run import summarise
+        from app.core.api_key import KeyProblem
+        from app.core.entitlement import NotEntitled
+
+        try:
+            pack = apply_run(conn, args.apply, want_brief=args.brief)
+        except KeyProblem as exc:
+            print(f"no api key: {exc}", file=sys.stderr)
+            return 4
+        except NotEntitled as exc:
+            print(f"not entitled: {exc}", file=sys.stderr)
+            return 3
+        except NotConfigured as exc:
+            print(f"not configured: {exc}", file=sys.stderr)
+            return 2
+        print(summarise(pack))
+        print(f"\nwritten to {applications_dir()}")
+        # Non-zero when a document carries an unsupported claim, so a script
+        # cannot treat a blocked CV as a finished one.
+        return 0 if pack.complete else 1
 
     if args.run_once:
         from app.core.api_key import KeyProblem
