@@ -24,8 +24,16 @@ CREATE TABLE IF NOT EXISTS usage_daily (
     day         TEXT NOT NULL,
     refreshes   INTEGER NOT NULL DEFAULT 0,
     -- Postings RETURNED, which is the billable unit: 1 credit = 1 job.
-    -- Instrumented from day one so the dataset crossover (~1M records/month,
-    -- roughly 330 daily-active users) is a measurement, not a guess.
+    -- Instrumented from day one so the dataset crossover (~1M records/month)
+    -- is a measurement, not a guess.
+    --
+    -- CORRECTED 2026-09-08: this said "roughly 330 daily-active users", which
+    -- came from dividing 1M by the build handoff's ASSUMED 3,000 credits per
+    -- user per month. Measured consumption is ~15,400 (a comprehensive daily
+    -- delta is ~513 postings), so the crossover is nearer **65 daily-active
+    -- users** — five times sooner. Believing 330 would keep the product on
+    -- per-credit API pricing long past the point where bulk delivery is
+    -- cheaper, which is exactly the decision this column exists to inform.
     postings    INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (licence_key, day)
 );

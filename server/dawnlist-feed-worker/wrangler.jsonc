@@ -8,7 +8,26 @@
   ]
   // Secrets (wrangler secret put <NAME> — the command takes the secret's NAME,
   // never its value; the value goes at the interactive prompt only):
-  //   THEIRSTACK_API_KEY
-  //   ANTHROPIC_API_KEY
-  //   PADDLE_WEBHOOK_SECRET   (separate signing key from EasyPost's)
+  //   THEIRSTACK_API_KEY      the feed credential. The ONLY place it lives.
+  //   PADDLE_WEBHOOK_SECRET   separate signing key from EasyPost's
+  //
+  // ANTHROPIC_API_KEY was listed here and IS NOT USED. Nothing in src/ reads
+  // it. It belonged to an inference proxy that was built and REMOVED on
+  // 2026-09-06, because proxying job descriptions plus the fit brief and
+  // factsheet would make Spencer a processor of every buyer's career record.
+  // If that secret is still set on the deployed Worker, delete it —
+  // `wrangler secret delete ANTHROPIC_API_KEY`. A credential kept for a
+  // capability that was deliberately removed is pure exposure.
+  //
+  // Plain vars, NOT secrets (Paddle price ids are public identifiers, and
+  // keeping them visible is what makes a misconfiguration findable):
+  //   PADDLE_PRICE_STANDARD   comma-separated price ids for the Standard plan
+  //   PADDLE_PRICE_GLOBAL     comma-separated price ids for the Global plan
+  //
+  // They are comma-separated because one plan legitimately has several price
+  // ids — monthly and annual, and one per currency where Paddle issues
+  // separate ids. Set them per environment: sandbox and production issue
+  // DIFFERENT ids for the same product, and an id that matches nothing makes
+  // the webhook fall back to Standard and flag `plan_unmatched` on the
+  // licence, so a Global customer silently lands on Standard caps.
 }
