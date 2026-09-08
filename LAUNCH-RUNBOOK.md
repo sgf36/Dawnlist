@@ -394,6 +394,37 @@ all until today.
 
 ---
 
+## Step 5c — Prove the shipped client can reach the live service
+
+**Run this before every release. It costs nothing.**
+
+```powershell
+python C:\Users\SpencerFields\dawnlist\tools\smoke_live.py DAWN-YOUR-LICENCE-KEY
+```
+
+It calls `/v1/plan` through `ManagedProvider` — the same class, transport,
+headers, TLS and edge the application uses — and fetches no postings, so it
+spends no credits. A check that costs money is a check nobody runs, and a check
+nobody runs does not exist.
+
+**Why it exists.** On 2026-09-08 the application could not reach its own service
+at all: Cloudflare refused urllib's default user-agent with error 1010, and
+every request from every shipped build would have failed. Both halves of the
+verification were structurally blind to it — every unit test injects the
+transport, so none makes a real request; and every manual check used `curl`,
+whose user-agent is not blocked, so the manual pass proved nothing about the
+product. The suite was green while the application could not connect.
+
+A unit test now pins the user-agent and catches that exact regression. It cannot
+catch the next one, because the failure was never really about a header: it was
+about nobody running the shipped client against the real service.
+
+It also asserts two things that have been wrong in production within a day: that
+the upgrade ladder is not advertising a plan nobody can buy, and that the licence
+has an allowance at all.
+
+---
+
 ## Step 6 — Microsoft Store
 
 The package identity is already correct and verified against Partner Center:
