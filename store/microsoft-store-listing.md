@@ -173,11 +173,9 @@ The job feed is included. Searching costs real money every day Dawnlist runs,
 and that is what the subscription pays for.
 
 The reading and drafting are separate, and you pay Anthropic directly on your
-own API key. At about forty postings a day that is roughly two pounds a month
-for the reading and about one for the drafting, plus a one-off two to four
-pounds when you first set up your factsheet. You hold the key, you see the
-usage, and you can revoke it at any moment. Dawnlist never sees that bill and
-takes no share of it.
+own API key. At ordinary use that is usually a pound or two a month. You hold
+the key, you see the usage, and you can revoke it at any moment. Dawnlist never
+sees that bill and takes no share of it.
 
 Why your own key rather than ours: your CVs, your fit brief and the job
 descriptions Dawnlist reads are your employment history. Sending them through
@@ -310,6 +308,25 @@ from a provider's marketing, the feed tier is not bought, and the licensing
 answer that decides between an API and a self-hosted index has not landed — so
 any figure stated now is a guess about somebody else's product. Put a number
 back only when the contract supports it.
+
+**Three cost claims were removed on 2026-09-08**, having been checked against
+the measurement rather than against each other. The listing had said "roughly
+two pounds a month for the reading and about one for the drafting, plus a
+one-off two to four pounds when you first set up your factsheet".
+
+- The **reading** figure was high. Measured is **$1.56/month** — about £1.20 —
+  at ~75 postings a day on Haiku 4.5, which is what `ASSESSMENT_MODEL` actually
+  sets. (`dawnlist-credit-cap-assessment.md` §2.2.)
+- The **drafting** split is not separately measured anywhere, so the "about one
+  [pound]" was a guess presented beside a measurement.
+- The **one-off two to four pounds** for factsheet setup has **no basis that
+  could be found at all**.
+
+Replaced with "usually a pound or two a month", which survives the thing that
+would otherwise date it: the figure is **model-dependent by a factor of five**.
+Moving `ASSESSMENT_MODEL` from Haiku to Sonnet or Opus turns £1.20 into £2.40
+or £6, and a precise number on a store page would then be wrong with nobody
+noticing.
 
 One claim to keep an eye on: *"learned from your own sent messages that you add
 yourself"*. True — Dawnlist reads `.eml`, `.txt` and `.md` files from the voice
