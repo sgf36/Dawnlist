@@ -33,8 +33,8 @@ none of that is the model any more.
 - **Only the morning run is gated.** Onboarding, the board and every screen stay open on an
   unlicensed copy: locking someone out of their own tracker is a punishment, not a gate.
 
-Build handoff: `../Apps/Claude/job-search-desktop-app-build-handoff.md`
-Operating spec (the source system's IP): `../Apps/Claude/job-search-automation-handoff-for-sean.md`
+Build handoff: `../Apps/Claude/job-search/job-search-desktop-app-build-handoff.md`
+Operating spec (the source system's IP): `../Apps/Claude/job-search/job-search-automation-handoff-for-sean.md`
 Identity: `../Apps/Claude/brand-dawnlist/README.md`
 
 ---
