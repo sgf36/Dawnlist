@@ -38,7 +38,7 @@ SIZE = (1708, 960)
 CAPTIONS = {
     "01-shortlist": "Your shortlist, with the reasons — and the rejections still visible",
     "02-needs-review": "When a rule reaches too far, it tells you",
-    "03-board": "Every company you are pursuing, and what is due next",
+    "03-board": "Every role you are pursuing, and what is due next",
     "04-understood": "It reads your CVs and shows you what it understood",
     "05-calibration": "It learns your judgement before it runs",
     "06-rules": "Screening you control, and it refuses a rule that would hide a real role",

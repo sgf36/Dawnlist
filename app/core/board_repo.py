@@ -10,6 +10,7 @@ every hole looks like "nothing due" (spec 8.3).
 """
 from __future__ import annotations
 
+import json
 import sqlite3
 from datetime import date, datetime, timezone
 
@@ -36,13 +37,43 @@ def _as_date(value) -> date | None:
 # Load
 # ---------------------------------------------------------------------------
 
+def _first_location(locations_json) -> str:
+    """The first location from the posting, for a single narrow column.
+
+    Postings routinely carry three overlapping strings for one place
+    ("London", "London, UK", "London, England, United Kingdom"). The first is
+    the shortest useful one, and joining all three makes the column unreadable
+    without adding information.
+    """
+    if not locations_json:
+        return ""
+    try:
+        values = json.loads(locations_json)
+    except (TypeError, ValueError):
+        return ""
+    return str(values[0]) if isinstance(values, list) and values else ""
+
+
 def load_board(conn: sqlite3.Connection) -> list[Opportunity]:
     """Every opportunity, at every stage, with its tasks and bounce state.
 
     Paginated to exhaustion by construction — a single query, no slicing.
     """
     opps: dict[int, Opportunity] = {}
-    for row in conn.execute("SELECT * FROM opportunities ORDER BY id"):
+    # LEFT JOIN, not JOIN. An opportunity may have no posting behind it — one
+    # created by hand, or one whose job row was never linked — and an inner
+    # join would drop it from the board entirely. A tracker that silently
+    # omits rows is worse than one with empty cells.
+    for row in conn.execute("""
+            SELECT o.*,
+                   j.title    AS job_title,
+                   j.url      AS job_url,
+                   j.salary   AS job_salary,
+                   j.locations_json AS job_locations,
+                   j.posted_at AS job_posted_at
+              FROM opportunities o
+              LEFT JOIN jobs j ON j.id = o.job_id
+             ORDER BY o.id"""):
         opps[row["id"]] = Opportunity(
             id=str(row["id"]),
             company=row["company"],
@@ -51,7 +82,25 @@ def load_board(conn: sqlite3.Connection) -> list[Opportunity]:
             parent_id=str(row["parent_id"]) if row["parent_id"] else None,
             category=row["category"],
             closed_at=_as_date(row["closed_at"]),
+            job_title=row["job_title"] or "",
+            job_url=row["job_url"] or "",
+            salary=row["job_salary"] or "",
+            location=_first_location(row["job_locations"]),
+            posted_at=_as_date(row["job_posted_at"]),
+            created_at=_as_date(row["created_at"]),
         )
+
+    # The newest OUTBOUND touch per opportunity. Outbound only: an incoming
+    # reply is not evidence that you have contacted anyone, and the cadence is
+    # computed from what actually went out.
+    for row in conn.execute("""
+            SELECT opportunity_id, MAX(occurred_on) AS last_out
+              FROM touches
+             WHERE direction = 'out'
+             GROUP BY opportunity_id"""):
+        opp = opps.get(row["opportunity_id"])
+        if opp is not None:
+            opp.last_outbound_on = _as_date(row["last_out"])
 
     for row in conn.execute("SELECT * FROM tasks ORDER BY id"):
         opp = opps.get(row["opportunity_id"])

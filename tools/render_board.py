@@ -1,5 +1,6 @@
 """Render the board to a PNG so a human can LOOK at it."""
 import sys
+import json
 from datetime import date
 from pathlib import Path
 
@@ -36,6 +37,57 @@ def render_hidden(widget, size):
     return widget
 
 
+
+#: Companies in the fixture that came from a real posting, with the facts the
+#: board's optional columns read. Without these the Role, Location, Salary and
+#: Posted columns render EMPTY — which is what the store screenshot showed
+#: until 2026-09-08, advertising four blank columns.
+#:
+#: Not every row has one, deliberately: `Amir Mossanen (Truist)` is a mutual
+#: contact and `Marriott Feasibility` is not a posting, so both are genuinely
+#: role-less. A fixture where every cell is populated would hide the fact that
+#: an empty cell is normal and has to look acceptable.
+FIXTURE_POSTINGS = {
+    "Round Hill Capital": ("Asset Management Associate", "London",
+                           "£65,000 - £75,000", "2026-09-05"),
+    "Landmark Venues": ("Head of Events", "London", "", "2026-09-04"),
+    "Rocco Forte Hotels": ("Hotel Manager", "Rome", "€70,000", "2026-08-28"),
+    "Mandarin Oriental": ("Director of Operations", "London",
+                          "Competitive", "2026-08-24"),
+    "Highgate": ("Area General Manager", "New York", "$120,000", "2026-08-20"),
+    "The Peninsula": ("Front Office Manager", "Paris", "", "2026-08-18"),
+    "Bob W": ("Head of Property", "Berlin", "", "2026-08-15"),
+    "Grosvenor": ("Development Manager", "London", "£80,000", "2026-08-02"),
+}
+
+
+def _posting(conn, company):
+    """Insert the posting behind a fixture opportunity, and return its row id.
+
+    Returns None for a company with no posting, so `create_opportunity` gets
+    job_id=None and the row renders with empty optional columns — which is a
+    real state and needs to look right too.
+    """
+    facts = FIXTURE_POSTINGS.get(company)
+    if facts is None:
+        return None
+    title, location, salary, posted = facts
+    cur = conn.execute(
+        """INSERT INTO jobs(provider, provider_job_id, title, company,
+                            locations_json, description_text, posted_at,
+                            salary, url)
+           VALUES(?,?,?,?,?,?,?,?,?)""",
+        ("theirstack", f"fixture-{company}", title, company,
+         json.dumps([location]), "", posted, salary,
+         f"https://example.invalid/jobs/{company.lower().replace(' ', '-')}"))
+    return cur.lastrowid
+
+
+def _opp(conn, company, **kw):
+    """create_opportunity, with the posting linked when there is one."""
+    return create_opportunity(conn, company, job_id=_posting(conn, company), **kw)
+
+
 def build_board():
     """The board, populated across every stage. Returns the window."""
 
@@ -43,16 +95,16 @@ def build_board():
     conn = db.connect(":memory:")
     db.migrate(conn)
 
-    a = create_opportunity(conn, "Round Hill Capital", stage=Stage.IDENTIFIED)
-    b = create_opportunity(conn, "Landmark Venues", stage=Stage.IDENTIFIED)
-    c = create_opportunity(conn, "Rocco Forte Hotels", stage=Stage.CONTACTED)
-    d = create_opportunity(conn, "Mandarin Oriental", stage=Stage.IN_DIALOGUE)
-    e = create_opportunity(conn, "Highgate", stage=Stage.PHONE_INTERVIEW)
-    f = create_opportunity(conn, "The Peninsula", stage=Stage.IN_PERSON_INTERVIEW)
-    g = create_opportunity(conn, "Bob W", stage=Stage.ON_HOLD)
-    h = create_opportunity(conn, "Grosvenor", stage=Stage.LOST)
-    i = create_opportunity(conn, "Marriott Feasibility", stage=Stage.WON)
-    poc = create_opportunity(conn, "Amir Mossanen (Truist)",
+    a = _opp(conn, "Round Hill Capital", stage=Stage.IDENTIFIED)
+    b = _opp(conn, "Landmark Venues", stage=Stage.IDENTIFIED)
+    c = _opp(conn, "Rocco Forte Hotels", stage=Stage.CONTACTED)
+    d = _opp(conn, "Mandarin Oriental", stage=Stage.IN_DIALOGUE)
+    e = _opp(conn, "Highgate", stage=Stage.PHONE_INTERVIEW)
+    f = _opp(conn, "The Peninsula", stage=Stage.IN_PERSON_INTERVIEW)
+    g = _opp(conn, "Bob W", stage=Stage.ON_HOLD)
+    h = _opp(conn, "Grosvenor", stage=Stage.LOST)
+    i = _opp(conn, "Marriott Feasibility", stage=Stage.WON)
+    poc = _opp(conn, "Amir Mossanen (Truist)",
                              stage=Stage.CONTACTED, category=JobCategory.MUTUAL_POC)
 
     record_outbound(conn, str(c), Channel.EMAIL, TUE)

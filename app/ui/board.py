@@ -21,10 +21,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
+from typing import Callable
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit,
+                               QMenu,
                                QPushButton,
                                QSizePolicy, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
@@ -102,9 +104,83 @@ class BoardRow:
     #: Set when a bounce means the STAGE is wrong, not the status.
     bounce_defect: str = ""
 
+    # --- posting facts, for the optional columns ---------------------------
+    # Empty is normal: an opportunity created by hand has no posting behind
+    # it. An empty cell is honest; a placeholder would not be.
+    job_title: str = ""
+    location: str = ""
+    salary: str = ""
+    job_url: str = ""
+    posted_at: date | None = None
+    created_at: date | None = None
+    #: The newest OUTBOUND touch. Evidence of what was sent, not a plan.
+    last_outbound_on: date | None = None
+
     @property
     def has_defect(self) -> bool:
         return bool(self.parity_defect or self.bounce_defect)
+
+
+
+def _next_step_text(row: "BoardRow") -> str:
+    """Due date and the channels it is due on, in one cell.
+
+    They belong together: a date with no channel does not say what to do, and
+    a channel with no date does not say when.
+    """
+    due = row.next_step_on.isoformat() if row.next_step_on else ""
+    if due and row.next_step_channels:
+        return f"{due} · {row.next_step_channels}"
+    return due
+
+
+
+def _date(value) -> str:
+    return value.isoformat() if value else ""
+
+
+@dataclass(frozen=True)
+class Column:
+    """One board column, declared rather than hand-wired.
+
+    Adding a column used to mean editing four places that had to agree — the
+    header labels, three setColumnWidth calls and the QTreeWidgetItem
+    constructor — and getting them out of step showed up as data under the
+    wrong heading, which reads as a data bug rather than a layout one. Now a
+    column is one entry here.
+    """
+    key: str
+    label_key: str
+    width: int
+    #: Shown unless the user says otherwise. The default set is the one that
+    #: answers "what do I do next", which is what the board is for; the rest
+    #: are reference and are off until asked for, because a tracker with
+    #: fourteen columns is read by nobody.
+    default_visible: bool
+    value: "Callable[[BoardRow], str]"
+
+
+COLUMNS: tuple[Column, ...] = (
+    Column("company", "board.col.company", 220, True, lambda r: r.company),
+    # The single biggest omission before this: an opportunity is keyed on the
+    # employer, so without this the board could not say which ROLE was being
+    # pursued — the thing a job search is actually about.
+    Column("role", "board.col.role", 220, True, lambda r: r.job_title),
+    Column("status", "board.col.status", 150, True, lambda r: r.status),
+    Column("last_out", "board.col.last_contact", 110, True,
+           lambda r: _date(r.last_outbound_on)),
+    Column("next_step", "board.col.next_step", 190, True, _next_step_text),
+    Column("open_task", "board.col.open_task", 200, True, lambda r: r.open_task),
+    Column("location", "board.col.location", 150, False, lambda r: r.location),
+    Column("salary", "board.col.salary", 140, False, lambda r: r.salary),
+    Column("posted", "board.col.posted", 110, False, lambda r: _date(r.posted_at)),
+    Column("first_tracked", "board.col.first_tracked", 110, False,
+           lambda r: _date(r.created_at)),
+    Column("url", "board.col.url", 240, False, lambda r: r.job_url),
+)
+
+#: Where the visible set is remembered, as comma-separated keys.
+COLUMN_SETTING = "board_visible_columns"
 
 
 class AuditBanner(QFrame):
@@ -155,6 +231,11 @@ class BoardWindow(QWidget):
     sent_recorded = Signal(str)           # opportunity_id — a message went out
     task_added = Signal(str, str)         # (opportunity_id, title)
     opportunity_selected = Signal(str)
+    #: The visible column set changed, as comma-separated keys. Emitted rather
+    #: than written here: the board renders, the adapter persists, and a widget
+    #: that opened its own database connection would be the exception that
+    #: makes the rule useless.
+    columns_changed = Signal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -170,13 +251,14 @@ class BoardWindow(QWidget):
 
         self.tree = QTreeWidget()
         self.tree.setObjectName("boardTree")
-        self.tree.setHeaderLabels([
-            tr("board.col.company"), tr("board.col.status"),
-            tr("board.col.next_step"), tr("board.col.open_task")])
-        self.tree.setColumnWidth(0, 260)
-        self.tree.setColumnWidth(1, 150)
-        self.tree.setColumnWidth(2, 190)
+        self._visible: list[str] = [c.key for c in COLUMNS if c.default_visible]
+        self._apply_columns()
         self.tree.header().setStretchLastSection(True)
+        # Right-click the header to choose columns. Qt's own convention, so it
+        # needs no button and no explaining, and it is where a user who wants
+        # more columns will look first.
+        self.tree.header().setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tree.header().customContextMenuRequested.connect(self._column_menu)
         # Alternating row colours OFF. With setFirstColumnSpanned group headers
         # they made a non-selected row paint as if selected — the widget state
         # said one row was selected while two were painted. The stylesheet's
@@ -245,7 +327,9 @@ class BoardWindow(QWidget):
         # including the closed ones, so nothing is audited out of view.
         for stage in sorted(by_stage, key=lambda s: s.value):
             group_rows = sorted(by_stage[stage], key=lambda r: r.company.casefold())
-            group = QTreeWidgetItem([f"{stage.label} ({len(group_rows)})", "", "", ""])
+            group = QTreeWidgetItem(
+                    [f"{stage.label} ({len(group_rows)})"]
+                    + [""] * (len(self._shown()) - 1))
             bold = QFont()
             bold.setBold(True)
             group.setFont(0, bold)
@@ -264,22 +348,83 @@ class BoardWindow(QWidget):
             self.tree.addTopLevelItem(group)
 
             for row in group_rows:
-                due = row.next_step_on.isoformat() if row.next_step_on else ""
-                if due and row.next_step_channels:
-                    due = f"{due} · {row.next_step_channels}"
-                item = QTreeWidgetItem([row.company, row.status, due,
-                                        row.open_task])
+                item = QTreeWidgetItem([col.value(row) for col in self._shown()])
                 item.setData(0, Qt.UserRole, row.opportunity_id)
-                if row.bounce_defect:
-                    item.setForeground(1, QColor(GOLD_DEEP))
-                    item.setToolTip(1, row.bounce_defect)
-                elif row.parity_defect:
-                    item.setForeground(1, QColor(GOLD_DEEP))
-                    item.setToolTip(1, row.parity_defect)
+                # The defect marker follows the STATUS column wherever the
+                # user has put it, and is simply not drawn if they have hidden
+                # it. Hard-coding column 1 painted the warning onto whatever
+                # happened to be second.
+                status_at = self._index_of("status")
+                if status_at is not None:
+                    defect = row.bounce_defect or row.parity_defect
+                    if defect:
+                        item.setForeground(status_at, QColor(GOLD_DEEP))
+                        item.setToolTip(status_at, defect)
                 if stage in CLOSED_STAGES:
                     item.setForeground(0, QColor("#8b9199"))
                 group.addChild(item)
             group.setExpanded(True)
+
+    # -- columns -----------------------------------------------------------
+    def _shown(self) -> list[Column]:
+        """Visible columns, in the catalogue's order.
+
+        Order comes from COLUMNS rather than from the saved list so that a
+        column added in a later release appears in its intended place instead
+        of being appended to whatever the user last saved.
+        """
+        return [c for c in COLUMNS if c.key in self._visible]
+
+    def _index_of(self, key: str) -> int | None:
+        for i, col in enumerate(self._shown()):
+            if col.key == key:
+                return i
+        return None
+
+    def _apply_columns(self) -> None:
+        shown = self._shown()
+        self.tree.setColumnCount(len(shown))
+        self.tree.setHeaderLabels([tr(c.label_key) for c in shown])
+        for i, col in enumerate(shown):
+            self.tree.setColumnWidth(i, col.width)
+
+    def set_visible_columns(self, keys) -> None:
+        """Apply a saved or chosen set, ignoring keys this build knows nothing
+        about and never ending up with nothing.
+
+        A saved set from a later version can name a column this build does not
+        have; silently dropping it is right. An empty result is not — it would
+        render a board with no columns and no way to get them back — so it
+        falls back to the defaults.
+        """
+        wanted = [k for k in keys if any(c.key == k for c in COLUMNS)]
+        self._visible = wanted or [c.key for c in COLUMNS if c.default_visible]
+        self._apply_columns()
+        self.set_rows(list(self._rows.values()))
+
+    def visible_columns(self) -> list[str]:
+        return list(self._visible)
+
+    def _column_menu(self, point) -> None:
+        menu = QMenu(self)
+        for col in COLUMNS:
+            action = menu.addAction(tr(col.label_key))
+            action.setCheckable(True)
+            action.setChecked(col.key in self._visible)
+            # The first column is what carries the row's identity and the
+            # click target, so it cannot be hidden.
+            if col.key == COLUMNS[0].key:
+                action.setEnabled(False)
+            action.toggled.connect(
+                lambda on, key=col.key: self._toggle_column(key, on))
+        menu.exec(self.tree.header().mapToGlobal(point))
+
+    def _toggle_column(self, key: str, on: bool) -> None:
+        keys = [c.key for c in COLUMNS
+                if (c.key in self._visible or c.key == key) and
+                not (c.key == key and not on)]
+        self.set_visible_columns(keys)
+        self.columns_changed.emit(",".join(self._visible))
 
     # -- interaction -------------------------------------------------------
     def _current(self) -> BoardRow | None:

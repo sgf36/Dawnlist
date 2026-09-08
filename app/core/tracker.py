@@ -143,6 +143,27 @@ class Opportunity:
     email_bounced: bool = False
     closed_at: date | None = None
 
+    # --- the posting this opportunity came from -----------------------------
+    # An opportunity is keyed on the EMPLOYER (one live opportunity per
+    # company, spec 9.5), but a job search is about roles, and a tracker that
+    # cannot show which role is being pursued is missing the thing the user
+    # came for. These are read from the linked `jobs` row via `job_id`; they
+    # are display facts, never inputs to the screen or the assessment.
+    #
+    # All optional: an opportunity can be created by hand with no posting
+    # behind it, and an empty column is honest where an invented one is not.
+    job_title: str = ""
+    job_url: str = ""
+    salary: str = ""
+    location: str = ""
+    posted_at: date | None = None
+
+    #: When this employer was first tracked, and when something last went OUT.
+    #: `last_outbound_on` is evidence, not a plan: it is the newest outbound
+    #: touch actually recorded, which is what the cadence is computed from.
+    created_at: date | None = None
+    last_outbound_on: date | None = None
+
     @property
     def is_opportunity(self) -> bool:
         return True          # carrying a Stage is what makes it one

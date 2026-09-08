@@ -18,19 +18,20 @@
     "Keys here are NOT part of the catalogue and are never shown to a user.",
     "The leading underscore keeps this note out of the notes themselves."
   ],
-
   "board.mark_sent": "A button. Records that the user sent an outbound message of ANY kind - a first approach, a follow-up, or a posted letter. Do NOT narrow it to a job application: it is used for every rung of the follow-up sequence.",
-
   "rules.unsupported": "A column heading over a list of job-title words that rule a posting out. The user's own voice, addressed to the app.",
   "rules.strong": "A column heading over a list of words that guarantee a posting is read. Pairs with 'Never show me' as its opposite.",
   "rules.contextual": "A column heading. 'the title' means the job title of a posting, not the title of a document or a person's honorific.",
-
   "detail.near_duplicate": "Introduces another job posting that looks like the same vacancy. Followed by a job title and a company name. 'Posted' here means published as a job advert, not sent by post.",
-
   "settings.key_forget": "A button that deletes the stored API key from the operating system's credential manager. Not 'forget' in the sense of a person forgetting.",
-
   "funnel.swept": "A count of job postings fetched from the job-data provider this morning. 'Swept' as in gathered up, not as in cleaned.",
   "funnel.gated": "A count of postings excluded before any reading, because the user had already permanently rejected them.",
-
-  "tab.needs_review": "A tab holding postings the screen killed on a term that matched INSIDE a longer job title - so the kill may be wrong and wants a human look."
+  "tab.needs_review": "A tab holding postings the screen killed on a term that matched INSIDE a longer job title - so the kill may be wrong and wants a human look.",
+  "board.col.role": "A column heading in a job-search tracker. The JOB or POSITION being pursued at that employer (for example 'General Manager'). Not a role in a play, not a permission or access role, not a function within a team.",
+  "board.col.posted": "A column heading over a DATE. The date the job advertisement was PUBLISHED by the employer. Nothing to do with posting a letter or with postal mail. If the language distinguishes 'published' from 'sent', use 'published'.",
+  "board.col.last_contact": "A column heading over a DATE. When the user last sent something OUT to that employer - an email or a letter they sent themselves. It is a date, not the name of a person, and not the most recent incoming reply.",
+  "board.col.first_tracked": "A column heading over a DATE. When this employer was first added to the user's tracker. Not when the job was posted, and not when the user first made contact.",
+  "board.col.url": "A column heading. A web link to the original job advertisement. 'Posting' here means the advertisement, not postal mail.",
+  "board.col.location": "A column heading. Where the JOB is based - a city or region. Not the user's own location and not the employer's head office.",
+  "board.col.salary": "A column heading. The pay stated in the job advertisement, as free text (it may be a range, or blank when the advert says nothing)."
 }

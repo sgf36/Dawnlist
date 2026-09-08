@@ -9,7 +9,7 @@ from app.core.board_repo import (add_task, audit_board, load_board,
                                  record_outbound, repair_mirror, set_stage)
 from app.core.cadence import Channel
 from app.core.tracker import Stage, open_children
-from app.ui.board import BoardRow
+from app.ui.board import COLUMN_SETTING, BoardRow
 
 
 def board_rows(conn: sqlite3.Connection, *,
@@ -36,8 +36,37 @@ def board_rows(conn: sqlite3.Connection, *,
             open_task=live[0].title if live else "",
             parity_defect=parity.get(opp.id, ""),
             bounce_defect=bounces.get(opp.id, ""),
+            job_title=opp.job_title,
+            location=opp.location,
+            salary=opp.salary,
+            job_url=opp.job_url,
+            posted_at=opp.posted_at,
+            created_at=opp.created_at,
+            last_outbound_on=opp.last_outbound_on,
         ))
     return rows, findings
+
+
+def load_visible_columns(conn: sqlite3.Connection) -> list[str] | None:
+    """The user's saved column set, or None to use the defaults.
+
+    None and an empty list are different answers: None means "never chosen",
+    empty would mean "chose nothing", and only the first should silently take
+    the defaults.
+    """
+    row = conn.execute("SELECT value FROM settings WHERE key=?",
+                       (COLUMN_SETTING,)).fetchone()
+    if row is None or not row[0]:
+        return None
+    return [k for k in row[0].split(",") if k]
+
+
+def save_visible_columns(conn: sqlite3.Connection, keys: str) -> None:
+    conn.execute(
+        "INSERT INTO settings(key, value) VALUES(?,?) "
+        "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        (COLUMN_SETTING, keys))
+    conn.commit()
 
 
 def connect_board(window, conn: sqlite3.Connection) -> None:
@@ -53,6 +82,12 @@ def connect_board(window, conn: sqlite3.Connection) -> None:
         lambda oid: set_stage(conn, oid, Stage.IDENTIFIED))
     window.sent_recorded.connect(lambda oid: record_sent(conn, oid))
     window.task_added.connect(lambda oid, title: add_task(conn, oid, title))
+    # Restore the saved column set BEFORE wiring the save, or applying it
+    # would immediately write back what was just read.
+    saved = load_visible_columns(conn)
+    if saved is not None:
+        window.set_visible_columns(saved)
+    window.columns_changed.connect(lambda keys: save_visible_columns(conn, keys))
 
 
 def record_sent(conn: sqlite3.Connection, opportunity_id: str,
