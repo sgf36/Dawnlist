@@ -38,7 +38,7 @@
 import { newLicenceKey } from './paddle.js';
 import { handlePaddleWebhook } from './paddle.js';
 import { handleAdmin, handleRedeem } from './codes.js';
-import { PLANS, FALLBACK_PLAN } from './plans.js';
+import { PLANS, FALLBACK_PLAN, sellablePlans } from './plans.js';
 
 const SEARCH_TTL_SECONDS = 6 * 60 * 60;   // 6h on search results
 const DETAIL_TTL_SECONDS = 7 * 24 * 60 * 60;
@@ -411,7 +411,11 @@ async function handlePlan(request, env) {
       postings: Math.max(0, maxPostings - used.postings),
       refreshes: Math.max(0, maxRefresh - used.refreshes),
     },
-    plans: Object.values(PLANS).map((pl) => ({
+    // SELLABLE plans only. This list is rendered as an upgrade ladder, and it
+    // used to be every plan — so a customer could be offered `trial`, and
+    // adding the developer's own `owner` plan would have advertised an
+    // allowance nobody can buy.
+    plans: sellablePlans().map((pl) => ({
       key: pl.key,
       postings_per_day: pl.maxPostingsPerDay,
       refreshes_per_day: pl.maxRefreshesPerDay,

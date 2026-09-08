@@ -33,9 +33,16 @@
 /**
  * `key` is what goes in `licences.plan` and what the app displays.
  *
- * `maxPostingsPerDay` is the whole product difference between these two. The
- * refresh and saved-query numbers are anti-abuse limits, not the thing being
- * sold, and they move together.
+ * `maxPostingsPerDay` is the whole product difference between the two SOLD
+ * plans. The refresh and saved-query numbers are anti-abuse limits, not the
+ * thing being sold, and they move together.
+ *
+ * `sellable` decides whether a plan appears in the ladder `/v1/plan` returns —
+ * which is what the app renders as "the Global plan covers 2,500 a day". A
+ * plan nobody can buy must never appear there: offering someone an upgrade to
+ * `trial`, or to the developer's own allowance, is at best confusing and at
+ * worst a support ticket about a plan that does not exist. Absent means false,
+ * so a new internal plan is excluded by default rather than by remembering.
  */
 export const PLANS = {
   /**
@@ -47,6 +54,7 @@ export const PLANS = {
    */
   standard: {
     key: 'standard',
+    sellable: true,
     maxPostingsPerDay: 700,
     maxRefreshesPerDay: 3,
     maxSavedQueries: 10,
@@ -69,6 +77,7 @@ export const PLANS = {
    */
   global: {
     key: 'global',
+    sellable: true,
     maxPostingsPerDay: 2500,
     maxRefreshesPerDay: 6,
     maxSavedQueries: 30,
@@ -88,7 +97,52 @@ export const PLANS = {
     maxRefreshesPerDay: 2,
     maxSavedQueries: 3,
   },
+
+  /**
+   * The developer's own licence. NOT SOLD, and not an upgrade anyone is
+   * offered.
+   *
+   * Spencer must be able to run the shipped application on his own machines
+   * without buying it. Every route to that is worse than this one: a build
+   * flag would have to be kept out of every released package and would fail
+   * open the day someone forgot; a hardcoded key in the client is a key that
+   * ships to everyone; and paying for your own software to satisfy a gate you
+   * wrote is absurd. A licence row with a distinct plan name is auditable —
+   * `SELECT * FROM licences WHERE plan = 'owner'` answers "who is not paying,
+   * and why" in one query — and it is revocable like any other.
+   *
+   * WHY IT IS CAPPED AT ALL, given he is the one being restricted.
+   * The cap is not there to restrain him; it is there to bound a mistake. A
+   * loop that re-fetches without `excludeJobIds`, or a test left running
+   * overnight, spends REAL feed credits against his own subscription. 2,000 a
+   * day is about four comprehensive single-region days, which is ample for
+   * dogfooding and testing, and it turns "an accident cost the month's
+   * allowance" into "an accident cost a day of it". Uncapped would have made
+   * the owner licence the only unbounded spender in the system.
+   *
+   * Raising it needs no deploy — the caps live in D1 columns on the licence
+   * row, so it is an UPDATE.
+   */
+  owner: {
+    key: 'owner',
+    maxPostingsPerDay: 2000,
+    maxRefreshesPerDay: 24,
+    maxSavedQueries: 100,
+  },
 };
+
+/**
+ * The plans a customer may actually buy, smallest first.
+ *
+ * This is what the app renders as an upgrade ladder. `trial` and `owner` are
+ * absent deliberately: neither can be bought, and an upgrade prompt naming
+ * one is a support ticket.
+ */
+export function sellablePlans() {
+  return Object.values(PLANS)
+    .filter((p) => p.sellable)
+    .sort((a, b) => a.maxPostingsPerDay - b.maxPostingsPerDay);
+}
 
 /** What an unrecognised or absent plan falls back to. */
 export const FALLBACK_PLAN = 'standard';

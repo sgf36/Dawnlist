@@ -11,7 +11,7 @@
  */
 import assert from 'node:assert';
 import { handlePaddleWebhook } from '../src/paddle.js';
-import { PLANS, capsFor, planForEvent, planForPriceId } from '../src/plans.js';
+import { PLANS, capsFor, planForEvent, planForPriceId, sellablePlans } from '../src/plans.js';
 
 const SECRET = 'pdl_ntfset_01test_secretvalue_for_local_checks_only';
 let passed = 0, failed = 0;
@@ -99,6 +99,42 @@ function subEvent(type, priceId, id = 'sub_1', eventId = `evt_${Math.random()}`)
     data: { id, items: priceId ? [{ price: { id: priceId, billing_cycle: { interval: 'month' } } }] : [] },
   };
 }
+
+// ---------------------------------------------------------------------------
+// The ladder the app renders as "upgrade to ...". A plan nobody can buy must
+// never appear in it.
+// ---------------------------------------------------------------------------
+
+await test('the upgrade ladder offers only plans a customer can buy', () => {
+  const keys = sellablePlans().map((p) => p.key);
+  assert.deepEqual(keys, ['standard', 'global'],
+    'the ladder is the two sold plans, smallest ceiling first');
+});
+
+await test('trial is never offered as an upgrade', () => {
+  assert.ok(!sellablePlans().some((p) => p.key === 'trial'),
+    'a trial is granted by code, not bought; offering it is a support ticket');
+});
+
+await test('the owner plan exists, is capped, and is not for sale', () => {
+  // Spencer must be able to run the shipped app on his own machines without
+  // buying it. The cap is not a restriction on him — it bounds a runaway loop
+  // spending real feed credits against his own subscription.
+  assert.ok(PLANS.owner, 'the developer needs a licence that is not a purchase');
+  assert.ok(!sellablePlans().some((p) => p.key === 'owner'),
+    'advertising the developer allowance would offer a plan nobody can buy');
+  assert.ok(PLANS.owner.maxPostingsPerDay > PLANS.standard.maxPostingsPerDay,
+    'dogfooding must not be tighter than the plan being sold');
+  assert.ok(Number.isInteger(PLANS.owner.maxPostingsPerDay)
+    && PLANS.owner.maxPostingsPerDay > 0,
+    'uncapped would make the owner licence the only unbounded spender');
+});
+
+await test('capsFor writes the owner caps, not the standard fallback', () => {
+  const caps = capsFor('owner');
+  assert.equal(caps.plan, 'owner');
+  assert.equal(caps.max_postings_per_day, PLANS.owner.maxPostingsPerDay);
+});
 
 console.log('price id mapping');
 
