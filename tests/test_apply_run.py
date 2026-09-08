@@ -210,3 +210,26 @@ def test_a_letter_alone_does_not_need_the_cv():
                                send=send, want_cv=False)
     assert pack.letter is not None
     assert len(seen) == 1
+
+
+def test_the_summary_reports_the_brief_when_one_was_asked_for():
+    """It was omitted entirely, and on the first live run the brief produced
+    no file and said nothing: a request was made, tokens were spent, and the
+    only evidence was a folder with one fewer file than expected."""
+    send, _ = recorder("## Where you are exposed\n\nRevenue management.")
+    pack = prepare_application(JOB, factsheet=FACTSHEET, cv_text=CV,
+                               send=send, want_brief=True)
+    assert "interview brief: ready" in summarise(pack)
+
+
+def test_a_brief_that_came_back_empty_is_named_not_omitted():
+    send, _ = recorder("   ")
+    pack = prepare_application(JOB, factsheet=FACTSHEET, cv_text=CV,
+                               send=send, want_brief=True)
+    assert "EMPTY" in summarise(pack)
+
+
+def test_no_brief_asked_for_means_no_line_about_one():
+    send, _ = recorder()
+    pack = prepare_application(JOB, factsheet=FACTSHEET, cv_text=CV, send=send)
+    assert "interview brief" not in summarise(pack)

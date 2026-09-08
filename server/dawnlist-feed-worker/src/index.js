@@ -455,7 +455,7 @@ export default {
         return await handleAdmin(request, env);
       }
       if (url.pathname === '/paddle/webhook' && request.method === 'POST') {
-        return await handlePaddleWebhook(request, env);
+        return await handlePaddleWebhook(request, env, ctx);
       }
       if (url.pathname === '/health') {
         return await handleHealth(env);

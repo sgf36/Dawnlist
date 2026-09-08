@@ -19,6 +19,7 @@
  *      destination — the most convincingly named one may be dead.
  */
 import { planForEvent, capsFor } from './plans.js';
+import { customerDetails, licenceEmail, sendEmail } from './email.js';
 
 const SIGNATURE_TOLERANCE_SECONDS = 5 * 60;
 
@@ -113,7 +114,7 @@ function tierFor(event) {
   return 'managed';
 }
 
-export async function handlePaddleWebhook(request, env) {
+export async function handlePaddleWebhook(request, env, ctx) {
   const raw = await request.text();
   const check = await verifySignature(
     raw, request.headers.get('Paddle-Signature'), env.PADDLE_WEBHOOK_SECRET
@@ -187,7 +188,41 @@ export async function handlePaddleWebhook(request, env) {
                      { plan: caps.plan, subscription: subscriptionId ? 'yes' : 'no' });
       }
       // The key is NOT returned in the response: the webhook response goes to
-      // Paddle, not to the customer. Delivery is a separate, deliberate step.
+      // Paddle, not to the customer. Delivery is the separate step below.
+      //
+      // It runs AFTER the licence is committed and OUTSIDE the response, via
+      // waitUntil. Two reasons, and both are about what a retry would cost:
+      // Paddle retries any non-2xx, so a slow or failing Resend call must not
+      // turn a successful issue into a redelivery — and a redelivery that got
+      // past the idempotency table would issue a second subscription for one
+      // payment. A customer who does not receive the email can be sent it
+      // again; a customer charged twice cannot be un-charged so easily.
+      const deliver = (async () => {
+        const who = await customerDetails(env, event);
+        if (!who.email) {
+          // Logged loudly and by cause. This is the failure that strands a
+          // paying customer, and the only trace left will be this line.
+          console.error('paddle: licence issued but NOT delivered — no email',
+                        { source: who.source, subscription: subscriptionId ? 'yes' : 'no' });
+          return;
+        }
+        const mail = licenceEmail({
+          licenceKey: key,
+          postingsPerDay: caps.max_postings_per_day,
+          lang: who.lang,
+        });
+        const sent = await sendEmail(env, { to: who.email, ...mail });
+        if (!sent.ok) {
+          console.error('paddle: licence issued but email failed',
+                        { error: sent.error, status: sent.status, lang: who.lang });
+        } else {
+          // Counts and ids only, never the address.
+          console.log('paddle: licence delivered', { id: sent.id, lang: who.lang });
+        }
+      })();
+      if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(deliver);
+      else await deliver;
+
       result = { ok: true, action: 'issued' };
     }
   } else if (REVOKING.has(type)) {

@@ -161,5 +161,16 @@ def summarise(pack: ApplicationPack) -> str:
             doc.placeholders)
         lines.append(f"{doc.kind}: {state}")
 
+    # The brief was omitted from this summary entirely, and on the first live
+    # run it produced no file and said nothing — a request was made, tokens
+    # were spent, and the only evidence was a folder with one fewer file than
+    # expected. Anything ASKED FOR must appear here, including when it did not
+    # arrive: a silent absence is the failure this whole module is written
+    # against.
+    if pack.brief is not None:
+        lines.append("interview brief: "
+                     + ("ready" if not pack.brief.is_empty else
+                        "EMPTY — the request returned nothing usable"))
+
     lines.extend(pack.errors)
     return "\n".join(lines)
