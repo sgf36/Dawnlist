@@ -3,3 +3,14 @@ anthropic>=0.40.0
 keyring>=24.0.0
 platformdirs>=4.0.0
 openpyxl>=3.1.0
+
+# CV reading. These were MISSING until 2026-09-08 and nothing noticed, because
+# the development machine had both installed by hand. A clean install from this
+# file produced an app that could not read a PDF or a Word CV — which is the
+# first thing onboarding asks for — and `--doctor` would have reported
+# "PDF reading: unavailable" to a user who had done nothing wrong.
+#
+# Found by the first CI run on a clean runner, which is exactly the class of
+# defect a second machine exists to catch.
+pypdf>=4.0.0
+python-docx>=1.1.0
