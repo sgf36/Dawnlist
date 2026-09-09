@@ -33,13 +33,18 @@ def _require_icon(path):
             f"and shipped that way. See the docstring for how to regenerate it.")
     return path
 
+from app.version import marketing_version  # noqa: E402
+
 # --------------------------------------------------------------------------
 # Version. The marketing version is read from the app so there is one source
 # of truth; the build number is separate because App Store Connect refuses an
 # upload whose build number it has already seen, even for an identical
 # marketing version.
 # --------------------------------------------------------------------------
-VERSION = os.environ.get("DAWNLIST_VERSION", "1.1.0")
+# One source, in the app, so the spec, the direct builder and the MSIX
+# manifest cannot disagree. They did: all three were moved to 1.1.0 and the
+# manifest was left at 1.0.2.0, which is the version already on the Store.
+VERSION = marketing_version()
 BUILD_NUMBER = os.environ.get("DAWNLIST_BUILD", "1")
 
 # --------------------------------------------------------------------------

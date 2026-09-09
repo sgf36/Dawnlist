@@ -45,6 +45,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 from app.i18n import LOCALE_CODES  # noqa: E402
 from app.core.build_variant import FLAGS as VARIANT_FLAGS  # noqa: E402
+from app.version import msix_version  # noqa: E402
 
 dist_dir = project_root / "dist"
 pyinstaller_output = dist_dir / "Dawnlist"
@@ -180,6 +181,40 @@ def verify_bundle() -> None:
              f"and rebuild.")
 
 
+def stamp_version(manifest: Path) -> None:
+    """Write the app's version into the staged manifest, and prove it landed.
+
+    The manifest is XML, so nothing pointed at it when the version moved: on
+    2026-09-09 the app, the spec and the direct builder all went to 1.1.0 and
+    this file stayed at 1.0.2.0 — the version ALREADY PUBLISHED. Partner
+    Center refuses a package whose version is not higher than the live one, so
+    the package fixing a release-blocking defect would have been rejected at
+    upload, days after the defect went live.
+
+    Rewritten at package time rather than trusted, and then READ BACK: a
+    regex that matches nothing is silent, and silence here looks exactly like
+    success.
+    """
+    import re
+
+    wanted = msix_version()
+    text = manifest.read_text(encoding="utf-8")
+    stamped, count = re.subn(r'(<Identity[^>]*?Version=")[^"]*(")',
+                             rf'\g<1>{wanted}\g<2>', text, count=1,
+                             flags=re.DOTALL)
+    if count != 1:
+        sys.exit("could not find the Identity Version in AppxManifest.xml — "
+                 "refusing to ship a package whose version was not set.")
+    manifest.write_text(stamped, encoding="utf-8")
+
+    found = re.search(r'<Identity[^>]*?Version="([^"]*)"', stamped,
+                      flags=re.DOTALL)
+    if not found or found.group(1) != wanted:
+        sys.exit(f"manifest version is {found and found.group(1)!r}, wanted "
+                 f"{wanted!r}")
+    print(f"  package version: {wanted}")
+
+
 def main() -> int:
     makeappx = find_makeappx()
     print(f"makeappx: {makeappx}")
@@ -194,6 +229,7 @@ def main() -> int:
     print("staging...")
     shutil.copytree(pyinstaller_output, staging_dir, dirs_exist_ok=True)
     shutil.copy2(manifest_src, staging_dir / "AppxManifest.xml")
+    stamp_version(staging_dir / "AppxManifest.xml")
     build_assets(staging_dir / "Assets")
 
     output_msix.parent.mkdir(parents=True, exist_ok=True)
