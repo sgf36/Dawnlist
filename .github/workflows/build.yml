@@ -292,6 +292,11 @@ jobs:
   # free while the repository is public and would quietly dominate the allowance
   # if it ever went private again, so it never runs on push.
   #
+  # 2560x1600 RATHER THAN 1440x900, and not merely for resolution. At 1440x900
+  # the shortlist's "Why" column truncates — "Named target employer; travel and
+  # lei..." — and those reasons are the entire point of that screenshot. The
+  # larger size gives the table room as well as being the Retina variant.
+  #
   # --size IS THE OUTPUT SIZE, not the logical one. Apple accepts ONLY 1280x800,
   # 1440x900, 2560x1600 and 2880x1800, exactly; render_store.py divides by the
   # runner's real device pixel ratio so the file lands on the requested pixels
@@ -320,12 +325,12 @@ jobs:
           set -euo pipefail
           for loc in en de es fr hi ja zh; do
             python tools/render_store.py --locale "$loc" \
-              --size 1440x900 --out dist/mac-screenshots
+              --size 2560x1600 --out dist/mac-screenshots
           done
 
       # Apple rejects a set whose members are not all the declared size, and a
       # wrong size is invisible until upload. Fail here instead.
-      - name: Every image must be exactly 1440x900
+      - name: Every image must be exactly 2560x1600
         run: |
           python - <<'PY'
           import pathlib, sys
@@ -333,7 +338,7 @@ jobs:
           bad = []
           shots = sorted(pathlib.Path("dist/mac-screenshots").rglob("*.png"))
           for p in shots:
-              if Image.open(p).size != (1440, 900):
+              if Image.open(p).size != (2560, 1600):
                   bad.append(f"{p} is {Image.open(p).size}")
           print(f"{len(shots)} image(s) checked")
           if bad:

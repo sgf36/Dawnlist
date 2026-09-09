@@ -35,8 +35,15 @@ def test_importing_never_raises_off_macos():
     assert mac_storekit.PRODUCT_ID == "com.spencerfields.dawnlist.monthly"
 
 
+@pytest.mark.skipif(sys.platform == "darwin",
+                    reason="describes the NON-Mac case; on a Mac, availability "
+                           "depends on PyObjC and the build variant, which the "
+                           "variant tests below cover properly")
 def test_available_is_false_off_macos():
-    assert sys.platform != "darwin", "this test describes the non-Mac case"
+    # This asserted `sys.platform != "darwin"` as a way of documenting its own
+    # scope, which made it FAIL on the macOS CI runner rather than skip — the
+    # first thing the new Mac leg did was go red on a test that was never
+    # meant to run there. A precondition is a skip, not an assertion.
     assert mac_storekit.available() is False
 
 
