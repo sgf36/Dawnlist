@@ -529,6 +529,8 @@ class ReviewWindow(QMainWindow):
 
 def main(rows: list[ReviewRow] | None = None, counts: dict | None = None) -> int:
     app = QApplication.instance() or QApplication([])
+    from app.ui.branding import apply_icon
+    apply_icon(app)
     w = ReviewWindow()
     w.load(rows or [], counts or {})
     w.show()

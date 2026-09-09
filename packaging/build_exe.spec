@@ -16,6 +16,23 @@ block_cipher = None
 project_root = Path(SPECPATH).parent
 icons_dir = project_root / "packaging" / "icons"
 
+
+def _require_icon(path):
+    """The icon, or stop the build. Never a silent fallback.
+
+    Regenerate a missing .ico from the 1024 master:
+
+        python -c "from PIL import Image; \\
+            i=Image.open('packaging/icons/dawnlist-1024.png').convert('RGBA'); \\
+            i.save('packaging/icons/dawnlist.ico', sizes=[(16,16),(32,32),(48,48),(256,256)])"
+    """
+    if not path.exists():
+        raise SystemExit(
+            f"missing {path.name}. Refusing to build an unbranded executable — "
+            f"this used to fall back to PyInstaller's default icon silently, "
+            f"and shipped that way. See the docstring for how to regenerate it.")
+    return path
+
 # --------------------------------------------------------------------------
 # Version. The marketing version is read from the app so there is one source
 # of truth; the build number is separate because App Store Connect refuses an
@@ -41,6 +58,11 @@ BUILD_NUMBER = os.environ.get("DAWNLIST_BUILD", "1")
 # --------------------------------------------------------------------------
 datas = [
     (str(project_root / "app" / "resources" / "locales"), "app/resources/locales"),
+    # THE WINDOW ICON, which is not the same thing as the EXE icon set further
+    # down and is not supplied by it. Without this inside the bundle every
+    # window shows Qt's default placeholder — which the app did until
+    # 2026-09-09, visible in the title bar of every screenshot anyone took.
+    (str(project_root / "app" / "resources" / "icon.png"), "app/resources"),
 ]
 
 # Build-variant flags, listed individually and conditionally. Copying the whole
@@ -147,7 +169,16 @@ exe = EXE(
     upx=False,               # UPX compression is itself an AV heuristic signal
     console=False,           # GUI app: no console window
     disable_windowed_traceback=False,
-    icon=str(icons_dir / "dawnlist.ico") if (icons_dir / "dawnlist.ico").exists() else None,
+    # NOT conditional any more, and that is the fix rather than a tidy-up.
+    #
+    # This read `... if (icons_dir / "dawnlist.ico").exists() else None`, the
+    # .ico had never been generated, and so every Windows build silently
+    # shipped PyInstaller's default icon. Nothing failed, nothing warned, and
+    # the build log still said "Copying icon to EXE" — it was copying the
+    # default one. A conditional that falls back to the WRONG ARTEFACT is worse
+    # than a missing file, because the missing file would have stopped the
+    # build and this shipped instead.
+    icon=str(_require_icon(icons_dir / "dawnlist.ico")),
     manifest=str(gui_manifest) if gui_manifest.exists() else None,
 )
 

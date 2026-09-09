@@ -1255,6 +1255,8 @@ def main(argv: list[str] | None = None) -> int:
         # state this is most needed in is the one where nothing else starts.
         from PySide6.QtWidgets import QApplication
         app = QApplication.instance() or QApplication(sys.argv)
+        from app.ui.branding import apply_icon
+        apply_icon(app)
         # Bound, and it looks unused: this local is the ONLY reference to the
         # window, and letting it go collects the widget before exec() runs.
         window = open_settings(conn=conn)  # noqa: F841
@@ -1264,6 +1266,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.onboard:
         from PySide6.QtWidgets import QApplication
         app = QApplication.instance() or QApplication(sys.argv)
+        from app.ui.branding import apply_icon
+        apply_icon(app)
         return _launch_onboarding(app, conn)
 
     return _launch_ui(conn, open_board=args.board)
@@ -1586,6 +1590,8 @@ def _launch_ui(conn, *, open_board: bool) -> int:
     from app.ui.review import ReviewWindow
 
     app = QApplication.instance() or QApplication(sys.argv)
+    from app.ui.branding import apply_icon
+    apply_icon(app)
 
     if not is_calibrated(conn) and not open_board:
         return _launch_onboarding(app, conn)
