@@ -124,10 +124,21 @@ def main() -> int:
         sys.exit("no DesktopScreenshot URLs in en-us — import the English "
                  "screenshots first, then re-export. A listing needs one.")
 
+    # ENGLISH IS INCLUDED, AND ONLY ITS EMPTY CELLS ARE FILLED.
+    #
+    # It used to be skipped outright, on the reasoning that the export already
+    # carries en-us. That held while the only fields written were Description,
+    # Title and the Features, all of which the export did carry. It stopped
+    # holding the moment four fields were added that the export had EMPTY in
+    # every language including English — so the primary listing, the one most
+    # customers read, was the only one that got none of them.
+    #
+    # Filling only the blanks is the other half. Re-writing a non-empty en-us
+    # cell would silently revert anything edited in Partner Center since the
+    # export was taken, which is how a deploy from the wrong source quietly
+    # undoes somebody's work.
     locales = []
     for p in sorted(LISTING.glob("*.json")):
-        if p.stem == "en":
-            continue
         if p.stem in NO_STORE_LISTING:
             continue
         locales.append(p.stem)
@@ -155,6 +166,9 @@ def main() -> int:
         for loc in locales:
             col = index[store_code(loc)]
             d = data[loc]
+            # English: fill the gaps, never overwrite what is already there.
+            if loc == "en" and r[col].strip():
+                continue
             if field == "Description":
                 r[col] = d["description"]
             elif field == "ShortDescription":
