@@ -19,3 +19,30 @@ python-docx>=1.1.0
 # the six tile sizes AppxManifest.xml references). Undeclared until 2026-09-08,
 # so the Windows CI job would have failed at "Build the MSIX" on a clean runner.
 Pillow>=10.0.0
+
+# StoreKit, and THE ONLY WAY A MAC APP STORE BUILD CAN TAKE A PAYMENT.
+#
+# `app/core/mac_storekit.py` imports StoreKit and Foundation through PyObjC,
+# and degrades to `available() == False` when the import fails — deliberately,
+# so a Windows or source run is a harmless no-op. Nothing declared PyObjC, so
+# the import ALWAYS failed, including in the Mac App Store package: every MAS
+# build ever made shipped with the Subscribe button permanently disabled and
+# "not available right now" underneath it.
+#
+# `build_exe.spec` had already listed StoreKit, Foundation, CoreFoundation and
+# objc as hidden imports. The 2026-09-09 build log shows what that produced
+# without the dependency:
+#
+#     ERROR: Hidden import 'CoreFoundation' not found
+#     ERROR: Hidden import 'objc' not found
+#
+# — two lines in a log nobody reads, on a build that then succeeded, signed,
+# uploaded and reached TestFlight. `packaging/build_macos.py` now REFUSES a
+# mas build whose bundle cannot import StoreKit, because a warning here is
+# indistinguishable from success.
+#
+# Markers, not a separate file: a Windows install must not pull these, and a
+# second requirements file is a second thing to forget.
+pyobjc-core>=10.0 ; sys_platform == "darwin"
+pyobjc-framework-Cocoa>=10.0 ; sys_platform == "darwin"
+pyobjc-framework-StoreKit>=10.0 ; sys_platform == "darwin"

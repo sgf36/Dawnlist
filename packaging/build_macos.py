@@ -72,6 +72,35 @@ ENTITLEMENTS = {
 #: VARIANT_FLAGS, so this cannot drift from what the app reads.
 
 
+def require_storekit(app) -> None:
+    """A mas build that cannot take a payment must not be built.
+
+    THE FAILURE THIS REPLACES A LOG LINE WITH. PyObjC was never a declared
+    dependency, so `import StoreKit` failed on every Mac build ever made. The
+    only trace was two ERROR lines inside PyInstaller's own output —
+
+        ERROR: Hidden import 'CoreFoundation' not found
+        ERROR: Hidden import 'objc' not found
+
+    — after which the build succeeded, was signed, was uploaded, passed
+    processing and reached TestFlight. The app ran. It simply could not sell
+    anything: `mac_storekit.available()` returned False, the Subscribe button
+    stayed disabled, and the screen said "not available right now", which
+    reads as an App Store hiccup rather than a missing library.
+
+    So this reads the BUNDLE, not the build machine. A developer with PyObjC
+    installed and a spec that failed to collect it is exactly the state that
+    produced the shipped package.
+    """
+    hits = list(app.rglob("StoreKit*")) + list(app.rglob("objc/__init__.py*"))
+    if not hits:
+        fail(
+            f"no StoreKit in {app.name} — this build cannot take a payment. "
+            f"PyObjC is missing: `pip install -r requirements.txt` on macOS "
+            f"installs it. A MAS build without it signs, uploads and runs, "
+            f"and every Subscribe button in it is dead.")
+
+
 def fail(message: str) -> None:
     print(f"error: {message}", file=sys.stderr)
     raise SystemExit(1)
@@ -350,6 +379,9 @@ def main() -> int:
 
     print("verifying the PyInstaller output...")
     verify_bundle(app_path, args.variant)
+    if args.variant == "mas":
+        # A Mac App Store build that cannot take a payment is not a build.
+        require_storekit(app_path)
     check_plist(app_path)
 
     if args.verify_only:

@@ -902,12 +902,32 @@ class SubscribePanel(QWidget):
         product its storefront does not know yet, which is also what a
         brand-new subscription looks like while it propagates. "Not available
         right now" is true in both cases; "something went wrong" is not.
+
+        OFF THE UI THREAD, and that stopped being optional the moment this
+        panel moved into the setup wizard. `price()` is a StoreKit product
+        request — a network round trip to Apple — and it used to run only when
+        somebody opened Settings, where a pause is survivable. The wizard
+        builds this panel at launch, so on a Mac the same call would have held
+        the very first screen of the app before it painted.
         """
-        shown = self._sk.price() if self._sk.available() else None
+        self.buy.setEnabled(False)
+        self.restore.setEnabled(False)
+        sk = self._sk
+        self._price_task = run_in_background(
+            lambda: (sk.available(), sk.price() if sk.available() else None,
+                     sk.can_make_payments()),
+            on_done=self._show_availability,
+            # Apple being unreachable is "not available right now", which the
+            # method above already says is the honest reading. It is not an
+            # error to put in front of somebody mid-setup.
+            on_error=lambda _exc: self._show_availability((False, None, False)))
+
+    def _show_availability(self, state) -> None:
+        available, shown, can_pay = state
         self.price.setText(shown or "")
-        can = self._sk.available() and self._sk.can_make_payments()
+        can = bool(available and can_pay)
         self.buy.setEnabled(can)
-        self.restore.setEnabled(self._sk.available())
+        self.restore.setEnabled(bool(available))
         if not can:
             self.result.setText(tr("settings.subscribe_unavailable"))
 
