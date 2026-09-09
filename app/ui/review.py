@@ -427,7 +427,19 @@ class ReviewWindow(QMainWindow):
             # ATS-canonical where the provider gave one: the link to apply through.
             parts.append(
                 f"<p><a href='{r.url}'>{tr('detail.open_posting')}</a></p>")
-        verdict = f"{r.bucket} — {r.reason}" if r.reason else r.bucket
+        # THE LABEL, NEVER THE BUCKET VALUE. This rendered `r.bucket` raw, so
+        # every language showed "strong" / "possible" / "rejected" in English.
+        # Invisible in an English build, which is why it survived: "Verdict:
+        # strong" reads as a sentence. In Japanese it reads "判定: strong".
+        #
+        # `onboarding.py` has always been careful about this — its
+        # app_verdict_label() docstring says the app's verdict must never be
+        # described in the user's own button vocabulary — and this screen
+        # simply never used it. The keys live under `onboarding.app.*` because
+        # that is where they already exist, translated into all fifty locales;
+        # the namespace is historical, not meaningful.
+        label = tr(f"onboarding.app.{r.bucket}") if r.bucket else ""
+        verdict = f"{label} — {r.reason}" if r.reason else label
         parts.append(f"<p><b>{tr('detail.verdict')}</b> {verdict}</p>")
         if r.disqualifying_quote:
             parts.append(

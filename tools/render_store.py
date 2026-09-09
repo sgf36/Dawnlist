@@ -68,6 +68,33 @@ def save(widget, name):
 
 
 def main() -> int:
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--locale", default="en",
+                    help="app locale AND fixture locale, e.g. de")
+    ap.add_argument("--collect", action="store_true",
+                    help="write tools/fixtures/en.json from what this render "
+                         "actually asked for, then exit")
+    args, _rest = ap.parse_known_args()
+
+    # BOTH must be set, and they are different things. `app.i18n` translates
+    # the CHROME — headings, buttons, column labels. `fixture_i18n` translates
+    # the demo CONTENT — job titles, locations, verdicts. Setting only the
+    # first gives German buttons around English job titles, which is the
+    # half-finished look this whole mechanism exists to avoid.
+    from app import i18n
+    from tools import fixture_i18n
+    i18n.set_locale(args.locale)
+    i18n.clear_cache()
+    # Collection forces a non-English fixture locale: with "en" the translator
+    # short-circuits and records nothing, so a collect run would write an
+    # empty table and report success.
+    fixture_i18n.set_fixture_locale("de" if args.collect else args.locale)
+
+    global OUT
+    if args.locale != "en":
+        OUT = OUT / args.locale
+
     app = QApplication(sys.argv)
     written = []
 
@@ -111,9 +138,33 @@ def main() -> int:
           "exist.\n",
         encoding="utf-8")
 
+    if args.collect:
+        # Built from a REAL render rather than by grepping the renderers, so
+        # the table cannot hold a string nothing displays, nor miss one that
+        # does.
+        import json
+        from tools import fixture_i18n as fx
+        asked = sorted(fx.asked())
+        out = ROOT / "tools" / "fixtures"
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "en.json").write_text(
+            json.dumps({k: k for k in asked}, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8")
+        print(f"collected {len(asked)} fixture strings -> tools/fixtures/en.json")
+        return 0
+
     for p in written:
         print("wrote", p.relative_to(ROOT))
     print(f"\n{len(written)} screenshots + CAPTIONS.md in {OUT.relative_to(ROOT)}")
+
+    if args.locale != "en":
+        from tools import fixture_i18n as fx
+        missing = fx.report_missing()
+        if missing:
+            print(f"\n{len(missing)} fixture string(s) FELL BACK TO ENGLISH:")
+            for m in missing[:12]:
+                print(f"  {m[:78]}")
+            print("A half-translated screenshot is worse than an English one.")
     return 0
 
 

@@ -13,20 +13,21 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from app.core.rules import RuleConflict, RuleConflictError, RuleTable  # noqa: E402
 from app.ui.settings import RulesPanel  # noqa: E402
+from tools.fixture_i18n import t  # noqa: E402
 
 TABLE = RuleTable(
-    unsupported_titles=["night auditor", "housekeeping", "kitchen porter",
-                        "commis chef", "site engineer"],
-    strong_terms=["asset management", "asset strategy", "portfolio strategy"],
-    contextual_terms=["hospitality", "hotel", "leisure", "portfolio"],
+    unsupported_titles=[t(_x) for _x in ["night auditor", "housekeeping", "kitchen porter",
+                        "commis chef", "site engineer"]],
+    strong_terms=[t(_x) for _x in ["asset management", "asset strategy", "portfolio strategy"]],
+    contextual_terms=[t(_x) for _x in ["hospitality", "hotel", "leisure", "portfolio"]],
     known_employers=["Northaven Hotels", "Oakmere Capital", "Loftly"],
 )
 
 
 def refuse(field, term):
     raise RuleConflictError([RuleConflict(
-        term="operations", field="unsupported_titles",
-        pursued_title="Head of Operations", company="Oakmere Capital")])
+        term=t("operations"), field="unsupported_titles",
+        pursued_title=t("Head of Operations"), company="Oakmere Capital")])
 
 
 def build_rules():

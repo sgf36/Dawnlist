@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from app import i18n  # noqa: E402
 from app.ui.review import ReviewRow, ReviewWindow  # noqa: E402
+from tools.fixture_i18n import t, tr_fields  # noqa: E402
 
 ROWS = [
     ReviewRow("1", "Director of Asset Management", "Oakmere Capital",
@@ -155,7 +156,13 @@ def build_review():
     """The review window with the shortlist selected. Returns it."""
 
     w = ReviewWindow()
-    w.load(ROWS, COUNTS, incomplete_note="context exhausted")
+    # The CONTENT, not just the chrome. A German screenshot showing English job
+    # titles and English verdicts undercuts the exact claim it exists to make.
+    # Company names are deliberately NOT translated: they are invented proper
+    # nouns and a translated one reads as a different company.
+    rows = [tr_fields(r, "title", "location", "description", "reason",
+                      "disqualifying_quote", "downgrade_reason") for r in ROWS]
+    w.load(rows, COUNTS, incomplete_note=t("context exhausted"))
     render_hidden(w, STORE_SIZE)
     # Select the first shortlist row so the detail pane renders real content -
     # an empty pane in a screenshot proves nothing about the pane.
@@ -164,7 +171,10 @@ def build_review():
     # Select by TITLE, not by position: the sort order changes whenever the sample
     # does, and row 0 is not reliably the row worth showing.
     for _i in range(w.shortlist.topLevelItemCount()):
-        if w.shortlist.topLevelItem(_i).text(0) == "General Manager Events":
+        # Match the TRANSLATED title. Selecting on the English string leaves
+        # nothing selected in every non-English render, and the detail pane
+        # renders empty — which this function exists to prevent.
+        if w.shortlist.topLevelItem(_i).text(0) == t("General Manager Events"):
             w.shortlist.setCurrentItem(w.shortlist.topLevelItem(_i))
             break
     for _ in range(8):

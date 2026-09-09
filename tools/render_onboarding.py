@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from app.onboarding.calibration import CalibrationItem  # noqa: E402
+from tools.fixture_i18n import t as fx  # noqa: E402
 from app.ui.onboarding import CalibrationPage  # noqa: E402
 
 SAMPLE = [
@@ -24,7 +25,7 @@ SAMPLE = [
     ("Front Office Manager", "Grand Hotel", "rejected", "below the band"),
     ("Head of Commercial Strategy", "Castellan Hotels", "strong",
      "strategy at a luxury operator"),
-    ("Operations Analyst", "Greene King", "rejected", "pub estate operations"),
+    ("Operations Analyst", "Thatcham Taverns", "rejected", "pub estate operations"),
 ]
 
 # Microsoft Store: 1366x768 or larger, 16:9.
@@ -50,8 +51,11 @@ def build_calibration():
     """The calibration gate, part-way through. Returns the page."""
 
     page = CalibrationPage()
-    page.load([CalibrationItem(job_key=str(i), title=t, company=c, description="d",
-                              app_verdict=v, app_reason=r)
+    # `fx`, not `t` — the comprehension already binds `t` to the title. The
+    # company is deliberately untranslated: an invented proper noun.
+    page.load([CalibrationItem(job_key=str(i), title=fx(t), company=c,
+                               description="d", app_verdict=v,
+                               app_reason=fx(r))
                for i, (t, c, v, r) in enumerate(SAMPLE)])
 
     # Part-way through: seven decided, one disagreement still missing its sentence.

@@ -10,6 +10,7 @@ from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from app.core import db  # noqa: E402
+from tools.fixture_i18n import t  # noqa: E402
 from app.core.board_repo import (add_task, create_opportunity, record_bounce,  # noqa: E402
                                  record_outbound)
 from app.core.cadence import Channel  # noqa: E402
@@ -72,6 +73,8 @@ def _posting(conn, company):
     if facts is None:
         return None
     title, location, salary, posted = facts
+    # Role and location translate; salary, date and company do not.
+    title, location = t(title), t(location)
     cur = conn.execute(
         """INSERT INTO jobs(provider, provider_job_id, title, company,
                             locations_json, description_text, posted_at,
@@ -109,8 +112,8 @@ def build_board():
 
     record_outbound(conn, str(c), Channel.EMAIL, TUE)
     record_outbound(conn, str(d), Channel.EMAIL, date(2026, 9, 1))
-    add_task(conn, str(d), "Second dual touch", date(2026, 9, 15))
-    add_task(conn, str(e), "Prepare for the call", date(2026, 9, 10))
+    add_task(conn, str(d), t("Second dual touch"), date(2026, 9, 15))
+    add_task(conn, str(e), t("Prepare for the call"), date(2026, 9, 10))
 
     # One parity defect and one bounce, so the audit banner has something real.
     conn.execute("UPDATE opportunities SET status_mirror='open' WHERE id=?", (f,))
