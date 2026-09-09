@@ -45,15 +45,21 @@ CAPTIONS = {
 }
 
 
-def paint(widget, size=SIZE):
+def paint(widget, size=None):
     """Lay out and paint without mapping to the display.
 
     WA_DontShowOnScreen keeps real fonts and real styles while nothing appears
     on the developer's desktop. The offscreen platform plugin would also avoid
     the flash and renders every glyph as tofu.
+
+    `size=None` RATHER THAN `size=SIZE`, and the difference is not stylistic.
+    A default argument is evaluated once, when the `def` runs at import, so
+    `size=SIZE` captures the module-level value forever and `--size` could
+    reassign the global all it liked without changing a single pixel. It did
+    exactly that: the flag reported success and produced identical images.
     """
     widget.setAttribute(Qt.WA_DontShowOnScreen, True)
-    widget.resize(*size)
+    widget.resize(*(size or SIZE))
     widget.show()
     for _ in range(8):
         QApplication.instance().processEvents()
@@ -75,7 +81,19 @@ def main() -> int:
     ap.add_argument("--collect", action="store_true",
                     help="write tools/fixtures/en.json from what this render "
                          "actually asked for, then exit")
+    ap.add_argument("--size", default=None, metavar="WxH",
+                    help="logical render size, e.g. 1440x900 for the Mac App "
+                         "Store. Apple accepts ONLY 1280x800, 1440x900, "
+                         "2560x1600 and 2880x1800 — all 16:10, while the "
+                         "default 1708x960 is 16:9, so the layout gets more "
+                         "vertical room rather than being squeezed.")
+    ap.add_argument("--out", default=None,
+                    help="output directory, overriding store/screenshots")
     args, _rest = ap.parse_known_args()
+
+    target = None
+    if args.size:
+        target = tuple(int(n) for n in args.size.lower().split("x"))
 
     # BOTH must be set, and they are different things. `app.i18n` translates
     # the CHROME — headings, buttons, column labels. `fixture_i18n` translates
@@ -92,10 +110,31 @@ def main() -> int:
     fixture_i18n.set_fixture_locale("de" if args.collect else args.locale)
 
     global OUT
+    if args.out:
+        OUT = Path(args.out)
     if args.locale != "en":
         OUT = OUT / args.locale
 
     app = QApplication(sys.argv)
+
+    global SIZE
+    if target:
+        # --size IS THE OUTPUT SIZE, NOT THE LOGICAL ONE, and that distinction
+        # is the whole reason this runs after QApplication exists.
+        #
+        # `widget.grab()` returns logical size TIMES the device pixel ratio.
+        # This developer machine scales at 1.25, so asking for 1440x900
+        # logically produced 1800x1125 — and Apple accepts ONLY 1280x800,
+        # 1440x900, 2560x1600 and 2880x1800, exactly. A CI runner has a
+        # different ratio again, so hardcoding a logical size makes the output
+        # depend on which machine rendered it.
+        #
+        # Dividing by the real ratio lands on the requested pixels anywhere.
+        dpr = app.primaryScreen().devicePixelRatio() or 1.0
+        SIZE = (round(target[0] / dpr), round(target[1] / dpr))
+        print(f"target {target[0]}x{target[1]} at dpr {dpr:g} "
+              f"-> logical {SIZE[0]}x{SIZE[1]}")
+
     written = []
 
     # 1-2. The review window, twice: the shortlist, then the containment tab.
@@ -154,8 +193,16 @@ def main() -> int:
         return 0
 
     for p in written:
-        print("wrote", p.relative_to(ROOT))
-    print(f"\n{len(written)} screenshots + CAPTIONS.md in {OUT.relative_to(ROOT)}")
+        try:
+            print("wrote", p.relative_to(ROOT))
+        except ValueError:
+            print("wrote", p)   # --out may point outside the repo
+
+    try:
+        where = OUT.relative_to(ROOT)
+    except ValueError:
+        where = OUT        # --out may point outside the repo
+    print(f"\n{len(written)} screenshots + CAPTIONS.md in {where}")
 
     if args.locale != "en":
         from tools import fixture_i18n as fx

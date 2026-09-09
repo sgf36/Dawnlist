@@ -22,6 +22,13 @@ name: Build
 #
 # WHY `mas` IS NOT HERE
 # ---------------------
+# STILL TRUE as of 2026-09-09, but for a narrower reason than when this was
+# written. The purchase flow that was missing now EXISTS —
+# app/core/mac_storekit.py and SubscribePanel — and has never run on a Mac.
+# Adding the leg now would build a .pkg carrying an unverified payment path,
+# which is worse than not building one. Add it once a signed build has taken a
+# real sandbox purchase; store/MACOS-STOREKIT-GAP.md tracks that.
+#
 # A Mac App Store build cannot be submitted today, and a workflow that keeps
 # producing one implies otherwise. Apple's guideline 3.1.1 forbids unlocking an
 # app with a licence key, which is exactly how the entitlement works; the
@@ -271,3 +278,72 @@ jobs:
             dist/*.zip
             dist/*.sha256
             dist/*.dmg
+
+  # ---------------------------------------------------------------------------
+  # Mac App Store screenshots, rendered ON A MAC.
+  #
+  # WHY THIS CANNOT BE DONE ON THE DEVELOPER'S WINDOWS MACHINE. The renders grab
+  # the widget rather than the window, so no title bar leaks — but the FONTS and
+  # the CONTROL STYLING are the host platform's. Windows buttons and Segoe UI in
+  # a Mac App Store listing are wrong in a way a reviewer can see, and Apple's
+  # guideline 10.1.1 equivalent asks screenshots to show the app as it runs.
+  #
+  # WHY IT IS workflow_dispatch ONLY. macOS runners bill at 10x minutes. This is
+  # free while the repository is public and would quietly dominate the allowance
+  # if it ever went private again, so it never runs on push.
+  #
+  # --size IS THE OUTPUT SIZE, not the logical one. Apple accepts ONLY 1280x800,
+  # 1440x900, 2560x1600 and 2880x1800, exactly; render_store.py divides by the
+  # runner's real device pixel ratio so the file lands on the requested pixels
+  # whatever the machine. Hardcoding a logical size makes the output depend on
+  # which machine rendered it, which is how a set ends up half one size.
+  # ---------------------------------------------------------------------------
+  screenshots:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pillow
+
+      - name: Render every captured locale
+        run: |
+          set -euo pipefail
+          for loc in en de es fr hi ja zh; do
+            python tools/render_store.py --locale "$loc" \
+              --size 1440x900 --out dist/mac-screenshots
+          done
+
+      # Apple rejects a set whose members are not all the declared size, and a
+      # wrong size is invisible until upload. Fail here instead.
+      - name: Every image must be exactly 1440x900
+        run: |
+          python - <<'PY'
+          import pathlib, sys
+          from PIL import Image
+          bad = []
+          shots = sorted(pathlib.Path("dist/mac-screenshots").rglob("*.png"))
+          for p in shots:
+              if Image.open(p).size != (1440, 900):
+                  bad.append(f"{p} is {Image.open(p).size}")
+          print(f"{len(shots)} image(s) checked")
+          if bad:
+              sys.exit("wrong size:\n  " + "\n  ".join(bad))
+          if not shots:
+              sys.exit("no screenshots were rendered")
+          PY
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: mac-screenshots
+          path: dist/mac-screenshots
+          if-no-files-found: error
