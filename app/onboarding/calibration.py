@@ -96,16 +96,38 @@ class CalibrationResult:
     def low_signal(self) -> bool:
         return len(self.disagreements) < LOW_SIGNAL_THRESHOLD
 
+    @property
+    def sample_unavailable(self) -> bool:
+        """Too few live postings to calibrate against.
+
+        A SETUP failure, never the user's — and therefore NEVER a blocker.
+
+        This used to return a blocking reason, and it trapped every new user on
+        the last screen of onboarding. Seeded searches are created switched OFF
+        by design, so a fresh install has no enabled search, fetches nothing,
+        and `passed` stayed False for ever. The screen then told the user to
+        "check a search is switched on" — which onboarding gave them no way to
+        do, because no such step existed. Both Windows databases and the Mac
+        one were found with zero enabled queries and Finish permanently greyed:
+        nobody had ever completed onboarding on any platform.
+
+        Calibration is worth having. It is not worth being unable to start the
+        application at all, and a gate the user cannot act on is not a gate.
+        """
+        return len(self.items) < MIN_DECIDED
+
     def blocking_reasons(self) -> list[str]:
         """Everything stopping this gate from passing. All of them, at once —
         revealing them one at a time makes the step feel endless."""
         reasons: list[str] = []
-        if len(self.items) < MIN_DECIDED:
-            # A sample too short to calibrate against is a SETUP failure, not a
-            # user one, and it must not be phrased as an instruction. Asking
-            # for eight decisions out of one is a gate nobody can pass: the
-            # Finish button simply never enabled, on the last step of
-            # onboarding, with nothing on screen saying why.
+        if self.sample_unavailable:
+            # STILL a failure of the gate, and deliberately so: a calibration
+            # against one posting must never be RECORDED as a calibration.
+            # `passed` therefore stays False and `mark_calibrated` keeps
+            # refusing it.
+            #
+            # What changed is who is trapped by that. Finishing onboarding is a
+            # separate question from recording a pass — see `can_finish`.
             return [
                 f"Dawnlist could not fetch enough live postings to calibrate "
                 f"against — {len(self.items)} of the {MIN_DECIDED} it needs. "
@@ -125,7 +147,21 @@ class CalibrationResult:
 
     @property
     def passed(self) -> bool:
+        """Whether this may be RECORDED as a calibration. Never relax this."""
         return not self.blocking_reasons()
+
+    @property
+    def can_finish(self) -> bool:
+        """Whether the user may leave onboarding — a different question.
+
+        A gate the user cannot act on is not a gate. When the sample never
+        arrived there is nothing on that screen for them to do, so they may
+        finish; the calibration simply is not recorded, and runs on a later
+        morning. Keeping these two questions apart is the point: conflating
+        them either traps the user (what shipped) or records a calibration
+        against one posting as though it were eight (what the first fix did).
+        """
+        return self.passed or self.sample_unavailable
 
 
 def apply_corrections(brief: str, result: CalibrationResult) -> str:

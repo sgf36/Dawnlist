@@ -18,6 +18,7 @@ import json
 import sqlite3
 from datetime import datetime, timezone
 
+from app.core.dedup import recover_stranded
 from app.core.pipeline import RunOutcome
 from app.core.screen import Verdict
 from app.ui.review import ReviewRow
@@ -208,8 +209,109 @@ def latest_run_id(conn: sqlite3.Connection) -> int | None:
     return row["id"] if row and row["id"] is not None else None
 
 
+#: The columns both row queries read. Written once because the two of them
+#: have to agree: a column added to one and not the other shows the user a
+#: different row depending on which run it came from.
+_ROW_COLUMNS = """
+        SELECT j.provider, j.provider_job_id, j.title, j.company,
+               j.locations_json, j.description_text, j.url,
+               j.screen_verdict, j.screen_reason,
+               a.bucket, a.reason, a.disqualifying_quote, a.requirement_checked
+"""
+
+
+def _row_from_sql(r, near: dict[str, str], *,
+                  carried_forward: bool = False) -> ReviewRow:
+    """One database row as the review screen sees it."""
+    if r["bucket"]:
+        bucket = r["bucket"]
+        reason = r["reason"] or ""
+        quote = r["disqualifying_quote"]
+        checked = bool(r["requirement_checked"])
+    elif r["screen_verdict"] == Verdict.LIKELY.value:
+        # Survived the screen, never judged. Same rule as
+        # `rows_from_outcome`: an unread posting is an unknown, not a
+        # rejection.
+        bucket, reason = "judgement-call", "not assessed in this run"
+        quote, checked = None, False
+    else:
+        bucket, reason = SCREENED_OUT, ""
+        quote, checked = None, True
+
+    if carried_forward:
+        # Said on the row itself, not only in a flag the window may or may not
+        # draw: the user's first question about a posting they do not remember
+        # seeing today is where it came from.
+        reason = ("carried forward from an earlier run"
+                  + (f" — {reason}" if reason else ""))
+
+    return ReviewRow(
+        job_id=f"{r['provider']}:{r['provider_job_id']}",
+        title=r["title"],
+        company=r["company"],
+        location=", ".join(json.loads(r["locations_json"] or "[]")),
+        url=r["url"],
+        description=r["description_text"],
+        bucket=bucket,
+        reason=reason,
+        disqualifying_quote=quote,
+        requirement_checked=checked,
+        downgrade_reason=None,
+        screen_reason=r["screen_reason"] or "",
+        contained=False,
+        near_duplicate=near.get(r["provider_job_id"], ""),
+        carried_forward=carried_forward,
+    )
+
+
+def decided_job_keys(conn: sqlite3.Connection) -> set[tuple[str, str]]:
+    """`(provider, provider_job_id)` for everything the user has ruled on.
+
+    By provider job id, never by name key — see `recover_stranded`. Two runs
+    normalised the same employer differently and three already-decided
+    postings came back as new.
+    """
+    return {(r["provider"], str(r["provider_job_id"]))
+            for r in conn.execute(
+                "SELECT j.provider, j.provider_job_id "
+                "  FROM decisions d JOIN jobs j ON j.id = d.job_id")}
+
+
+def stranded_rows(conn: sqlite3.Connection, run_id: int,
+                  near: dict[str, str]) -> list[ReviewRow]:
+    """Undecided postings from EARLIER runs (spec 6.5).
+
+    The board reads one run. That is right for the funnel counts and wrong for
+    the pile: a strong match surfaced yesterday and left undecided vanishes the
+    moment tonight's run finishes, and from the user's chair the app has lost
+    it. `orphan_outputs` has always reported the same failure from the file
+    side; nothing has ever recovered anything.
+
+    The two rules stay in `recover_stranded` rather than moving into this SQL
+    on purpose. Filtering rejections and decided ids in the query would make
+    the recovery look right while the rules that make it right went unrun —
+    and those are the rules that were learned the expensive way.
+    """
+    sql = _ROW_COLUMNS + """
+          FROM jobs j
+          LEFT JOIN assessments a
+                 ON a.job_id = j.id
+                AND a.run_id = (SELECT MAX(run_id) FROM assessments
+                                 WHERE job_id = j.id)
+         WHERE j.first_seen_run IS NOT NULL
+           AND j.first_seen_run <> ?
+           AND (a.bucket IS NOT NULL OR j.screen_verdict = ?)
+         ORDER BY j.id
+    """
+    candidates = [dict(r) for r in
+                  conn.execute(sql, (run_id, Verdict.LIKELY.value))]
+    recovered = recover_stranded(candidates, decided_job_keys(conn))
+    return [_row_from_sql(r, near, carried_forward=True) for r in recovered]
+
+
 def rows_from_db(conn: sqlite3.Connection, run_id: int | None = None,
-                 *, include_decided: bool = False) -> list[ReviewRow]:
+                 *, include_decided: bool = False,
+                 recover: bool = True) -> list[ReviewRow]:
     """Rebuild the review rows from what a run persisted.
 
     `rows_from_outcome` only works while the run is still in memory, which
@@ -219,16 +321,16 @@ def rows_from_db(conn: sqlite3.Connection, run_id: int | None = None,
 
     Decided postings are dropped by default: a pile that does not shrink as it
     is worked is the reason people stop working it.
+
+    `recover` appends what earlier runs left undecided. Off when a caller wants
+    one run exactly — a funnel count, or the test that pins the two row
+    builders together.
     """
     run_id = run_id if run_id is not None else latest_run_id(conn)
     if run_id is None:
         return []
 
-    sql = """
-        SELECT j.provider, j.provider_job_id, j.title, j.company,
-               j.locations_json, j.description_text, j.url,
-               j.screen_verdict, j.screen_reason,
-               a.bucket, a.reason, a.disqualifying_quote, a.requirement_checked
+    sql = _ROW_COLUMNS + """
           FROM jobs j
           LEFT JOIN assessments a ON a.job_id = j.id AND a.run_id = ?
          WHERE j.first_seen_run = ?
@@ -238,39 +340,9 @@ def rows_from_db(conn: sqlite3.Connection, run_id: int | None = None,
     sql += " ORDER BY j.id"
 
     near = near_duplicate_notes(conn)
-    rows: list[ReviewRow] = []
-    for r in conn.execute(sql, (run_id, run_id)):
-        if r["bucket"]:
-            bucket = r["bucket"]
-            reason = r["reason"] or ""
-            quote = r["disqualifying_quote"]
-            checked = bool(r["requirement_checked"])
-        elif r["screen_verdict"] == Verdict.LIKELY.value:
-            # Survived the screen, never judged. Same rule as
-            # `rows_from_outcome`: an unread posting is an unknown, not a
-            # rejection.
-            bucket, reason = "judgement-call", "not assessed in this run"
-            quote, checked = None, False
-        else:
-            bucket, reason = SCREENED_OUT, ""
-            quote, checked = None, True
-
-        rows.append(ReviewRow(
-            job_id=f"{r['provider']}:{r['provider_job_id']}",
-            title=r["title"],
-            company=r["company"],
-            location=", ".join(json.loads(r["locations_json"] or "[]")),
-            url=r["url"],
-            description=r["description_text"],
-            bucket=bucket,
-            reason=reason,
-            disqualifying_quote=quote,
-            requirement_checked=checked,
-            downgrade_reason=None,
-            screen_reason=r["screen_reason"] or "",
-            contained=False,
-            near_duplicate=near.get(r["provider_job_id"], ""),
-        ))
+    rows = [_row_from_sql(r, near) for r in conn.execute(sql, (run_id, run_id))]
+    if recover and not include_decided:
+        rows.extend(stranded_rows(conn, run_id, near))
     return rows
 
 

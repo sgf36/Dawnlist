@@ -4,12 +4,14 @@ from datetime import date
 import pytest
 
 from app.core import db
-from app.core.board_repo import (add_task, audit_board, create_opportunity,
-                                 load_board, load_touches, next_steps,
+from app.core.board_repo import (add_task, audit_board,
+                                 commit_determination, create_opportunity,
+                                 determination_writes, load_board,
+                                 load_opportunity, load_touches, next_steps,
                                  record_bounce, record_outbound, repair_mirror,
                                  retire_task, set_stage)
 from app.core.cadence import Channel
-from app.core.tracker import JobCategory, Stage, TrackerError
+from app.core.tracker import JobCategory, Stage, TrackerError, Write
 
 TUE = date(2026, 9, 8)
 
@@ -175,3 +177,83 @@ def test_retiring_a_task_does_not_close_the_opportunity(conn):
     retire_task(conn, str(tid), "replied by phone 3 Sept")
     opp = load_board(conn)[0]
     assert opp.closed_at is None and opp.stage is Stage.CONTACTED
+
+
+# -- an employer's answer reaches the board (spec 8.3) ----------------------
+#
+# `apply_determination` encoded the whole rule and nothing called it, so the
+# ladder had no way past Contacted: `record_outbound` raises Identified to
+# Contacted and stops, because a send never implies a reply. Every pursuit sat
+# at Contacted for ever while the cadence went on chasing it.
+def test_a_reply_advances_the_stage_and_its_mirror(conn):
+    oid = create_opportunity(conn, "Acme", stage=Stage.CONTACTED)
+    writes = determination_writes(conn, str(oid), positive=True,
+                                  advance_to=Stage.IN_DIALOGUE)
+    commit_determination(conn, str(oid), writes)
+
+    opp = load_opportunity(conn, str(oid))
+    assert opp.stage is Stage.IN_DIALOGUE
+    assert opp.status == "waiting", "the mirror has to move with the stage"
+
+
+def test_computing_the_writes_changes_nothing(conn):
+    """A determination is pre-filled for confirmation, never committed by
+    the act of asking what it would do."""
+    oid = create_opportunity(conn, "Acme", stage=Stage.CONTACTED)
+    add_task(conn, str(oid), "Chase")
+
+    determination_writes(conn, str(oid), positive=False)
+
+    opp = load_opportunity(conn, str(oid))
+    assert opp.stage is Stage.CONTACTED
+    assert [t.status for t in opp.tasks] == ["open"]
+
+
+def test_a_negative_answer_closes_the_whole_tree(conn):
+    """The parent goes Lost and every subtask is rendered `no offer`. The
+    cascade is legitimate only because the parent closes at the same time."""
+    oid = create_opportunity(conn, "Acme", stage=Stage.PHONE_INTERVIEW)
+    add_task(conn, str(oid), "Prepare for the call")
+
+    writes = determination_writes(conn, str(oid), positive=False)
+    commit_determination(conn, str(oid), writes)
+
+    opp = load_opportunity(conn, str(oid))
+    assert opp.stage is Stage.LOST
+    assert opp.status == "no offer"
+    assert [t.status for t in opp.tasks] == ["no offer"]
+    assert opp.tasks[0].is_open is False
+
+
+def test_a_task_belonging_to_someone_else_is_not_touched(conn):
+    """Task ids and opportunity ids are both INTEGER PRIMARY KEY and collide
+    from row one, so routing a write by its id alone writes to the wrong
+    record."""
+    other = create_opportunity(conn, "Beta", stage=Stage.CONTACTED)
+    other_task = add_task(conn, str(other), "Their chase")
+    oid = create_opportunity(conn, "Acme", stage=Stage.CONTACTED)
+
+    writes = determination_writes(conn, str(oid), positive=False)
+    writes.append(Write("task", str(other_task), "status", "no offer"))
+    commit_determination(conn, str(oid), writes)
+
+    assert load_opportunity(conn, str(other)).tasks[0].status == "open"
+
+
+def test_no_offer_on_a_child_of_a_live_parent_is_still_refused(conn):
+    """The guard is re-read from the database rather than assumed from the
+    order of the list — a reordered list must not slip a forbidden state past
+    it."""
+    oid = create_opportunity(conn, "Acme", stage=Stage.CONTACTED)
+    task_id = add_task(conn, str(oid), "Chase")
+    with pytest.raises(TrackerError):
+        commit_determination(
+            conn, str(oid),
+            [Write("task", str(task_id), "status", "no offer")])
+
+
+def test_a_positive_determination_cannot_close_an_opportunity(conn):
+    oid = create_opportunity(conn, "Acme", stage=Stage.CONTACTED)
+    with pytest.raises(TrackerError):
+        determination_writes(conn, str(oid), positive=True,
+                             advance_to=Stage.LOST)

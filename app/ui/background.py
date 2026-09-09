@@ -70,9 +70,28 @@ class _Task(QRunnable):
             # exception escaping a QRunnable is swallowed by the thread pool
             # and the UI waits for a callback that will never come — a hang
             # that looks exactly like slow work.
-            self.signals.failed.emit(exc)
+            self._emit(self.signals.failed, exc)
             return
-        self.signals.done.emit(result)
+        self._emit(self.signals.done, result)
+
+    @staticmethod
+    def _emit(signal, payload) -> None:
+        """Deliver the result, unless the thing waiting for it has gone.
+
+        A window closed while its task is still running takes its receiver with
+        it, and Qt then raises `RuntimeError: Signal source has been deleted`
+        FROM THE WORKER THREAD, where nothing is catching it. The work has
+        finished and nobody is left to care about the answer, so dropping it is
+        the correct response — but it has to be dropped deliberately rather
+        than as an unhandled error printed from a thread.
+
+        Not hypothetical: closing Settings while the administrator check was in
+        flight raised it every time, and a long draft would do the same.
+        """
+        try:
+            signal.emit(payload)
+        except RuntimeError:
+            pass
 
 
 def run_in_background(fn: Callable[[], Any], *,

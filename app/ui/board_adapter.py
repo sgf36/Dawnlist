@@ -4,11 +4,12 @@ from __future__ import annotations
 import sqlite3
 from datetime import date
 
-from app.core.board_repo import (add_task, audit_board, load_board,
-                                 next_steps,
+from app.core.board_repo import (add_task, audit_board,
+                                 commit_determination, determination_writes,
+                                 load_board, next_steps,
                                  record_outbound, repair_mirror, set_stage)
 from app.core.cadence import Channel
-from app.core.tracker import Stage, open_children
+from app.core.tracker import Stage, Write, open_children
 from app.ui.board import COLUMN_SETTING, BoardRow
 
 
@@ -82,6 +83,9 @@ def connect_board(window, conn: sqlite3.Connection) -> None:
         lambda oid: set_stage(conn, oid, Stage.IDENTIFIED))
     window.sent_recorded.connect(lambda oid: record_sent(conn, oid))
     window.task_added.connect(lambda oid, title: add_task(conn, oid, title))
+    window.determination_recorded.connect(
+        lambda oid, positive, stage: record_determination(
+            window, conn, oid, positive=positive, stage=stage))
     # Restore the saved column set BEFORE wiring the save, or applying it
     # would immediately write back what was just read.
     saved = load_visible_columns(conn)
@@ -119,3 +123,47 @@ def record_sent(conn: sqlite3.Connection, opportunity_id: str,
                            (int(opportunity_id),)).fetchone()
     if current and Stage(current["stage"]) is Stage.IDENTIFIED:
         set_stage(conn, opportunity_id, Stage.CONTACTED)
+
+
+def describe_writes(writes: list[Write]) -> list[str]:
+    """The pending writes in the user's words, not the tracker's.
+
+    `stage=Lost` and `status=no offer` are the field names the database uses;
+    a confirmation dialog that shows them is asking the user to approve
+    something they have to decode first, which is how a cascade gets approved
+    without being read.
+    """
+    lines = []
+    children = 0
+    for w in writes:
+        if w.kind == "opportunity":
+            if w.field == "stage":
+                lines.append(f"This opportunity moves to {w.value}.")
+        else:
+            children += 1
+    if children:
+        lines.append(f"{children} open task"
+                     f"{'' if children == 1 else 's'} under it "
+                     f"will be closed as 'no offer'.")
+    return lines
+
+
+def record_determination(window, conn: sqlite3.Connection, opportunity_id: str,
+                         *, positive: bool, stage: int) -> bool:
+    """The employer answered. Show what that changes, then write it.
+
+    Computed and shown BEFORE anything is written, because a negative answer
+    closes the parent and renders every subtask under it `no offer`. The rule
+    that makes that cascade legitimate is that the parent is going Lost at the
+    same moment — which is exactly why it must not happen by accident.
+
+    Returns whether anything was committed, so a caller (and a test) can tell
+    a refusal from a failure.
+    """
+    writes = determination_writes(
+        conn, opportunity_id, positive=positive,
+        advance_to=Stage(stage) if positive else None)
+    if not window.confirm_determination(describe_writes(writes)):
+        return False
+    commit_determination(conn, opportunity_id, writes)
+    return True

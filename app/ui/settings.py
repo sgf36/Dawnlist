@@ -25,14 +25,16 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel,
+from PySide6.QtWidgets import (QComboBox, QFrame, QGridLayout, QHBoxLayout,
+                               QLabel,
                                QLineEdit, QListWidget, QListWidgetItem,
                                QPushButton,
-                               QScrollArea, QSizePolicy, QVBoxLayout,
+                               QScrollArea, QSizePolicy, QSpinBox, QVBoxLayout,
                                QWidget)
 
 from app.core import api_key
 from app.i18n import tr
+from app.ui.background import run_in_background
 from app.ui.onboarding import ONBOARDING_STYLESHEET, reflow
 from app.ui.review import CREAM, GOLD_DEEP, TEAL
 
@@ -340,9 +342,14 @@ class SettingsWindow(QWidget):
     """
 
     def __init__(self, parent=None, *, variant=None, rules=None,
-                 families=None, searches=None):
+                 families=None, searches=None, is_admin=None):
         super().__init__(parent)
         from app.core.build_variant import variant as read_variant
+
+        #: Injectable so a test can answer without a network call, and so
+        #: nothing reaches the live Worker merely because a window was built.
+        self._is_admin = is_admin
+        self._admin_checked = False
 
         self.setWindowTitle(tr("settings.title"))
 
@@ -426,6 +433,20 @@ class SettingsWindow(QWidget):
             layout.addWidget(_divider())
             layout.addWidget(self.subscribe)
 
+        # THE ADMIN CONSOLE, on every build and hidden by default.
+        #
+        # Revealed only when the SERVER says this licence is an administrator,
+        # asked fresh each time this screen opens. Caching that answer, or
+        # inferring it locally, would leave a withdrawn admin holding a console
+        # until they restarted — the decision belongs to the Worker, which
+        # re-reads `licence_roles` on every request.
+        self.admin = AdminPanel()
+        self.admin.hide()
+        self._admin_divider = _divider()
+        self._admin_divider.hide()
+        layout.addWidget(self._admin_divider)
+        layout.addWidget(self.admin)
+
         # Always shown, on every build. Two obligations meet here.
         layout.addWidget(_divider())
         layout.addWidget(DataTermsPanel())
@@ -444,6 +465,42 @@ class SettingsWindow(QWidget):
         # lets the scroll cover the rest.
         self.setMinimumSize(760, 440)
         self.resize(1120, 700)
+
+    def showEvent(self, event):
+        # ASKED WHEN THE SCREEN OPENS, not when it is built. Constructing a
+        # window must not reach the network: it made the test suite call the
+        # live Worker, and it asked before the answer could be wanted.
+        super().showEvent(event)
+        if not self._admin_checked:
+            self._admin_checked = True
+            self._check_admin()
+
+    def _check_admin(self) -> None:
+        """Ask the SERVER whether this licence may administer, never assume.
+
+        Off the UI thread: it is a network call, and a settings screen that
+        freezes while it asks is the same defect this codebase already fixed
+        in onboarding. A failed check reveals nothing, which is the safe
+        direction to fail in.
+        """
+        from app.core import admin as admin_api
+        from app.core import entitlement
+
+        key = entitlement.stored_licence()
+        if not key:
+            return
+        ask = self._is_admin or admin_api.is_admin
+
+        def reveal(is_admin):
+            if is_admin:
+                self._admin_divider.show()
+                self.admin.show()
+                self.admin.refresh()
+
+        self._admin_task = run_in_background(
+            lambda: ask(key),
+            on_done=reveal,
+            on_error=lambda exc: None)
 
 
 #: The three writable tiers, in the order they fire during a screen. Tier 2
@@ -481,6 +538,7 @@ REPORT_MAILTO = (
     "mailto:" + REPORT_EMAIL
     + "?subject=Dawnlist%20%E2%80%94%20reporting%20AI-generated%20content"
 )
+
 
 
 class DataTermsPanel(QWidget):
@@ -568,6 +626,161 @@ class ReportPanel(QWidget):
         layout.addWidget(link)
 
 
+class AdminPanel(QWidget):
+    """Issue, list and withdraw override codes — the console the Worker was
+    already serving and nothing had ever called.
+
+    HIDDEN UNTIL THE SERVER SAYS OTHERWISE, and asked every time this screen
+    opens. The role lives in the Worker's `licence_roles` table rather than
+    inside the licence, so withdrawing an administrator takes effect at once;
+    caching the answer here would hand that decision to the wrong computer and
+    leave a former admin holding a console until they happened to restart.
+
+    ON BOTH PLATFORMS. Nothing about administering codes is Apple's business:
+    guideline 3.1.1 is about unlocking content with a key, and this screen
+    issues free grants rather than selling anything.
+    """
+
+    def __init__(self, *, key_source=None, api=None, parent=None):
+        super().__init__(parent)
+        from app.core import admin as admin_api
+        from app.core import entitlement
+
+        self._api = api or admin_api
+        self._key_source = key_source or entitlement.stored_licence
+        self._codes: list[dict] = []
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+
+        heading = QLabel(tr("settings.admin_heading"))
+        heading.setObjectName("stepHeading")
+        layout.addWidget(heading)
+
+        body = QLabel(reflow(tr("settings.admin_body")))
+        body.setObjectName("stepBody")
+        body.setWordWrap(True)
+        layout.addWidget(body)
+
+        form = QHBoxLayout()
+        form.setSpacing(6)
+        self.note = QLineEdit()
+        self.note.setPlaceholderText(tr("settings.admin_note_placeholder"))
+        form.addWidget(self.note, 2)
+
+        self.role = QComboBox()
+        for role in self._api.ROLES:
+            self.role.addItem(role)
+        form.addWidget(self.role)
+
+        self.plan = QComboBox()
+        for plan in self._api.PLANS:
+            self.plan.addItem(plan)
+        form.addWidget(self.plan)
+
+        self.uses = QSpinBox()
+        self.uses.setRange(1, 999)
+        self.uses.setValue(1)
+        self.uses.setToolTip(tr("settings.admin_uses_tip"))
+        form.addWidget(self.uses)
+
+        self.btn_issue = QPushButton(tr("settings.admin_issue"))
+        self.btn_issue.setObjectName("primary")
+        form.addWidget(self.btn_issue)
+        layout.addLayout(form)
+
+        self.result = QLabel()
+        self.result.setWordWrap(True)
+        # Selectable so a freshly minted code can be copied out. A code you
+        # cannot copy is a code you retype wrongly.
+        self.result.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        layout.addWidget(self.result)
+
+        self.codes = QListWidget()
+        self.codes.setMaximumHeight(160)
+        layout.addWidget(self.codes)
+
+        row = QHBoxLayout()
+        self.btn_refresh = QPushButton(tr("settings.admin_refresh"))
+        self.btn_revoke = QPushButton(tr("settings.admin_revoke"))
+        row.addWidget(self.btn_refresh)
+        row.addWidget(self.btn_revoke)
+        row.addStretch(1)
+        layout.addLayout(row)
+
+        self.btn_issue.clicked.connect(self._issue)
+        self.btn_refresh.clicked.connect(self.refresh)
+        self.btn_revoke.clicked.connect(self._revoke)
+        self.role.currentTextChanged.connect(self._role_changed)
+
+    # -- helpers -----------------------------------------------------------
+    def _role_changed(self, role: str) -> None:
+        """A managed code is the usual shape for a reviewer, and a reviewer
+        code must not be single-use. Nudge rather than enforce: an admin may
+        still want a one-shot managed code for a friend."""
+        if role == "managed" and self.uses.value() == 1:
+            self.uses.setValue(self._api.REVIEW_USES)
+
+    def _key(self):
+        return self._key_source()
+
+    def refresh(self) -> None:
+        key = self._key()
+        if not key:
+            self.result.setText(tr("settings.admin_no_licence"))
+            return
+        try:
+            self._codes = self._api.list_codes(key)
+        except Exception as exc:  # noqa: BLE001
+            self.result.setText(str(exc))
+            return
+        self.codes.clear()
+        for row in self._codes:
+            used, cap = row.get("uses", 0), row.get("max_uses", 1)
+            state = " REVOKED" if row.get("revoked") else ""
+            self.codes.addItem(
+                f"{row.get('code')}  {row.get('role')}/{row.get('plan')}  "
+                f"{used}/{cap}{state}  — {row.get('note') or ''}")
+        self.result.setText("")
+
+    def _issue(self) -> None:
+        key = self._key()
+        if not key:
+            self.result.setText(tr("settings.admin_no_licence"))
+            return
+        try:
+            made = self._api.issue_code(
+                key, note=self.note.text(), role=self.role.currentText(),
+                plan=self.plan.currentText(), max_uses=self.uses.value())
+        except Exception as exc:  # noqa: BLE001
+            self.result.setText(str(exc))
+            return
+        # REFRESH FIRST, THEN SAY WHAT HAPPENED. `refresh()` blanks the
+        # message, so setting it beforehand wiped the code the operator was
+        # told to copy — on a line that reads "Copy it now; it is shown once
+        # here". The code is minted either way; only the one chance to read it
+        # was lost.
+        self.note.clear()
+        self.refresh()
+        self.result.setText(tr("settings.admin_issued", code=made.get("code", "")))
+
+    def _revoke(self) -> None:
+        index = self.codes.currentRow()
+        if index < 0 or index >= len(self._codes):
+            self.result.setText(tr("settings.admin_pick_one"))
+            return
+        key = self._key()
+        code = self._codes[index].get("code")
+        try:
+            self._api.revoke_code(key, code)
+        except Exception as exc:  # noqa: BLE001
+            self.result.setText(str(exc))
+            return
+        self.refresh()
+        self.result.setText(tr("settings.admin_revoked", code=code))
+
+
 class SubscribePanel(QWidget):
     """Buy the subscription, on a Mac App Store build.
 
@@ -594,9 +807,13 @@ class SubscribePanel(QWidget):
 
     entitlement_changed = Signal(bool)
 
-    def __init__(self, *, storekit=None, parent=None):
+    def __init__(self, *, storekit=None, redeemer=None, storer=None,
+                 parent=None):
         super().__init__(parent)
         from app.core import mac_storekit
+
+        self._redeemer = redeemer
+        self._storer = storer
         self._sk = storekit or mac_storekit
 
         layout = QVBoxLayout(self)
@@ -632,9 +849,51 @@ class SubscribePanel(QWidget):
         self.result.setWordWrap(True)
         layout.addWidget(self.result)
 
+        # AN ACCESS CODE, AND DELIBERATELY NOT A LICENCE KEY BOX.
+        #
+        # Guideline 3.1.1 forbids unlocking content with a key INSTEAD OF
+        # Apple's commerce. This redeems a free grant — a reviewer, a friend,
+        # the developer — and sells nothing, which is why it may exist on a MAS
+        # build at all. The wording matters as much as the mechanism: "licence
+        # key" reads as an alternative way to buy, which is the thing that is
+        # actually prohibited, so it is never called that here.
+        #
+        # `build_provider` will only honour what comes back if the SERVER says
+        # it was granted by a code rather than purchased. A Paddle licence
+        # already in the keyring is still refused on this build.
+        code_row = QHBoxLayout()
+        code_row.setSpacing(10)
+        self.code = QLineEdit()
+        self.code.setObjectName("sentence")
+        self.code.setPlaceholderText(tr("settings.subscribe_code_placeholder"))
+        self.btn_code = QPushButton(tr("settings.subscribe_code_button"))
+        self.btn_code.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        code_row.addWidget(self.code, 1)
+        code_row.addWidget(self.btn_code)
+        layout.addLayout(code_row)
+
         self.buy.clicked.connect(self._purchase)
         self.restore.clicked.connect(self._restore)
+        self.btn_code.clicked.connect(self._redeem_code)
+        self.code.returnPressed.connect(self._redeem_code)
         self.refresh()
+
+    def _redeem_code(self) -> None:
+        """Exchange an access code for the grant it names."""
+        from app.core import entitlement
+
+        code = self.code.text().strip()
+        if not code:
+            return
+        try:
+            key = (self._redeemer or entitlement.redeem_override_code)(code)
+            (self._storer or entitlement.store_licence)(key)
+        except Exception as exc:  # noqa: BLE001
+            self.result.setText(str(exc))
+            return
+        self.code.clear()
+        self.result.setText(tr("settings.code_redeemed"))
+        self.entitlement_changed.emit(True)
 
     def refresh(self) -> None:
         """Ask Apple what to show. On construction, and after a purchase.

@@ -219,3 +219,34 @@ def test_a_half_finished_calibration_leaves_the_gate_shut(conn):
     with pytest.raises(ValueError):
         complete_calibration(conn, "# Fit brief", incomplete)
     assert not is_calibrated(conn), "a partial run must never open the gate"
+
+
+def test_an_unreachable_feed_lets_the_user_finish_but_is_never_a_calibration(conn):
+    """THE BUG THAT SHIPPED, pinned from both sides.
+
+    Seeded searches arrive switched OFF by design, so a fresh install had no
+    enabled search, fetched nothing, and `passed` stayed False — leaving Finish
+    greyed on the LAST screen of onboarding with nothing the user could do
+    about it. Both Windows databases and the Mac one were found with zero
+    enabled queries: nobody had ever completed onboarding on any platform.
+
+    The fix must not overshoot. Finishing and RECORDING are different
+    questions, and letting an empty sample count as a pass would record a
+    calibration against no postings as though it were eight.
+    """
+    empty = CalibrationResult(items=[])
+    assert empty.sample_unavailable
+    assert empty.can_finish, "a gate the user cannot act on must not trap them"
+    assert not empty.passed, "and must never be recorded as a calibration"
+    with pytest.raises(ValueError):
+        complete_calibration(conn, "# Fit brief", empty)
+    assert not is_calibrated(conn)
+
+
+def test_a_half_finished_calibration_still_cannot_be_left(conn):
+    """NOT the same case, and the distinction is the whole point: the postings
+    arrived, so the remaining work is the user's and the gate stays shut."""
+    partial = CalibrationResult(items=[item(str(i)) for i in range(MIN_DECIDED)])
+    assert not partial.sample_unavailable
+    assert not partial.can_finish
+    assert not partial.passed

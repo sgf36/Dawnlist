@@ -160,7 +160,37 @@ class ScreenReport:
     @property
     def unlikely_share(self) -> float:
         """Watch this between runs. spec 5.4: if it moves sharply, say so."""
-        return len(self.unlikely) / len(self.results) if self.results else 0.0
+        return unlikely_share_of(len(self.likely), len(self.unlikely))
+
+
+def unlikely_share_of(likely: int, unlikely: int) -> float:
+    """The share of a run the screen removed, from two counts.
+
+    A function rather than only a property because the same number has to be
+    computed from the `runs` table long after the report is out of memory —
+    watching it BETWEEN runs is the whole of spec 5.4, and a second expression
+    of the same ratio is a second thing to get wrong.
+    """
+    total = likely + unlikely
+    return unlikely / total if total else 0.0
+
+
+#: How far the share may move between runs before it is worth saying so.
+#: Deliberately blunt: the point is to catch a rule edit that quietly started
+#: removing half the feed, not to report noise on a twenty-row morning.
+SHARE_DRIFT = 0.15
+
+#: Below this many screened postings the share is not a measurement. Three
+#: rows going the wrong way is 100% drift and means nothing.
+DRIFT_MIN_SAMPLE = 20
+
+
+def share_drift(current: float, previous: float | None) -> float | None:
+    """Signed change in the unlikely share, or None when there is nothing to
+    compare against. A first run has no drift — it has a starting point."""
+    if previous is None:
+        return None
+    return current - previous
 
 
 def screen_all(jobs: list[Job], table: RuleTable) -> ScreenReport:

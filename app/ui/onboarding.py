@@ -18,7 +18,8 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel,
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFrame, QHBoxLayout,
+                               QLabel,
                                QLineEdit, QListWidget, QPushButton,
                                QPlainTextEdit, QRadioButton, QScrollArea, QSizePolicy,
                                QSplitter, QStackedWidget, QTextBrowser,
@@ -437,7 +438,13 @@ class CalibrationPage(QWidget):
     def _refresh(self) -> None:
         result = self.result()
         reasons = result.blocking_reasons()
-        if reasons:
+        if result.sample_unavailable:
+            # Say what happened and let them through. Calibration runs on a
+            # later morning once a search is switched on; being unable to
+            # finish setup at all is the worse failure by a wide margin.
+            self.blockers.setObjectName("blockers")
+            self.blockers_label.setText(tr("onboarding.calibration_skipped"))
+        elif reasons:
             self.blockers.setObjectName("blockers")
             # Every reason at once. Revealing them one at a time makes a
             # five-minute step feel endless and trains people to guess.
@@ -450,7 +457,10 @@ class CalibrationPage(QWidget):
             self.blockers_label.setText(text)
         self.blockers.style().unpolish(self.blockers)
         self.blockers.style().polish(self.blockers)
-        self.btn_finish.setEnabled(result.passed)
+        # `can_finish`, not `passed`: an unreachable feed must not trap anyone
+        # on the last screen, but it must not be recorded as a calibration
+        # either. See CalibrationResult.can_finish.
+        self.btn_finish.setEnabled(result.can_finish)
         self.changed.emit()
 
 
@@ -520,11 +530,40 @@ class InterviewPage(QWidget):
         row.addWidget(self.status, 1)
         layout.addLayout(row)
 
+        # THE OPEN QUESTIONS, EACH WITH SOMEWHERE TO PUT THE ANSWER.
+        #
+        # These were one wall of bullets in a single QLabel, and `_questions`
+        # was stored and then never read by anything. The app asked eight
+        # things about the person sitting in front of it and discarded whatever
+        # they would have said — which is worse than not asking, because it
+        # reads as a form. A question with nowhere to put the answer is not a
+        # question, it is a disclaimer.
+        #
+        # Answers are appended to the FACTSHEET, deliberately: the factsheet is
+        # the only thing outreach may claim, so a correction that lands
+        # anywhere else does not govern anything.
         self.questions = QLabel()
         self.questions.setObjectName("disagreement")
         self.questions.setWordWrap(True)
         self.questions.hide()
         layout.addWidget(self.questions)
+
+        self._answer_rows: list[tuple[str, QLineEdit]] = []
+        self._questions_form = QVBoxLayout()
+        self._questions_form.setContentsMargins(0, 0, 0, 0)
+        self._questions_form.setSpacing(4)
+        holder = QWidget()
+        holder.setLayout(self._questions_form)
+        # Capped and scrollable: eight questions each with a box is taller than
+        # the documents they are about, and pushing those off-screen would
+        # trade one unreadable layout for another.
+        self.questions_area = QScrollArea()
+        self.questions_area.setObjectName("questionsArea")
+        self.questions_area.setWidget(holder)
+        self.questions_area.setWidgetResizable(True)
+        self.questions_area.setMaximumHeight(210)
+        self.questions_area.hide()
+        layout.addWidget(self.questions_area)
 
         split = QHBoxLayout()
         split.setSpacing(12)
@@ -597,10 +636,7 @@ QPlainTextEdit#aimBox {
         self.factsheet.setPlainText(factsheet)
         self.brief.setPlainText(brief)
         self._questions = questions
-        if questions:
-            self.questions.setText(
-                tr("onboarding.open_questions") + "\n• " + "\n• ".join(questions))
-            self.questions.show()
+        self._show_questions(questions)
         self.status.setText(tr("onboarding.drafted"))
         self.drafted.emit()
 
@@ -610,17 +646,142 @@ QPlainTextEdit#aimBox {
         self.btn_draft.setEnabled(True)
         self.status.setText(tr("onboarding.draft_failed", reason=str(exc)[:200]))
 
+    def _show_questions(self, questions: list[str]) -> None:
+        """One row per question: the question, and a box to answer it in."""
+        while self._questions_form.count():
+            item = self._questions_form.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+        self._answer_rows = []
+
+        if not questions:
+            self.questions.hide()
+            self.questions_area.hide()
+            return
+
+        self.questions.setText(tr("onboarding.open_questions"))
+        self.questions.show()
+        for question in questions:
+            label = QLabel("• " + question)
+            label.setObjectName("disagreement")
+            label.setWordWrap(True)
+            self._questions_form.addWidget(label)
+            box = QLineEdit()
+            box.setPlaceholderText(tr("onboarding.answer_placeholder"))
+            self._questions_form.addWidget(box)
+            self._answer_rows.append((question, box))
+        self.questions_area.show()
+
+    def question_answers(self) -> list[tuple[str, str]]:
+        """Only the questions actually answered. A blank box is not an answer,
+        and must never reach the factsheet as one."""
+        return [(q, box.text().strip())
+                for q, box in self._answer_rows if box.text().strip()]
+
     def set_corpus(self, corpus) -> None:
         """Hand over the documents without spending anything yet."""
         self._corpus = corpus
 
     def documents(self) -> tuple[str, str]:
-        return self.factsheet.toPlainText(), self.brief.toPlainText()
+        """The factsheet carries any answers, because the factsheet is the only
+        thing outreach may claim — a correction that landed anywhere else would
+        govern nothing. Unanswered questions are simply dropped: an unanswered
+        question is not a fact, and must not read as one later."""
+        factsheet = self.factsheet.toPlainText()
+        answered = self.question_answers()
+        if answered:
+            lines = [tr("onboarding.clarifications_heading")]
+            lines += [f"- {question} — {answer}" for question, answer in answered]
+            factsheet = factsheet.rstrip() + "\n\n" + "\n".join(lines) + "\n"
+        return factsheet, self.brief.toPlainText()
 
     @property
     def has_content(self) -> bool:
         return bool(self.factsheet.toPlainText().strip()
                     and self.brief.toPlainText().strip())
+
+
+class SearchesPage(QWidget):
+    """Switch on the searches that are actually searches.
+
+    THE STEP WHOSE ABSENCE WAS THE BUG. Seeds are generated from the stated aim
+    and arrive switched OFF on purpose — billing is per posting returned, so a
+    seed nobody meant is money spent for nothing. But nothing ever offered to
+    switch one ON, so a fresh install arrived at calibration with no enabled
+    search, fetched nothing, and could not finish. The design assumed this
+    screen existed. It did not, on any platform, in any shipped build.
+
+    IT DOES NOT BLOCK. Requiring a tick here would replace one trap with
+    another — a user whose seeds are all junk would be stuck again. Calibration
+    no longer blocks either, so the worst case is a quiet first morning and a
+    search switched on later from Settings.
+    """
+
+    changed = Signal()
+
+    def __init__(self, *, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 8)
+        layout.setSpacing(10)
+
+        heading = QLabel(tr("onboarding.searches_heading"))
+        heading.setObjectName("stepHeading")
+        layout.addWidget(heading)
+
+        body = QLabel(reflow(tr("onboarding.searches_body")))
+        body.setObjectName("stepBody")
+        body.setWordWrap(True)
+        layout.addWidget(body)
+
+        self._rows: list[tuple[str, QCheckBox]] = []
+        self._form = QVBoxLayout()
+        self._form.setContentsMargins(0, 0, 0, 0)
+        self._form.setSpacing(4)
+        holder = QWidget()
+        holder.setLayout(self._form)
+        area = QScrollArea()
+        area.setWidget(holder)
+        area.setWidgetResizable(True)
+        layout.addWidget(area, 1)
+
+        self.note = QLabel()
+        self.note.setObjectName("stepBody")
+        self.note.setWordWrap(True)
+        layout.addWidget(self.note)
+
+    def load(self, rows) -> None:
+        """`rows` is (label, titles, enabled), as `all_queries` returns."""
+        while self._form.count():
+            item = self._form.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+        self._rows = []
+        for label, _titles, enabled in rows:
+            box = QCheckBox(label)
+            box.setChecked(bool(enabled))
+            box.stateChanged.connect(lambda *_: self._refresh())
+            self._form.addWidget(box)
+            self._rows.append((label, box))
+        self._refresh()
+
+    def selections(self) -> list[tuple[str, bool]]:
+        return [(label, box.isChecked()) for label, box in self._rows]
+
+    @property
+    def any_enabled(self) -> bool:
+        return any(on for _label, on in self.selections())
+
+    def _refresh(self) -> None:
+        if not self._rows:
+            self.note.setText(tr("onboarding.searches_none"))
+        elif not self.any_enabled:
+            self.note.setText(tr("onboarding.searches_off"))
+        else:
+            self.note.setText("")
+        self.changed.emit()
 
 
 class OnboardingWizard(QWidget):
@@ -636,12 +797,21 @@ class OnboardingWizard(QWidget):
     completed = Signal(object)          # CalibrationResult
     documents_ready = Signal(str, str)  # factsheet, brief
 
-    def __init__(self, *, extract, sample, drafter=None, parent=None):
+    def __init__(self, *, extract, sample, drafter=None,
+                 searches=None, set_search=None, parent=None):
         """`extract(paths) -> (names, warnings)` and `sample() -> [items]` are
-        injected, so the wizard neither reads disks nor calls a model itself."""
+        injected, so the wizard neither reads disks nor calls a model itself.
+
+        `searches() -> [(label, titles, enabled)]` and
+        `set_search(label, enabled)` are the same idea for the saved searches.
+        Both default to None so existing callers and tests keep working; the
+        step simply shows nothing to switch on.
+        """
         super().__init__(parent)
         self._extract = extract
         self._sample = sample
+        self._searches = searches
+        self._set_search = set_search
         self._corpus = None
 
         self.setWindowTitle(tr("onboarding.title"))
@@ -662,9 +832,14 @@ class OnboardingWizard(QWidget):
         # the brief this step produces — without it there is nothing to correct.
         self.interview = InterviewPage(drafter=drafter)
         self.calibration = CalibrationPage()
+        self.searches = SearchesPage()
         self.stack.addWidget(self.ingest)
         self.stack.addWidget(self.keys)
         self.stack.addWidget(self.interview)
+        # BETWEEN the interview and calibration, because the seeds are written
+        # from the aim when the interview is left, and calibration needs at
+        # least one of them switched on to fetch anything at all.
+        self.stack.addWidget(self.searches)
         self.stack.addWidget(self.calibration)
         layout.addWidget(self.stack, 1)
 
@@ -709,7 +884,11 @@ class OnboardingWizard(QWidget):
         # The gate has its own Finish button, so the wizard's Next is hidden
         # there — two buttons that mean different things is how people click
         # the wrong one.
-        self.btn_next.setVisible(index < 3)
+        self.btn_next.setVisible(index < 4)
+        if index == 3:
+            # Never blocked: see SearchesPage. A user whose seeds are all junk
+            # must still be able to reach the end.
+            self.btn_next.setEnabled(True)
         if index == 1:
             # Cannot leave the key step without a key: the next screen spends
             # money on the user's account, and an app with no key is inert.
@@ -729,9 +908,19 @@ class OnboardingWizard(QWidget):
                 self.interview.set_corpus(self._corpus)
         elif index == 2:
             factsheet, brief = self.interview.documents()
+            # Emitting this is what writes the seed searches, so the next
+            # screen has something to show. Order matters here.
             self.documents_ready.emit(factsheet, brief)
-            self.calibration.load(self._sample())
+            if self._searches is not None:
+                self.searches.load(self._searches())
             self._show_step(3)
+        elif index == 3:
+            if self._set_search is not None:
+                for label, enabled in self.searches.selections():
+                    self._set_search(label, enabled)
+            # Only now is there anything to fetch with.
+            self.calibration.load(self._sample())
+            self._show_step(4)
 
     def _back(self) -> None:
         self._show_step(max(0, self.stack.currentIndex() - 1))

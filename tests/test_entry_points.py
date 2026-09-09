@@ -125,6 +125,80 @@ def test_a_screened_out_posting_is_still_a_row(conn):
     assert len(rows) == 1 and rows[0].bucket == "screened-out"
 
 
+# -- yesterday's pile does not evaporate (spec 6.5) -------------------------
+#
+# The board reads ONE run. Everything left undecided when the next run finished
+# used to disappear, and from the user's chair the app had lost it. Detection
+# existed (`orphan_outputs`, printed by `--doctor`); recovery was written,
+# tested and never called by anything.
+def a_run_with(conn, jobs, bucket="strong"):
+    outcome = run_morning(
+        conn, Stub(jobs), [SearchQuery(label="q", titles=["strategy"])],
+        RuleTable(strong_terms=["strategy"]), fit_brief="b", factsheet=FACTS,
+        send=verdicts(bucket))
+    persist(conn, outcome)
+    return outcome
+
+
+def test_an_undecided_posting_from_an_earlier_run_is_carried_forward(conn):
+    a_run_with(conn, [Job(provider="theirstack", provider_job_id="old",
+                          title="Head of Strategy", company="Acme",
+                          description_text="Strategy.")])
+    a_run_with(conn, [Job(provider="theirstack", provider_job_id="new",
+                          title="Strategy Lead", company="Beta",
+                          description_text="Strategy.")])
+
+    rows = {r.job_id: r for r in rows_from_db(conn)}
+    assert set(rows) == {"theirstack:old", "theirstack:new"}, (
+        "an undecided posting vanished when the next run finished")
+    assert rows["theirstack:old"].carried_forward is True
+    assert rows["theirstack:new"].carried_forward is False
+    assert "carried forward" in rows["theirstack:old"].reason, (
+        "the user cannot tell where a posting they do not remember came from")
+    assert rows["theirstack:old"].bucket == "strong", (
+        "the original verdict must survive the recovery")
+
+
+def test_a_decided_posting_is_not_carried_forward(conn):
+    """The pile has to shrink as it is worked, across runs as well as within
+    one. Deduplicated by provider job id, never by name key."""
+    a_run_with(conn, [Job(provider="theirstack", provider_job_id="old",
+                          title="Head of Strategy", company="Acme",
+                          description_text="Strategy.")])
+    record_decision(conn, "theirstack:old", "pursue")
+    a_run_with(conn, [Job(provider="theirstack", provider_job_id="new",
+                          title="Strategy Lead", company="Beta",
+                          description_text="Strategy.")])
+
+    assert [r.job_id for r in rows_from_db(conn)] == ["theirstack:new"]
+
+
+def test_a_rejected_posting_is_not_carried_forward(conn):
+    """Restoring rejections re-surfaces judgements nobody asked to revisit."""
+    a_run_with(conn, [Job(provider="theirstack", provider_job_id="old",
+                          title="Head of Strategy", company="Acme",
+                          description_text="Strategy.")],
+               bucket="rejected")
+    a_run_with(conn, [Job(provider="theirstack", provider_job_id="new",
+                          title="Strategy Lead", company="Beta",
+                          description_text="Strategy.")])
+
+    assert [r.job_id for r in rows_from_db(conn)] == ["theirstack:new"]
+
+
+def test_a_caller_can_ask_for_one_run_exactly(conn):
+    """The funnel counts a run, not the pile. Recovery would inflate it."""
+    a_run_with(conn, [Job(provider="theirstack", provider_job_id="old",
+                          title="Head of Strategy", company="Acme",
+                          description_text="Strategy.")])
+    a_run_with(conn, [Job(provider="theirstack", provider_job_id="new",
+                          title="Strategy Lead", company="Beta",
+                          description_text="Strategy.")])
+
+    assert [r.job_id for r in rows_from_db(conn, recover=False)] \
+        == ["theirstack:new"]
+
+
 # -- outreach has a way in --------------------------------------------------
 def test_draft_is_a_command(capsys, tmp_path, monkeypatch):
     """`--draft` existed nowhere. The app could not produce its own output."""

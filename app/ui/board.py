@@ -25,8 +25,9 @@ from typing import Callable
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPalette
-from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit,
-                               QMenu,
+from PySide6.QtWidgets import (QComboBox, QFrame, QHBoxLayout, QLabel,
+                               QLineEdit,
+                               QMenu, QMessageBox,
                                QPushButton,
                                QSizePolicy, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
@@ -243,6 +244,14 @@ class BoardWindow(QWidget):
     #: user's own tokens, and a widget that could spend money by itself is
     #: exactly the boundary the rest of this class exists to keep.
     application_requested = Signal(str, bool)   # (opportunity_id, want_brief)
+    #: The employer answered. (opportunity_id, positive, stage) — `stage` is
+    #: the Stage value to advance to and is meaningless when `positive` is
+    #: false, because a negative determination has exactly one destination.
+    #:
+    #: This is the only event that moves an opportunity past Contacted. A send
+    #: never implies a reply, so without it every pursuit sits at Contacted for
+    #: ever and the cadence chases a thread that ended weeks ago.
+    determination_recorded = Signal(str, bool, int)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -303,8 +312,22 @@ class BoardWindow(QWidget):
         self.btn_repair_bounce = QPushButton(tr("board.repair_stage"))
         self.btn_apply = QPushButton(tr("board.write_application"))
         self.btn_brief = QPushButton(tr("board.interview_brief"))
+        # An employer's answer. The stage is chosen rather than inferred: a
+        # reply and an interview invitation are both "they answered" and land
+        # two rungs apart, and guessing between them corrupts the pipeline
+        # read exactly as inferring a stage from a send would.
+        self.combo_stage = QComboBox()
+        self.combo_stage.setObjectName("stageCombo")
+        for stage in (Stage.IN_DIALOGUE, Stage.PHONE_INTERVIEW,
+                      Stage.IN_PERSON_INTERVIEW, Stage.OFFER, Stage.WON):
+            self.combo_stage.addItem(stage.label, int(stage))
+        self.combo_stage.setEnabled(False)
+        self.btn_reply = QPushButton(tr("board.record_reply"))
+        self.btn_no_offer = QPushButton(tr("board.record_no_offer"))
         actions.addWidget(self.field_task, 1)
-        for b in (self.btn_task, self.btn_sent, self.btn_apply,
+        actions.addWidget(self.combo_stage)
+        for b in (self.btn_task, self.btn_sent, self.btn_reply,
+                  self.btn_no_offer, self.btn_apply,
                   self.btn_brief, self.btn_repair, self.btn_repair_bounce):
             b.setObjectName("boardAction")
             b.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
@@ -325,6 +348,10 @@ class BoardWindow(QWidget):
             lambda: self._emit_application(want_brief=False))
         self.btn_brief.clicked.connect(
             lambda: self._emit_application(want_brief=True))
+        self.btn_reply.clicked.connect(
+            lambda: self._emit_determination(positive=True))
+        self.btn_no_offer.clicked.connect(
+            lambda: self._emit_determination(positive=False))
 
     # -- population --------------------------------------------------------
     def load(self, rows: list[BoardRow], findings: dict[str, list]) -> None:
@@ -465,6 +492,12 @@ class BoardWindow(QWidget):
         live = bool(row and row.stage.is_live)
         self.btn_apply.setEnabled(live)
         self.btn_brief.setEnabled(live)
+        # An answer can only arrive on a pursuit that is still open. Offering
+        # it on a Lost record invites re-closing something already closed, and
+        # on a Won one it would walk an accepted offer backwards.
+        self.combo_stage.setEnabled(live)
+        self.btn_reply.setEnabled(live)
+        self.btn_no_offer.setEnabled(live)
         if row:
             self.opportunity_selected.emit(row.opportunity_id)
 
@@ -492,6 +525,33 @@ class BoardWindow(QWidget):
         if row is None:
             return
         self.application_requested.emit(row.opportunity_id, want_brief)
+
+    def _emit_determination(self, *, positive: bool):
+        row = self._current()
+        if row is None or not row.stage.is_live:
+            return
+        stage = int(self.combo_stage.currentData() or int(Stage.IN_DIALOGUE))
+        self.determination_recorded.emit(row.opportunity_id, positive, stage)
+
+    def confirm_determination(self, lines: list[str]) -> bool:
+        """Show what is about to be written and wait for a yes.
+
+        A negative determination does not touch one field: the parent goes
+        Lost and EVERY subtask underneath it is rendered `no offer`. That
+        cascade is correct — the whole tree really did end — and it is far too
+        much to happen because a button was next to the one being aimed at.
+
+        Returned as a bool so the adapter, which owns the database, decides
+        whether to commit. The window still writes nothing itself.
+        """
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Question)
+        box.setWindowTitle(tr("board.confirm_title"))
+        box.setText(tr("board.confirm_body"))
+        box.setInformativeText("\n".join(lines))
+        box.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
+        box.setDefaultButton(QMessageBox.Cancel)
+        return box.exec() == QMessageBox.Yes
 
     def _emit_repair(self):
         row = self._current()

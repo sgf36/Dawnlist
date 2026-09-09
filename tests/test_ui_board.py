@@ -411,3 +411,98 @@ def test_the_board_never_writes_anything_itself(win):
     win.load([BoardRow(opportunity_id="o4", company="Live", stage=Stage.IN_DIALOGUE, status="In Dialogue")], {})
     win.tree.setCurrentItem(win.tree.topLevelItem(0).child(0))
     win.btn_apply.click()          # nothing connected: must not raise
+
+
+# ---------------------------------------------------------------------------
+# The employer's answer — the only event that moves an opportunity past
+# Contacted. `apply_determination` encoded the whole rule and nothing called
+# it, so the ladder had no way forward and the cadence chased threads that had
+# already ended.
+# ---------------------------------------------------------------------------
+
+def _loaded(conn, win):
+    rows, findings = board_rows(conn)
+    win.load(rows, findings)
+    return win
+
+
+def test_recording_a_reply_advances_the_stage(conn, win):
+    from app.ui.board_adapter import record_determination
+    oid = create_opportunity(conn, "Acme", stage=Stage.CONTACTED)
+    connect_board(win, conn)
+    _loaded(conn, win)
+    win.confirm_determination = lambda lines: True
+
+    win.tree.setCurrentItem(_find_item(win, str(oid)))
+    win.combo_stage.setCurrentIndex(
+        win.combo_stage.findData(int(Stage.PHONE_INTERVIEW)))
+    win.btn_reply.click()
+
+    row = conn.execute("SELECT stage, status_mirror FROM opportunities "
+                       "WHERE id=?", (oid,)).fetchone()
+    assert Stage(row["stage"]) is Stage.PHONE_INTERVIEW
+    assert row["status_mirror"] == "phone interview"
+
+
+def test_a_cancelled_confirmation_writes_nothing(conn, win):
+    """A negative determination closes the parent and renders every subtask
+    `no offer`. That must not happen because a button was next to the one
+    being aimed at."""
+    oid = create_opportunity(conn, "Acme", stage=Stage.CONTACTED)
+    add_task(conn, str(oid), "Chase Jo")
+    connect_board(win, conn)
+    _loaded(conn, win)
+    shown = []
+    win.confirm_determination = lambda lines: (shown.extend(lines), False)[1]
+
+    win.tree.setCurrentItem(_find_item(win, str(oid)))
+    win.btn_no_offer.click()
+
+    row = conn.execute("SELECT stage FROM opportunities WHERE id=?",
+                       (oid,)).fetchone()
+    assert Stage(row["stage"]) is Stage.CONTACTED
+    assert conn.execute("SELECT status FROM tasks").fetchone()["status"] == "open"
+    # And the user was told what the cascade would do, in words, before being
+    # asked — a dialog listing `stage=Lost` is asking for approval of
+    # something that has to be decoded first.
+    assert any("Lost" in line for line in shown)
+    assert any("task" in line for line in shown)
+
+
+def test_recording_no_offer_closes_the_tree(conn, win):
+    oid = create_opportunity(conn, "Acme", stage=Stage.PHONE_INTERVIEW)
+    add_task(conn, str(oid), "Prepare for the call")
+    connect_board(win, conn)
+    _loaded(conn, win)
+    win.confirm_determination = lambda lines: True
+
+    win.tree.setCurrentItem(_find_item(win, str(oid)))
+    win.btn_no_offer.click()
+
+    row = conn.execute("SELECT stage, status_mirror FROM opportunities "
+                       "WHERE id=?", (oid,)).fetchone()
+    assert Stage(row["stage"]) is Stage.LOST
+    assert row["status_mirror"] == "no offer"
+    assert conn.execute(
+        "SELECT status FROM tasks").fetchone()["status"] == "no offer"
+
+
+def test_a_closed_opportunity_takes_no_determination(conn, win):
+    """An answer can only arrive on a pursuit that is still open. Offering it
+    on a Won record would walk an accepted offer backwards."""
+    oid = create_opportunity(conn, "Done", stage=Stage.WON)
+    _loaded(conn, win)
+    win.tree.setCurrentItem(_find_item(win, str(oid)))
+    assert not win.btn_reply.isEnabled()
+    assert not win.btn_no_offer.isEnabled()
+    assert not win.combo_stage.isEnabled()
+
+
+def test_the_stage_is_chosen_not_inferred(conn, win):
+    """A reply and an interview invitation are both "they answered" and land
+    two rungs apart. Guessing between them corrupts the pipeline read exactly
+    as inferring a stage from a send would."""
+    labels = [win.combo_stage.itemText(i)
+              for i in range(win.combo_stage.count())]
+    assert "In Dialogue" in labels and "Phone Interview" in labels
+    assert "Lost" not in labels, "a positive answer cannot close a pursuit"

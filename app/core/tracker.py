@@ -87,10 +87,20 @@ STATUS_MIRROR: dict[Stage, str] = {
     Stage.ON_HOLD: "on hold",
 }
 
+#: Label back to Stage. `apply_determination` returns its writes as
+#: `"stage=In Dialogue"` strings so a caller can show the user exactly what is
+#: about to happen; something then has to read them back, and parsing a label
+#: by hand at the call site is how a typo becomes a silent no-op.
+STAGE_BY_LABEL: dict[str, "Stage"] = {}   # filled below, after Stage.label
+
+
 #: Status values an ACTION TASK (a child) may carry. A child's status is
 #: evidence-based and is never a mirror of the parent's Stage.
 CHILD_OPEN_STATUSES = {"open", "waiting"}
 CHILD_TERMINAL_STATUSES = {"complete", "completed", "closed", "no offer"}
+
+
+STAGE_BY_LABEL.update({stage.label: stage for stage in Stage})
 
 
 class TrackerError(ValueError):
@@ -281,8 +291,28 @@ def advance_for_outbound(stage: Stage) -> Stage:
     return Stage.CONTACTED if stage is Stage.IDENTIFIED else stage
 
 
+@dataclass(frozen=True)
+class Write:
+    """One pending change, and WHICH RECORD it is against.
+
+    The record id alone is not enough, and that is not a hypothetical. In the
+    ClickUp system these rules were ported from every id was globally unique.
+    Here `opportunities` and `tasks` are both `INTEGER PRIMARY KEY` and their
+    ids collide from the very first row, so a caller routing on the id alone
+    applies the parent's write and silently skips its children's: the cascade
+    reads as committed while every subtask underneath it stays open.
+    """
+    kind: str          #: 'opportunity' or 'task'
+    record_id: str
+    field: str         #: 'stage' or 'status'
+    value: str
+
+    def __str__(self) -> str:
+        return f"{self.kind}:{self.record_id} {self.field}={self.value}"
+
+
 def apply_determination(opp: Opportunity, positive: bool,
-                        advance_to: Stage | None = None) -> list[tuple[str, str]]:
+                        advance_to: Stage | None = None) -> list[Write]:
     """Apply a header-verified determination from an employer.
 
     Negative → the parent goes Lost and EVERY subtask is rendered `no offer`.
@@ -290,23 +320,22 @@ def apply_determination(opp: Opportunity, positive: bool,
     the same time, so the whole tree is uniformly marked with the outcome that
     actually happened.
 
-    Returns the list of (record_id, new_value) writes rather than performing
-    them: a determination is pre-filled for the user's confirmation, never
-    committed autonomously.
+    Returns the writes rather than performing them: a determination is
+    pre-filled for the user's confirmation, never committed autonomously.
     """
-    writes: list[tuple[str, str]] = []
+    writes: list[Write] = []
     if positive:
         target = advance_to or Stage.PHONE_INTERVIEW
         if target.is_terminal or not target.is_live:
             raise TrackerError("a positive determination must advance to a live stage")
-        writes.append((opp.id, f"stage={target.label}"))
-        writes.append((opp.id, f"status={STATUS_MIRROR[target]}"))
+        writes.append(Write("opportunity", opp.id, "stage", target.label))
+        writes.append(Write("opportunity", opp.id, "status", STATUS_MIRROR[target]))
         return writes
 
-    writes.append((opp.id, f"stage={Stage.LOST.label}"))
-    writes.append((opp.id, "status=no offer"))
+    writes.append(Write("opportunity", opp.id, "stage", Stage.LOST.label))
+    writes.append(Write("opportunity", opp.id, "status", "no offer"))
     for t in opp.tasks:
-        writes.append((t.id, "status=no offer"))
+        writes.append(Write("task", t.id, "status", "no offer"))
     return writes
 
 

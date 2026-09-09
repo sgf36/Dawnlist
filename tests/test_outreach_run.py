@@ -74,12 +74,45 @@ def test_mutual_poc_records_are_not_chased(conn):
 
 # -- who to write to --------------------------------------------------------
 def test_an_untried_contact_outranks_an_unresponsive_one():
-    """Connection counts measure graph proximity, not willingness."""
+    """Connection counts measure graph proximity, not willingness.
+
+    The two are told apart by the EVIDENCE LOG, not by `ever_replied` — both
+    of these have never replied, and only one of them has been asked. Without
+    `tried_ids` this test cannot be written at all, which is why the version
+    it replaces built an `unresponsive` contact and then never used it.
+    """
     unresponsive = Contact(1, "Old", "old@x.com", ever_replied=False)
-    replied = Contact(2, "Replied", "r@x.com", ever_replied=True)
     untried = Contact(3, "New", "new@x.com", ever_replied=False)
-    picked, why = pick_contact([replied, untried])
+    picked, why = pick_contact([unresponsive, untried], tried_ids={1})
     assert picked.name == "New" and why == ""
+
+
+def test_a_contact_who_replied_is_the_warm_route():
+    """`is_warm_route` says a reply is what makes a route warm. Preferring a
+    stranger over someone who has written back inverts it — and that is what
+    shipped: the picker took the first contact who had never replied."""
+    replied = Contact(1, "Replied", "r@x.com", ever_replied=True)
+    untried = Contact(2, "New", "new@x.com", ever_replied=False)
+    picked, _ = pick_contact([replied, untried])
+    assert picked.name == "Replied"
+
+
+def test_an_unresponsive_contact_is_the_last_resort():
+    replied = Contact(1, "Replied", "r@x.com", ever_replied=True)
+    unresponsive = Contact(2, "Old", "old@x.com", ever_replied=False)
+    picked, _ = pick_contact([unresponsive, replied], tried_ids={2})
+    assert picked.name == "Replied"
+
+
+def test_the_evidence_log_is_what_marks_a_contact_as_tried(conn):
+    """Read from `touches`, so the ranking cannot drift from what was sent."""
+    from app.outreach.run import tried_contact_ids
+    oid = create_opportunity(conn, "Acme")
+    first = add_contact(conn, oid, email="a@x.com")
+    add_contact(conn, oid, email="b@x.com")
+    record_outbound(conn, str(oid), Channel.EMAIL, TUE, contact_id=first)
+
+    assert tried_contact_ids(conn, str(oid)) == {first}
 
 
 def test_a_barred_contact_is_never_chosen():

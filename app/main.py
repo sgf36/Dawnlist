@@ -481,8 +481,35 @@ def build_provider(conn):
         # the keyring is per user, so somebody who ran the direct build first
         # still has one, and honouring it here would unlock an Apple build with
         # a subscription bought outside Apple's commerce.
-        from app.core.entitlement import exchange_mac_receipt
+        # ONE EXCEPTION, AND ONLY ONE: a licence GRANTED BY A CODE.
+        #
+        # 3.1.1 forbids unlocking content with a key in place of Apple's
+        # commerce. A comp code is not a purchase — nothing was bought, here or
+        # anywhere — so honouring one sells nothing outside the App Store. It
+        # is how a reviewer, a friend or the developer gets in, and Wren
+        # already ships exactly this distinction on Apple.
+        #
+        # THE DISTINCTION IS THE SERVER'S TO MAKE, never this machine's. The
+        # client cannot tell one licence string from another; the Worker knows,
+        # because `licence_roles.from_code` records a grant and
+        # `licences.paddle_subscription_id` records a purchase. A PURCHASED
+        # licence in the keyring is still refused here, which is the case the
+        # guard above was written for: whoever ran the direct build first still
+        # has one.
+        from app.core.entitlement import exchange_mac_receipt, licence_details
         from app.core.mac_receipt import read_receipt
+
+        granted = stored_licence()
+        if granted:
+            # `licence_details` answers dict / False / None — a grant, a
+            # refusal, or an unreachable server. Only the first can pass here:
+            # "could not ask" must never resolve to "probably a grant".
+            detail = licence_details(granted)
+            if (isinstance(detail, dict)
+                    and detail.get("granted_by_code")
+                    and not detail.get("purchased")):
+                from app.feed.managed import ManagedProvider
+                return ManagedProvider(granted)
 
         receipt = read_receipt()
         if receipt is None:
@@ -842,6 +869,16 @@ def print_funnel(outcome) -> None:
     loose = outcome.loose_queries()
     if loose:
         print(f"\n  below 10% yield, rewrite rather than widen: {', '.join(loose)}")
+
+    # spec 5.4: watch this between runs. On the command line there is no
+    # bar to carry the warning chip, so the standing figure is printed
+    # every run - a number seen each morning is one whose movement gets
+    # noticed. Below the sample floor it is not a measurement, and is left
+    # off rather than printed with a caveat nobody reads.
+    from app.core.screen import DRIFT_MIN_SAMPLE
+    if outcome.screen and len(outcome.screen.results) >= DRIFT_MIN_SAMPLE:
+        print(f"\n  screening rules removed "
+              f"{round(outcome.screen.unlikely_share * 100)}% of what was swept")
 
 
 
@@ -1428,7 +1465,11 @@ def _launch_onboarding(app, conn) -> int:
         brief = call(build_brief_request(corpus, aim))
         return factsheet, brief, open_questions(data)
 
-    wizard = OnboardingWizard(extract=extract, sample=sample, drafter=drafter)
+    wizard = OnboardingWizard(
+        extract=extract, sample=sample, drafter=drafter,
+        searches=lambda: all_queries(conn),
+        set_search=lambda label, enabled: enable_query(
+            conn, label, enabled=enabled))
 
     def save_documents(factsheet, brief):
         # Saved when the user leaves the interview, not when the model returns.
@@ -1448,6 +1489,13 @@ def _launch_onboarding(app, conn) -> int:
 
     def finished(result):
         brief = load_document(conn, "fit_brief") or "# Fit brief"
+        if result.sample_unavailable:
+            # Nothing to record. `complete_calibration` would raise, which is
+            # correct — a calibration against no postings is not one — but the
+            # user must still be able to finish and start the app. It runs on a
+            # later morning, once a search is switched on.
+            wizard.close()
+            return
         complete_calibration(conn, brief, result)
         wizard.close()
 
@@ -1478,6 +1526,38 @@ def _stored_funnel(conn, run_id) -> dict[str, int]:
     counts = {k: row[k] or 0 for k in row.keys()}
     counts["gated_out"] = counts.pop("gated")
     return counts
+
+
+def _screen_drift_notes(conn, run_id) -> list[str]:
+    """spec 5.4 — say so when the screen's reach moves sharply between runs.
+
+    `unlikely_share` was computed on every report and read by nothing, so a
+    rule edit that started removing half the feed looked exactly like a quiet
+    week. This is the "say so".
+
+    Compared against the previous run THAT SCREENED SOMETHING, not simply the
+    previous row: an outreach run screens nothing and would otherwise read as
+    a collapse to zero.
+    """
+    from app.core.screen import (DRIFT_MIN_SAMPLE, SHARE_DRIFT, share_drift,
+                                 unlikely_share_of)
+    from app.i18n import tr
+
+    if run_id is None:
+        return []
+    rows = conn.execute(
+        "SELECT screened_likely, screened_out FROM runs "
+        " WHERE id <= ? AND (screened_likely + screened_out) >= ? "
+        " ORDER BY id DESC LIMIT 2", (run_id, DRIFT_MIN_SAMPLE)).fetchall()
+    if len(rows) < 2:
+        return []
+    now = unlikely_share_of(rows[0]["screened_likely"], rows[0]["screened_out"])
+    before = unlikely_share_of(rows[1]["screened_likely"], rows[1]["screened_out"])
+    delta = share_drift(now, before)
+    if delta is None or abs(delta) < SHARE_DRIFT:
+        return []
+    return [tr("funnel.screen_drift", now=round(now * 100),
+               before=round(before * 100))]
 
 
 def open_settings(parent=None, conn=None):
@@ -1621,7 +1701,9 @@ def _launch_ui(conn, *, open_board: bool) -> int:
         # held from a run this process did. Opening the app the morning after
         # is the normal case, and this window used to open empty in it — every
         # posting the run assessed was on disk and nothing put it on screen.
-        window.load(rows_from_db(conn), _stored_funnel(conn, latest_run_id(conn)))
+        run_id = latest_run_id(conn)
+        window.load(rows_from_db(conn), _stored_funnel(conn, run_id),
+                    notes=_screen_drift_notes(conn, run_id))
 
     window.show()
     return app.exec()

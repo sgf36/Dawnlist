@@ -57,7 +57,9 @@ PLAN_PATH = "/v1/plan"
 #: Names the product and a contact, which is what a well-behaved client sends
 #: and what makes an anomalous pattern in the Worker's logs traceable to a
 #: version rather than to "some Python".
-USER_AGENT = "Dawnlist/1.0 (+https://dawnlist.spencerfields.com)"
+#: Moved to app/feed/base.py so both transports share one definition;
+#: re-exported here because it was public from this module first.
+from app.feed.base import USER_AGENT  # noqa: E402,F401
 
 
 @dataclass(frozen=True)

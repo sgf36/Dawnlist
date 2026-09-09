@@ -5,6 +5,7 @@ from app.core.tracker import (JobCategory, Opportunity, Stage, Task, TrackerErro
                               advance_for_outbound, apply_determination,
                               assert_at_most_one_open_child, audit,
                               bounce_correction, cadence_scope, check_parity,
+                              Write,
                               is_opportunity, nearest_stage_bearing_ancestor,
                               pipeline_order, reply_check_scope, retire_task,
                               validate_child_status)
@@ -83,15 +84,19 @@ def test_negative_determination_cascades_no_offer_over_the_whole_tree():
     o = opp(Stage.IN_PERSON_INTERVIEW,
             tasks=[Task(id="t1", title="follow up"), Task(id="t2", title="letter")])
     writes = apply_determination(o, positive=False)
-    assert ("o1", "stage=Lost") in writes
-    assert ("t1", "status=no offer") in writes and ("t2", "status=no offer") in writes
+    assert Write("opportunity", "o1", "stage", "Lost") in writes
+    # Qualified by RECORD KIND, not just id: opportunity ids and task ids
+    # collide in the app's schema, and a caller that routed on the id alone
+    # applied the parent's write and skipped every child's.
+    assert Write("task", "t1", "status", "no offer") in writes
+    assert Write("task", "t2", "status", "no offer") in writes
 
 
 def test_positive_determination_never_marks_no_offer():
     o = opp(Stage.CONTACTED)
     writes = apply_determination(o, positive=True, advance_to=Stage.PHONE_INTERVIEW)
-    assert all("no offer" not in v for _, v in writes)
-    assert ("o1", "stage=Phone Interview") in writes
+    assert all(w.value != "no offer" for w in writes)
+    assert Write("opportunity", "o1", "stage", "Phone Interview") in writes
 
 
 def test_positive_determination_cannot_advance_to_a_terminal_stage():

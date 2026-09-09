@@ -299,3 +299,114 @@ def test_a_kill_term_alone_is_not_a_positive_signal():
     report = screen_all(jobs, RuleTable(unsupported_titles=["night auditor"]))
     assert [r.job.title for r in report.likely] == ["Head of Strategy"]
     assert [r.job.title for r in report.unlikely] == ["Night Auditor"]
+
+
+# ---------------------------------------------------------------------------
+# spec 5.4 — "watch this between runs; if it moves sharply, say so". The share
+# was computed on every report and read by nothing, so a rule edit that
+# started removing half the feed looked exactly like a quiet week.
+# ---------------------------------------------------------------------------
+import sqlite3  # noqa: E402
+
+from app.core import db  # noqa: E402
+from app.core.screen import (DRIFT_MIN_SAMPLE, share_drift,  # noqa: E402
+                             unlikely_share_of)
+from app.main import _screen_drift_notes  # noqa: E402
+
+
+def test_the_share_is_one_expression_not_two():
+    """The property and the database path must agree, or the warning fires on
+    a number the bar never showed."""
+    assert unlikely_share_of(3, 1) == 0.25
+    assert unlikely_share_of(0, 0) == 0.0
+
+
+def test_a_first_run_has_no_drift():
+    assert share_drift(0.9, None) is None
+
+
+def _runs(conn, pairs):
+    """Each pair is (screened_likely, screened_out) for one run."""
+    for likely, out in pairs:
+        conn.execute(
+            "INSERT INTO runs(started_at, status, swept, screened_likely, "
+            "screened_out) VALUES('t','complete',?,?,?)",
+            (likely + out, likely, out))
+    conn.commit()
+    return conn.execute("SELECT MAX(id) AS id FROM runs").fetchone()["id"]
+
+
+def _conn(tmp_path):
+    c = db.connect(tmp_path / "d.sqlite3")
+    db.migrate(c)
+    return c
+
+
+def test_a_sharp_move_in_the_screens_reach_is_said_out_loud(tmp_path):
+    conn = _conn(tmp_path)
+    run_id = _runs(conn, [(80, 20), (20, 80)])
+    notes = _screen_drift_notes(conn, run_id)
+    assert len(notes) == 1
+    assert "80%" in notes[0] and "20%" in notes[0]
+    conn.close()
+
+
+def test_a_steady_screen_says_nothing(tmp_path):
+    conn = _conn(tmp_path)
+    run_id = _runs(conn, [(50, 50), (48, 52)])
+    assert _screen_drift_notes(conn, run_id) == []
+    conn.close()
+
+
+def test_a_run_too_small_to_measure_is_not_reported(tmp_path):
+    """Three rows going the wrong way is 100% drift and means nothing."""
+    conn = _conn(tmp_path)
+    run_id = _runs(conn, [(3, 0), (0, 3)])
+    assert _screen_drift_notes(conn, run_id) == []
+    conn.close()
+
+
+def test_a_run_that_screened_nothing_is_not_a_collapse_to_zero(tmp_path):
+    """An outreach run screens nothing. Comparing against the previous ROW
+    rather than the previous SCREENING run reports a total collapse every
+    time the user drafts their post."""
+    conn = _conn(tmp_path)
+    _runs(conn, [(80, 20), (20, 80)])
+    run_id = _runs(conn, [(0, 0)])          # an outreach run
+    notes = _screen_drift_notes(conn, run_id)
+    assert len(notes) == 1 and "80%" in notes[0]
+    conn.close()
+
+
+def test_the_command_line_prints_the_share_every_run(capsys):
+    """There is no funnel bar on the command line, so the standing figure is
+    what a CLI user watches move. It was computed and printed nowhere."""
+    from app.core.pipeline import RunOutcome
+    from app.core.screen import ScreenReport, ScreenResult, Tier, Verdict
+    from app.feed.models import Job
+    from app.main import print_funnel
+
+    def result(i):
+        v = Verdict.UNLIKELY if i < 15 else Verdict.LIKELY
+        return ScreenResult(Job(provider="p", provider_job_id=str(i),
+                                title="t", company="c"),
+                            v, Tier.NO_SIGNAL, "")
+
+    outcome = RunOutcome(run_id=1)
+    outcome.screen = ScreenReport([result(i) for i in range(20)])
+    print_funnel(outcome)
+    assert "screening rules removed 75%" in capsys.readouterr().out
+
+
+def test_a_sample_too_small_to_measure_prints_no_share(capsys):
+    from app.core.pipeline import RunOutcome
+    from app.core.screen import ScreenReport, ScreenResult, Tier, Verdict
+    from app.feed.models import Job
+    from app.main import print_funnel
+
+    outcome = RunOutcome(run_id=1)
+    outcome.screen = ScreenReport([
+        ScreenResult(Job(provider="p", provider_job_id="1", title="t",
+                         company="c"), Verdict.UNLIKELY, Tier.NO_SIGNAL, "")])
+    print_funnel(outcome)
+    assert "screening rules removed" not in capsys.readouterr().out

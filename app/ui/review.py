@@ -62,6 +62,11 @@ class ReviewRow:
     #: against. Never merged (spec 6.6): two postings that look like one may be
     #: two real vacancies, and merging them loses one.
     near_duplicate: str = ""
+    #: Recovered from an earlier run rather than produced by the current one
+    #: (spec 6.5). The board reads one run, so an undecided posting from
+    #: yesterday would otherwise disappear the moment a new run finishes —
+    #: which reads as the app having lost it, because it had.
+    carried_forward: bool = False
 
 
 #: One stylesheet, every selector scoped by object name or class.
@@ -199,7 +204,20 @@ class FunnelBar(QFrame):
         col.addWidget(text)
         return box
 
-    def set_counts(self, counts: dict[str, int], *, incomplete_note: str = "") -> None:
+    def _warn_chip(self, text: str) -> None:
+        """One gold chip on the bar. Elided by hand — QLabel clips instead."""
+        warn = QLabel()
+        warn.setObjectName("funnelWarning")
+        warn.setToolTip(text)
+        warn.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        warn.setMaximumWidth(WARNING_MAX_WIDTH)
+        metrics = QFontMetrics(warn.font())
+        warn.setText(metrics.elidedText(
+            text, Qt.ElideRight, WARNING_MAX_WIDTH - 28))
+        self._layout.addWidget(warn)
+
+    def set_counts(self, counts: dict[str, int], *, incomplete_note: str = "",
+                   notes: list[str] | None = None) -> None:
         while self._layout.count():
             item = self._layout.takeAt(0)
             if item.widget():
@@ -229,16 +247,14 @@ class FunnelBar(QFrame):
                 text = "⚠ " + tr("funnel.incomplete")
             if incomplete_note:
                 text += f" — {incomplete_note}"
-            warn = QLabel()
-            warn.setObjectName("funnelWarning")
-            warn.setToolTip(text)
-            warn.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-            warn.setMaximumWidth(WARNING_MAX_WIDTH)
-            # QLabel clips rather than elides, so elide the string ourselves.
-            metrics = QFontMetrics(warn.font())
-            warn.setText(metrics.elidedText(
-                text, Qt.ElideRight, WARNING_MAX_WIDTH - 28))
-            self._layout.addWidget(warn)
+            self._warn_chip(text)
+
+        # Anything else the run wants to say about itself — today, that the
+        # screen's reach moved sharply since last time (spec 5.4). Its own
+        # chip: folding it into the incomplete note would label a complete run
+        # incomplete, and the two are not the same problem.
+        for note in (notes or []):
+            self._warn_chip("⚠ " + note)
 
 
 class ReviewWindow(QMainWindow):
@@ -369,7 +385,8 @@ class ReviewWindow(QMainWindow):
         return t
 
     def load(self, rows: list[ReviewRow], counts: dict[str, int], *,
-             incomplete_note: str = "") -> None:
+             incomplete_note: str = "",
+             notes: list[str] | None = None) -> None:
         self._rows = {r.job_id: r for r in rows}
         for tree in (self.shortlist, self.rejected, self.screened_out, self.contained):
             tree.clear()
@@ -398,7 +415,8 @@ class ReviewWindow(QMainWindow):
                 item.setForeground(2, Qt.darkYellow)
             target.addTopLevelItem(item)
 
-        self.funnel.set_counts(counts, incomplete_note=incomplete_note)
+        self.funnel.set_counts(counts, incomplete_note=incomplete_note,
+                               notes=notes)
         for idx, (tree, key) in enumerate((
                 (self.shortlist, "tab.shortlist"), (self.rejected, "tab.rejected"),
                 (self.screened_out, "tab.screened_out"),

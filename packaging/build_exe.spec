@@ -39,7 +39,7 @@ def _require_icon(path):
 # upload whose build number it has already seen, even for an identical
 # marketing version.
 # --------------------------------------------------------------------------
-VERSION = os.environ.get("DAWNLIST_VERSION", "1.0.2")
+VERSION = os.environ.get("DAWNLIST_VERSION", "1.1.0")
 BUILD_NUMBER = os.environ.get("DAWNLIST_BUILD", "1")
 
 # --------------------------------------------------------------------------

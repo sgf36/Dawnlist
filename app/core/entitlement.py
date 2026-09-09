@@ -120,26 +120,51 @@ def stored_licence() -> str | None:
         return None
 
 
+def licence_details(key: str, *, opener=None):
+    """The server's own account of this licence.
+
+    A dict on 200, ``False`` when the server refuses it, ``None`` when the
+    server could not be reached. Three outcomes, because the caller treats
+    them differently, and collapsing the last two turns an outage into an
+    accusation.
+
+    IT ASKS `/v1/licence`, NOT `/health`, AND THAT DIFFERENCE WAS THE BUG.
+    `/health` reports on the SERVICE: it takes no request, never reads the
+    Authorization header, and returns 200 to anybody. Verifying against it
+    meant EVERY string typed into the licence box verified, and `check()`
+    below then reported "licence verified" for all of them. The metered feed
+    routes still refused, so nothing paid was handed over — but the gate was
+    not a gate, and it told the person the opposite of the truth.
+
+    It survived because every test injects `verifier=`, so this function was
+    never the thing under test.
+    """
+    import json
+    import urllib.error
+    import urllib.request
+
+    request = urllib.request.Request(WORKER_BASE.rstrip("/") + "/v1/licence")
+    request.add_header("authorization", f"Bearer {key}")
+    try:
+        with (opener or urllib.request.urlopen)(request, timeout=15) as response:
+            return json.loads(response.read().decode())
+    except urllib.error.HTTPError as exc:
+        # 401/403 are the server saying no. Anything else is the network
+        # saying nothing, which is a different fact.
+        return False if exc.code in (401, 403) else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def verify_against_worker(key: str) -> bool | None:
     """True, False, or None for 'could not tell'.
 
     None is NOT False. It is what the grace period exists to absorb.
     """
-    import urllib.error
-    import urllib.request
-
-    request = urllib.request.Request(
-        "https://dawnlist-feed-worker.sgf36.workers.dev/health")
-    request.add_header("authorization", f"Bearer {key}")
-    try:
-        with urllib.request.urlopen(request, timeout=15) as response:
-            return response.status == 200
-    except urllib.error.HTTPError as exc:
-        # 403 is the server saying no. Anything else is the network saying
-        # nothing, which is a different fact.
-        return False if exc.code == 403 else None
-    except Exception:  # noqa: BLE001
-        return None
+    detail = licence_details(key)
+    if detail is None or detail is False:
+        return detail
+    return bool(detail.get("ok"))
 
 
 def check(conn: sqlite3.Connection, *, verifier=None,

@@ -229,3 +229,118 @@ def test_storing_a_licence_does_not_mark_it_verified(conn, monkeypatch):
     ent.store_licence("DAWN-TYPO")
     assert saved["key"] == "DAWN-TYPO"
     assert ent._get(conn, ent.VERIFIED_AT) is None
+
+
+# ---------------------------------------------------------------------------
+# The verifier itself. Every test above injects `verifier=`, so until these
+# existed the REAL one had never run — and it asked `/health`, which takes no
+# request, reads no Authorization header and returns 200 to anybody. Every
+# string typed into the licence box verified, and `check()` reported "licence
+# verified" for all of them. Found by `tools/audit_seams.py`.
+# ---------------------------------------------------------------------------
+class _Response:
+    def __init__(self, body: bytes, status: int = 200):
+        self._body, self.status = body, status
+
+    def read(self):
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def test_verification_asks_a_route_that_reads_the_key(monkeypatch):
+    """THE BUG, pinned. `/health` answers for the service and ignores the
+    caller, so verifying against it accepted anything."""
+    import json
+
+    from app.core import entitlement
+
+    seen = {}
+
+    def opener(request, timeout=None):
+        seen["url"] = request.full_url
+        seen["auth"] = request.get_header("Authorization")
+        return _Response(json.dumps({"ok": True, "status": "active"}).encode())
+
+    detail = entitlement.licence_details("DAWN-XYZ", opener=opener)
+    assert detail["ok"] is True
+    assert seen["url"].endswith("/v1/licence"), \
+        "/health cannot verify anything: it never sees the request"
+    assert seen["auth"] == "Bearer DAWN-XYZ"
+
+
+def test_an_unrecognised_key_is_refused_not_accepted(monkeypatch):
+    """The shape of the shipped bug: a made-up key must NOT verify."""
+    import urllib.error
+
+    from app.core import entitlement
+
+    def opener(request, timeout=None):
+        raise urllib.error.HTTPError(request.full_url, 403, "Forbidden", {}, None)
+
+    assert entitlement.licence_details("MADE-UP", opener=opener) is False
+
+
+def test_an_outage_is_not_a_refusal(monkeypatch):
+    """None is not False. Grace exists to absorb exactly this, and collapsing
+    the two turns an outage into an accusation of fraud."""
+    from app.core import entitlement
+
+    def opener(request, timeout=None):
+        raise OSError("network down")
+
+    assert entitlement.licence_details("DAWN-XYZ", opener=opener) is None
+
+
+# -- redeeming a code, and trading a Mac receipt -----------------------------
+# Both were flagged by tools/audit_seams.py as network paths no test named.
+
+def test_redeeming_a_code_returns_the_licence(monkeypatch):
+    import json
+
+    from app.core import entitlement
+
+    seen = {}
+
+    def opener(request, timeout=None):
+        seen["url"] = request.full_url
+        seen["body"] = json.loads(request.data.decode())
+        return _Response(json.dumps(
+            {"ok": True, "licence_key": "DAWN-FROM-CODE"}).encode())
+
+    key = entitlement.redeem_override_code("DL-ABC", opener=opener)
+    assert key == "DAWN-FROM-CODE"
+    assert seen["url"].endswith("/redeem")
+    assert seen["body"] == {"code": "DL-ABC"}
+
+
+def test_a_spent_code_says_so_rather_than_failing_vaguely(monkeypatch):
+    """'spent' and 'invalid' need different responses: one is a code that
+    worked and has run out, the other never existed."""
+    import io
+    import json
+    import urllib.error
+
+    from app.core import entitlement
+
+    def opener(request, timeout=None):
+        raise urllib.error.HTTPError(
+            request.full_url, 403, "no", {},
+            io.BytesIO(json.dumps({"error": "code_spent"}).encode()))
+
+    with pytest.raises(entitlement.NotEntitled, match="maximum number of times"):
+        entitlement.redeem_override_code("DL-SPENT", opener=opener)
+
+
+def test_an_unreachable_service_does_not_read_as_a_bad_code(monkeypatch):
+    from app.core import entitlement
+
+    def opener(request, timeout=None):
+        raise OSError("offline")
+
+    with pytest.raises(entitlement.NotEntitled, match="Could not reach"):
+        entitlement.redeem_override_code("DL-ABC", opener=opener)

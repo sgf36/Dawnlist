@@ -392,6 +392,44 @@ async function handleHealth(env) {
 }
 
 /**
+ * Whether this licence is real, and — the load-bearing part — HOW IT WAS GOT.
+ *
+ * WHY THIS EXISTS AT ALL. `/health` answers for the SERVICE, not the caller:
+ * it takes no request, reads no Authorization header, and returns 200 to
+ * anybody. The desktop app was verifying licences against it — sending a
+ * Bearer key and reading the status — so EVERY string typed into the licence
+ * box verified, and `entitlement.check()` reported "licence verified" for all
+ * of them. The metered routes still refused, so nothing paid was handed over,
+ * but the gate was not a gate. Verification needs a route that authenticates.
+ *
+ * `granted_by_code` is what lets a Mac App Store build honour a comp code
+ * without honouring a PURCHASE made outside Apple's commerce. Guideline 3.1.1
+ * forbids unlocking purchased content with a key; a free grant is not a
+ * purchase, and Wren already ships that distinction on Apple. The client
+ * cannot tell one licence string from another, so the answer has to come from
+ * here, where `licence_roles.from_code` and `licences.paddle_subscription_id`
+ * actually record it.
+ */
+async function handleLicence(env, request) {
+  const licence = await authenticate(env, request);
+  const role = await env.DB.prepare(
+    'SELECT role, from_code FROM licence_roles WHERE licence_key = ?1'
+  ).bind(licence.licence_key).first();
+  const origin = await env.DB.prepare(
+    'SELECT paddle_subscription_id FROM licences WHERE licence_key = ?1'
+  ).bind(licence.licence_key).first();
+
+  return json({
+    ok: true,
+    status: licence.status,
+    plan: licence.plan,
+    role: role?.role || 'byo',
+    granted_by_code: Boolean(role?.from_code),
+    purchased: Boolean(origin?.paddle_subscription_id),
+  });
+}
+
+/**
  * What plan this licence is on, what it allows, and what is left today.
  *
  * The app needs all three to say anything honest when a run is cut short. A
@@ -459,6 +497,10 @@ export default {
       }
       if (url.pathname === '/health') {
         return await handleHealth(env);
+      }
+      // Verification, which /health cannot do: it never sees the request.
+      if (url.pathname === '/v1/licence' && request.method === 'GET') {
+        return await handleLicence(env, request);
       }
       throw new HttpError(404, 'not_found', 'No such route');
     } catch (err) {

@@ -26,7 +26,7 @@ from pathlib import Path
 
 from app.core import db
 from app.core.board_repo import load_board, load_touches
-from app.core.cadence import Channel, NextStep, next_step
+from app.core.cadence import Channel, NextStep, is_warm_route, next_step
 from app.core.tracker import JobCategory, Opportunity
 from app.outreach.compose import DraftBrief, build_drafting_request
 from app.outreach.drafts import Draft, DraftSet, revise_in_place, states_the_ask
@@ -84,13 +84,43 @@ def _contacts_for(conn: sqlite3.Connection, opportunity_id: str) -> list[Contact
             for r in rows]
 
 
-def pick_contact(contacts: list[Contact]) -> tuple[Contact | None, str]:
+#: The three routes to a person, best first. spec 9.6.
+WARM, UNTRIED, UNRESPONSIVE = 0, 1, 2
+
+
+def route_rank(contact: Contact, tried_ids) -> int:
+    """Which of the three routes this contact is, best first.
+
+    `ever_replied` on its own answers only "warm or not". It cannot tell an
+    UNTRIED contact from an UNRESPONSIVE one, because both have never replied
+    — and the whole point of spec 9.6 is that those two are not the same
+    person. The evidence log is what separates them: an outbound touch already
+    recorded against this contact means the ask has been made and ignored.
+
+    Ranking without that evidence collapsed the two, and the collapse ran the
+    wrong way round: `pick_contact` took the first contact who had never
+    replied, which put a person who had ignored two letters ahead of a person
+    who had written back.
+    """
+    if is_warm_route(contact.ever_replied):
+        return WARM
+    return UNRESPONSIVE if contact.id in tried_ids else UNTRIED
+
+
+def pick_contact(contacts: list[Contact], *,
+                 tried_ids=frozenset()) -> tuple[Contact | None, str]:
     """Choose who to write to, and say why when nobody qualifies.
 
     spec 9.6: a mutual connection who has never replied is not a warm route.
     Connection counts measure graph proximity, not willingness, so an untried
     contact ranks ABOVE one who ignored a previous ask — re-asking someone who
-    did not answer is a cost, not a free retry.
+    did not answer is a cost, not a free retry. Someone who HAS answered
+    outranks both: that is what a warm route is.
+
+    `tried_ids` is the set of contacts an outbound touch has already been
+    recorded against. Left empty, every non-replier reads as untried, which is
+    the safe direction to be wrong in — it never demotes a contact who has not
+    earned it — but a caller with the evidence log in hand should pass it.
     """
     allowed = [c for c in contacts if not c.do_not_contact]
     if not allowed:
@@ -102,8 +132,19 @@ def pick_contact(contacts: list[Contact]) -> tuple[Contact | None, str]:
     if not reachable:
         return None, "no working email address (bounced or missing)"
 
-    untried = [c for c in reachable if not c.ever_replied]
-    return (untried[0] if untried else reachable[0]), ""
+    return min(reachable, key=lambda c: (route_rank(c, tried_ids), c.id)), ""
+
+
+def tried_contact_ids(conn: sqlite3.Connection, opportunity_id: str) -> set[int]:
+    """Contacts an outbound touch has already gone to, from the evidence log.
+
+    Outbound only, and read rather than cached: spec 8.1 computes the cadence
+    from actual evidenced touches for the same reason.
+    """
+    return {r["contact_id"] for r in conn.execute(
+        "SELECT DISTINCT contact_id FROM touches "
+        " WHERE opportunity_id = ? AND direction = 'out' "
+        "   AND contact_id IS NOT NULL", (int(opportunity_id),))}
 
 
 def due_today(conn: sqlite3.Connection, *, today: date | None = None) -> list[DueItem]:
@@ -127,7 +168,9 @@ def due_today(conn: sqlite3.Connection, *, today: date | None = None) -> list[Du
         if step.due_on is None or step.due_on > today:
             continue
 
-        contact, why = pick_contact(_contacts_for(conn, opp.id))
+        contact, why = pick_contact(
+            _contacts_for(conn, opp.id),
+            tried_ids=tried_contact_ids(conn, opp.id))
         items.append(DueItem(opportunity=opp, step=step, contact=contact,
                              blocked=why))
     return items

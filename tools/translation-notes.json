@@ -52,5 +52,9 @@
   "settings.subscribe_restore": "A button. Apple requires it. It recovers a subscription the person ALREADY PAID FOR on another Mac or before reinstalling — it does not refund, repeat or cancel anything. Apple's standard wording for restoring purchases in your language is what people expect here.",
   "settings.subscribe_working": "Shown while waiting for Apple. Keep it short; it sits under two buttons. The ellipsis means work in progress.",
   "settings.subscribe_done": "Shown after a successful purchase. 'The feed reads for you' means Dawnlist will search job postings on the person's behalf, starting with tomorrow's morning run.",
-  "settings.subscribe_unavailable": "Shown when a purchase cannot be started at all — purchases disabled on the Mac, or the App Store not reachable. It is about the STORE being unable to take payment, not about the person being refused."
+  "settings.subscribe_unavailable": "Shown when a purchase cannot be started at all — purchases disabled on the Mac, or the App Store not reachable. It is about the STORE being unable to take payment, not about the person being refused.",
+  "board.record_reply": "A button. Records that the EMPLOYER answered - any reply from their side, not a message the user sent. It moves the opportunity to whichever stage is chosen in the dropdown beside it. Do not narrow it to 'accepted' or 'interview'.",
+  "board.record_no_offer": "A button. Records that the employer said no. It closes the opportunity and every task under it. 'No offer' is the outcome the employer gave, NOT the user withdrawing or giving up.",
+  "board.confirm_title": "The title of a yes/no confirmation dialog shown before either of the two buttons above writes anything. 'Outcome' here means the employer's answer.",
+  "funnel.screen_drift": "A warning on the results bar. {now} and {before} are whole numbers already converted to percentages - do not add a second % sign beyond the one in the string. 'Screening rules' are the user's own keyword rules that remove postings before anything is read."
 }

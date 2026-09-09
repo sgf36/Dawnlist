@@ -15,8 +15,9 @@ import sqlite3
 from datetime import date, datetime, timezone
 
 from app.core.cadence import Channel, Direction, Touch, next_step
-from app.core.tracker import (STATUS_MIRROR, JobCategory, Opportunity, Stage,
-                              Task, TrackerError, advance_for_outbound, audit,
+from app.core.tracker import (STAGE_BY_LABEL, STATUS_MIRROR, JobCategory,
+                              Opportunity, Stage, Task, TrackerError, Write,
+                              advance_for_outbound, apply_determination, audit,
                               validate_child_status)
 
 
@@ -274,6 +275,85 @@ def retire_task(conn: sqlite3.Connection, task_id: str, evidence: str) -> None:
     conn.execute(
         "UPDATE tasks SET status='complete', closed_evidence=? WHERE id=?",
         (evidence, int(task_id)))
+    conn.commit()
+
+
+def load_opportunity(conn: sqlite3.Connection,
+                     opportunity_id: str) -> Opportunity:
+    """One opportunity, with its tasks — the shape the rules are written for.
+
+    Built from `load_board` rather than from its own query so the tasks, the
+    bounce state and the last outbound touch are assembled exactly once. A
+    second loader is a second thing to keep in step, and the rules that read
+    an `Opportunity` are the ones it would be worst to feed a half-populated
+    object.
+    """
+    for opp in load_board(conn):
+        if opp.id == str(opportunity_id):
+            return opp
+    raise LookupError(f"no opportunity {opportunity_id!r}")
+
+
+def determination_writes(conn: sqlite3.Connection, opportunity_id: str, *,
+                         positive: bool,
+                         advance_to: Stage | None = None) -> list[Write]:
+    """What recording this determination WOULD change. Changes nothing.
+
+    An employer's answer is the one event that moves an opportunity down the
+    ladder or closes it, and until now nothing in the app could record one:
+    `record_outbound` raises Identified to Contacted and stops there, because
+    a send never implies a reply. So every pursuit sat at Contacted for ever
+    while the cadence went on chasing it — the tracker could describe an
+    outcome and could not be told one.
+
+    Split from `commit_determination` because a negative answer rewrites the
+    whole tree (spec 8.3: the parent goes Lost and every subtask is rendered
+    `no offer`), and that is not something to do on a mis-click. The caller
+    shows this list and commits it only if the user says yes.
+    """
+    return apply_determination(load_opportunity(conn, opportunity_id),
+                               positive, advance_to)
+
+
+def commit_determination(conn: sqlite3.Connection, opportunity_id: str,
+                         writes: list[Write]) -> None:
+    """Apply exactly the writes that were shown and confirmed.
+
+    Routed by `Write.kind`, never by the record id: opportunity ids and task
+    ids collide from the first row of each table, so an id alone does not say
+    which table it belongs to. The first version of this function routed on
+    the id, and against a database holding one opportunity and its one task it
+    marked the parent Lost and left the subtask open — the cascade the whole
+    rule exists for, silently half-applied.
+
+    The parent's `status` write is deliberately not executed. `set_stage`
+    writes the stage and its mirror in one statement precisely so they cannot
+    disagree; writing the mirror again from a string is the drift this module
+    exists to prevent.
+    """
+    key = str(opportunity_id)
+    for w in writes:
+        if w.kind == "opportunity":
+            if str(w.record_id) != key:
+                raise TrackerError(
+                    f"write against opportunity {w.record_id!r} in a "
+                    f"determination for {key!r}")
+            if w.field == "stage":
+                if w.value not in STAGE_BY_LABEL:
+                    raise TrackerError(f"unknown stage {w.value!r}")
+                set_stage(conn, opportunity_id, STAGE_BY_LABEL[w.value])
+            continue
+        row = conn.execute("SELECT stage FROM opportunities WHERE id=?",
+                           (int(opportunity_id),)).fetchone()
+        if row is None:
+            raise LookupError(f"no opportunity {opportunity_id!r}")
+        # Re-read rather than trusting the order of the list. `no offer` on a
+        # child of a LIVE opportunity is forbidden, and the only reason it is
+        # allowed here is that the parent has already gone Lost.
+        validate_child_status(w.value, Stage(row["stage"]))
+        conn.execute(
+            "UPDATE tasks SET status=? WHERE id=? AND opportunity_id=?",
+            (w.value, int(w.record_id), int(opportunity_id)))
     conn.commit()
 
 

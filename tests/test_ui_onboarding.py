@@ -233,7 +233,8 @@ def test_onboarding_has_a_key_step_before_calibration(qapp, monkeypatch):
 
     monkeypatch.setattr(api_key, "get", lambda: None)
     w = OnboardingWizard(extract=lambda p: ([], []), sample=lambda: items(1))
-    assert w.stack.count() == 4, "ingest, key, interview, calibration"
+    assert w.stack.count() == 5, \
+        "ingest, key, interview, searches, calibration"
     assert isinstance(w.stack.widget(1), KeyPanel)
     w.close()
 
@@ -266,7 +267,21 @@ def test_the_interview_drafts_both_documents(qapp, monkeypatch, settle):
     assert "Acme Hotels" in page.factsheet.toPlainText()
     assert "Hospitality strategy" in page.brief.toPlainText()
     assert page.has_content
-    assert "line management" in page.questions.text()
+    # The question is now a row with a box under it, not a line in a wall of
+    # bullets that nothing ever read back.
+    asked = [q for q, _ in page._answer_rows]
+    assert any("line management" in q for q in asked)
+
+    # AN UNANSWERED QUESTION MUST NOT REACH THE FACTSHEET. It is not a fact,
+    # and the factsheet is the only thing outreach is allowed to claim.
+    assert "Clarifications" not in page.documents()[0]
+
+    # An answered one must, because a correction that governs nothing is not a
+    # correction — which is exactly what the display-only version was.
+    page._answer_rows[0][1].setText("Yes, four direct reports.")
+    factsheet = page.documents()[0]
+    assert "Clarifications" in factsheet
+    assert "four direct reports" in factsheet
     page.close()
 
 
@@ -403,4 +418,58 @@ def test_an_empty_aim_still_drafts(qapp, settle):
     page.run_draft()
     settle(lambda: page.btn_draft.isEnabled(), what="the draft")
     assert page.has_content
+    page.close()
+
+
+def test_the_searches_step_switches_a_seed_on(qapp):
+    """The step whose absence was the bug. Seeds arrive off; this is the only
+    place in onboarding that can turn one on."""
+    from app.ui.onboarding import SearchesPage
+
+    page = SearchesPage()
+    page.load([("hotel asset management", ["hotel asset management"], False),
+               ("three kinds investment", ["three kinds investment"], False)])
+    assert not page.any_enabled
+    assert "quiet" in page.note.text(), "it must say what nothing-on means"
+
+    page._rows[0][1].setChecked(True)
+    assert page.any_enabled
+    assert page.selections() == [("hotel asset management", True),
+                                 ("three kinds investment", False)]
+    page.close()
+
+
+def test_leaving_the_searches_step_saves_what_was_switched_on(qapp, monkeypatch):
+    """A tick that is not written back is the same bug wearing a hat."""
+    from app.core import api_key
+    from app.ui.onboarding import OnboardingWizard
+
+    monkeypatch.setattr(api_key, "get", lambda: "sk-ant-stored")
+    saved = []
+    w = OnboardingWizard(
+        extract=lambda p: (["cv.docx"], []),
+        sample=lambda: items(0),
+        searches=lambda: [("hotels", ["hotels"], False),
+                          ("junk phrase", ["junk phrase"], False)],
+        set_search=lambda label, enabled: saved.append((label, enabled)))
+
+    w.searches.load(w._searches())
+    w.searches._rows[0][1].setChecked(True)
+    w.stack.setCurrentIndex(3)
+    w._next()
+
+    assert ("hotels", True) in saved
+    assert ("junk phrase", False) in saved
+    assert w.stack.currentIndex() == 4, "and on to calibration"
+    w.close()
+
+
+def test_an_unreachable_feed_does_not_trap_the_user_on_the_last_screen(qapp):
+    """Finish must enable even with nothing fetched — the shipped dead end."""
+    from app.ui.onboarding import CalibrationPage
+
+    page = CalibrationPage()
+    page.load([])
+    assert page.btn_finish.isEnabled(), "nothing here for the user to act on"
+    assert not page.result().passed, "but it is still not a calibration"
     page.close()

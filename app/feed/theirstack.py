@@ -33,7 +33,8 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 
-from app.feed.base import (FeedProvider, FetchResult, RateLimiter, SearchQuery,
+from app.feed.base import (USER_AGENT, FeedProvider, FetchResult, RateLimiter,
+                           SearchQuery,
                            parse_date)
 from app.feed.models import Job, name_key
 
@@ -108,6 +109,18 @@ class TheirStackProvider(FeedProvider):
         req = urllib.request.Request(BASE + path, data=data, method=method)
         req.add_header("Authorization", f"Bearer {self._key}")
         req.add_header("Content-Type", "application/json")
+        # THE SAME LESSON AS managed.py, WHICH THIS TRANSPORT NEVER LEARNED.
+        #
+        # urllib sends "Python-urllib/3.x" unless told otherwise, and that is
+        # the signature Cloudflare refused with error 1010 on 2026-09-08 —
+        # every request from every shipped build, with a message naming neither
+        # Dawnlist nor Cloudflare. managed.py was fixed; this one was left
+        # sending the default, so the same class of front end would refuse it
+        # the same way and the failure would look like a dead provider.
+        #
+        # It is the developer path rather than a customer one, which lowers the
+        # blast radius and not the argument: the fix is one header.
+        req.add_header("User-Agent", USER_AGENT)
 
         for attempt in range(3):
             self._limiter.wait()
