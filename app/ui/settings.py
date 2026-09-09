@@ -410,6 +410,22 @@ class SettingsWindow(QWidget):
             # attribute for callers and tests rather than sometimes-missing.
             self.licence.hide()
 
+        # THE OTHER HALF, AND EXACTLY ONE OF THE TWO IS EVER SHOWN.
+        #
+        # Hiding the key box on a MAS build was correct and was also only half
+        # a decision: it left that build with no way to pay AT ALL, which is
+        # the same shape of hole the Windows Store build had in reverse. A
+        # customer met "the App Store could not confirm an active subscription"
+        # and had nowhere to go.
+        #
+        # This is also the screen App Review wants a screenshot of, and the
+        # reason the subscription cannot leave MISSING_METADATA without it.
+        self.shows_subscribe = build == "mas"
+        self.subscribe = SubscribePanel() if self.shows_subscribe else None
+        if self.subscribe is not None:
+            layout.addWidget(_divider())
+            layout.addWidget(self.subscribe)
+
         # Always shown, on every build. Two obligations meet here.
         layout.addWidget(_divider())
         layout.addWidget(DataTermsPanel())
@@ -550,6 +566,122 @@ class ReportPanel(QWidget):
         link.setOpenExternalLinks(True)
         link.setWordWrap(True)
         layout.addWidget(link)
+
+
+class SubscribePanel(QWidget):
+    """Buy the subscription, on a Mac App Store build.
+
+    THE MIRROR OF LicencePanel, AND ONLY ONE OF THE TWO IS EVER SHOWN.
+    Windows sells through Paddle on both channels, so a `store` or `direct`
+    build shows a box to paste a key into. Apple forbids that (guideline
+    3.1.1), so a `mas` build shows this instead.
+
+    Until this existed a Mac App Store build had NO way to buy the subscription
+    it required: it reported that it could not confirm one and stopped. App
+    Review rejects an app that sells a subscription and offers no way to buy
+    it, and the subscription itself cannot leave MISSING_METADATA because the
+    review screenshot Apple asks for is of this screen.
+
+    RESTORE IS NOT OPTIONAL. Apple requires it. Somebody who subscribed on
+    another Mac, or who reinstalled, has already paid and must be able to get
+    their entitlement back without paying twice.
+
+    THE PRICE IS ASKED OF APPLE, NEVER HARDCODED. Apple sets it per storefront
+    across 175 territories and formats it for the customer's region. A
+    hardcoded price is wrong almost everywhere, and showing one that differs
+    from what the App Store charges is a rejection.
+    """
+
+    entitlement_changed = Signal(bool)
+
+    def __init__(self, *, storekit=None, parent=None):
+        super().__init__(parent)
+        from app.core import mac_storekit
+        self._sk = storekit or mac_storekit
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
+
+        heading = QLabel(tr("settings.subscribe_heading"))
+        heading.setObjectName("stepHeading")
+        layout.addWidget(heading)
+
+        body = QLabel(reflow(tr("settings.subscribe_body")))
+        body.setObjectName("stepBody")
+        body.setWordWrap(True)
+        layout.addWidget(body)
+
+        self.price = QLabel()
+        self.price.setObjectName("storedKey")
+        layout.addWidget(self.price)
+
+        row = QHBoxLayout()
+        row.setSpacing(10)
+        self.buy = QPushButton(tr("settings.subscribe_button"))
+        self.buy.setObjectName("primary")
+        self.buy.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.restore = QPushButton(tr("settings.subscribe_restore"))
+        self.restore.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        row.addWidget(self.buy)
+        row.addWidget(self.restore)
+        row.addStretch(1)
+        layout.addLayout(row)
+
+        self.result = QLabel()
+        self.result.setWordWrap(True)
+        layout.addWidget(self.result)
+
+        self.buy.clicked.connect(self._purchase)
+        self.restore.clicked.connect(self._restore)
+        self.refresh()
+
+    def refresh(self) -> None:
+        """Ask Apple what to show. On construction, and after a purchase.
+
+        A MISSING PRICE IS NOT AN ERROR STATE. Apple returns nothing for a
+        product its storefront does not know yet, which is also what a
+        brand-new subscription looks like while it propagates. "Not available
+        right now" is true in both cases; "something went wrong" is not.
+        """
+        shown = self._sk.price() if self._sk.available() else None
+        self.price.setText(shown or "")
+        can = self._sk.available() and self._sk.can_make_payments()
+        self.buy.setEnabled(can)
+        self.restore.setEnabled(self._sk.available())
+        if not can:
+            self.result.setText(tr("settings.subscribe_unavailable"))
+
+    def _busy(self, on: bool) -> None:
+        idle = not on
+        self.buy.setEnabled(idle and self._sk.available()
+                            and self._sk.can_make_payments())
+        self.restore.setEnabled(idle and self._sk.available())
+        if on:
+            self.result.setText(tr("settings.subscribe_working"))
+
+    def _finished(self, result) -> None:
+        from app.core.mac_storekit import Outcome
+        self._busy(False)
+        if result.outcome is Outcome.PURCHASED:
+            self.result.setText(tr("settings.subscribe_done"))
+            self.refresh()
+            self.entitlement_changed.emit(True)
+            return
+        if result.outcome is Outcome.CANCELLED:
+            # Not a failure, and it must not read as one. The person changed
+            # their mind, which is a normal thing to do in a payment sheet.
+            self.result.setText("")
+            return
+        self.result.setText(result.detail or tr("settings.subscribe_unavailable"))
+
+    def _purchase(self) -> None:
+        self._busy(True)
+        self._sk.purchase(self._finished)
+
+    def _restore(self) -> None:
+        self._busy(True)
+        self._sk.restore(self._finished)
 
 
 class RulesPanel(QWidget):
