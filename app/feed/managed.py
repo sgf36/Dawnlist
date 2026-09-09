@@ -59,6 +59,7 @@ PLAN_PATH = "/v1/plan"
 #: version rather than to "some Python".
 #: Moved to app/feed/base.py so both transports share one definition;
 #: re-exported here because it was public from this module first.
+from app.core.http import build_request  # noqa: E402
 from app.feed.base import USER_AGENT  # noqa: E402,F401
 
 
@@ -123,23 +124,14 @@ class ManagedProvider(FeedProvider):
     # -- transport ---------------------------------------------------------
     def _call(self, path: str, body=None, method: str = "GET"):
         data = json.dumps(body).encode() if body is not None else None
-        req = urllib.request.Request(self._base + path, data=data, method=method)
-        req.add_header("Authorization", f"Bearer {self._licence}")
-        req.add_header("Content-Type", "application/json")
-        # AN EXPLICIT USER-AGENT, AND THE APP DOES NOT WORK WITHOUT ONE.
-        #
-        # urllib sends "Python-urllib/3.x" by default, and Cloudflare — which
-        # fronts the Worker — refuses it outright with error 1010, "banned
-        # based on your browser's signature". Every request from a shipped
-        # build would have failed, on every machine, with a message naming
-        # neither Dawnlist nor Cloudflare.
-        #
-        # Found on 2026-09-08 by the first end-to-end run against the live
-        # service. It could not have been found any other way: every test
-        # injects the transport, and `curl` was used for the manual checks —
-        # curl's own user-agent is not blocked, so the manual verification
-        # passed while the actual client could not connect at all.
-        req.add_header("User-Agent", USER_AGENT)
+        # Built through `build_request`, which sets the User-Agent for
+        # every caller. See `app/core/http.py`: Cloudflare refuses
+        # urllib's default agent with error 1010 and a 403, and a
+        # constant each call site had to remember was forgotten in four
+        # more places within two days of this one being fixed.
+        req = build_request(self._base + path, data=data, method=method,
+                            headers={"Authorization": f"Bearer {self._licence}",
+                                     "Content-Type": "application/json"})
         try:
             with urllib.request.urlopen(req, timeout=self._timeout) as r:
                 return r.status, json.loads(r.read().decode())

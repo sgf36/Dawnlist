@@ -143,8 +143,15 @@ def licence_details(key: str, *, opener=None):
     import urllib.error
     import urllib.request
 
-    request = urllib.request.Request(WORKER_BASE.rstrip("/") + "/v1/licence")
-    request.add_header("authorization", f"Bearer {key}")
+    from app.core.http import build_request
+
+    # Built through `build_request` so the User-Agent cannot be forgotten.
+    # It was forgotten here, and a 403 from Cloudflare's error 1010 reads as
+    # "the server said no" three lines below — which is FINAL, checked before
+    # the grace period. Every paying customer would have been told their key
+    # was not accepted.
+    request = build_request(WORKER_BASE.rstrip("/") + "/v1/licence",
+                            headers={"authorization": f"Bearer {key}"})
     try:
         with (opener or urllib.request.urlopen)(request, timeout=15) as response:
             return json.loads(response.read().decode())
@@ -290,8 +297,10 @@ def exchange_mac_receipt(receipt: bytes, *, base: str | None = None) -> str | No
 
     url = (base or WORKER_BASE).rstrip("/") + "/v1/apple"
     body = json.dumps({"receipt": base64.b64encode(receipt).decode()}).encode()
-    req = urllib.request.Request(url, data=body, method="POST")
-    req.add_header("Content-Type", "application/json")
+    from app.core.http import build_request
+
+    req = build_request(url, data=body, method="POST",
+                        headers={"Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
             payload = json.loads(r.read().decode())
@@ -310,8 +319,10 @@ def redeem_override_code(code: str, *, opener=None) -> str:
     import urllib.error
     import urllib.request
 
-    request = urllib.request.Request(
-        "https://dawnlist-feed-worker.sgf36.workers.dev/redeem",
+    from app.core.http import build_request
+
+    request = build_request(
+        WORKER_BASE.rstrip("/") + "/redeem",
         data=json.dumps({"code": code}).encode(),
         headers={"content-type": "application/json"},
         method="POST")

@@ -116,3 +116,37 @@ def settle():
             f"was just made synchronous again, that is the bug, not this.")
 
     return _settle
+
+
+# ---------------------------------------------------------------------------
+# No worker thread outlives the test that started it
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def _drain_the_thread_pool():
+    """Wait for every `run_in_background` task before the next test starts.
+
+    A task delivers its result through a queued signal to a widget the test
+    owns. When the test ends without waiting, the widget is collected while
+    C++ still holds a pointer to it, and the crash lands wherever the
+    interpreter happens to be — usually at shutdown, in a different test's
+    name, or in no test's name at all.
+
+    That is what CI showed on 2026-09-09: `build (windows-latest, direct)`
+    printed all 813 dots and then died with exit 1 before pytest could print
+    its summary, while the same commit passed in the run beside it. Six local
+    repeats did not reproduce it, which is what a race looks like.
+
+    `_Task._emit` already swallows the RuntimeError Qt raises when the
+    receiver has gone, but that only covers the case Qt notices in Python. The
+    fix for the rest is not to catch it, it is to not have a thread running
+    when nobody is left to hear from it.
+    """
+    yield
+    from PySide6.QtCore import QThreadPool
+    pool = QThreadPool.globalInstance()
+    if not pool.waitForDone(10_000):
+        raise AssertionError(
+            f"{pool.activeThreadCount()} background task(s) still running "
+            f"after this test. A task outliving its test is what makes the "
+            f"suite abort at shutdown in someone else's name.")

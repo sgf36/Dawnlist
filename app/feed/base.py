@@ -15,19 +15,14 @@ from datetime import date, datetime, timezone
 from app.feed.models import Job
 
 #: Sent by every outbound request this app makes, and the app does not work
-#: without one. urllib's default is "Python-urllib/3.x", which Cloudflare
-#: refuses outright with error 1010 — on 2026-09-08 that meant every request
-#: from every shipped build failed, naming neither Dawnlist nor Cloudflare.
+#: without one. See `app/core/http.py` for the whole account — it belongs to
+#: the client rather than to a provider, and putting it in a constant that
+#: every call site had to remember is exactly how four more call sites came to
+#: be found sending the urllib default on 2026-09-09.
 #:
-#: It could not be caught either way it was looked for: the suite injects the
-#: transport, and the manual checks used `curl`, whose own agent is not
-#: blocked — so the manual verification passed while no real client could
-#: connect at all.
-#:
-#: It lives HERE rather than in one provider because it belongs to the client,
-#: not to a provider. managed.py was fixed at the time; theirstack.py was left
-#: sending the default until 2026-09-09.
-USER_AGENT = "Dawnlist/1.0 (+https://dawnlist.spencerfields.com)"
+#: Re-exported here so the providers' imports keep working; the definition and
+#: the reasoning live in one place.
+from app.core.http import USER_AGENT  # noqa: F401
 
 
 class FeedError(RuntimeError):

@@ -44,11 +44,17 @@ class AdminError(RuntimeError):
 
 
 def _request(key: str, path: str, *, body=None, method="GET", opener=None):
+    from app.core.http import build_request
+
     url = WORKER_BASE.rstrip("/") + path
     data = json.dumps(body).encode() if body is not None else None
-    request = urllib.request.Request(url, data=data, method=method)
-    request.add_header("authorization", f"Bearer {key}")
-    request.add_header("content-type", "application/json")
+    # Never a bare `urllib.request.Request`. Without the User-Agent this
+    # module sent Cloudflare the agent it refuses with error 1010, and every
+    # answer here would have been an unexplained 403 that reads as "this
+    # licence is not an administrator".
+    request = build_request(url, data=data, method=method, headers={
+        "authorization": f"Bearer {key}",
+        "content-type": "application/json"})
     try:
         with (opener or urllib.request.urlopen)(request, timeout=20) as response:
             return json.loads(response.read().decode())

@@ -33,6 +33,7 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 
+from app.core.http import build_request
 from app.feed.base import (USER_AGENT, FeedProvider, FetchResult, RateLimiter,
                            SearchQuery,
                            parse_date)
@@ -106,9 +107,9 @@ class TheirStackProvider(FeedProvider):
     # -- transport ---------------------------------------------------------
     def _call(self, path: str, body=None, method: str = "GET"):
         data = json.dumps(body).encode() if body is not None else None
-        req = urllib.request.Request(BASE + path, data=data, method=method)
-        req.add_header("Authorization", f"Bearer {self._key}")
-        req.add_header("Content-Type", "application/json")
+        req = build_request(BASE + path, data=data, method=method, headers={
+            "Authorization": f"Bearer {self._key}",
+            "Content-Type": "application/json"})
         # THE SAME LESSON AS managed.py, WHICH THIS TRANSPORT NEVER LEARNED.
         #
         # urllib sends "Python-urllib/3.x" unless told otherwise, and that is
