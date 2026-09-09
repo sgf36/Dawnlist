@@ -273,7 +273,8 @@ def store_licence(key: str) -> None:
     keyring.set_password(LICENCE_SERVICE, LICENCE_ACCOUNT, key.strip())
 
 
-def exchange_mac_receipt(receipt: bytes, *, base: str | None = None) -> str | None:
+def exchange_mac_receipt(receipt: bytes, *, base: str | None = None,
+                         opener=None) -> str | None:
     """Trade a Mac App Store receipt for a licence the Worker will honour.
 
     Returns the licence key, or None when Apple does not recognise an active
@@ -289,6 +290,13 @@ def exchange_mac_receipt(receipt: bytes, *, base: str | None = None) -> str | No
     session token derived from an Apple-issued receipt, and a MAS build has no
     route to obtain one any other way — which is what keeps this the right side
     of guideline 3.1.1.
+
+    `opener` exists so this can be TESTED. It is the whole Mac purchase path
+    on the client side and nothing had ever executed a line of it: there was
+    no seam to inject, so the suite could not reach it and `audit_seams.py`
+    reported it as a network path no test names. Every other Worker call in
+    this module already takes one; this was the omission, and it was the one
+    function where the first real execution would be a customer paying money.
     """
     import base64
     import json
@@ -302,7 +310,7 @@ def exchange_mac_receipt(receipt: bytes, *, base: str | None = None) -> str | No
     req = build_request(url, data=body, method="POST",
                         headers={"Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with (opener or urllib.request.urlopen)(req, timeout=30) as r:
             payload = json.loads(r.read().decode())
     except Exception:  # noqa: BLE001 - an outage is not a refusal
         return None

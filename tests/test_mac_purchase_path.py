@@ -146,3 +146,74 @@ def test_an_unreachable_store_is_not_an_error_screen(qapp_and_settle):
 def qapp_and_settle(settle):
     from PySide6.QtWidgets import QApplication
     yield (QApplication.instance() or QApplication([])), settle
+
+
+# -- the receipt exchange, which nothing had ever executed -------------------
+#
+# `audit_seams.py` reported it as a network path no test names, and it had no
+# seam to inject through — so the FIRST real execution of the whole Mac
+# purchase path would have been a customer paying money.
+
+import base64  # noqa: E402
+import io  # noqa: E402
+import json  # noqa: E402
+import urllib.error  # noqa: E402
+
+
+class _Response(io.BytesIO):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
+
+
+def _opener(payload, capture=None):
+    def open_it(request, timeout=None):
+        if capture is not None:
+            capture.append(request)
+        return _Response(json.dumps(payload).encode())
+    return open_it
+
+
+def test_a_valid_receipt_becomes_a_licence():
+    from app.core.entitlement import exchange_mac_receipt
+
+    seen = []
+    got = exchange_mac_receipt(b"receipt-bytes",
+                               opener=_opener({"licence_key": "DAWN-MAC"},
+                                              seen))
+    assert got == "DAWN-MAC"
+    sent = json.loads(seen[0].data.decode())
+    assert base64.b64decode(sent["receipt"]) == b"receipt-bytes", (
+        "the receipt goes as opaque bytes — the app forms no view of what is "
+        "inside it, because a client-side check is one a user patches out")
+
+
+def test_the_receipt_request_identifies_the_client():
+    """The same Cloudflare 1010 that refused every other Worker call. This one
+    is the Mac purchase path, so a 403 here means a paid subscription that
+    reaches no feed."""
+    from app.core.entitlement import exchange_mac_receipt
+    from app.core.http import USER_AGENT
+
+    seen = []
+    exchange_mac_receipt(b"x", opener=_opener({"licence_key": "k"}, seen))
+    assert seen[0].get_header("User-agent") == USER_AGENT
+
+
+def test_no_active_subscription_is_an_answer_not_an_error():
+    """Lapsed, refunded, or a sandbox receipt against production. All
+    legitimate, none of them a failure to hide."""
+    from app.core.entitlement import exchange_mac_receipt
+
+    assert exchange_mac_receipt(b"x", opener=_opener({})) is None
+
+
+def test_an_outage_is_not_a_refusal():
+    from app.core.entitlement import exchange_mac_receipt
+
+    def boom(_request, timeout=None):
+        raise urllib.error.URLError("no network")
+
+    assert exchange_mac_receipt(b"x", opener=boom) is None
