@@ -28,9 +28,19 @@
       a file across launches; it reads a CV once and keeps what it extracted.
     * No network.server, no camera, no microphone, no location, no address
       book, no print. The app uses none of them.
+
+  application-identifier + team-identifier ARE required, not optional. The
+  provisioning profile carries an application-identifier, and the App Store /
+  TestFlight upload rejects a bundle whose SIGNED entitlements do not carry the
+  same one (altool 90886, seen 2026-09-09). They must match the profile exactly:
+  7WA4F8P743.com.spencerfields.dawnlist and the 7WA4F8P743 team.
 -->
 <plist version="1.0">
 <dict>
+    <key>com.apple.application-identifier</key>
+    <string>7WA4F8P743.com.spencerfields.dawnlist</string>
+    <key>com.apple.developer.team-identifier</key>
+    <string>7WA4F8P743</string>
     <key>com.apple.security.app-sandbox</key>
     <true/>
     <key>com.apple.security.network.client</key>

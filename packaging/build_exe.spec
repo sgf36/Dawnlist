@@ -195,7 +195,12 @@ if sys.platform == "darwin":
     app = BUNDLE(
         coll,
         name="Dawnlist.app",
-        icon=str(icons_dir / "dawnlist.icns") if (icons_dir / "dawnlist.icns").exists() else None,
+        # REQUIRED, not conditional — same lesson as the .ico above. A missing
+        # .icns here shipped an iconless .app, and the App Store upload rejected
+        # it (altool 90236: "does not have an icon in ICNS format containing a
+        # 512pt x 512pt @2x image", seen 2026-09-09) 20 minutes into the build.
+        # _require_icon stops the build at once instead.
+        icon=str(_require_icon(icons_dir / "dawnlist.icns")),
         bundle_identifier="com.spencerfields.dawnlist",
         info_plist={
             "CFBundleName": "Dawnlist",
