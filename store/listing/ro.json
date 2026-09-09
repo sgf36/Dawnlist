@@ -18,5 +18,24 @@
     "CV-urile și sistemul de urmărire rămân pe computerul dumneavoastră",
     "Un singur abonament, toată aplicația — fluxul de anunțuri este inclus",
     "Folosește propria dumneavoastră cheie Anthropic — dumneavoastră o dețineți, dumneavoastră vedeți consumul"
+  ],
+  "short_description": "Dawnlist citește în fiecare dimineață fluxurile de anunțuri de angajare, evaluează fiecare anunț în raport cu un set de criterii pe care îl construiește împreună cu tine pornind de la propriile tale CV-uri și îți oferă o listă scurtă ordonată, cu motivele explicate. Respingerile rămân vizibile. Redactează mesajele tale de revenire și nu le trimite niciodată. Funcționează cu propria ta cheie API Anthropic.",
+  "release_notes": "Remediază o defecțiune din cauza căreia cheile de licență și codurile de acces nu erau acceptate deloc. Dacă Dawnlist ți-a spus că cheia ta nu este validă, acum va funcționa.\n\nConfigurarea este mai clară: îți cere abonamentul acolo unde trebuie, în loc să te lase să îl cauți, căutările sugerate sunt titluri reale de posturi, iar răspunsurile pe care le scrii în timpul configurării sunt salvate vizibil.\n\nDawnlist se deschide acum în limba computerului tău și o poți schimba oricând din meniul ⋯.",
+  "screenshot_captions": [
+    "Lista ta scurtă, cu motivele — și respingerile tot vizibile",
+    "Când o regulă merge prea departe, îți spune",
+    "Fiecare post pe care îl urmărești și ce urmează",
+    "Îți citește CV-urile și îți arată ce a înțeles",
+    "Îți învață judecata înainte să ruleze",
+    "Filtrare pe care o controlezi: refuză o regulă care ar ascunde un post real"
+  ],
+  "search_terms": [
+    "căutare loc de muncă",
+    "urmărire joburi",
+    "candidaturi",
+    "căutare carieră",
+    "alerte joburi",
+    "urmărire candidaturi",
+    "căutare job"
   ]
 }

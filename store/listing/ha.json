@@ -18,5 +18,24 @@
     "CV ɗinka da mai bin diddiginka suna zama a kwamfutarka",
     "Biyan kuɗi guda ɗaya, dukan manhajar — an haɗa da tushen tallace-tallacen aiki",
     "Yana amfani da maɓallin Anthropic naka — kai ka riƙe shi, kai kake ganin amfanin"
+  ],
+  "short_description": "Dawnlist yana karanta jerin sanarwar ayyukan yi kowace safiya, yana auna kowace sanarwa bisa taƙaitaccen ƙa'idar da yake ginawa tare da kai daga CV ɗinka, sannan ya miƙa maka gajeriyar jeri da aka tsara bisa daraja tare da bayyana dalilai. Waɗanda aka ƙi sun ci gaba da bayyana. Yana tsara saƙonnin bibiyarka, kuma ba ya taɓa aika su. Yana aiki da maɓallin API na Anthropic naka.",
+  "release_notes": "Ya gyara matsalar da ta hana karɓar maɓallan lasisi da lambobin shiga gaba ɗaya. Idan Dawnlist ya gaya maka cewa maɓallinka bai inganta ba, yanzu zai yi aiki.\n\nSaitawa ya fi bayyana: yana neman rajistar biyan kuɗinka a wurin da ya dace maimakon ya bar ka kai neme shi, binciken da yake bayarwa a matsayin shawara ainihin sunayen ayyuka ne, kuma amsoshin da ka rubuta lokacin saitawa ana ajiye su a bayyane.\n\nDawnlist yanzu yana buɗewa da yaren kwamfutarka, kuma za ka iya canza shi a kowane lokaci daga menu na ⋯.",
+  "screenshot_captions": [
+    "Gajeriyar jerinka, da dalilai — waɗanda aka ƙi na nan a bayyane",
+    "Idan wata doka ta wuce gona da iri, zai gaya maka",
+    "Kowane aikin da kake bi, da abin da ke tafe",
+    "Yana karanta CV ɗinka ya nuna maka abin da ya fahimta",
+    "Yana koyon hukuncinka kafin ya fara aiki",
+    "Tacewa a hannunka — yana ƙin dokar da za ta ɓoye aikin gaske"
+  ],
+  "search_terms": [
+    "neman aiki",
+    "mai bin diddigin aiki",
+    "aikace-aikacen neman aiki",
+    "neman sana'a",
+    "faɗakarwar aiki",
+    "mai bin diddigin aikace-aikace",
+    "farautar aiki"
   ]
 }

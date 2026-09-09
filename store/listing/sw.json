@@ -18,5 +18,24 @@
     "CV zako na kifuatiliaji vinabaki kwenye mashine yako",
     "Usajili mmoja, programu nzima — mlisho wa matangazo ya kazi umejumuishwa",
     "Hutumia ufunguo wako mwenyewe wa Anthropic — wewe unaushikilia, wewe unaona matumizi"
+  ],
+  "short_description": "Dawnlist husoma mipasho ya kazi kila asubuhi, huhukumu kila tangazo kwa kutumia muhtasari inaoujenga pamoja na wewe kutoka CV zako mwenyewe, na hukupa orodha fupi iliyopangwa kwa vyeo pamoja na sababu zilizotajwa. Nafasi zilizokataliwa hubaki zinaonekana. Huandika rasimu za ujumbe wako wa kufuatilia na haizitumi kamwe. Hufanya kazi kwa ufunguo wako mwenyewe wa API wa Anthropic.",
+  "release_notes": "Hurekebisha hitilafu iliyozuia funguo za leseni na kodi za ufikiaji kukubaliwa kabisa. Ikiwa Dawnlist ilikuambia kuwa ufunguo wako haukuwa halali, sasa utafanya kazi.\n\nUsanidi ni wazi zaidi: huomba usajili wako katika sehemu inayofaa badala ya kukuachia utafute mwenyewe, utafutaji unaopendekezwa ni majina halisi ya kazi, na majibu unayoyaandika wakati wa usanidi yanahifadhiwa kwa namna inayoonekana.\n\nDawnlist sasa hufunguka kwa lugha ya kompyuta yako, na unaweza kuibadilisha wakati wowote kutoka menyu ya ⋯.",
+  "screenshot_captions": [
+    "Orodha yako fupi, na sababu — na zilizokataliwa bado zinaonekana",
+    "Kanuni inapozidi kiasi, hukuambia",
+    "Kila nafasi unayoifuatilia, na linalofuata kufanywa",
+    "Husoma CV zako na hukuonyesha ilivyoelewa",
+    "Hujifunza uamuzi wako kabla ya kuanza kazi",
+    "Uchunguzi unaoudhibiti, na hukataa kanuni ingeyoficha nafasi halisi"
+  ],
+  "search_terms": [
+    "utafutaji wa kazi",
+    "kifuatiliaji cha kazi",
+    "maombi ya kazi",
+    "utafutaji wa taaluma",
+    "arifa za kazi",
+    "kifuatiliaji cha maombi",
+    "kusaka kazi"
   ]
 }

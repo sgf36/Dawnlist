@@ -18,5 +18,24 @@
     "Rezyumelaringiz va kuzatuv jadvalingiz kompyuteringizda qoladi",
     "Bitta obuna, butun ilova — ish e'lonlari lentasi narxga kiritilgan",
     "O'zingizning Anthropic kalitingizdan foydalanadi — kalit sizda, foydalanishni ko'rib turasiz"
+  ],
+  "short_description": "Dawnlist har kuni ertalab ish e'lonlari oqimini o'qiydi, har bir e'lonni o'zingizning rezyumelaringiz asosida siz bilan birga tuzgan brifga solib baholaydi va sabablari ko'rsatilgan tartiblangan qisqa ro'yxatni beradi. Rad etilganlar ko'rinib turadi. U sizning kuzatuv xatlaringizni tayyorlaydi va ularni hech qachon yubormaydi. O'zingizning Anthropic API kalitingizda ishlaydi.",
+  "release_notes": "Litsenziya kalitlari va kirish kodlarining umuman qabul qilinmasligiga olib kelgan nuqson tuzatildi. Agar Dawnlist sizga kalitingiz yaroqsiz deb aytgan bo'lsa, endi u ishlaydi.\n\nSozlash tushunarliroq bo'ldi: obunangiz o'zingiz izlab topishingizga qoldirilmay, kerakli joyda so'raladi, taklif qilinadigan qidiruvlar haqiqiy ish nomlaridan iborat, sozlash vaqtida yozgan javoblaringiz esa ko'rinadigan tarzda saqlanadi.\n\nDawnlist endi kompyuteringiz tilida ochiladi va tilni istalgan vaqtda ⋯ menyusidan o'zgartirishingiz mumkin.",
+  "screenshot_captions": [
+    "Qisqa ro'yxatingiz — sabablari bilan, rad etilganlar ham ko'rinadi",
+    "Qoida haddan oshib ketsa, u sizga aytadi",
+    "Siz harakat qilayotgan har bir lavozim va navbatdagi vazifa",
+    "Rezyumelaringizni o'qiydi va nimani tushunganini ko'rsatadi",
+    "Ishga tushishdan oldin sizning mulohazangizni o'rganadi",
+    "Saralashni siz boshqarasiz; haqiqiy lavozimni yashiradigan qoidani rad etadi"
+  ],
+  "search_terms": [
+    "ish qidirish",
+    "ish kuzatuvchisi",
+    "ish arizalari",
+    "karyera qidiruvi",
+    "ish bildirishnomalari",
+    "ariza kuzatuvchisi",
+    "ish izlash"
   ]
 }

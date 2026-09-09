@@ -56,6 +56,50 @@ NO_STORE_LISTING = {"my": "Burmese", "jv": "Javanese", "so": "Somali"}
 TITLE = "Dawnlist Job Search"
 
 
+#: Partner Center's own limits, per field. An over-length value is rejected at
+#: IMPORT, after the file has been built and uploaded — and the message names
+#: the field but not the language, so finding which of forty-seven is too long
+#: means opening them one at a time.
+#:
+#: Checked here instead. Translations run longer than English far more often
+#: than they run shorter: German and Finnish routinely add a third, and the
+#: English copy that fits with room to spare is exactly the copy that produces
+#: an overflow nobody predicted.
+FIELD_LIMITS = {
+    "Description": 10_000,
+    "ShortDescription": 1_000,
+    "ReleaseNotes": 1_500,
+    "Feature": 200,
+    "SearchTerm": 30,
+    "DesktopScreenshotCaption": 200,
+}
+
+
+def limit_for(field: str) -> int | None:
+    if field in FIELD_LIMITS:
+        return FIELD_LIMITS[field]
+    for prefix, cap in FIELD_LIMITS.items():
+        if field.startswith(prefix):
+            return cap
+    return None
+
+
+def check_limits(rows, header) -> list[str]:
+    """Every over-length cell, named by field AND language."""
+    problems = []
+    for r in rows[1:]:
+        cap = limit_for(r[0])
+        if cap is None:
+            continue
+        for i, value in enumerate(r):
+            if i < 3 or not value:
+                continue
+            if len(value) > cap:
+                problems.append(
+                    f"{r[0]} [{header[i]}] is {len(value)} chars, limit {cap}")
+    return problems
+
+
 def store_code(locale: str) -> str:
     return CODE_OVERRIDES.get(locale, locale)
 
@@ -113,6 +157,37 @@ def main() -> int:
             d = data[loc]
             if field == "Description":
                 r[col] = d["description"]
+            elif field == "ShortDescription":
+                # The line under the app name in search results. Empty, the
+                # Store truncates the long description instead — which opens
+                # "BEFORE YOU BUY — WHAT DAWNLIST DEPENDS ON", so the first
+                # thing a browsing customer read was a warning.
+                r[col] = d.get("short_description", "")
+            elif field == "ReleaseNotes":
+                # Read by people deciding whether to update. 1.1.0 exists
+                # because the live build refuses every licence key, and the
+                # export showed this field empty in every language.
+                r[col] = d.get("release_notes", "")
+            elif field.startswith("SearchTerm"):
+                # Not shown to anyone; they are what the Store indexes. Seven
+                # slots, 30 characters each, and the export had all seven
+                # empty in every language — so nothing but the title and the
+                # description was findable.
+                try:
+                    n = int(field[len("SearchTerm"):])
+                except ValueError:
+                    continue
+                terms = d.get("search_terms") or []
+                if 1 <= n <= len(terms):
+                    r[col] = terms[n - 1]
+            elif field.startswith("DesktopScreenshotCaption"):
+                try:
+                    n = int(field[len("DesktopScreenshotCaption"):])
+                except ValueError:
+                    continue
+                caps = d.get("screenshot_captions") or []
+                if 1 <= n <= len(caps):
+                    r[col] = caps[n - 1]
             elif field == "Title":
                 r[col] = TITLE
             elif field in shots:
@@ -126,6 +201,19 @@ def main() -> int:
                 if 1 <= n <= len(feats):
                     r[col] = feats[n - 1]
         out_rows.append(r)
+
+    problems = check_limits(out_rows, header)
+    if problems:
+        print(f"\n{len(problems)} field(s) over Partner Center's limit:",
+              file=sys.stderr)
+        for line in problems[:40]:
+            print(f"  {line}", file=sys.stderr)
+        if len(problems) > 40:
+            print(f"  ... and {len(problems) - 40} more", file=sys.stderr)
+        print("\nNot written. Shorten the source copy and re-run — an import "
+              "rejects on the first one and does not say which language.",
+              file=sys.stderr)
+        return 1
 
     with io.open(out, "w", encoding="utf-8-sig", newline="") as fh:
         csv.writer(fh).writerows(out_rows)

@@ -18,5 +18,24 @@
     "CV lan pelacak panjenengan tetep ing komputer panjenengan",
     "Siji langganan, kabeh aplikasi — feed lowongan wis kalebu",
     "Nganggo kunci Anthropic panjenengan dhewe — panjenengan sing nyekel, panjenengan sing weruh panganggone"
+  ],
+  "short_description": "Dawnlist maca feed lowongan saben esuk, mbiji saben iklan lowongan adhedhasar brief sing disusun bareng kowe saka CV-mu dhewe, banjur masrahake dhaptar cendhak sing wis diurutake kanthi alesane dielingake cetha. Lowongan sing ditolak tetep katon. Dawnlist nyusun konsep tindak lanjutmu lan ora tau ngirim. Mlaku nganggo API key Anthropic duwekmu dhewe.",
+  "release_notes": "Ndandani kaluputan sing njalari kunci lisensi lan kode akses babar pisan ora bisa ditampa. Yen Dawnlist kandha yen kunci-mu ora valid, saiki bakal bisa.\n\nPanyetelane luwih cetha: langganan dijaluk ing panggonan sing bener tinimbang kokgoleki dhewe, panggolekan sing disaranake nganggo jeneng pakaryan tenanan, lan wangsulan sing kokketik nalika panyetelan katon disimpen.\n\nDawnlist saiki mbukak nganggo basa komputermu, lan kowe bisa nggantine sawayah-wayah saka menu ⋯.",
+  "screenshot_captions": [
+    "Dhaptar cendhakmu, karo alesane — lan sing ditolak isih katon",
+    "Yen aturan kliwat jembar, kowe dikandhani",
+    "Kabeh lowongan sing kokoyak, lan apa sabanjure",
+    "Maca CV-mu lan nuduhake apa sing dipahami",
+    "Sinau pertimbanganmu sadurunge mlaku",
+    "Panyaringan sing kokkontrol, lan nolak aturan sing ngumpetake lowongan tenan"
+  ],
+  "search_terms": [
+    "golek kerja",
+    "panglacak kerja",
+    "lamaran kerja",
+    "golek karir",
+    "wara-wara kerja",
+    "panglacak lamaran",
+    "nggolek gaweyan"
   ]
 }

@@ -18,5 +18,24 @@
     "Je cv's en tracker blijven op je machine",
     "Eén abonnement, de hele app — de vacaturefeed is inbegrepen",
     "Gebruikt je eigen Anthropic-sleutel — jij hebt hem in handen, jij ziet het gebruik"
+  ],
+  "short_description": "Dawnlist leest elke ochtend de vacaturefeeds, beoordeelt elke vacature aan de hand van een profiel dat het samen met jou opstelt op basis van je eigen cv's, en geeft je een gerangschikte shortlist met de redenen erbij. Afwijzingen blijven zichtbaar. Het schrijft je vervolgberichten en verstuurt ze nooit. Werkt op je eigen Anthropic API-sleutel.",
+  "release_notes": "Lost een fout op waardoor licentiesleutels en toegangscodes helemaal niet werden geaccepteerd. Als Dawnlist zei dat je sleutel niet geldig was, werkt hij nu wel.\n\nHet instellen is duidelijker: er wordt op de juiste plek om je abonnement gevraagd in plaats van dat je het zelf moet opzoeken, de voorgestelde zoekopdrachten zijn echte functietitels, en antwoorden die je tijdens het instellen invult worden zichtbaar opgeslagen.\n\nDawnlist start nu in de taal van je computer, en je kunt die op elk moment wijzigen via het ⋯-menu.",
+  "screenshot_captions": [
+    "Je shortlist, met de redenen — en de afwijzingen nog zichtbaar",
+    "Als een regel te ver gaat, zegt Dawnlist het",
+    "Elke functie die je nastreeft, en wat er nu aan de beurt is",
+    "Het leest je cv's en laat zien wat het begrepen heeft",
+    "Het leert je beoordeling kennen voordat het gaat werken",
+    "Screening die jij bepaalt — en het weigert een regel die een echte functie zou verbergen"
+  ],
+  "search_terms": [
+    "vacatures zoeken",
+    "vacaturetracker",
+    "sollicitaties",
+    "loopbaan zoeken",
+    "vacaturemeldingen",
+    "sollicitatietracker",
+    "werk zoeken"
   ]
 }

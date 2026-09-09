@@ -18,5 +18,24 @@
     "Twoje CV i rejestr zostają na Twoim komputerze",
     "Jedna subskrypcja, cała aplikacja — kanał ogłoszeń o pracę w cenie",
     "Korzysta z Twojego własnego klucza Anthropic — Ty go masz, Ty widzisz zużycie"
+  ],
+  "short_description": "Dawnlist każdego ranka przegląda kanały z ofertami pracy, ocenia każde ogłoszenie według opisu wymagań, który tworzy razem z Tobą na podstawie Twoich CV, i podaje uszeregowaną krótką listę wraz z uzasadnieniem. Odrzucone oferty pozostają widoczne. Redaguje Twoje wiadomości uzupełniające i nigdy ich nie wysyła. Działa na Twoim własnym kluczu API Anthropic.",
+  "release_notes": "Naprawiono usterkę, przez którą klucze licencyjne i kody dostępu w ogóle nie były przyjmowane. Jeśli Dawnlist informował, że Twój klucz jest nieprawidłowy, teraz zadziała.\n\nKonfiguracja jest czytelniejsza: o subskrypcję pyta we właściwym miejscu, zamiast zostawiać Ci jej szukanie, proponowane wyszukiwania to prawdziwe nazwy stanowisk, a odpowiedzi wpisywane podczas konfiguracji są widocznie zapisywane.\n\nDawnlist otwiera się teraz w języku Twojego komputera, a język możesz zmienić w dowolnej chwili w menu ⋯.",
+  "screenshot_captions": [
+    "Twoja krótka lista z uzasadnieniem — odrzucone nadal widoczne",
+    "Gdy reguła sięga za daleko, mówi Ci o tym",
+    "Każda oferta, o którą się starasz, i najbliższe terminy",
+    "Czyta Twoje CV i pokazuje, co z nich zrozumiał",
+    "Uczy się Twoich ocen, zanim ruszy",
+    "Selekcja pod Twoją kontrolą — odrzuca regułę, która ukryłaby realną ofertę"
+  ],
+  "search_terms": [
+    "szukanie pracy",
+    "śledzenie ofert pracy",
+    "aplikacje o pracę",
+    "poszukiwanie kariery",
+    "powiadomienia o ofertach pracy",
+    "śledzenie aplikacji",
+    "poszukiwanie zatrudnienia"
   ]
 }

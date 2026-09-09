@@ -18,5 +18,24 @@
     "Dina CV:n och din uppföljning stannar på din dator",
     "En prenumeration, hela appen — jobbflödet ingår",
     "Använder din egen Anthropic-nyckel — du har den, du ser användningen"
+  ],
+  "short_description": "Dawnlist läser jobbflödena varje morgon, bedömer varje annons mot en kravprofil som den bygger tillsammans med dig utifrån dina egna CV:n, och ger dig en rangordnad urvalslista med skälen angivna. Bortvalda annonser förblir synliga. Den skriver utkast till dina uppföljningar och skickar dem aldrig. Körs på din egen Anthropic-API-nyckel.",
+  "release_notes": "Åtgärdar ett fel som gjorde att licensnycklar och åtkomstkoder inte accepterades alls. Om Dawnlist sa att din nyckel inte var giltig fungerar den nu.\n\nKonfigurationen är tydligare: den frågar efter din prenumeration på rätt ställe i stället för att låta dig leta själv, de föreslagna sökningarna är riktiga jobbtitlar, och svar du skriver under konfigurationen sparas synligt.\n\nDawnlist öppnas nu på datorns språk, och du kan ändra det när som helst från ⋯-menyn.",
+  "screenshot_captions": [
+    "Din urvalslista, med skälen – och de bortvalda syns fortfarande",
+    "När en regel går för långt säger den till",
+    "Alla roller du söker, och vad som ska göras härnäst",
+    "Den läser dina CV:n och visar vad den förstod",
+    "Den lär sig ditt omdöme innan den körs",
+    "Gallring du styr – och den vägrar en regel som skulle dölja en riktig roll"
+  ],
+  "search_terms": [
+    "jobbsökning",
+    "jobbspårare",
+    "jobbansökningar",
+    "karriärsökning",
+    "jobbaviseringar",
+    "ansökningsspårare",
+    "jobbjakt"
   ]
 }

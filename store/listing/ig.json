@@ -18,5 +18,24 @@
     "CV ndị gị na ihe nleta gị na-anọgide n'igwe gị",
     "Otu ndebanye aha, ngwa ahụ dum — ndepụta ọkwa ọrụ so na ya",
     "Ọ na-eji igodo Anthropic nke gị — ị na-ejide ya, ị na-ahụkwa ojiji ya"
+  ],
+  "short_description": "Dawnlist na-agụ ebe a na-ebipụta ọrụ kwa ụtụtụ, na-atụle ọrụ ọ bụla site n'iji nkọwa mkpirisi ọ na-eso gị wuo n'ime CV nke gị, ma nye gị ndepụta mkpirisi ahaziri n'usoro tinyere ihe kpatara ya. Ọrụ ndị ọ jụrụ ka na-apụta ìhè. Ọ na-edetu ozi nchụsọ gị, ma ọ dịghị mgbe ọ na-eziga ha. Ọ na-eji igodo API Anthropic nke gị onwe gị arụ ọrụ.",
+  "release_notes": "Ọ na-edozi nsogbu nke mere na anaghị anabata igodo ikike na koodu nnweta ma ọlị. Ọ bụrụ na Dawnlist gwara gị na igodo gị ezighi ezi, ọ ga-arụ ọrụ ugbu a.\n\nNhazi mmalite doro anya karị: ọ na-arịọ maka ndenyeaha gị n'ebe kwesịrị ekwesị kama ịhapụ gị ka ị chọta ya, nchọta ndị a tụrụ aro bụ ezigbo aha ọrụ, na azịza ndị ị na-edetu n'oge nhazi ka a na-echekwa n'ụzọ a na-ahụ anya.\n\nDawnlist na-emeghe ugbu a n'asụsụ kọmputa gị, ị nwekwara ike gbanwee ya mgbe ọ bụla site na menu ⋯.",
+  "screenshot_captions": [
+    "Ndepụta mkpirisi gị, na ihe kpatara ya — ndị ọ jụrụ ka na-apụta",
+    "Mgbe iwu gbatịrị aka ukwuu, ọ na-agwa gị",
+    "Ọrụ niile ị na-achụ, na ihe na-eso n'oge",
+    "Ọ na-agụ CV gị ma gosi gị ihe ọ ghọtara",
+    "Ọ na-amụta ikpe gị tupu ọ malite",
+    "Nzacha ị na-achịkwa — ọ na-ajụ iwu ga-ezochi ezigbo ọrụ"
+  ],
+  "search_terms": [
+    "ọchụchọ ọrụ",
+    "nsochi ọrụ",
+    "akwụkwọ arịrịọ ọrụ",
+    "ọchụchọ ọkwá ọrụ",
+    "ọkwa ọrụ",
+    "nsochi akwụkwọ arịrịọ",
+    "nchụ ọrụ"
   ]
 }

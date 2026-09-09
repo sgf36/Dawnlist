@@ -18,5 +18,24 @@
     "Os seus CVs e o seu acompanhamento ficam na sua máquina",
     "Uma subscrição, a aplicação inteira — o feed de emprego está incluído",
     "Usa a sua própria chave da Anthropic — a chave é sua, a utilização é visível para si"
+  ],
+  "short_description": "O Dawnlist lê os feeds de emprego todas as manhãs, avalia cada anúncio face a um resumo que constrói consigo a partir dos seus próprios CVs e entrega-lhe uma lista restrita ordenada, com os motivos indicados. As rejeições continuam visíveis. Redige os seus seguimentos e nunca os envia. Funciona com a sua própria chave da API da Anthropic.",
+  "release_notes": "Corrige uma falha que impedia por completo a aceitação de chaves de licença e de códigos de acesso. Se o Dawnlist lhe indicou que a sua chave não era válida, agora vai funcionar.\n\nA configuração está mais clara: pede a sua subscrição no sítio certo, em vez de o deixar à procura dela, as pesquisas sugeridas são cargos reais e as respostas que escreve durante a configuração são guardadas de forma visível.\n\nO Dawnlist abre agora no idioma do seu computador e pode alterá-lo a qualquer momento no menu ⋯.",
+  "screenshot_captions": [
+    "A sua lista restrita, com os motivos — e as rejeições ainda visíveis",
+    "Quando uma regra vai longe demais, avisa-o",
+    "Todas as vagas em curso e o que está para breve",
+    "Lê os seus CVs e mostra-lhe o que percebeu",
+    "Aprende o seu critério antes de começar",
+    "Triagem que controla — e recusa uma regra que esconderia uma vaga real"
+  ],
+  "search_terms": [
+    "procura de emprego",
+    "acompanhamento de empregos",
+    "candidaturas a emprego",
+    "procura de carreira",
+    "alertas de emprego",
+    "gestor de candidaturas",
+    "caça ao emprego"
   ]
 }

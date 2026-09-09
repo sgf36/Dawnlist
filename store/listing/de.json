@@ -18,5 +18,24 @@
     "Ihre Lebensläufe und Ihr Tracker bleiben auf Ihrem Rechner",
     "Ein Abonnement, die ganze App — der Job-Feed ist enthalten",
     "Nutzt Ihren eigenen Anthropic-Schlüssel — Sie halten ihn, Sie sehen die Nutzung"
+  ],
+  "short_description": "Dawnlist liest jeden Morgen die Stellenfeeds, bewertet jede Anzeige anhand eines Suchprofils, das es gemeinsam mit Ihnen aus Ihren eigenen Lebensläufen erstellt, und liefert Ihnen eine sortierte Auswahlliste samt Begründungen. Aussortiertes bleibt sichtbar. Es entwirft Ihre Nachfassnachrichten und sendet sie niemals. Läuft mit Ihrem eigenen Anthropic-API-Schlüssel.",
+  "release_notes": "Behebt einen Fehler, durch den Lizenzschlüssel und Zugangscodes überhaupt nicht angenommen wurden. Wenn Dawnlist Ihnen gemeldet hat, Ihr Schlüssel sei ungültig, funktioniert er jetzt.\n\nDie Einrichtung ist klarer: Das Abonnement wird an der richtigen Stelle abgefragt, statt dass Sie es selbst suchen müssen, die vorgeschlagenen Suchen sind echte Berufsbezeichnungen, und Antworten, die Sie während der Einrichtung eingeben, werden sichtbar gespeichert.\n\nDawnlist startet jetzt in der Sprache Ihres Computers, und Sie können sie jederzeit über das Menü ⋯ ändern.",
+  "screenshot_captions": [
+    "Ihre Auswahlliste mit Begründungen – Aussortiertes bleibt sichtbar",
+    "Greift eine Regel zu weit, erfahren Sie es",
+    "Alle Stellen, die Sie verfolgen, und was als Nächstes ansteht",
+    "Es liest Ihre Lebensläufe und zeigt, was es verstanden hat",
+    "Es lernt Ihr Urteil, bevor es läuft",
+    "Vorauswahl, die Sie steuern – Regeln, die echte Stellen verbergen, lehnt es ab"
+  ],
+  "search_terms": [
+    "Jobsuche",
+    "Job-Tracker",
+    "Bewerbungen",
+    "Karrieresuche",
+    "Job-Benachrichtigungen",
+    "Bewerbungs-Tracker",
+    "Stellensuche"
   ]
 }

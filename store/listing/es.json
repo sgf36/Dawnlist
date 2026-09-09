@@ -18,5 +18,24 @@
     "Tus currículums y tu seguimiento se quedan en tu equipo",
     "Una suscripción, la aplicación entera — la fuente de ofertas de empleo está incluida",
     "Usa tu propia clave de Anthropic — tú la tienes, tú ves el uso"
+  ],
+  "short_description": "Dawnlist lee las ofertas de empleo cada mañana, evalúa cada anuncio frente a un perfil que crea contigo a partir de tus propios CV y te entrega una lista corta ordenada, con los motivos expuestos. Los descartes siguen visibles. Redacta tus seguimientos y nunca los envía. Funciona con tu propia clave de API de Anthropic.",
+  "release_notes": "Corrige un fallo que impedía por completo que se aceptaran las claves de licencia y los códigos de acceso. Si Dawnlist te decía que tu clave no era válida, ahora funcionará.\n\nLa configuración es más clara: pide tu suscripción en el lugar adecuado en vez de dejarte buscarla, las búsquedas sugeridas son puestos de trabajo reales y las respuestas que escribes durante la configuración se guardan de forma visible.\n\nDawnlist ahora se abre en el idioma de tu ordenador, y puedes cambiarlo en cualquier momento desde el menú ⋯.",
+  "screenshot_captions": [
+    "Tu lista corta, con los motivos: los descartes siguen visibles",
+    "Cuando una regla abarca demasiado, te lo dice",
+    "Todos los puestos que persigues y lo siguiente que vence",
+    "Lee tus CV y te muestra lo que ha entendido",
+    "Aprende tu criterio antes de ejecutarse",
+    "Filtrado que tú controlas: rechaza una regla que ocultaría un puesto real"
+  ],
+  "search_terms": [
+    "búsqueda de empleo",
+    "seguimiento de empleos",
+    "solicitudes de empleo",
+    "búsqueda de carrera profesional",
+    "alertas de empleo",
+    "seguimiento de solicitudes",
+    "buscar trabajo"
   ]
 }

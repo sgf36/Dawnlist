@@ -18,5 +18,24 @@
     "Your CVs and tracker stay on your machine",
     "One subscription, the whole app — the job feed is included",
     "Uses your own Anthropic key — you hold it, you see the usage"
+  ],
+  "short_description": "Dawnlist reads the job feeds every morning, judges each posting against a brief it builds with you from your own CVs, and hands you a ranked shortlist with the reasons stated. Rejections stay visible. It drafts your follow-ups and never sends them. Runs on your own Anthropic API key.",
+  "release_notes": "Fixes a fault that stopped licence keys and access codes being accepted at all. If Dawnlist told you your key was not valid, it will work now.\n\nSetting up is clearer: it asks for your subscription in the right place rather than leaving you to find it, the suggested searches are real job titles, and answers you type during setup are visibly saved.\n\nDawnlist now opens in your computer's language, and you can change it at any time from the ⋯ menu.",
+  "screenshot_captions": [
+    "Your shortlist, with the reasons — and the rejections still visible",
+    "When a rule reaches too far, it tells you",
+    "Every role you are pursuing, and what is due next",
+    "It reads your CVs and shows you what it understood",
+    "It learns your judgement before it runs",
+    "Screening you control, and it refuses a rule that would hide a real role"
+  ],
+  "search_terms": [
+    "job search",
+    "job tracker",
+    "job applications",
+    "career search",
+    "job alerts",
+    "application tracker",
+    "job hunt"
   ]
 }

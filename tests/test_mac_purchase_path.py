@@ -322,3 +322,113 @@ def test_a_stored_choice_beats_the_machine(tmp_path, monkeypatch):
     settings = load_settings(conn)
     assert (settings.get("locale") or "system") == "en"
     conn.close()
+
+
+# -- Restore must not claim a subscription nobody has -----------------------
+#
+# Observed on a real Mac, 2026-09-09: pressing "Restore purchase" BEFORE ever
+# subscribing answered "Subscribed. The feed reads for you from tomorrow
+# morning."
+#
+# `paymentQueueRestoreCompletedTransactionsFinished_` fires when the RESTORE
+# OPERATION finishes, including with nothing found. The code then asked only
+# whether a receipt file existed — true for every Mac App Store app, holding a
+# subscription or not. The /health bug in a different hat: a question whose
+# answer is yes for everybody, standing in for one that would have been no.
+
+class _Queue:
+    """Enough SKPaymentQueue for the restore path."""
+
+    def __init__(self, to_restore=0):
+        self.to_restore = to_restore
+        self.finished = 0
+        self.observer = None
+
+    def addTransactionObserver_(self, obs):
+        self.observer = obs
+
+    def removeTransactionObserver_(self, obs):
+        self.observer = None
+
+    def finishTransaction_(self, _t):
+        self.finished += 1
+
+    def restoreCompletedTransactions(self):
+        obs = self.observer
+        if self.to_restore:
+            obs.paymentQueue_updatedTransactions_(
+                self, [_Txn() for _ in range(self.to_restore)])
+        obs.paymentQueueRestoreCompletedTransactionsFinished_(self)
+
+
+class _Txn:
+    def transactionState(self):
+        return 1          # SKPaymentTransactionStateRestored, stubbed below
+
+
+def _run_restore(monkeypatch, to_restore, receipt_ok=True):
+    """Drive `mac_storekit.restore` with StoreKit stubbed out."""
+    import types
+
+    from app.core import mac_storekit
+
+    sk = types.ModuleType("StoreKit")
+    sk.SKPaymentTransactionStateRestored = 1
+    queue = _Queue(to_restore)
+    sk.SKPaymentQueue = types.SimpleNamespace(defaultQueue=lambda: queue)
+
+    foundation = types.ModuleType("Foundation")
+    foundation.NSObject = object
+
+    monkeypatch.setitem(__import__("sys").modules, "StoreKit", sk)
+    monkeypatch.setitem(__import__("sys").modules, "Foundation", foundation)
+    monkeypatch.setattr(mac_storekit, "available", lambda: True)
+    monkeypatch.setattr(mac_storekit, "refresh_receipt",
+                        lambda cb: cb(receipt_ok))
+
+    # NSObject.alloc().init() is PyObjC; with NSObject = object the class the
+    # function builds is a plain class, so give it the same two-step ctor.
+    class _Alloc:
+        def __init__(self, cls):
+            self._cls = cls
+
+        def init(self):
+            return self._cls()
+
+    monkeypatch.setattr(foundation, "NSObject",
+                        type("NSObject", (), {
+                            "alloc": classmethod(lambda cls: _Alloc(cls))}))
+
+    seen = []
+    mac_storekit.restore(seen.append)
+    return seen[0] if seen else None, queue
+
+
+def test_restore_with_nothing_to_restore_does_not_claim_a_subscription(
+        monkeypatch):
+    from app.core.mac_storekit import Outcome
+
+    result, _q = _run_restore(monkeypatch, to_restore=0)
+    assert result is not None, "restore must always answer"
+    assert result.outcome is not Outcome.PURCHASED, (
+        "pressing Restore before subscribing said 'Subscribed.'")
+    assert "othing to restore" in (result.detail or "")
+
+
+def test_restore_with_a_real_transaction_does_report_it(monkeypatch):
+    """The positive control. A suite that only ever saw the empty case could
+    not tell a working restore from one that always refuses."""
+    from app.core.mac_storekit import Outcome
+
+    result, queue = _run_restore(monkeypatch, to_restore=1)
+    assert result.outcome is Outcome.PURCHASED
+    assert queue.finished == 1, (
+        "an unfinished transaction is re-delivered on every launch for ever")
+
+
+def test_a_restored_transaction_with_no_receipt_is_not_success(monkeypatch):
+    from app.core.mac_storekit import Outcome
+
+    result, _q = _run_restore(monkeypatch, to_restore=1, receipt_ok=False)
+    assert result.outcome is not Outcome.PURCHASED
+    assert "receipt" in (result.detail or "").lower()

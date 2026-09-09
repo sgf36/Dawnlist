@@ -18,5 +18,24 @@
     "I tuoi CV e il tracker restano sulla tua macchina",
     "Un abbonamento, l'app intera — il feed di annunci è incluso",
     "Usa la tua chiave Anthropic — la tieni tu, vedi l'utilizzo"
+  ],
+  "short_description": "Dawnlist legge ogni mattina le offerte di lavoro, valuta ciascun annuncio in base a un profilo che costruisce con te partendo dai tuoi CV e ti consegna una selezione ordinata con le motivazioni indicate. Gli annunci scartati restano visibili. Redige i tuoi messaggi di follow-up e non li invia mai. Funziona con la tua chiave API Anthropic.",
+  "release_notes": "Corregge un difetto che impediva del tutto l'accettazione delle chiavi di licenza e dei codici di accesso. Se Dawnlist ti diceva che la tua chiave non era valida, ora funzionerà.\n\nLa configurazione è più chiara: l'abbonamento viene richiesto nel punto giusto invece di lasciartelo cercare, le ricerche suggerite sono veri titoli professionali e le risposte che digiti durante la configurazione vengono salvate in modo visibile.\n\nDawnlist ora si apre nella lingua del tuo computer e puoi cambiarla in qualsiasi momento dal menu ⋯.",
+  "screenshot_captions": [
+    "La tua selezione, con le motivazioni — e gli scarti sempre visibili",
+    "Quando una regola esclude troppo, te lo dice",
+    "Ogni posizione che stai seguendo e le prossime scadenze",
+    "Legge i tuoi CV e ti mostra cosa ha capito",
+    "Impara il tuo criterio prima di partire",
+    "Filtri sotto il tuo controllo: rifiuta le regole che nasconderebbero un ruolo valido"
+  ],
+  "search_terms": [
+    "ricerca lavoro",
+    "tracker candidature",
+    "candidature di lavoro",
+    "ricerca di carriera",
+    "avvisi di lavoro",
+    "monitoraggio candidature",
+    "ricerca di impiego"
   ]
 }

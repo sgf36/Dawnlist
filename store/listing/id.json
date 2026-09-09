@@ -18,5 +18,24 @@
     "CV dan pelacak Anda tetap berada di komputer Anda",
     "Satu langganan, seluruh aplikasi — umpan lowongan kerja sudah termasuk",
     "Menggunakan kunci Anthropic Anda sendiri — Anda yang memegangnya, Anda yang melihat pemakaiannya"
+  ],
+  "short_description": "Dawnlist membaca umpan lowongan setiap pagi, menilai setiap iklan kerja berdasarkan ringkasan kriteria yang disusunnya bersama Anda dari CV Anda sendiri, dan menyerahkan daftar pendek berperingkat lengkap dengan alasannya. Lowongan yang ditolak tetap terlihat. Dawnlist menyusun draf tindak lanjut Anda dan tidak pernah mengirimnya. Berjalan dengan kunci API Anthropic milik Anda sendiri.",
+  "release_notes": "Memperbaiki kesalahan yang membuat kunci lisensi dan kode akses sama sekali tidak dapat diterima. Jika Dawnlist menyatakan kunci Anda tidak valid, kunci itu akan berfungsi sekarang.\n\nPenyiapan kini lebih jelas: langganan Anda diminta di tempat yang tepat alih-alih membiarkan Anda mencarinya sendiri, saran pencarian berupa nama jabatan yang nyata, dan jawaban yang Anda ketik saat penyiapan terlihat tersimpan.\n\nDawnlist kini terbuka dalam bahasa komputer Anda, dan Anda dapat mengubahnya kapan saja dari menu ⋯.",
+  "screenshot_captions": [
+    "Daftar pendek Anda, dengan alasannya — dan yang ditolak tetap terlihat",
+    "Jika sebuah aturan menjangkau terlalu jauh, Dawnlist memberi tahu Anda",
+    "Semua posisi yang Anda kejar, dan tenggat berikutnya",
+    "Ia membaca CV Anda dan menunjukkan apa yang dipahaminya",
+    "Ia mempelajari penilaian Anda sebelum dijalankan",
+    "Penyaringan yang Anda kendalikan, dan ia menolak aturan yang akan menyembunyikan lowongan nyata"
+  ],
+  "search_terms": [
+    "cari kerja",
+    "pelacak lowongan kerja",
+    "lamaran kerja",
+    "pencarian karier",
+    "notifikasi lowongan kerja",
+    "pelacak lamaran",
+    "berburu kerja"
   ]
 }

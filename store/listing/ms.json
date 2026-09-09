@@ -18,5 +18,24 @@
     "Resume dan penjejak anda kekal di mesin anda",
     "Satu langganan, keseluruhan aplikasi — suapan kerja disertakan",
     "Menggunakan kunci Anthropic anda sendiri — anda memegangnya, anda melihat penggunaannya"
+  ],
+  "short_description": "Dawnlist membaca suapan pekerjaan setiap pagi, menilai setiap iklan kerja berdasarkan taklimat yang dibinanya bersama anda daripada CV anda sendiri, dan menyerahkan senarai pendek berperingkat lengkap dengan sebabnya. Penolakan kekal kelihatan. Ia merangka susulan anda dan tidak pernah menghantarnya. Berjalan dengan kunci API Anthropic anda sendiri.",
+  "release_notes": "Membaiki kerosakan yang menyebabkan kunci lesen dan kod akses langsung tidak diterima. Jika Dawnlist memberitahu anda bahawa kunci anda tidak sah, ia akan berfungsi sekarang.\n\nPersediaan kini lebih jelas: ia meminta langganan anda di tempat yang betul dan bukannya membiarkan anda mencarinya sendiri, cadangan carian ialah jawatan kerja yang sebenar, dan jawapan yang anda taip semasa persediaan disimpan secara nyata.\n\nDawnlist kini dibuka dalam bahasa komputer anda, dan anda boleh menukarnya pada bila-bila masa daripada menu ⋯.",
+  "screenshot_captions": [
+    "Senarai pendek anda, dengan sebabnya — penolakan tetap kelihatan",
+    "Apabila sesuatu peraturan terlalu meluas, ia memberitahu anda",
+    "Setiap jawatan yang anda kejar, dan apa yang perlu seterusnya",
+    "Ia membaca CV anda dan menunjukkan apa yang difahaminya",
+    "Ia mempelajari pertimbangan anda sebelum berjalan",
+    "Penapisan yang anda kawal, dan ia menolak peraturan yang akan menyembunyikan jawatan sebenar"
+  ],
+  "search_terms": [
+    "carian kerja",
+    "penjejak kerja",
+    "permohonan kerja",
+    "carian kerjaya",
+    "makluman kerja",
+    "penjejak permohonan",
+    "cari kerja"
   ]
 }

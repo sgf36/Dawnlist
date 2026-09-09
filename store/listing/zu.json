@@ -18,5 +18,24 @@
     "Ama-CV akho nesilandeli sakho ahlala kumshini wakho",
     "Umbhaliso owodwa, uhlelo lokusebenza lonke — isifunzo semisebenzi sifakiwe",
     "Isebenzisa ukhiye wakho ka-Anthropic — wena uwuphethe, wena ubona ukusetshenziswa"
+  ],
+  "short_description": "I-Dawnlist ifunda ama-feed emisebenzi njalo ekuseni, ihlulele isikhangiso ngasinye ngokumelene nomhlahlandlela omfushane eyakha nawe isebenzisa ama-CV akho, bese ikunika uhlu olufingqiwe oluhlelwe ngamazinga, izizathu zishiwo. Okwenqatshiwe kuhlala kubonakala. Ibhalela imilayezo yakho yokulandelela futhi ayilokothi iwathumele. Isebenza ngokhiye wakho we-Anthropic API.",
+  "release_notes": "Ilungisa iphutha elalivimba okhiye belayisensi namakhodi okufinyelela ukuthi amukelwe nhlobo. Uma i-Dawnlist ikutshelile ukuthi ukhiye wakho awusebenzi, manje uzosebenza.\n\nUkulungiselela sekucace kakhudlwana: icela ukubhaliselwa kwakho endaweni efanele kunokuthi ikushiye uzitholele, ukucinga okuphakanyisiwe kungamagama emisebenzi angempela, futhi izimpendulo ozibhalayo ngesikhathi sokulungiselela zibonakala zilondolozwe.\n\nI-Dawnlist manje ivuleka ngolimi lwekhompyutha yakho, futhi ungalushintsha noma nini kusuka kumenyu ye-⋯.",
+  "screenshot_captions": [
+    "Uhlu lwakho olufingqiwe, nezizathu — nokwenqatshiwe kusabonakala",
+    "Uma umthetho weqa umkhawulo, iyakutshela",
+    "Yonke indima oyifunayo, nokulandelayo okumele kwenziwe",
+    "Ifunda ama-CV akho ikukhombise lokho ekuqondile",
+    "Ifunda indlela oyahlulela ngayo ngaphambi kokusebenza",
+    "Ukuhlunga okulawulwa nguwe — iyenqaba umthetho ongafihla umsebenzi wangempela"
+  ],
+  "search_terms": [
+    "ukufuna umsebenzi",
+    "isilandeli semisebenzi",
+    "izicelo zomsebenzi",
+    "ukufuna umkhakha womsebenzi",
+    "izaziso zemisebenzi",
+    "isilandeli sezicelo",
+    "ukuzingela umsebenzi"
   ]
 }

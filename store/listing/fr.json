@@ -18,5 +18,24 @@
     "Vos CV et votre suivi restent sur votre machine",
     "Un abonnement, toute l'application — le flux d'offres d'emploi est inclus",
     "Utilise votre propre clé Anthropic — vous la détenez, vous voyez la consommation"
+  ],
+  "short_description": "Dawnlist parcourt les flux d'offres chaque matin, évalue chaque annonce au regard d'un brief qu'il construit avec vous à partir de vos propres CV, et vous remet une liste restreinte classée, avec les raisons énoncées. Les annonces écartées restent visibles. Il rédige vos relances et ne les envoie jamais. Fonctionne avec votre propre clé API Anthropic.",
+  "release_notes": "Corrige une anomalie qui empêchait toute acceptation des clés de licence et des codes d'accès. Si Dawnlist vous indiquait que votre clé n'était pas valide, elle fonctionnera désormais.\n\nLa configuration est plus claire : l'abonnement vous est demandé au bon endroit au lieu de vous laisser le chercher, les recherches suggérées sont de véritables intitulés de poste, et les réponses que vous saisissez pendant la configuration sont visiblement enregistrées.\n\nDawnlist s'ouvre désormais dans la langue de votre ordinateur, et vous pouvez la changer à tout moment depuis le menu ⋯.",
+  "screenshot_captions": [
+    "Votre liste restreinte, avec les raisons — et les annonces écartées toujours visibles",
+    "Quand une règle va trop loin, il vous le dit",
+    "Tous les postes que vous visez, et les prochaines échéances",
+    "Il lit vos CV et vous montre ce qu'il a compris",
+    "Il apprend votre jugement avant de s'exécuter",
+    "Un tri que vous contrôlez : il refuse une règle qui cacherait un vrai poste"
+  ],
+  "search_terms": [
+    "recherche d'emploi",
+    "suivi de recherche d'emploi",
+    "candidatures d'emploi",
+    "recherche de carrière",
+    "alertes emploi",
+    "suivi des candidatures",
+    "chasse à l'emploi"
   ]
 }

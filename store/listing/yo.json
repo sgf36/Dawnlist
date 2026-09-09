@@ -18,5 +18,24 @@
     "Àwọn CV rẹ àti olùtọpinpin rẹ dúró lórí ẹ̀rọ rẹ",
     "Ìforúkọsílẹ̀ kan, gbogbo ohun èlò náà — ìsun ìkéde iṣẹ́ wà nínú rẹ̀",
     "Ó ń lo kọ́kọ́rọ́ Anthropic tìrẹ — ìwọ ni ó mú u, ìwọ ni ó ń rí ìlò rẹ̀"
+  ],
+  "short_description": "Dawnlist máa ń ka àwọn ìwé ìpolongo iṣẹ́ ní gbogbo òwúrọ̀, ó ń dá ìpolongo kọ̀ọ̀kan lẹ́jọ́ ní ìbámu pẹ̀lú àkọsílẹ̀ ìtọ́sọ́nà tí ó bá ọ kọ láti inú àwọn CV tìrẹ, ó sì fún ọ ní àtòjọ kúkúrú tí a to létòlétò pẹ̀lú àwọn ìdí tí a sọ ní gbangba. Àwọn tí a kọ̀ ṣì máa ń hàn. Ó ń kọ àwọn ìránnilétí rẹ ní àfọwọ́kọ, kò sì ní í fi wọ́n ránṣẹ́ láé. Ó ń ṣiṣẹ́ lórí kọ́kọ́rọ́ API Anthropic tìrẹ.",
+  "release_notes": "Ó tún àṣìṣe kan ṣe tí ó dí i lọ́wọ́ pátápátá kí a tẹ́wọ́ gba kọ́kọ́rọ́ ìwé-àṣẹ àti kóòdù ìwọlé. Bí Dawnlist bá ti sọ fún ọ pé kọ́kọ́rọ́ rẹ kò tọ̀nà, yóò ṣiṣẹ́ báyìí.\n\nÌṣètò ti ṣe kedere sí i: ó ń béèrè fún ìforúkọsílẹ̀ rẹ ní ibi tó tọ́ dípò kí ó fi sílẹ̀ fún ọ láti wá a, àwọn ìwádìí tí a dábàá jẹ́ orúkọ iṣẹ́ gidi, àwọn ìdáhùn tí o bá tẹ̀ nígbà ìṣètò sì máa hàn pé a ti fi wọ́n pamọ́.\n\nDawnlist wá ń ṣí ní èdè kọ̀ǹpútà rẹ báyìí, o sì lè yí i padà nígbàkúgbà láti inú àkójọ ⋯.",
+  "screenshot_captions": [
+    "Àtòjọ kúkúrú rẹ, pẹ̀lú àwọn ìdí — àwọn tí a kọ̀ ṣì hàn",
+    "Nígbà tí òfin kan bá tayọ ààlà, ó sọ fún ọ",
+    "Gbogbo ipò tí o ń lépa, àti ohun tó kàn",
+    "Ó ka àwọn CV rẹ, ó fi ohun tó yé e hàn ọ́",
+    "Ó kọ́ ìdájọ́ rẹ kí ó tó ṣiṣẹ́",
+    "Ìṣàyẹ̀wò tí o ń darí, ó kọ òfin tó máa fi ipò gidi pamọ́"
+  ],
+  "search_terms": [
+    "ìwádìí iṣẹ́",
+    "atẹ̀lé iṣẹ́",
+    "ìbéèrè iṣẹ́",
+    "ìwádìí ọ̀nà iṣẹ́",
+    "ìfitónilétí iṣẹ́",
+    "atẹ̀lé ìbéèrè iṣẹ́",
+    "wíwá iṣẹ́"
   ]
 }

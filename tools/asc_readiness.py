@@ -61,8 +61,32 @@ def main() -> int:
     print(f"version {ver['attributes'].get('versionString')} "
           f"({ver['attributes'].get('appStoreState')})\n")
 
+    # WHICH BUILD, NOT WHETHER ONE. This asked only "is a build attached",
+    # which on 2026-09-09 reported OK while version 1.1.0 carried build 53 —
+    # the morning's build, with no StoreKit in it, no subscription step in
+    # setup, and a licence check that refused every key. Five newer builds had
+    # been uploaded since; attaching a build is a separate act from uploading
+    # one, and nothing had performed it.
+    #
+    # App Review installs whatever is attached. "Not empty" was not the
+    # question and never had been.
     st, b = call("GET", f"appStoreVersions/{vid}/build")
-    report(OK if b.get("data") else BAD, "build attached to the version")
+    attached = (b.get("data") or {}).get("id")
+    report(OK if attached else BAD, "build attached to the version")
+
+    if attached:
+        st, allb = call("GET", f"builds?filter[app]={APP}&limit=20&sort=-version")
+        builds = [x for x in allb.get("data", [])
+                  if x["attributes"].get("processingState") == "VALID"]
+        newest = builds[0] if builds else None
+        this = next((x for x in builds if x["id"] == attached), None)
+        label = (this or {}).get("attributes", {}).get("version", "?")
+        if newest and newest["id"] != attached:
+            report(BAD, f"attached build is {label}, but "
+                        f"{newest['attributes'].get('version')} is newer and "
+                        f"VALID — App Review installs what is attached")
+        else:
+            report(OK, f"attached build is the newest VALID one ({label})")
 
     st, loc = call("GET", f"appStoreVersions/{vid}/appStoreVersionLocalizations")
     if loc.get("data"):

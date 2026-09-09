@@ -18,5 +18,24 @@
     "CV và bảng theo dõi của bạn nằm trên máy của bạn",
     "Một gói đăng ký, toàn bộ ứng dụng — nguồn tin tuyển dụng đã được bao gồm",
     "Dùng khóa Anthropic của chính bạn — bạn giữ khóa, bạn thấy mức sử dụng"
+  ],
+  "short_description": "Mỗi sáng, Dawnlist đọc các nguồn tin tuyển dụng, đánh giá từng tin theo bản yêu cầu mà nó cùng bạn dựng nên từ chính CV của bạn, rồi trao cho bạn một danh sách rút gọn đã xếp hạng kèm lý do rõ ràng. Những tin bị loại vẫn luôn hiển thị. Nó soạn thư theo dõi cho bạn và không bao giờ tự gửi đi. Chạy bằng khóa API Anthropic của riêng bạn.",
+  "release_notes": "Sửa lỗi khiến khóa giấy phép và mã truy cập hoàn toàn không được chấp nhận. Nếu Dawnlist từng báo rằng khóa của bạn không hợp lệ, giờ nó sẽ dùng được.\n\nViệc thiết lập rõ ràng hơn: ứng dụng hỏi thông tin đăng ký của bạn ngay tại đúng chỗ thay vì để bạn tự đi tìm, các gợi ý tìm kiếm là những chức danh công việc thật, và câu trả lời bạn nhập trong lúc thiết lập được lưu lại một cách rõ ràng.\n\nDawnlist giờ mở theo ngôn ngữ của máy tính bạn, và bạn có thể thay đổi bất cứ lúc nào từ menu ⋯.",
+  "screenshot_captions": [
+    "Danh sách rút gọn kèm lý do — và các tin bị loại vẫn hiển thị",
+    "Khi một quy tắc lọc đi quá xa, nó sẽ nói cho bạn biết",
+    "Mọi vị trí bạn đang theo đuổi và việc cần làm tiếp theo",
+    "Nó đọc CV của bạn và cho bạn thấy nó đã hiểu gì",
+    "Nó học cách bạn đánh giá trước khi chạy",
+    "Bạn kiểm soát việc sàng lọc, và nó từ chối quy tắc có thể che mất một vị trí thật"
+  ],
+  "search_terms": [
+    "tìm việc làm",
+    "theo dõi việc làm",
+    "đơn ứng tuyển",
+    "tìm kiếm nghề nghiệp",
+    "thông báo việc làm",
+    "theo dõi đơn ứng tuyển",
+    "săn việc làm"
   ]
 }

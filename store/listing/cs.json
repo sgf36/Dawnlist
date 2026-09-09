@@ -18,5 +18,24 @@
     "Vaše životopisy a přehled kontaktů zůstávají na vašem počítači",
     "Jedno předplatné, celá aplikace — kanál s nabídkami práce je součástí",
     "Používá váš vlastní klíč od Anthropic — držíte ho vy, spotřebu vidíte vy"
+  ],
+  "short_description": "Dawnlist každé ráno pročte pracovní nabídky, posoudí každý inzerát podle zadání, které s vámi sestaví z vašich vlastních životopisů, a předá vám seřazený užší výběr i s uvedenými důvody. Zamítnuté nabídky zůstávají viditelné. Připraví návrhy vašich následných zpráv a nikdy je neodešle. Běží na vašem vlastním Anthropic API klíči.",
+  "release_notes": "Opravuje chybu, kvůli které nebyly licenční klíče a přístupové kódy vůbec přijímány. Pokud vám Dawnlist hlásil, že váš klíč není platný, nyní bude fungovat.\n\nNastavení je přehlednější: o předplatné si řekne na správném místě, místo aby vás nechal ho hledat, navrhovaná vyhledávání jsou skutečné názvy pozic a odpovědi, které během nastavení zadáte, se viditelně uloží.\n\nDawnlist se nyní spouští v jazyce vašeho počítače a kdykoli jej můžete změnit v nabídce ⋯.",
+  "screenshot_captions": [
+    "Váš užší výběr s důvody — i zamítnuté zůstávají vidět",
+    "Když pravidlo zabírá příliš široce, dá vám vědět",
+    "Všechny pozice, o které usilujete, a co je na řadě",
+    "Přečte vaše životopisy a ukáže, co z nich pochopil",
+    "Naučí se váš úsudek, než se spustí",
+    "Filtrování řídíte vy — odmítne pravidlo, které by skrylo skutečnou pozici"
+  ],
+  "search_terms": [
+    "hledání práce",
+    "sledování pracovních nabídek",
+    "žádosti o práci",
+    "hledání kariéry",
+    "upozornění na nabídky práce",
+    "sledování žádostí",
+    "shánění práce"
   ]
 }

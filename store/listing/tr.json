@@ -18,5 +18,24 @@
     "Özgeçmişleriniz ve takip listeniz kendi makinenizde kalır",
     "Tek abonelik, uygulamanın tamamı — iş ilanı akışı dahildir",
     "Kendi Anthropic anahtarınızı kullanır — anahtar sizde, kullanımı siz görürsünüz"
+  ],
+  "short_description": "Dawnlist her sabah iş ilanı akışlarını okur, her ilanı sizinle birlikte kendi CV'lerinizden hazırladığı bir ölçüt metnine göre değerlendirir ve gerekçeleri belirtilmiş, sıralanmış bir kısa liste verir. Elenen ilanlar görünür kalır. Takip mesajlarınızı yazar ve asla göndermez. Kendi Anthropic API anahtarınızla çalışır.",
+  "release_notes": "Lisans anahtarlarının ve erişim kodlarının hiç kabul edilmemesine yol açan bir hata giderildi. Dawnlist size anahtarınızın geçersiz olduğunu söylediyse, artık çalışacak.\n\nKurulum daha anlaşılır: aboneliğinizi bulmayı size bırakmak yerine doğru yerde ister, önerilen aramalar gerçek iş unvanlarıdır ve kurulum sırasında yazdığınız yanıtların kaydedildiği görülür.\n\nDawnlist artık bilgisayarınızın dilinde açılıyor ve dili dilediğiniz zaman ⋯ menüsünden değiştirebilirsiniz.",
+  "screenshot_captions": [
+    "Kısa listeniz, gerekçeleriyle — elenenler de görünür",
+    "Bir kural fazla geniş kapsadığında size söyler",
+    "Peşinde olduğunuz her rol ve sıradaki adım",
+    "CV'lerinizi okur ve ne anladığını gösterir",
+    "Çalışmaya başlamadan önce yargınızı öğrenir",
+    "Tarama sizin denetiminizde; gerçek bir rolü gizleyecek kuralı reddeder"
+  ],
+  "search_terms": [
+    "iş arama",
+    "iş takibi",
+    "iş başvuruları",
+    "kariyer arama",
+    "iş ilanı uyarıları",
+    "başvuru takibi",
+    "iş arayışı"
   ]
 }

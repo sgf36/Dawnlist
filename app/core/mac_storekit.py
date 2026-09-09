@@ -263,6 +263,25 @@ def restore(on_finished) -> None:
     A customer who subscribed on another Mac, or who reinstalled, has paid and
     must be able to get their entitlement back without paying again. An app
     that sells a subscription and offers no restore is rejected.
+
+    IT MUST COUNT WHAT WAS RESTORED, AND THE FIRST VERSION DID NOT.
+    `paymentQueueRestoreCompletedTransactionsFinished_` fires when the RESTORE
+    OPERATION finishes, which includes finishing with nothing found. The first
+    version treated that callback as success and then asked only whether a
+    receipt file existed — which is true for every Mac App Store app, holding
+    a subscription or not, because the App Store writes one for the app
+    itself.
+
+    So pressing Restore Purchase on a Mac that had never subscribed answered
+    "Subscribed. The feed reads for you from tomorrow morning." Observed on a
+    real Mac, 2026-09-09, before any purchase had been attempted.
+
+    That is the `/health` bug wearing a different hat: a question whose answer
+    is yes for everybody, standing in for one that would have been no. The
+    feed itself was never at risk — `build_provider` exchanges the receipt
+    with the Worker and the SERVER decides — but the screen told the user
+    something the server would have contradicted the next morning, by which
+    time they would have no reason to connect the two.
     """
     if not available():
         on_finished(Result(Outcome.UNAVAILABLE,
@@ -277,12 +296,27 @@ def restore(on_finished) -> None:
 
     queue = StoreKit.SKPaymentQueue.defaultQueue()
 
+    restored = []
+
     class _Restorer(NSObject):
         def paymentQueueRestoreCompletedTransactionsFinished_(self, q):
             q.removeTransactionObserver_(self)
+            if not restored:
+                # Apple found nothing on this Apple ID. That is an ANSWER, and
+                # the honest one: nothing was restored, so nothing is claimed.
+                on_finished(Result(Outcome.FAILED,
+                                   "Nothing to restore on this account."))
+                return
+            # Something really was restored. Refresh the receipt so the caller
+            # has one to present, and let the SERVER be the judge of whether
+            # the subscription it describes is still active — a restored
+            # transaction can be expired or refunded, and only the Worker's
+            # exchange with Apple can tell.
             refresh_receipt(lambda ok: on_finished(
                 Result(Outcome.PURCHASED) if ok else
-                Result(Outcome.FAILED, "Nothing to restore on this account.")))
+                Result(Outcome.FAILED,
+                       "Restored, but the receipt did not arrive. Reopen "
+                       "Dawnlist in a moment.")))
 
         def paymentQueue_restoreCompletedTransactionsFailedWithError_(self, q, error):
             q.removeTransactionObserver_(self)
@@ -292,6 +326,9 @@ def restore(on_finished) -> None:
         def paymentQueue_updatedTransactions_(self, q, transactions):
             for t in transactions:
                 if t.transactionState() == StoreKit.SKPaymentTransactionStateRestored:
+                    # COUNTED, not just finished. This is the only place that
+                    # knows anything was actually found.
+                    restored.append(t)
                     q.finishTransaction_(t)
 
     restorer = _Restorer.alloc().init()

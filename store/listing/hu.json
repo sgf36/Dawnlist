@@ -18,5 +18,24 @@
     "Az önéletrajzai és a nyilvántartása a saját gépén maradnak",
     "Egy előfizetés, a teljes alkalmazás — az állásfeed benne van",
     "A saját Anthropic-kulcsát használja — a kulcs az Öné, Ön látja a használatot"
+  ],
+  "short_description": "A Dawnlist minden reggel átnézi az álláshirdetés-forrásokat, minden hirdetést egy olyan szempontrendszer alapján ítél meg, amelyet a saját önéletrajzaidból veletek együtt állít össze, és rangsorolt szűkített listát ad a kezedbe, indoklással. Az elutasítottak láthatók maradnak. Megírja az utókövető üzeneteid piszkozatát, és soha nem küldi el őket. A saját Anthropic API-kulcsoddal működik.",
+  "release_notes": "Javít egy hibát, amely miatt a licenckulcsokat és a hozzáférési kódokat egyáltalán nem fogadta el a program. Ha a Dawnlist azt írta, hogy a kulcsod érvénytelen, most már működni fog.\n\nA beállítás áttekinthetőbb: az előfizetést a megfelelő helyen kéri, nem neked kell megkeresned, a javasolt keresések valódi álláspozíciók, a beállítás közben beírt válaszok pedig láthatóan mentésre kerülnek.\n\nA Dawnlist mostantól a számítógéped nyelvén indul, és ezt bármikor megváltoztathatod a ⋯ menüben.",
+  "screenshot_captions": [
+    "A szűkített listád indoklással – az elutasítottak is láthatók",
+    "Ha egy szabály túl messzire nyúl, szól",
+    "Minden állás, amit követsz, és a következő teendő",
+    "Beolvassa az önéletrajzaidat, és megmutatja, mit értett meg",
+    "Megtanulja a szempontjaidat, mielőtt elindul",
+    "Te irányítod a szűrést – a valódi állást elrejtő szabályt elutasítja"
+  ],
+  "search_terms": [
+    "álláskeresés",
+    "álláskövető",
+    "álláspályázatok",
+    "karrierkeresés",
+    "állásértesítők",
+    "jelentkezéskövető",
+    "állásvadászat"
   ]
 }

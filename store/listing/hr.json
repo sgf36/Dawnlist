@@ -18,5 +18,24 @@
     "Vaši životopisi i praćenje prijava ostaju na vašem računalu",
     "Jedna pretplata, cijela aplikacija — feed oglasa za posao je uključen",
     "Koristi vaš vlastiti Anthropic ključ — vi ga držite, vi vidite korištenje"
+  ],
+  "short_description": "Dawnlist svako jutro čita oglase za posao, ocjenjuje svaki oglas prema kriterijima koje zajedno s vama sastavi iz vaših životopisa i daje vam rangirani uži izbor s navedenim razlozima. Odbijeni oglasi ostaju vidljivi. Sastavlja vaše poruke za praćenje i nikada ih ne šalje. Radi s vašim vlastitim Anthropic API ključem.",
+  "release_notes": "Ispravlja kvar zbog kojeg licencni ključevi i pristupni kodovi uopće nisu bili prihvaćani. Ako vam je Dawnlist rekao da vaš ključ nije valjan, sada će raditi.\n\nPostavljanje je jasnije: pretplatu traži na pravom mjestu umjesto da je sami tražite, predložene pretrage stvarni su nazivi radnih mjesta, a odgovori koje upišete tijekom postavljanja vidljivo se spremaju.\n\nDawnlist se sada otvara na jeziku vašeg računala, a jezik možete promijeniti u bilo kojem trenutku iz izbornika ⋯.",
+  "screenshot_captions": [
+    "Vaš uži izbor, s razlozima — i odbijeni ostaju vidljivi",
+    "Kad pravilo zahvati preširoko, reći će vam",
+    "Svaka pozicija koju pratite i što slijedi",
+    "Čita vaše životopise i pokazuje što je razumio",
+    "Uči vaše kriterije prije nego što se pokrene",
+    "Filtriranje pod vašom kontrolom, uz odbijanje pravila koje bi sakrilo pravi posao"
+  ],
+  "search_terms": [
+    "traženje posla",
+    "praćenje poslova",
+    "prijave za posao",
+    "pretraga karijere",
+    "obavijesti o poslovima",
+    "praćenje prijava",
+    "potraga za poslom"
   ]
 }

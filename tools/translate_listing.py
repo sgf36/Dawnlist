@@ -137,13 +137,119 @@ def translate(cl, name: str, code: str, src: dict) -> dict | None:
     return out
 
 
+FILL_PROMPT = """\
+Translate these Microsoft Store listing fields into {language} ({code}).
+
+Return ONLY a JSON object with exactly the keys given, and the same shapes:
+a string stays a string, an array stays an array of the same length and order.
+
+  * NEGATIVE CLAIMS MUST NOT SOFTEN. "never sends them" is never, not rarely.
+    Metadata that misleads is Store Policy 10.1.1.
+  * The release notes describe a FIX. Do not turn them into an apology and do
+    not add detail that is not there.
+  * "Dawnlist" and "Anthropic" are product names: do not translate them,
+    transliterate only if the target script is non-Latin.
+  * The captions sit under screenshots and must stay short enough to read at a
+    glance.
+  * Keep the {ellipsis} character exactly as it appears — it names a button in
+    the app.
+
+Fields:
+{payload}"""
+
+
+def fill(cl, only: set | None, dry_run: bool) -> int:
+    """Translate only the keys a locale file is MISSING.
+
+    A separate pass from the full translation on purpose. Re-running the whole
+    thing to add a field would re-translate forty-seven descriptions that have
+    already been read and checked, spend the money again, and risk changing
+    copy nobody asked to change.
+    """
+    src = json.loads((LISTING / f"{DEFAULT_LOCALE}.json").read_text("utf-8"))
+    behind = {}
+    for code, name, _native in SUPPORTED_LOCALES:
+        if code == DEFAULT_LOCALE or (only and code not in only):
+            continue
+        path = LISTING / f"{code}.json"
+        if not path.exists():
+            continue
+        have = json.loads(path.read_text("utf-8"))
+        missing = {k: v for k, v in src.items() if k not in have}
+        if missing:
+            behind[code] = (name, have, missing)
+
+    print(f"{len(behind)} listing file(s) behind the source")
+    if dry_run:
+        for code, (name, _h, missing) in behind.items():
+            print(f"  {code} ({name}): {', '.join(sorted(missing))}")
+        return 0
+
+    failures = []
+    for code, (name, have, missing) in behind.items():
+        prompt = FILL_PROMPT.format(
+            language=name, code=code, ellipsis="\u22ef",
+            payload=json.dumps(missing, ensure_ascii=False, indent=2))
+        try:
+            reply = cl.messages.create(
+                # 8000, not 4000. Kannada and Punjabi both came back EMPTY at
+                # 4000 and the caller then failed with "Expecting value: line
+                # 1 column 1 (char 0)" — json.loads on an empty string, a
+                # message that names the symptom and neither the cause nor
+                # anything anybody could do about it. Indic scripts cost far
+                # more tokens per character than Latin ones, so the budget
+                # that is generous for French truncates for Kannada.
+                model=MODEL, max_tokens=8000,
+                messages=[{"role": "user", "content": prompt}])
+            text = "".join(b.text for b in reply.content if b.type == "text")
+            if not text.strip():
+                # Say which of the two it was. A truncated reply and a refused
+                # one look identical from json.loads.
+                raise RuntimeError(
+                    f"the model returned no text (stop reason: "
+                    f"{getattr(reply, 'stop_reason', 'unknown')})")
+            got = json.loads(text[text.find("{"):text.rfind("}") + 1])
+        except Exception as exc:  # noqa: BLE001
+            failures.append(f"{code}: {exc}")
+            continue
+
+        bad = []
+        for key, want in missing.items():
+            value = got.get(key)
+            if isinstance(want, list):
+                if not isinstance(value, list) or len(value) != len(want):
+                    bad.append(f"{key} wrong shape")
+            elif not isinstance(value, str) or not value.strip():
+                bad.append(f"{key} empty")
+        if bad:
+            failures.append(f"{code}: {'; '.join(bad)}")
+            continue
+
+        have.update({k: got[k] for k in missing})
+        (LISTING / f"{code}.json").write_text(
+            json.dumps(have, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8")
+        print(f"  filled {code}.json (+{len(missing)})")
+
+    for f in failures:
+        print("  NOT filled: " + f, file=sys.stderr)
+    return 1 if failures else 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", help="comma-separated locale codes")
     ap.add_argument("--force", action="store_true",
                     help="retranslate locales that already have a file")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--fill", action="store_true",
+                    help="translate only the keys each locale is MISSING, "
+                         "leaving existing copy untouched")
     args = ap.parse_args()
+
+    if args.fill:
+        only = {c.strip() for c in args.only.split(",")} if args.only else None
+        return fill(None if args.dry_run else client(), only, args.dry_run)
 
     LISTING.mkdir(parents=True, exist_ok=True)
     src = json.loads((LISTING / f"{DEFAULT_LOCALE}.json").read_text(encoding="utf-8"))
