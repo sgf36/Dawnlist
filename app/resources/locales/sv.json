@@ -186,6 +186,7 @@
   "settings.subscribe_done": "Prenumeration klar. Flödet läser åt dig från och med imorgon bitti.",
   "settings.subscribe_heading": "Din prenumeration",
   "settings.subscribe_restore": "Återställ köp",
+  "settings.subscribe_still_waiting": "App Store har inte svarat än. Om inget köpformulär visades, kontrollera att du är inloggad på App Store – för en testversion under Systeminställningar, App Store, Sandbox-konto. Du kan försöka igen, återställa ett tidigare köp eller fortsätta och prenumerera senare.",
   "settings.subscribe_unavailable": "App Store kan inte ta emot ett köp på den här Mac-datorn just nu.",
   "settings.subscribe_working": "Kontaktar App Store…",
   "settings.title": "Dawnlist – inställningar",

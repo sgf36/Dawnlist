@@ -101,6 +101,46 @@ def current_locale() -> str:
     return _active_locale
 
 
+def system_locale() -> str:
+    """The language the machine is set to, if a catalogue exists for it.
+
+    WHY THIS IS NOT `DEFAULT_LOCALE`. Fifty catalogues ship and the app opened
+    every one of them in English, on every machine, because the launch path
+    read `settings.get("locale", "en")` and nothing had ever written that
+    setting. A French Mac showed a French speaker an English app and no way to
+    change it — the translations were, in practice, decoration.
+
+    The OS answer is a full tag ("fr_FR", "pt-BR", "zh-Hans-CN"); the
+    catalogues are keyed by the base language. Anything with no catalogue
+    falls back to English, which is the honest outcome — half a translated
+    interface is worse than a consistent one.
+    """
+    import locale as _locale
+
+    candidates = []
+    try:                                        # macOS and Linux
+        tag = _locale.getlocale()[0] or ""
+        candidates.append(tag)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        # Deprecated since 3.11 and still the only thing that answers on some
+        # Windows configurations, where `getlocale()` returns None until a
+        # `setlocale` call the app has no reason to make.
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            candidates.append(_locale.getdefaultlocale()[0] or "")
+    except Exception:  # noqa: BLE001
+        pass
+
+    for tag in candidates:
+        base = tag.replace("-", "_").split("_")[0].lower()
+        if base in LOCALE_CODES:
+            return base
+    return DEFAULT_LOCALE
+
+
 def set_locale(locale: str) -> str:
     """Set the active locale. An unknown code falls back to English rather than
     raising — a bad settings value must not stop the app opening."""

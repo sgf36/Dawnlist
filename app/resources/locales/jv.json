@@ -186,6 +186,7 @@
   "settings.subscribe_done": "Sampun langganan. Umpan menika maos kagem panjenengan wiwit enjing mbenjang.",
   "settings.subscribe_heading": "Langganan Panjenengan",
   "settings.subscribe_restore": "Pulihaken Tumbasan",
+  "settings.subscribe_still_waiting": "App Store durung mangsuli. Yen ora ana lembar tuku sing katon, priksa manawa panjenengan wis mlebu ing App Store — kanggo build tes, ing System Settings, App Store, Sandbox Account. Panjenengan bisa nyoba maneh, mulihake tuku sadurunge, utawa nerusake lan langganan mengko.",
   "settings.subscribe_unavailable": "App Store mboten saged nampi tumbasan wonten ing Mac menika sakmenika.",
   "settings.subscribe_working": "Nyambungaken kaliyan App Store…",
   "settings.title": "Dawnlist — setelan",

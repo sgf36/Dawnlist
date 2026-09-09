@@ -186,6 +186,7 @@
   "settings.subscribe_done": "Abonniert. Der Feed liest ab morgen früh für Sie mit.",
   "settings.subscribe_heading": "Ihr Abonnement",
   "settings.subscribe_restore": "Käufe wiederherstellen",
+  "settings.subscribe_still_waiting": "Der App Store hat noch nicht geantwortet. Wenn kein Kaufdialog erschienen ist, prüfen Sie, ob Sie im App Store angemeldet sind – bei einer Testversion unter Systemeinstellungen, App Store, Sandbox-Account. Sie können es erneut versuchen, einen früheren Kauf wiederherstellen oder später fortfahren und abonnieren.",
   "settings.subscribe_unavailable": "Der App Store kann auf diesem Mac derzeit keinen Kauf entgegennehmen.",
   "settings.subscribe_working": "Verbindung zum App Store wird hergestellt…",
   "settings.title": "Dawnlist — Einstellungen",

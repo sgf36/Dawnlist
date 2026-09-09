@@ -186,6 +186,7 @@
   "settings.subscribe_done": "දායක වී ඇත. හෙට උදෑසන සිට ෆීඩ් එක ඔබ වෙනුවෙන් කියවනු ඇත.",
   "settings.subscribe_heading": "ඔබේ දායකත්වය",
   "settings.subscribe_restore": "මිලදී ගැනීම ප්‍රතිස්ථාපනය කරන්න",
+  "settings.subscribe_still_waiting": "App Store එකෙන් තවම පිළිතුරක් ලැබී නැත. මිලදී ගැනීමේ පත්‍රිකාවක් නොපෙන්වූයේ නම්, ඔබ App Store වෙත පුරනය වී ඇත්දැයි පරීක්ෂා කරන්න — පරීක්ෂණ නිකුතුවක් සඳහා, System Settings, App Store, Sandbox Account යටතේ. ඔබට නැවත උත්සාහ කළ හැකිය, පෙර මිලදී ගැනීමක් ප්‍රතිසාධනය කළ හැකිය, නැතහොත් දිගටම කරගෙන ගොස් පසුව දායක විය හැකිය.",
   "settings.subscribe_unavailable": "මේ මොහොතේ මෙම Mac එකේ App Store හට මිලදී ගැනීමක් සිදු කළ නොහැක.",
   "settings.subscribe_working": "App Store සමඟ සම්බන්ධ වෙමින්…",
   "settings.title": "ඩෝන්ලිස්ට් — සැකසුම්",

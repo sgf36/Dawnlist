@@ -186,6 +186,7 @@
   "settings.subscribe_done": "Subscribe ယူပြီးပါပြီ။ မနက်ဖြန်မနက်မှစတင်၍ ဖိဒ်က သင့်အတွက် ဖတ်ရှုပေးပါမည်။",
   "settings.subscribe_heading": "သင့် Subscription",
   "settings.subscribe_restore": "ဝယ်ယူမှု ပြန်လည်ရယူမည်",
+  "settings.subscribe_still_waiting": "App Store မှ ယခုအထိ တုံ့ပြန်ခြင်း မရှိသေးပါ။ ဝယ်ယူမှုစာမျက်နှာ ပေါ်လာခြင်း မရှိပါက App Store သို့ လက်မှတ်ဖြင့် ဝင်ရောက်ထားကြောင်း စစ်ဆေးပါ — စမ်းသပ်ဗားရှင်းအတွက် System Settings > App Store > Sandbox Account တွင် စစ်ဆေးနိုင်ပါသည်။ ထပ်မံကြိုးစားနိုင်သည်၊ ယခင်ဝယ်ယူမှုကို ပြန်လည်ရယူနိုင်သည် သို့မဟုတ် ဆက်လက်လုပ်ဆောင်ပြီး နောက်မှ စာရင်းသွင်းနိုင်ပါသည်။",
   "settings.subscribe_unavailable": "App Store သည် ဤ Mac ပေါ်တွင် ယခုအချိန်၌ ငွေပေးချေမှုကို လက်ခံနိုင်ခြင်း မရှိပါ။",
   "settings.subscribe_working": "App Store နှင့် ဆက်သွယ်နေသည်…",
   "settings.title": "Dawnlist — ဆက်တင်များ",

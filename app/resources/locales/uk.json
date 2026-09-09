@@ -186,6 +186,7 @@
   "settings.subscribe_done": "Підписку оформлено. Стрічка почне працювати для вас із завтрашнього ранку.",
   "settings.subscribe_heading": "Ваша підписка",
   "settings.subscribe_restore": "Відновити покупку",
+  "settings.subscribe_still_waiting": "App Store ще не відповів. Якщо аркуш покупки не з'явився, перевірте, чи виконано вхід в App Store — для тестової збірки: у Системних налаштуваннях, App Store, Обліковий запис Sandbox. Ви можете спробувати ще раз, відновити попередню покупку або продовжити й оформити підписку пізніше.",
   "settings.subscribe_unavailable": "App Store наразі не може здійснити покупку на цьому Mac.",
   "settings.subscribe_working": "Зв'язок з App Store…",
   "settings.title": "Dawnlist — налаштування",

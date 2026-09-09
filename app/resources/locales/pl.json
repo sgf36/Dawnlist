@@ -186,6 +186,7 @@
   "settings.subscribe_done": "Subskrypcja aktywna. Kanał zacznie wyszukiwać oferty dla Ciebie od jutrzejszego poranka.",
   "settings.subscribe_heading": "Twoja subskrypcja",
   "settings.subscribe_restore": "Przywróć zakup",
+  "settings.subscribe_still_waiting": "App Store jeszcze nie odpowiedział. Jeśli nie pojawił się arkusz zakupu, sprawdź, czy jesteś zalogowany w App Store — w przypadku wersji testowej w Ustawieniach systemowych, App Store, Konto Sandbox. Możesz spróbować ponownie, przywrócić wcześniejszy zakup lub kontynuować i zasubskrybować później.",
   "settings.subscribe_unavailable": "App Store nie może teraz przyjąć płatności na tym Macu.",
   "settings.subscribe_working": "Łączenie z App Store…",
   "settings.title": "Dawnlist — ustawienia",

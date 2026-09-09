@@ -186,6 +186,7 @@
   "settings.subscribe_done": "สมัครสมาชิกสำเร็จ ฟีดจะเริ่มค้นหางานให้คุณตั้งแต่เช้าพรุ่งนี้",
   "settings.subscribe_heading": "การสมัครสมาชิกของคุณ",
   "settings.subscribe_restore": "กู้คืนการซื้อ",
+  "settings.subscribe_still_waiting": "App Store ยังไม่ตอบสนอง หากไม่มีหน้าต่างการซื้อปรากฏขึ้น โปรดตรวจสอบว่าคุณได้ลงชื่อเข้าใช้ App Store แล้ว — สำหรับรุ่นทดสอบ ให้ไปที่ System Settings, App Store, Sandbox Account คุณสามารถลองอีกครั้ง เรียกคืนการซื้อครั้งก่อนหน้า หรือดำเนินการต่อและสมัครสมาชิกในภายหลัง",
   "settings.subscribe_unavailable": "App Store ไม่สามารถดำเนินการซื้อบน Mac เครื่องนี้ได้ในขณะนี้",
   "settings.subscribe_working": "กำลังติดต่อ App Store…",
   "settings.title": "Dawnlist — การตั้งค่า",

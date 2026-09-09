@@ -186,6 +186,7 @@
   "settings.subscribe_done": "সাবস্ক্রাইব করা হয়েছে। আগামীকাল সকাল থেকে ফিড আপনার হয়ে পড়বে।",
   "settings.subscribe_heading": "আপনার সাবস্ক্রিপশন",
   "settings.subscribe_restore": "ক্রয় পুনরুদ্ধার করুন",
+  "settings.subscribe_still_waiting": "অ্যাপ স্টোর এখনও সাড়া দেয়নি। যদি কোনো ক্রয় শিট না দেখা যায়, তাহলে নিশ্চিত করুন যে আপনি অ্যাপ স্টোরে সাইন ইন করা আছেন — টেস্ট বিল্ডের ক্ষেত্রে, System Settings > App Store > Sandbox Account-এ যান। আপনি আবার চেষ্টা করতে পারেন, আগের কোনো ক্রয় পুনরুদ্ধার করতে পারেন, অথবা পরে সাবস্ক্রাইব করার জন্য এগিয়ে যেতে পারেন।",
   "settings.subscribe_unavailable": "এই Mac-এ এখন অ্যাপ স্টোর ক্রয় গ্রহণ করতে পারছে না।",
   "settings.subscribe_working": "অ্যাপ স্টোরের সাথে যোগাযোগ করা হচ্ছে…",
   "settings.title": "Dawnlist — সেটিংস",

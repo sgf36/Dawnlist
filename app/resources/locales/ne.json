@@ -186,6 +186,7 @@
   "settings.subscribe_done": "सदस्यता लिइयो। भोलि बिहानदेखि फिडले तपाईंको लागि पढ्नेछ।",
   "settings.subscribe_heading": "तपाईंको सदस्यता",
   "settings.subscribe_restore": "खरिद पुनर्स्थापित गर्नुहोस्",
+  "settings.subscribe_still_waiting": "एप स्टोरबाट अझै जवाफ प्राप्त भएको छैन। यदि किनमेल पर्ची (purchase sheet) देखिएन भने, तपाईं एप स्टोरमा साइन इन गर्नुभएको छ भनी जाँच गर्नुहोस् — परीक्षण संस्करणको हकमा, सिस्टम सेटिङ्ग्स, एप स्टोर, Sandbox Account अन्तर्गत। तपाईं फेरि प्रयास गर्न सक्नुहुन्छ, अघिल्लो खरिद पुनर्स्थापना गर्न सक्नुहुन्छ, वा पछि सदस्यता लिने गरी अगाडि बढ्न सक्नुहुन्छ।",
   "settings.subscribe_unavailable": "यस Mac मा App Store ले अहिले खरिद स्वीकार गर्न सक्दैन।",
   "settings.subscribe_working": "App Store सँग कुराकानी हुँदैछ…",
   "settings.title": "Dawnlist — सेटिङहरू",

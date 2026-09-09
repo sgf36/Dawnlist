@@ -186,6 +186,7 @@
   "settings.subscribe_done": "Đã đăng ký. Nguồn việc làm sẽ đọc thay bạn từ sáng mai.",
   "settings.subscribe_heading": "Gói đăng ký của bạn",
   "settings.subscribe_restore": "Khôi phục giao dịch mua",
+  "settings.subscribe_still_waiting": "App Store vẫn chưa phản hồi. Nếu không có bảng mua hàng nào xuất hiện, hãy kiểm tra xem bạn đã đăng nhập vào App Store hay chưa — đối với bản dùng thử, vào Cài đặt hệ thống, App Store, Sandbox Account. Bạn có thể thử lại, khôi phục giao dịch mua trước đó, hoặc tiếp tục và đăng ký sau.",
   "settings.subscribe_unavailable": "App Store hiện không thể xử lý giao dịch mua trên Mac này.",
   "settings.subscribe_working": "Đang kết nối với App Store…",
   "settings.title": "Dawnlist — cài đặt",

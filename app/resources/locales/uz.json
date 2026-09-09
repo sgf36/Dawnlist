@@ -186,6 +186,7 @@
   "settings.subscribe_done": "Obuna faollashtirildi. Lenta ertaga ertalabdan boshlab siz uchun o'qiladi.",
   "settings.subscribe_heading": "Sizning obunangiz",
   "settings.subscribe_restore": "Xaridni tiklash",
+  "settings.subscribe_still_waiting": "App Store hali javob bermadi. Agar xarid varaqasi ochilmagan bo‘lsa, App Store tizimiga kirganingizni tekshiring — sinov versiyasi uchun Tizim sozlamalari, App Store, Sandbox Account bo‘limida. Qayta urinib ko‘rishingiz, avvalgi xaridni tiklashingiz yoki keyinroq obuna bo‘lishni davom ettirishingiz mumkin.",
   "settings.subscribe_unavailable": "App Store hozircha ushbu Mac'da to'lovni qabul qila olmayapti.",
   "settings.subscribe_working": "App Store bilan bog'lanilmoqda…",
   "settings.title": "Dawnlist — sozlamalar",

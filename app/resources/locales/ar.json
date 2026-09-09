@@ -186,6 +186,7 @@
   "settings.subscribe_done": "تم الاشتراك. سيقرأ الموجز نيابةً عنك ابتداءً من صباح الغد.",
   "settings.subscribe_heading": "اشتراكك",
   "settings.subscribe_restore": "استعادة عملية الشراء",
+  "settings.subscribe_still_waiting": "لم يستجب متجر App Store بعد. إذا لم تظهر نافذة الشراء، فتأكد من تسجيل الدخول إلى App Store — وفي حالة نسخة تجريبية، من إعدادات النظام، ثم App Store، ثم Sandbox Account. يمكنك إعادة المحاولة، أو استعادة عملية شراء سابقة، أو المتابعة والاشتراك لاحقًا.",
   "settings.subscribe_unavailable": "لا يمكن لمتجر App Store إتمام عملية شراء على هذا الماك حاليًا.",
   "settings.subscribe_working": "جارٍ التواصل مع App Store…",
   "settings.title": "Dawnlist — الإعدادات",

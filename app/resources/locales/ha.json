@@ -186,6 +186,7 @@
   "settings.subscribe_done": "An yi rajista. Jerin zai karanta muku daga asubahin gobe.",
   "settings.subscribe_heading": "Rajistar ku",
   "settings.subscribe_restore": "Maido da Sayayya",
+  "settings.subscribe_still_waiting": "App Store bai amsa ba tukuna. Idan takardar sayayya ba ta bayyana ba, tabbatar kun shiga App Store — don ginin gwaji, a ƙarƙashin System Settings, App Store, Sandbox Account. Kuna iya sake gwadawa, dawo da sayayyar da ta gabata, ko ci gaba da yin subscribe daga baya.",
   "settings.subscribe_unavailable": "App Store ba zai iya karɓar sayayya a wannan Mac a yanzu ba.",
   "settings.subscribe_working": "Ana tuntuɓar App Store…",
   "settings.title": "Dawnlist — saitunan",

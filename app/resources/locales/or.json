@@ -186,6 +186,7 @@
   "settings.subscribe_done": "ସବସ୍କ୍ରାଇବ୍ ହୋଇଗଲା। ଆସନ୍ତାକାଲି ସକାଳରୁ ଫିଡ୍ ଆପଣଙ୍କ ପାଇଁ ପଢ଼ିବ।",
   "settings.subscribe_heading": "ଆପଣଙ୍କ ସବସ୍କ୍ରିପସନ୍",
   "settings.subscribe_restore": "କ୍ରୟ ପୁନଃସ୍ଥାପନ କରନ୍ତୁ",
+  "settings.subscribe_still_waiting": "ଆପ ଷ୍ଟୋର ଏପର୍ଯ୍ୟନ୍ତ ଉତ୍ତର ଦେଇନାହିଁ। ଯଦି କୌଣସି କ୍ରୟ ସିଟ୍ ଦେଖାଗଲା ନାହିଁ, ତେବେ ଆପଣ ଆପ ଷ୍ଟୋରରେ ସାଇନ୍ ଇନ୍ ହୋଇଛନ୍ତି କି ନାହିଁ ଯାଞ୍ଚ କରନ୍ତୁ — ଏକ ଟେଷ୍ଟ ବିଲ୍ଡ ପାଇଁ, System Settings, App Store, Sandbox Account ଅଧୀନରେ। ଆପଣ ପୁଣି ଚେଷ୍ଟା କରିପାରିବେ, ପୂର୍ବ କ୍ରୟକୁ ପୁନଃସ୍ଥାପନ କରିପାରିବେ, କିମ୍ବା ଆଗକୁ ବଢ଼ି ପରେ ସବସ୍କ୍ରାଇବ୍ କରିପାରିବେ।",
   "settings.subscribe_unavailable": "ଏହି Mac ରେ ବର୍ତ୍ତମାନ App Store କ୍ରୟ ଗ୍ରହଣ କରିପାରୁ ନାହିଁ।",
   "settings.subscribe_working": "App Store ସହିତ ଯୋଗାଯୋଗ ହେଉଛି…",
   "settings.title": "ଡନଲିଷ୍ଟ — ସେଟିଂସ୍",

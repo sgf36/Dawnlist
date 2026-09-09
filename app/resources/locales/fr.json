@@ -186,6 +186,7 @@
   "settings.subscribe_done": "Abonnement activé. Le flux effectue les recherches pour vous dès demain matin.",
   "settings.subscribe_heading": "Votre abonnement",
   "settings.subscribe_restore": "Restaurer les achats",
+  "settings.subscribe_still_waiting": "L'App Store n'a pas encore répondu. Si aucune fenêtre d'achat n'est apparue, vérifiez que vous êtes connecté à l'App Store — pour une version de test, dans Réglages Système, App Store, Compte Bac à sable. Vous pouvez réessayer, restaurer un achat précédent, ou continuer et vous abonner plus tard.",
   "settings.subscribe_unavailable": "L'App Store ne peut pas traiter d'achat sur ce Mac actuellement.",
   "settings.subscribe_working": "Connexion à l'App Store…",
   "settings.title": "Dawnlist — Paramètres",

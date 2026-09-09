@@ -1400,7 +1400,15 @@ def main(argv: list[str] | None = None) -> int:
     db.migrate(conn)
 
     settings = load_settings(conn)
-    set_locale(args.locale or settings.get("locale", "en"))
+    # A CHOICE, THEN THE MACHINE, THEN ENGLISH — in that order.
+    #
+    # This read `settings.get("locale", "en")` and nothing ever wrote that
+    # setting, so every install of a fifty-language app opened in English
+    # whatever the machine was set to. The stored value still wins where the
+    # user has picked one, because a person who chose English on a French Mac
+    # meant it.
+    from app.i18n import system_locale
+    set_locale(args.locale or settings.get("locale") or system_locale())
 
     if args.doctor:
         return _doctor(conn)

@@ -186,6 +186,7 @@
   "settings.subscribe_done": "ਸਬਸਕ੍ਰਾਈਬ ਹੋ ਗਿਆ। ਫੀਡ ਕੱਲ੍ਹ ਸਵੇਰ ਤੋਂ ਤੁਹਾਡੇ ਲਈ ਪੜ੍ਹੇਗੀ।",
   "settings.subscribe_heading": "ਤੁਹਾਡੀ ਸਬਸਕ੍ਰਿਪਸ਼ਨ",
   "settings.subscribe_restore": "ਖਰੀਦਦਾਰੀ ਬਹਾਲ ਕਰੋ",
+  "settings.subscribe_still_waiting": "ਐਪ ਸਟੋਰ ਨੇ ਹਾਲੇ ਤੱਕ ਜਵਾਬ ਨਹੀਂ ਦਿੱਤਾ। ਜੇ ਕੋਈ ਖਰੀਦ ਸ਼ੀਟ ਦਿਖਾਈ ਨਹੀਂ ਦਿੱਤੀ, ਤਾਂ ਜਾਂਚ ਕਰੋ ਕਿ ਤੁਸੀਂ ਐਪ ਸਟੋਰ ਵਿੱਚ ਸਾਈਨ ਇਨ ਹੋ — ਟੈਸਟ ਬਿਲਡ ਲਈ, System Settings, App Store, Sandbox Account ਵਿੱਚ ਜਾਓ। ਤੁਸੀਂ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰ ਸਕਦੇ ਹੋ, ਪਹਿਲਾਂ ਦੀ ਖਰੀਦ ਬਹਾਲ ਕਰ ਸਕਦੇ ਹੋ, ਜਾਂ ਬਾਅਦ ਵਿੱਚ ਸਬਸਕ੍ਰਾਈਬ ਕਰਨ ਲਈ ਜਾਰੀ ਰੱਖ ਸਕਦੇ ਹੋ।",
   "settings.subscribe_unavailable": "ਐਪ ਸਟੋਰ ਇਸ ਸਮੇਂ ਇਸ Mac 'ਤੇ ਖਰੀਦਦਾਰੀ ਸਵੀਕਾਰ ਨਹੀਂ ਕਰ ਸਕਦਾ।",
   "settings.subscribe_working": "ਐਪ ਸਟੋਰ ਨਾਲ ਗੱਲਬਾਤ ਹੋ ਰਹੀ ਹੈ…",
   "settings.title": "Dawnlist — ਸੈਟਿੰਗਾਂ",

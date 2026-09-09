@@ -938,9 +938,16 @@ class SubscribePanel(QWidget):
         self.restore.setEnabled(idle and self._sk.available())
         if on:
             self.result.setText(tr("settings.subscribe_working"))
+            self._start_waiting()
+        else:
+            waiting = getattr(self, "_waiting", None)
+            if waiting is not None:
+                waiting.stop()
 
     def _finished(self, result) -> None:
         from app.core.mac_storekit import Outcome
+        # Stops the "still waiting" timer as well, so a late arrival does not
+        # get overwritten a moment later by a message about waiting for it.
         self._busy(False)
         if result.outcome is Outcome.PURCHASED:
             self.result.setText(tr("settings.subscribe_done"))
@@ -954,6 +961,12 @@ class SubscribePanel(QWidget):
             return
         self.result.setText(result.detail or tr("settings.subscribe_unavailable"))
 
+    #: How long to wait before saying something, in milliseconds. Not a
+    #: cancel and not a failure — a purchase waits on a human and may take as
+    #: long as it takes. This is only the point at which silence stops being
+    #: informative.
+    STILL_WAITING_MS = 40_000
+
     def _purchase(self) -> None:
         self._busy(True)
         self._sk.purchase(self._finished)
@@ -961,6 +974,35 @@ class SubscribePanel(QWidget):
     def _restore(self) -> None:
         self._busy(True)
         self._sk.restore(self._finished)
+
+    def _start_waiting(self) -> None:
+        """Arm the "still waiting" message.
+
+        THE DEAD END THIS REMOVES. `_busy(True)` disabled both buttons and
+        showed "Talking to the App Store…", and every route out of that state
+        ran through a StoreKit callback. When the callback does not arrive —
+        no sandbox account signed in, Apple's sheet opening behind the window,
+        a screen-shared session where it never appears — the screen stays like
+        that for ever, with the two things that could fix it greyed out.
+
+        Nothing is cancelled here. A purchase genuinely in flight still lands,
+        and `_finished` still runs. This only stops silence being the whole of
+        the interface.
+        """
+        from PySide6.QtCore import QTimer
+
+        self._waiting = QTimer(self)
+        self._waiting.setSingleShot(True)
+        self._waiting.timeout.connect(self._still_waiting)
+        self._waiting.start(self.STILL_WAITING_MS)
+
+    def _still_waiting(self) -> None:
+        # Re-enabled, not reset: pressing Subscribe again is a legitimate
+        # thing to want, and Restore is the answer for somebody who already
+        # paid and is watching a sheet that never opened.
+        self.result.setText(tr("settings.subscribe_still_waiting"))
+        self.buy.setEnabled(True)
+        self.restore.setEnabled(True)
 
 
 class RulesPanel(QWidget):

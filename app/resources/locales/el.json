@@ -186,6 +186,7 @@
   "settings.subscribe_done": "Η συνδρομή ενεργοποιήθηκε. Η ροή διαβάζει για εσάς από αύριο το πρωί.",
   "settings.subscribe_heading": "Η συνδρομή σας",
   "settings.subscribe_restore": "Επαναφορά αγορών",
+  "settings.subscribe_still_waiting": "Το App Store δεν έχει απαντήσει ακόμη. Αν δεν εμφανίστηκε παράθυρο αγοράς, βεβαιωθείτε ότι είστε συνδεδεμένοι στο App Store — για δοκιμαστική έκδοση, μεταβείτε στις Ρυθμίσεις Συστήματος, App Store, Λογαριασμός Sandbox. Μπορείτε να δοκιμάσετε ξανά, να επαναφέρετε μια προηγούμενη αγορά ή να συνεχίσετε και να εγγραφείτε αργότερα.",
   "settings.subscribe_unavailable": "Το App Store δεν μπορεί να πραγματοποιήσει αγορά σε αυτό το Mac αυτή τη στιγμή.",
   "settings.subscribe_working": "Επικοινωνία με το App Store…",
   "settings.title": "Dawnlist — ρυθμίσεις",

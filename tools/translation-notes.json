@@ -65,5 +65,6 @@
   "menu.restore": "A menu item, Mac App Store only. Recovers a subscription the user ALREADY paid for on another Mac or before reinstalling - it never charges them. Apple requires this wording to be recognisable.",
   "menu.licence": "A menu item on the Windows builds only. Opens the screen where the user pastes either the licence key from their purchase email OR a free access code they were given. Both, not one.",
   "menu.tooltip": "Tooltip on a small button labelled with three dots. Says what is behind it.",
-  "menu.language_changed": "Shown after picking a language. {language} is that language's own name. It means the change is saved and the rest of the app will be in it after a restart - do not translate this as if the change failed."
+  "menu.language_changed": "Shown after picking a language. {language} is that language's own name. It means the change is saved and the rest of the app will be in it after a restart - do not translate this as if the change failed.",
+  "settings.subscribe_still_waiting": "Shown when the App Store has not responded to a purchase after about forty seconds. NOT a failure message - the purchase may still complete. 'Sandbox Account' is the literal name of a macOS System Settings item for testers; keep Apple's own wording for it in the target language if one exists, otherwise leave it in English."
 }

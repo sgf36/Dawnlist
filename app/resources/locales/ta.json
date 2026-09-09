@@ -186,6 +186,7 @@
   "settings.subscribe_done": "சந்தா பெறப்பட்டது. நாளை காலை முதல் ஊட்டம் உங்களுக்காக படிக்கும்.",
   "settings.subscribe_heading": "உங்கள் சந்தா",
   "settings.subscribe_restore": "கொள்முதலை மீட்டமை",
+  "settings.subscribe_still_waiting": "App Store இதுவரை பதிலளிக்கவில்லை. கொள்முதல் தாள் தோன்றவில்லை என்றால், நீங்கள் App Store-இல் உள்நுழைந்துள்ளீர்களா என்பதைச் சரிபார்க்கவும் — சோதனை பதிப்பிற்கு, கணினி அமைவுகள், App Store, Sandbox Account என்பதன் கீழ். நீங்கள் மீண்டும் முயற்சிக்கலாம், முந்தைய கொள்முதலை மீட்டமைக்கலாம், அல்லது தொடர்ந்து பின்னர் குழுசேரலாம்.",
   "settings.subscribe_unavailable": "இந்த Mac-இல் தற்போது App Store கொள்முதலை ஏற்க முடியவில்லை.",
   "settings.subscribe_working": "App Store உடன் தொடர்பு கொள்கிறது…",
   "settings.title": "டான்லிஸ்ட் — அமைப்புகள்",

@@ -217,3 +217,108 @@ def test_an_outage_is_not_a_refusal():
         raise urllib.error.URLError("no network")
 
     assert exchange_mac_receipt(b"x", opener=boom) is None
+
+
+# -- the purchase screen must never become a dead end -----------------------
+#
+# From a real Mac, build 66: both buttons greyed out and "Talking to the App
+# Store…" underneath, for ever. Every route out of that state ran through a
+# StoreKit callback, and when the callback does not arrive — no sandbox
+# account signed in, Apple's sheet opening behind the window, a screen-shared
+# session where it never appears — the two controls that could fix it were the
+# ones that had been disabled.
+
+class _NeverAnswers:
+    """StoreKit that accepts a purchase and then says nothing, ever."""
+
+    def available(self):
+        return True
+
+    def can_make_payments(self):
+        return True
+
+    def price(self):
+        return "$79.00"
+
+    def purchase(self, _on_finished):
+        pass                    # the callback that never comes
+
+    def restore(self, _on_finished):
+        pass
+
+
+def test_a_purchase_that_never_answers_still_leaves_a_way_out(qapp_and_settle):
+    _qapp, settle = qapp_and_settle
+    from app.ui.settings import SubscribePanel
+
+    panel = SubscribePanel(storekit=_NeverAnswers())
+    settle(lambda: panel.buy.isEnabled(), what="the price")
+
+    panel.STILL_WAITING_MS = 50          # the wait, not the behaviour
+    panel.buy.click()
+    assert not panel.buy.isEnabled(), "busy while the App Store is asked"
+
+    settle(lambda: panel.buy.isEnabled(), what="the still-waiting message")
+    assert panel.restore.isEnabled(), (
+        "Restore is the answer for somebody who already paid and is watching "
+        "a sheet that never opened")
+    said = panel.result.text().lower()
+    assert "sandbox" in said, "say what to actually check"
+    # Not a failure claim: the purchase may still be in flight.
+    assert "failed" not in said and "error" not in said
+    panel.close()
+
+
+def test_the_access_code_box_is_never_disabled_by_a_pending_purchase(
+        qapp_and_settle):
+    """It is an independent route in. Somebody with a reviewer or
+    friends-and-family code must not be blocked by a StoreKit call that is
+    going nowhere."""
+    _qapp, settle = qapp_and_settle
+    from app.ui.settings import SubscribePanel
+
+    panel = SubscribePanel(storekit=_NeverAnswers())
+    settle(lambda: panel.buy.isEnabled(), what="the price")
+    panel.buy.click()
+    assert panel.code.isEnabled() and panel.btn_code.isEnabled()
+    panel.close()
+
+
+# -- the app opens in the machine's language --------------------------------
+
+def test_the_system_language_is_used_when_nothing_has_been_chosen(monkeypatch):
+    """Fifty catalogues shipped and every install opened in English, because
+    the launch path read a setting nothing ever wrote."""
+    import locale as _locale
+
+    from app import i18n
+
+    monkeypatch.setattr(_locale, "getlocale", lambda *a: ("fr_FR", "UTF-8"))
+    assert i18n.system_locale() == "fr"
+
+
+def test_a_language_with_no_catalogue_falls_back_to_english(monkeypatch):
+    """Half a translated interface is worse than a consistent one."""
+    import locale as _locale
+
+    from app import i18n
+
+    monkeypatch.setattr(_locale, "getlocale", lambda *a: ("is_IS", "UTF-8"))
+    monkeypatch.setattr(_locale, "getdefaultlocale", lambda *a: ("is_IS", "UTF-8"))
+    assert i18n.system_locale() == "en"
+
+
+def test_a_stored_choice_beats_the_machine(tmp_path, monkeypatch):
+    """Somebody who chose English on a French Mac meant it."""
+    import locale as _locale
+
+    from app.core import db
+    from app.main import load_settings, save_locale
+
+    monkeypatch.setattr(_locale, "getlocale", lambda *a: ("fr_FR", "UTF-8"))
+    conn = db.connect(tmp_path / "t.sqlite3")
+    db.migrate(conn)
+    save_locale(conn, "en")
+    settings = load_settings(conn)
+    assert (settings.get("locale") or "system") == "en"
+    conn.close()

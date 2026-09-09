@@ -186,6 +186,7 @@
   "settings.subscribe_done": "登録が完了しました。明日の朝からフィードがあなたに代わって検索します。",
   "settings.subscribe_heading": "ご利用中のサブスクリプション",
   "settings.subscribe_restore": "購入を復元",
+  "settings.subscribe_still_waiting": "App Storeからまだ応答がありません。購入シートが表示されない場合は、App Storeにサインインしているかご確認ください。テストビルドの場合は、システム設定の「App Store」内にある「Sandboxアカウント」を確認してください。もう一度試すか、以前の購入を復元するか、そのまま続行して後で購読することもできます。",
   "settings.subscribe_unavailable": "現在このMacではApp Storeで購入を行うことができません。",
   "settings.subscribe_working": "App Storeと通信中…",
   "settings.title": "Dawnlist — 設定",

@@ -186,6 +186,7 @@
   "settings.subscribe_done": "Suscripción activada. El feed leerá por ti a partir de mañana por la mañana.",
   "settings.subscribe_heading": "Tu suscripción",
   "settings.subscribe_restore": "Restaurar compra",
+  "settings.subscribe_still_waiting": "La App Store aún no ha respondido. Si no apareció ninguna ventana de compra, compruebe que ha iniciado sesión en la App Store; en una versión de prueba, en Ajustes del Sistema, App Store, Cuenta de zona de pruebas. Puede volver a intentarlo, restaurar una compra anterior o continuar y suscribirse más tarde.",
   "settings.subscribe_unavailable": "La App Store no puede procesar una compra en este Mac en este momento.",
   "settings.subscribe_working": "Conectando con la App Store…",
   "settings.title": "Dawnlist — configuración",

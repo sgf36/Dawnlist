@@ -186,6 +186,7 @@
   "settings.subscribe_done": "اشتراک فعال شد. فید از فردا صبح برای شما خوانده می‌شود.",
   "settings.subscribe_heading": "اشتراک شما",
   "settings.subscribe_restore": "بازیابی خرید",
+  "settings.subscribe_still_waiting": "فروشگاه اپ هنوز پاسخی نداده است. اگر برگه خرید ظاهر نشد، بررسی کنید که وارد فروشگاه اپ شده باشید — برای نسخه آزمایشی، در تنظیمات سیستم، فروشگاه اپ، Sandbox Account. می‌توانید دوباره تلاش کنید، خرید قبلی را بازیابی کنید، یا ادامه دهید و بعداً مشترک شوید.",
   "settings.subscribe_unavailable": "App Store در حال حاضر نمی‌تواند خریدی را روی این مک ثبت کند.",
   "settings.subscribe_working": "در حال ارتباط با App Store…",
   "settings.title": "Dawnlist — تنظیمات",

@@ -186,6 +186,7 @@
   "settings.subscribe_done": "Geabonneerd. Vanaf morgenochtend leest de feed voor je.",
   "settings.subscribe_heading": "Je abonnement",
   "settings.subscribe_restore": "Aankoop herstellen",
+  "settings.subscribe_still_waiting": "De App Store heeft nog niet gereageerd. Als er geen aankoopvenster is verschenen, controleer dan of u bent aangemeld bij de App Store — bij een testversie via Systeeminstellingen, App Store, Sandboxaccount. U kunt het opnieuw proberen, een eerdere aankoop terugzetten of doorgaan en later abonneren.",
   "settings.subscribe_unavailable": "De App Store kan op dit moment geen aankoop verwerken op deze Mac.",
   "settings.subscribe_working": "Verbinden met de App Store…",
   "settings.title": "Dawnlist — instellingen",

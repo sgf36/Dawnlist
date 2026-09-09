@@ -186,6 +186,7 @@
   "settings.subscribe_done": "Abone oldunuz. Akış, yarın sabahtan itibaren sizin için okunacak.",
   "settings.subscribe_heading": "Aboneliğiniz",
   "settings.subscribe_restore": "Satın Alımı Geri Yükle",
+  "settings.subscribe_still_waiting": "App Store henüz yanıt vermedi. Satın alma penceresi açılmadıysa App Store'da oturum açtığınızdan emin olun — bir test sürümü için Sistem Ayarları, App Store, Sandbox Hesabı bölümünü kontrol edin. Yeniden deneyebilir, önceki bir satın alımı geri yükleyebilir veya devam edip daha sonra abone olabilirsiniz.",
   "settings.subscribe_unavailable": "App Store şu anda bu Mac üzerinde satın alma işlemi gerçekleştiremiyor.",
   "settings.subscribe_working": "App Store ile bağlantı kuruluyor…",
   "settings.title": "Dawnlist — ayarlar",

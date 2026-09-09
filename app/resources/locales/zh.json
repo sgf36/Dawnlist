@@ -186,6 +186,7 @@
   "settings.subscribe_done": "已订阅。动态将从明天早上开始为您读取。",
   "settings.subscribe_heading": "您的订阅",
   "settings.subscribe_restore": "恢复购买项目",
+  "settings.subscribe_still_waiting": "App Store 尚未响应。如果没有出现购买对话框，请检查您是否已登录 App Store —— 对于测试版本，请前往“系统设置”>“App Store”>“沙盒帐户”查看。您可以重试、恢复以前的购买，或稍后再订阅。",
   "settings.subscribe_unavailable": "App Store 目前无法在此 Mac 上处理购买。",
   "settings.subscribe_working": "正在与 App Store 通信…",
   "settings.title": "Dawnlist — 设置",

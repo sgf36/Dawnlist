@@ -186,6 +186,7 @@
   "settings.subscribe_done": "Berlangganan. Feed akan membaca untuk Anda mulai besok pagi.",
   "settings.subscribe_heading": "Langganan Anda",
   "settings.subscribe_restore": "Pulihkan Pembelian",
+  "settings.subscribe_still_waiting": "App Store belum memberikan respons. Jika tidak ada lembar pembelian yang muncul, periksa apakah Anda sudah masuk ke App Store — untuk build uji coba, buka Pengaturan Sistem, App Store, Sandbox Account. Anda dapat mencoba lagi, memulihkan pembelian sebelumnya, atau melanjutkan dan berlangganan nanti.",
   "settings.subscribe_unavailable": "App Store tidak dapat memproses pembelian di Mac ini saat ini.",
   "settings.subscribe_working": "Menghubungi App Store…",
   "settings.title": "Dawnlist — pengaturan",

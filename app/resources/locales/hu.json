@@ -186,6 +186,7 @@
   "settings.subscribe_done": "Előfizetve. A lista holnap reggeltől Ön helyett keresi az állásokat.",
   "settings.subscribe_heading": "Az Ön előfizetése",
   "settings.subscribe_restore": "Vásárlás visszaállítása",
+  "settings.subscribe_still_waiting": "Az App Store még nem válaszolt. Ha nem jelent meg a vásárlási ablak, ellenőrizze, hogy be van-e jelentkezve az App Store-ba – teszt build esetén a Rendszerbeállítások, App Store, Sandbox fiók menüpont alatt. Megpróbálhatja újra, visszaállíthat egy korábbi vásárlást, vagy folytathatja, és később iratkozhat fel.",
   "settings.subscribe_unavailable": "Az App Store jelenleg nem tud vásárlást lebonyolítani ezen a Macen.",
   "settings.subscribe_working": "Kapcsolatfelvétel az App Store-ral…",
   "settings.title": "Dawnlist — beállítások",

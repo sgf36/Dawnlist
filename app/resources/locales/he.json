@@ -186,6 +186,7 @@
   "settings.subscribe_done": "המנוי הופעל. הפיד יקרא עבורך החל ממחר בבוקר.",
   "settings.subscribe_heading": "המנוי שלך",
   "settings.subscribe_restore": "שחזור רכישה",
+  "settings.subscribe_still_waiting": "חנות האפליקציות טרם השיבה. אם לא הופיע חלון רכישה, ודא שאתה מחובר לחנות האפליקציות — בגרסת בדיקה, תחת הגדרות המערכת, App Store, חשבון Sandbox. ניתן לנסות שוב, לשחזר רכישה קודמת, או להמשיך ולהירשם למינוי מאוחר יותר.",
   "settings.subscribe_unavailable": "‏App Store אינו יכול לבצע רכישה במחשב ה-Mac הזה כרגע.",
   "settings.subscribe_working": "מתקשר עם App Store…",
   "settings.title": "Dawnlist — הגדרות",

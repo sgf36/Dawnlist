@@ -186,6 +186,7 @@
   "settings.subscribe_done": "ደንበኝነት ተመዝግቧል። ምግቡ ከነገ ጠዋት ጀምሮ ለእርስዎ ያነባል።",
   "settings.subscribe_heading": "የእርስዎ ደንበኝነት",
   "settings.subscribe_restore": "ግዢ ይመልሱ",
+  "settings.subscribe_still_waiting": "የApp Store ምላሽ እስካሁን አልደረሰም። የግዢ መስኮት ካልታየ፣ ወደ App Store መግባትዎን ያረጋግጡ — ለሙከራ ግንባታ ከሆነ በ System Settings ውስጥ፣ App Store፣ Sandbox Account ስር ይመልከቱ። እንደገና መሞከር፣ ቀደም ያለ ግዢ መመለስ፣ ወይም በኋላ መመዝገብዎን መቀጠል ይችላሉ።",
   "settings.subscribe_unavailable": "App Store በአሁኑ ጊዜ በዚህ Mac ላይ ግዢ መቀበል አይችልም።",
   "settings.subscribe_working": "ከAppStore ጋር በመነጋገር ላይ…",
   "settings.title": "ዳውንሊስት — ቅንብሮች",

@@ -186,6 +186,7 @@
   "settings.subscribe_done": "సబ్‌స్క్రయిబ్ చేయబడింది. రేపు ఉదయం నుండి ఫీడ్ మీ కోసం చదువుతుంది.",
   "settings.subscribe_heading": "మీ సబ్‌స్క్రిప్షన్",
   "settings.subscribe_restore": "కొనుగోలును పునరుద్ధరించండి",
+  "settings.subscribe_still_waiting": "App Store ఇంకా ప్రతిస్పందించలేదు. కొనుగోలు షీట్ కనిపించకపోతే, మీరు App Storeకి సైన్ ఇన్ అయి ఉన్నారో లేదో తనిఖీ చేయండి — టెస్ట్ బిల్డ్ కోసం, System Settings, App Store, Sandbox Account కింద చూడండి. మీరు మళ్ళీ ప్రయత్నించవచ్చు, మునుపటి కొనుగోలును పునరుద్ధరించవచ్చు, లేదా కొనసాగించి తర్వాత సబ్‌స్క్రైబ్ చేసుకోవచ్చు.",
   "settings.subscribe_unavailable": "ఈ Macలో ప్రస్తుతం యాప్ స్టోర్ కొనుగోలును స్వీకరించలేకపోతోంది.",
   "settings.subscribe_working": "యాప్ స్టోర్‌తో మాట్లాడుతోంది…",
   "settings.title": "Dawnlist — సెట్టింగ్‌లు",

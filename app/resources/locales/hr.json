@@ -186,6 +186,7 @@
   "settings.subscribe_done": "Pretplata je aktivirana. Feed će čitati umjesto vas počevši od sutrašnjeg jutra.",
   "settings.subscribe_heading": "Vaša pretplata",
   "settings.subscribe_restore": "Vrati kupnju",
+  "settings.subscribe_still_waiting": "App Store još nije odgovorio. Ako se nije pojavio list za kupnju, provjerite jeste li prijavljeni u App Store — za probnu verziju, u postavkama sustava, App Store, Sandbox Account. Možete pokušati ponovno, vratiti raniju kupnju ili nastaviti i pretplatiti se kasnije.",
   "settings.subscribe_unavailable": "App Store trenutačno ne može izvršiti kupnju na ovom Macu.",
   "settings.subscribe_working": "Povezivanje s App Storeom…",
   "settings.title": "Dawnlist — postavke",

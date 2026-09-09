@@ -186,6 +186,7 @@
   "settings.subscribe_done": "सदस्यता ले ली गई है। कल सुबह से फ़ीड आपकी ओर से पढ़ी जाएगी।",
   "settings.subscribe_heading": "आपकी सदस्यता",
   "settings.subscribe_restore": "ख़रीदारी पुनर्स्थापित करें",
+  "settings.subscribe_still_waiting": "ऐप स्टोर ने अभी तक जवाब नहीं दिया है। यदि खरीद शीट दिखाई नहीं दी, तो जाँच लें कि आप ऐप स्टोर में साइन इन हैं — टेस्ट बिल्ड के लिए, सिस्टम सेटिंग्स, ऐप स्टोर, Sandbox Account में। आप फिर से प्रयास कर सकते हैं, पहले की खरीद को पुनर्स्थापित कर सकते हैं, या आगे बढ़कर बाद में सदस्यता ले सकते हैं।",
   "settings.subscribe_unavailable": "App Store अभी इस Mac पर ख़रीदारी स्वीकार नहीं कर सकता।",
   "settings.subscribe_working": "App Store से संपर्क किया जा रहा है…",
   "settings.title": "Dawnlist — सेटिंग्स",

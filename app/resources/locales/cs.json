@@ -186,6 +186,7 @@
   "settings.subscribe_done": "Předplaceno. Od zítřejšího rána za vás nabídka čte sama.",
   "settings.subscribe_heading": "Vaše předplatné",
   "settings.subscribe_restore": "Obnovit nákup",
+  "settings.subscribe_still_waiting": "App Store zatím neodpověděl. Pokud se nezobrazil žádný nákupní panel, zkontrolujte, zda jste přihlášeni k App Store — u testovací verze v Nastavení systému, App Store, Sandboxový účet. Můžete to zkusit znovu, obnovit dřívější nákup, nebo pokračovat a předplatit si aplikaci později.",
   "settings.subscribe_unavailable": "App Store nyní na tomto Macu nemůže zpracovat nákup.",
   "settings.subscribe_working": "Probíhá spojení s App Store…",
   "settings.title": "Dawnlist — nastavení",

@@ -186,6 +186,7 @@
   "settings.subscribe_done": "સબ્સ્ક્રાઇબ થયું. આવતીકાલે સવારથી ફીડ તમારા માટે વાંચશે.",
   "settings.subscribe_heading": "તમારું સબ્સ્ક્રિપ્શન",
   "settings.subscribe_restore": "ખરીદી પુનઃસ્થાપિત કરો",
+  "settings.subscribe_still_waiting": "App Store તરફથી હજુ સુધી કોઈ જવાબ મળ્યો નથી. જો કોઈ ખરીદી શીટ દેખાઈ ન હોય, તો ખાતરી કરો કે તમે App Store માં સાઇન ઇન છો — ટેસ્ટ બિલ્ડ માટે, System Settings, App Store, Sandbox Account હેઠળ તપાસો. તમે ફરીથી પ્રયાસ કરી શકો છો, અગાઉની ખરીદી પુનઃસ્થાપિત કરી શકો છો, અથવા આગળ વધીને પછીથી સબ્સ્ક્રાઇબ કરી શકો છો.",
   "settings.subscribe_unavailable": "આ Mac પર અત્યારે App Store ખરીદી સ્વીકારી શકતું નથી.",
   "settings.subscribe_working": "App Store સાથે વાત થઈ રહી છે…",
   "settings.title": "Dawnlist — સેટિંગ્સ",
