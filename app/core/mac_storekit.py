@@ -135,33 +135,30 @@ def _fetch_product():
         return None
     try:
         import StoreKit
-        from Foundation import NSObject, NSSet
+        from Foundation import NSSet
+
+        from app.core.mac_storekit_objc import DawnlistProductsDelegate
     except Exception:  # noqa: BLE001
         return None
 
-    done = threading.Event()
-    box: dict = {}
+    delegate = DawnlistProductsDelegate.alloc().init()
+    delegate.done = threading.Event()
+    delegate.box = {}
+    # Held across the request: PyObjC frameworks reference a delegate weakly,
+    # so one that exists only as a local is collected before it fires.
+    _LIVE.append(delegate)
+    try:
+        request = StoreKit.SKProductsRequest.alloc().initWithProductIdentifiers_(
+            NSSet.setWithArray_([PRODUCT_ID]))
+        request.setDelegate_(delegate)
+        request.start()
 
-    class _Delegate(NSObject):
-        def productsRequest_didReceiveResponse_(self, request, response):
-            products = list(response.products() or [])
-            box["product"] = products[0] if products else None
-            done.set()
-
-        def request_didFailWithError_(self, request, error):
-            box["error"] = str(error.localizedDescription()) if error else "unknown"
-            done.set()
-
-    delegate = _Delegate.alloc().init()
-    request = StoreKit.SKProductsRequest.alloc().initWithProductIdentifiers_(
-        NSSet.setWithArray_([PRODUCT_ID]))
-    request.setDelegate_(delegate)
-    request.start()
-
-    # The delegate fires on the main run loop, which Qt is already spinning.
-    if not done.wait(PRODUCTS_TIMEOUT):
-        return None
-    return box.get("product")
+        # The delegate fires on the main run loop, which Qt is already spinning.
+        if not delegate.done.wait(PRODUCTS_TIMEOUT):
+            return None
+        return delegate.box.get("product")
+    finally:
+        _LIVE.remove(delegate)
 
 
 def can_make_payments() -> bool:
@@ -210,45 +207,24 @@ def purchase(on_finished) -> None:
 
     try:
         import StoreKit
-        from Foundation import NSObject
+
+        from app.core.mac_storekit_objc import DawnlistPaymentObserver
     except Exception as exc:  # noqa: BLE001
         on_finished(Result(Outcome.UNAVAILABLE, str(exc)))
         return
 
     queue = StoreKit.SKPaymentQueue.defaultQueue()
 
-    class _Observer(NSObject):
-        def paymentQueue_updatedTransactions_(self, q, transactions):
-            for t in transactions:
-                state = t.transactionState()
-                if state == StoreKit.SKPaymentTransactionStatePurchasing:
-                    continue
-                # FINISH EVERY SETTLED TRANSACTION. An unfinished one is
-                # re-delivered on every launch forever, and Apple treats a
-                # queue that never drains as a defect.
-                if state in (StoreKit.SKPaymentTransactionStatePurchased,
-                             StoreKit.SKPaymentTransactionStateRestored):
-                    q.finishTransaction_(t)
-                    q.removeTransactionObserver_(self)
-                    refresh_receipt(lambda ok: on_finished(
-                        Result(Outcome.PURCHASED) if ok else
-                        Result(Outcome.FAILED,
-                               "Purchased, but the receipt did not arrive. "
-                               "Reopen Dawnlist in a moment.")))
-                    return
-                if state == StoreKit.SKPaymentTransactionStateFailed:
-                    err = t.error()
-                    cancelled = bool(
-                        err and err.code() == StoreKit.SKErrorPaymentCancelled)
-                    q.finishTransaction_(t)
-                    q.removeTransactionObserver_(self)
-                    on_finished(Result(
-                        Outcome.CANCELLED if cancelled else Outcome.FAILED,
-                        "" if cancelled else
-                        (str(err.localizedDescription()) if err else "")))
-                    return
-
-    observer = _Observer.alloc().init()
+    observer = DawnlistPaymentObserver.alloc().init()
+    observer.on_finished = on_finished
+    observer.refresh_receipt = refresh_receipt
+    observer.purchased = lambda: Result(Outcome.PURCHASED)
+    observer.no_receipt = lambda: Result(
+        Outcome.FAILED, "Purchased, but the receipt did not arrive. "
+                        "Reopen Dawnlist in a moment.")
+    observer.failed = lambda cancelled, err: Result(
+        Outcome.CANCELLED if cancelled else Outcome.FAILED,
+        "" if cancelled else (str(err.localizedDescription()) if err else ""))
     # Held on the queue, but keep a Python reference too: PyObjC will collect
     # it otherwise and the callback never fires.
     _LIVE.append(observer)
@@ -289,49 +265,26 @@ def restore(on_finished) -> None:
         return
     try:
         import StoreKit
-        from Foundation import NSObject
+
+        from app.core.mac_storekit_objc import DawnlistRestoreObserver
     except Exception as exc:  # noqa: BLE001
         on_finished(Result(Outcome.UNAVAILABLE, str(exc)))
         return
 
     queue = StoreKit.SKPaymentQueue.defaultQueue()
 
-    restored = []
-
-    class _Restorer(NSObject):
-        def paymentQueueRestoreCompletedTransactionsFinished_(self, q):
-            q.removeTransactionObserver_(self)
-            if not restored:
-                # Apple found nothing on this Apple ID. That is an ANSWER, and
-                # the honest one: nothing was restored, so nothing is claimed.
-                on_finished(Result(Outcome.FAILED,
-                                   "Nothing to restore on this account."))
-                return
-            # Something really was restored. Refresh the receipt so the caller
-            # has one to present, and let the SERVER be the judge of whether
-            # the subscription it describes is still active — a restored
-            # transaction can be expired or refunded, and only the Worker's
-            # exchange with Apple can tell.
-            refresh_receipt(lambda ok: on_finished(
-                Result(Outcome.PURCHASED) if ok else
-                Result(Outcome.FAILED,
-                       "Restored, but the receipt did not arrive. Reopen "
-                       "Dawnlist in a moment.")))
-
-        def paymentQueue_restoreCompletedTransactionsFailedWithError_(self, q, error):
-            q.removeTransactionObserver_(self)
-            on_finished(Result(Outcome.FAILED,
-                               str(error.localizedDescription()) if error else ""))
-
-        def paymentQueue_updatedTransactions_(self, q, transactions):
-            for t in transactions:
-                if t.transactionState() == StoreKit.SKPaymentTransactionStateRestored:
-                    # COUNTED, not just finished. This is the only place that
-                    # knows anything was actually found.
-                    restored.append(t)
-                    q.finishTransaction_(t)
-
-    restorer = _Restorer.alloc().init()
+    restorer = DawnlistRestoreObserver.alloc().init()
+    restorer.on_finished = on_finished
+    restorer.refresh_receipt = refresh_receipt
+    restorer.restored = []
+    restorer.nothing_to_restore = lambda: Result(
+        Outcome.FAILED, "Nothing to restore on this account.")
+    restorer.purchased = lambda: Result(Outcome.PURCHASED)
+    restorer.no_receipt = lambda: Result(
+        Outcome.FAILED, "Restored, but the receipt did not arrive. "
+                        "Reopen Dawnlist in a moment.")
+    restorer.failed = lambda error: Result(
+        Outcome.FAILED, str(error.localizedDescription()) if error else "")
     _LIVE.append(restorer)
     queue.addTransactionObserver_(restorer)
     queue.restoreCompletedTransactions()
@@ -355,16 +308,11 @@ def refresh_receipt(on_finished) -> None:
 
     from app.core.mac_receipt import read_receipt
 
-    class _Refresh(NSObject):
-        def requestDidFinish_(self, request):
-            on_finished(read_receipt() is not None)
+    from app.core.mac_storekit_objc import DawnlistReceiptDelegate
 
-        def request_didFailWithError_(self, request, error):
-            # A refresh can fail while a perfectly good receipt already sits on
-            # disk, so ask the disk rather than trusting the error.
-            on_finished(read_receipt() is not None)
-
-    delegate = _Refresh.alloc().init()
+    delegate = DawnlistReceiptDelegate.alloc().init()
+    delegate.on_finished = on_finished
+    delegate.read_receipt = read_receipt
     _LIVE.append(delegate)
     request = StoreKit.SKReceiptRefreshRequest.alloc().initWithReceiptProperties_(None)
     request.setDelegate_(delegate)

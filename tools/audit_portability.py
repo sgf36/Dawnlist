@@ -122,8 +122,20 @@ def declared() -> set[str]:
 
 
 #: pip name -> import name, where they differ.
+#:
+#: A pip package can supply SEVERAL import names, so the value may be a tuple.
+#: PyObjC is the case that matters here: `pyobjc-framework-Cocoa` provides
+#: `Foundation`, `AppKit` and `CoreFoundation`, and `pyobjc-core` provides
+#: `objc`. Without these the audit reported StoreKit and Foundation as
+#: undeclared AFTER they had been declared and were demonstrably in the
+#: bundle — and a report that cries wolf about the one dependency whose
+#: absence silently disabled every purchase is worse than no report.
 ALIASES = {"python-docx": "docx", "pyyaml": "yaml", "pillow": "PIL",
-           "pyside6": "PySide6", "beautifulsoup4": "bs4"}
+           "pyside6": "PySide6", "beautifulsoup4": "bs4",
+           "pyobjc-core": "objc",
+           "pyobjc-framework-cocoa": ("Foundation", "AppKit",
+                                      "CoreFoundation"),
+           "pyobjc-framework-storekit": "StoreKit"}
 
 
 def main() -> int:
@@ -141,7 +153,12 @@ def main() -> int:
     print("   fails on a clean install, usually as a missing FEATURE rather")
     print("   than a crash.\n")
     decl = declared()
-    decl_import_names = {ALIASES.get(d, d).lower() for d in decl} | decl
+    # A pip name can map to SEVERAL import names, so flatten tuples.
+    decl_import_names = set(decl)
+    for d in decl:
+        alias = ALIASES.get(d, d)
+        for name in ((alias,) if isinstance(alias, str) else alias):
+            decl_import_names.add(name.lower())
     for pkg, files in sorted(third_party_imports(app_files).items()):
         if pkg.lower() not in decl_import_names:
             print(f"   MISSING  {pkg:16} imported by {', '.join(sorted(files)[:3])}")

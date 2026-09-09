@@ -117,6 +117,12 @@ if sys.platform.startswith("win"):
 if sys.platform == "darwin":
     for _mod in ("StoreKit", "Foundation", "CoreFoundation", "objc"):
         hiddenimports.append(_mod)
+    # The module holding the four Objective-C classes. Imported lazily and by
+    # name from inside functions, so it is exactly the shape the static graph
+    # is least reliable about — and if it is missing, the purchase path dies
+    # the same way it did before, with the same "The App Store cannot take a
+    # purchase" message and no clue why.
+    hiddenimports.append("app.core.mac_storekit_objc")
 
 # Declares the process Per-Monitor v2 DPI-aware at the manifest level, so
 # Windows applies awareness at process creation. This is what clears the WACK
