@@ -77,3 +77,42 @@ def _variant_is_not_ambient(monkeypatch):
                         lambda: "DAWN-TEST-LICENCE", raising=False)
     monkeypatch.setattr("app.core.entitlement.verify_against_worker",
                         lambda _key: True, raising=False)
+
+
+# ---------------------------------------------------------------------------
+# Waiting for work that is deliberately no longer synchronous
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def settle():
+    """Spin the Qt event loop until `predicate()` is true, or fail loudly.
+
+    The onboarding draft used to run inline on the UI thread, so a test could
+    call `run_draft()` and assert on the next line. That inline call is exactly
+    what froze the application — the window went "(Not Responding)" for the
+    whole of a CV read plus an Anthropic call, which Store Policy 10.4.2
+    forbids.
+
+    The work now runs on a worker thread and its result arrives through a
+    queued signal, so a test has to let the event loop deliver it. This spins
+    the loop rather than sleeping, because a sleep does not deliver signals and
+    would simply time out while looking like a hang.
+
+    Do NOT "fix" a test that uses this by making the production code
+    synchronous again.
+    """
+    from PySide6.QtWidgets import QApplication
+
+    def _settle(predicate, timeout=10.0, what="the background task"):
+        import time
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if predicate():
+                return
+            QApplication.processEvents()
+            time.sleep(0.005)
+        raise AssertionError(
+            f"{what} did not finish within {timeout}s. If the production code "
+            f"was just made synchronous again, that is the bug, not this.")
+
+    return _settle

@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QLabel,
                                QVBoxLayout, QWidget)
 
 from app.i18n import tr
+from app.ui.background import run_in_background
 from app.onboarding.calibration import CalibrationItem, CalibrationResult
 from app.onboarding.interview import INGEST_GUIDANCE
 from app.ui.review import CREAM, GOLD, GOLD_DEEP, INK, TEAL, TEAL_LIFTED
@@ -571,18 +572,28 @@ QPlainTextEdit#aimBox {
 
         self.btn_draft.setEnabled(False)
         self.status.setText(tr("onboarding.drafting"))
-        self.status.repaint()
-        try:
-            factsheet, brief, questions = self._draft(
-                self._corpus, self.aim.toPlainText().strip())
-        except Exception as exc:  # noqa: BLE001
-            # The user can still write their own; a failed draft must not be a
-            # dead end, and it must not look like an empty one either.
-            self.status.setText(tr("onboarding.draft_failed", reason=str(exc)[:200]))
-            return
-        finally:
-            self.btn_draft.setEnabled(True)
 
+        # OFF THE UI THREAD. This reads a corpus of CVs and then calls
+        # Anthropic, which is tens of seconds. It used to run here, inline,
+        # with a `self.status.repaint()` on the line above to force the
+        # "reading your CVs" text out before everything stopped — so the
+        # window went "(Not Responding)" for the whole draft, every time.
+        #
+        # Getting the please-wait text painted before you stop answering the OS
+        # is not the same as not stopping. Store Policy 10.4.2 requires the
+        # product to "continue to run and remain responsive to user input".
+        aim = self.aim.toPlainText().strip()
+        corpus = self._corpus
+        self._draft_task = run_in_background(
+            lambda: self._draft(corpus, aim),
+            on_done=self._draft_done,
+            on_error=self._draft_error,
+        )
+
+    def _draft_done(self, result) -> None:
+        """Back on the UI thread, with (factsheet, brief, questions)."""
+        self.btn_draft.setEnabled(True)
+        factsheet, brief, questions = result
         self.factsheet.setPlainText(factsheet)
         self.brief.setPlainText(brief)
         self._questions = questions
@@ -592,6 +603,12 @@ QPlainTextEdit#aimBox {
             self.questions.show()
         self.status.setText(tr("onboarding.drafted"))
         self.drafted.emit()
+
+    def _draft_error(self, exc) -> None:
+        """The user can still write their own; a failed draft must not be a
+        dead end, and it must not look like an empty one either."""
+        self.btn_draft.setEnabled(True)
+        self.status.setText(tr("onboarding.draft_failed", reason=str(exc)[:200]))
 
     def set_corpus(self, corpus) -> None:
         """Hand over the documents without spending anything yet."""

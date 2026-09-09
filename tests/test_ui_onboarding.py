@@ -251,7 +251,7 @@ def test_the_interview_runs_after_the_key_and_before_calibration(qapp, monkeypat
     w.close()
 
 
-def test_the_interview_drafts_both_documents(qapp, monkeypatch):
+def test_the_interview_drafts_both_documents(qapp, monkeypatch, settle):
     from app.core import api_key
     from app.ui.onboarding import InterviewPage
 
@@ -261,6 +261,7 @@ def test_the_interview_drafts_both_documents(qapp, monkeypatch):
         "# Fit brief\n\nHospitality strategy.",
         ["Did the 2019 role include line management?"]))
     page.run_draft(["cv.docx"])
+    settle(lambda: page.btn_draft.isEnabled(), what="the draft")
 
     assert "Acme Hotels" in page.factsheet.toPlainText()
     assert "Hospitality strategy" in page.brief.toPlainText()
@@ -269,7 +270,7 @@ def test_the_interview_drafts_both_documents(qapp, monkeypatch):
     page.close()
 
 
-def test_a_failed_draft_is_not_a_dead_end(qapp):
+def test_a_failed_draft_is_not_a_dead_end(qapp, settle):
     """It must not look like an empty draft either."""
     from app.ui.onboarding import InterviewPage
 
@@ -278,18 +279,20 @@ def test_a_failed_draft_is_not_a_dead_end(qapp):
 
     page = InterviewPage(drafter=boom)
     page.run_draft(["cv.docx"])
+    settle(lambda: page.btn_draft.isEnabled(), what="the draft")
     assert "Could not draft" in page.status.text()
     assert "rejected that key" in page.status.text()
     assert not page.has_content
     page.close()
 
 
-def test_the_two_documents_are_kept_apart(qapp):
+def test_the_two_documents_are_kept_apart(qapp, settle):
     """The factsheet governs what may be SAID; the brief what gets SURFACED.
     Merging them is how an ambition quietly becomes a claim."""
     from app.ui.onboarding import InterviewPage
     page = InterviewPage(drafter=lambda c, aim: ("FACTS", "BRIEF", []))
     page.run_draft(["cv"])
+    settle(lambda: page.btn_draft.isEnabled(), what="the draft")
     factsheet, brief = page.documents()
     assert factsheet == "FACTS" and brief == "BRIEF"
     page.close()
@@ -318,7 +321,7 @@ def test_next_is_enabled_once_a_key_is_present(qapp, monkeypatch):
 
 
 # -- the aim ----------------------------------------------------------------
-def test_the_user_is_asked_what_they_are_looking_for(qapp):
+def test_the_user_is_asked_what_they_are_looking_for(qapp, settle):
     """`stated_aim` was a parameter nothing ever filled. Drafted from CVs
     alone against a real corpus, the brief guessed at the target, the seniority
     direction, the location, permanent versus contract and the salary floor,
@@ -336,6 +339,7 @@ def test_the_user_is_asked_what_they_are_looking_for(qapp):
     page.aim.setPlainText("Hotel asset management in London, senior manager "
                           "band, permanent, not below £85k.")
     page.run_draft()
+    settle(lambda: page.btn_draft.isEnabled(), what="the draft")
     assert "£85k" in seen["aim"]
     page.close()
 
@@ -369,7 +373,7 @@ def test_entering_the_step_does_not_draft(qapp, monkeypatch):
     w.close()
 
 
-def test_the_draft_can_be_re_run_with_a_corrected_aim(qapp):
+def test_the_draft_can_be_re_run_with_a_corrected_aim(qapp, settle):
     """A first attempt whose brief guessed wrong should be one sentence away
     from a better one, not a restart."""
     from app.ui.onboarding import InterviewPage
@@ -378,18 +382,25 @@ def test_the_draft_can_be_re_run_with_a_corrected_aim(qapp):
         drafter=lambda c, a: (aims.append(a) or ("F", f"BRIEF for {a}", [])))
     page.set_corpus(["cv.docx"])
     page.run_draft()
+    settle(lambda: page.btn_draft.isEnabled(), what="the draft")
     page.aim.setPlainText("Actually, London only.")
     page.btn_draft.click()
+    # The SECOND draft is asynchronous too, and waiting on the button here
+    # would be useless: it is re-enabled from the first run at the moment the
+    # click lands, so the predicate is already true. Wait for the new brief.
+    settle(lambda: "London only" in page.brief.toPlainText(),
+           what="the re-run draft")
     assert aims == ["", "Actually, London only."]
     assert "London only" in page.brief.toPlainText()
     page.close()
 
 
-def test_an_empty_aim_still_drafts(qapp):
+def test_an_empty_aim_still_drafts(qapp, settle):
     """Someone who does not want to type should still get a draft to correct."""
     from app.ui.onboarding import InterviewPage
     page = InterviewPage(drafter=lambda c, a: ("F", "B", []))
     page.set_corpus(["cv.docx"])
     page.run_draft()
+    settle(lambda: page.btn_draft.isEnabled(), what="the draft")
     assert page.has_content
     page.close()
