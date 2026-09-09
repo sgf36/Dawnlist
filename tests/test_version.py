@@ -87,3 +87,66 @@ def test_a_short_override_is_padded_rather_than_producing_a_bad_manifest(
         monkeypatch):
     monkeypatch.setenv("DAWNLIST_VERSION", "2.3")
     assert msix_version() == "2.3.0.0"
+
+
+# ---------------------------------------------------------------------------
+# The stamper itself, run for real.
+#
+# `build_msix.py` refused a CI build with "could not find the Identity Version"
+# because the regex contained two literal BACKSPACE characters (0x08) — a
+# heredoc had turned `\b` into a control character. It was invisible in the
+# editor, in `sed` and in the file viewer; only `cat -A` showed it, and only
+# after a six-minute build had been spent finding out.
+#
+# The guard did its job: it refused rather than shipping a package whose
+# version had silently not been set. But a test costs a second.
+# ---------------------------------------------------------------------------
+
+def _stamper():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "build_msix", ROOT / "packaging" / "build_msix.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_stamper_rewrites_a_real_manifest(tmp_path, monkeypatch):
+    import shutil
+
+    staged = tmp_path / "AppxManifest.xml"
+    shutil.copy2(MANIFEST, staged)
+    monkeypatch.setenv("DAWNLIST_VERSION", "3.4.5")
+
+    _stamper().stamp_version(staged)
+
+    text = staged.read_text(encoding="utf-8")
+    found = re.search(r"<Identity[^>]*?Version=\"([^\"]*)\"", text, re.DOTALL)
+    assert found and found.group(1) == "3.4.5.0"
+
+
+def test_the_stamper_refuses_a_manifest_it_cannot_stamp(tmp_path):
+    import pytest
+
+    broken = tmp_path / "AppxManifest.xml"
+    broken.write_text("<Package><Identity Name=\"x\" /></Package>",
+                      encoding="utf-8")
+    with pytest.raises(SystemExit):
+        _stamper().stamp_version(broken)
+
+
+def test_no_packaging_script_carries_a_control_character():
+    """How the backspaces got in, and why nothing showed them.
+
+    A control character inside a regex literal changes what it matches while
+    looking identical in every tool that renders the file.
+    """
+    offenders = []
+    for path in sorted((ROOT / "packaging").rglob("*.py")):
+        text = path.read_text(encoding="utf-8")
+        for i, ch in enumerate(text):
+            if ord(ch) < 32 and ch not in "\n\r\t":
+                line = text.count("\n", 0, i) + 1
+                offenders.append(f"{path.name}:{line} contains \\x{ord(ch):02x}")
+    assert not offenders, offenders

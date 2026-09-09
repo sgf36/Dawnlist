@@ -199,7 +199,7 @@ def stamp_version(manifest: Path) -> None:
 
     wanted = msix_version()
     text = manifest.read_text(encoding="utf-8")
-    stamped, count = re.subn(r'(<Identity[^>]*?Version=")[^"]*(")',
+    stamped, count = re.subn(r'(<Identity[^>]*?Version=")[^"]*(")',
                              rf'\g<1>{wanted}\g<2>', text, count=1,
                              flags=re.DOTALL)
     if count != 1:
@@ -207,7 +207,7 @@ def stamp_version(manifest: Path) -> None:
                  "refusing to ship a package whose version was not set.")
     manifest.write_text(stamped, encoding="utf-8")
 
-    found = re.search(r'<Identity[^>]*?Version="([^"]*)"', stamped,
+    found = re.search(r'<Identity[^>]*?Version="([^"]*)"', stamped,
                       flags=re.DOTALL)
     if not found or found.group(1) != wanted:
         sys.exit(f"manifest version is {found and found.group(1)!r}, wanted "
