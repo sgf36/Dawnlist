@@ -97,9 +97,46 @@ def test_only_a_mas_build_could_ever_purchase(monkeypatch, build):
 def test_a_mas_build_still_needs_storekit_present(monkeypatch):
     """Claiming to be `mas` is not enough. Without the framework there is
     nothing to call, and reporting True would turn a clean refusal into an
-    AttributeError in front of a paying customer."""
+    AttributeError in front of a paying customer.
+
+    ABSENCE IS NOW SIMULATED, AND THAT CHANGE IS THE POINT. This test used to
+    rely on StoreKit being genuinely missing from the machine — which it was,
+    everywhere, because PyObjC was never a declared dependency. So the test
+    passed by encoding the bug as the expected state, and went green on the
+    macOS runner for the same reason the shipped package could not take a
+    payment.
+
+    Declaring PyObjC on 2026-09-09 made it FAIL, on a real Mac, with
+    `assert True is False` — the first evidence from CI that the purchase path
+    had become possible at all.
+    """
+    import builtins
+
     monkeypatch.setattr("app.core.mac_storekit.sys.platform", "darwin")
     monkeypatch.setattr("app.core.build_variant.variant", lambda: "mas")
-    # StoreKit is genuinely absent here, so this exercises the real import
-    # guard rather than a stub of it.
+
+    real_import = builtins.__import__
+
+    def refuse_storekit(name, *args, **kwargs):
+        if name == "StoreKit":
+            raise ImportError("simulated: PyObjC not installed")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", refuse_storekit)
     assert mac_storekit.available() is False
+
+
+def test_a_mas_build_with_storekit_present_is_available(monkeypatch):
+    """The other half, which nothing asserted while it could never be true.
+
+    A test suite that only ever saw the unavailable branch could not tell a
+    working purchase path from a missing library, which is exactly how a
+    package that cannot charge anybody shipped, signed and reached TestFlight.
+    """
+    import sys as _sys
+    import types
+
+    monkeypatch.setattr("app.core.mac_storekit.sys.platform", "darwin")
+    monkeypatch.setattr("app.core.build_variant.variant", lambda: "mas")
+    monkeypatch.setitem(_sys.modules, "StoreKit", types.ModuleType("StoreKit"))
+    assert mac_storekit.available() is True
