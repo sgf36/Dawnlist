@@ -354,6 +354,48 @@ jobs:
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
+  # The subscription's App Review screenshot — RENDERED, not captured.
+  #
+  # The subscription cannot leave MISSING_METADATA without a screenshot of the
+  # screen a customer buys on. Capturing one is blocked on any machine nobody
+  # is sitting at: macOS will not let anything read the display without Screen
+  # Recording permission, that permission can only be granted by a human in
+  # System Settings, `screencapture` over SSH fails with "could not create
+  # image from display", and SIP puts the TCC database out of reach. Qt paints
+  # the widget into a pixmap instead — no display, no permission.
+  #
+  # IT MUST RUN ON macOS. The point is macOS fonts and control styling; a
+  # Windows render is a picture of a Mac app that visibly is not one.
+  # ---------------------------------------------------------------------------
+  review-screenshot:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # The price must match App Store Connect for the storefront the reviewer
+      # sees — USA, $79.00. A screenshot showing a price the App Store does not
+      # charge is a rejection.
+      - name: Render the purchase screen
+        run: python tools/render_subscribe.py --price '$79.00' --out dist/review
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: subscription-review
+          path: dist/review/*.png
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
   # Mac App Store .pkg — built, signed and uploaded to App Store Connect.
   #
   # A NO-OP UNTIL MAS_CERTIFICATE_P12_BASE64 EXISTS, so adding this changes
