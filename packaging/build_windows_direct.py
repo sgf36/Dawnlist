@@ -189,7 +189,7 @@ def version() -> str:
     Kept identical to build_exe.spec's default so the ZIP name and the file
     version can never disagree about which release this is.
     """
-    return os.environ.get("DAWNLIST_VERSION", "1.0.1")
+    return os.environ.get("DAWNLIST_VERSION", "1.0.2")
 
 
 def write_zip(target: Path) -> None:
