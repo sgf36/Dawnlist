@@ -40,6 +40,37 @@ from app.ui.review import CREAM, GOLD, GOLD_DEEP, INK, TEAL, TEAL_LIFTED
 #: one of them.
 CLOSED_STAGES = {Stage.WON, Stage.LOST}
 
+
+def stage_text(stage: Stage) -> str:
+    """The stage's name, in the reader's language.
+
+    DISPLAY ONLY, AND THAT DISTINCTION IS LOad-BEARING. `Stage.label` stays
+    English because it is DATA: `STAGE_BY_LABEL` reads it back, the
+    determination writes carry it as `stage=In Dialogue`, and `status_mirror`
+    is stored in the database. Translating the stored value would make a
+    German install's rows unreadable to an English one and break every lookup
+    that goes through the label.
+
+    Until this existed the board's most prominent text — the group headings a
+    reader's eye lands on first — was English in all fifty languages, on a
+    screen whose column headers and buttons were translated. A store
+    screenshot of it advertised a half-translated product.
+    """
+    return tr(f"stage.{stage.name.lower()}")
+
+
+def status_text(status: str) -> str:
+    """The mirrored status, in the reader's language.
+
+    Keyed off the stored English string rather than the Stage, because the
+    board also shows statuses read straight from the database — including one
+    that has drifted out of step with its stage, which is exactly the row a
+    reader most needs to understand. An unrecognised value is shown as it is
+    rather than blanked: drift is the thing being reported.
+    """
+    key = (status or "").strip().lower().replace(" ", "_")
+    return tr(f"status.{key}") if key else ""
+
 BOARD_STYLESHEET = f"""
 QFrame#auditBanner {{
     background: {GOLD_DEEP};
@@ -167,7 +198,8 @@ COLUMNS: tuple[Column, ...] = (
     # employer, so without this the board could not say which ROLE was being
     # pursued — the thing a job search is actually about.
     Column("role", "board.col.role", 220, True, lambda r: r.job_title),
-    Column("status", "board.col.status", 150, True, lambda r: r.status),
+    Column("status", "board.col.status", 150, True,
+           lambda r: status_text(r.status)),
     Column("last_out", "board.col.last_contact", 110, True,
            lambda r: _date(r.last_outbound_on)),
     Column("next_step", "board.col.next_step", 190, True, _next_step_text),
@@ -203,22 +235,23 @@ class AuditBanner(QFrame):
         dupes = len(findings.get("duplicate_open_children", []))
         scanned = len(findings.get("scanned", []))
 
+        # Every one of these was an f-string in English, on a banner that sits
+        # at the top of the board in all fifty languages.
         if not (parity or bounces or dupes):
             self.setObjectName("auditBannerClean")
-            self._label.setText(
-                f"{scanned} opportunities checked — no drift found")
+            self._label.setText(tr("board.audit_clean", count=scanned))
         else:
             self.setObjectName("auditBanner")
             parts = []
             if bounces:
                 # Listed first: the Stage is wrong, which is the worse defect.
-                parts.append(f"{bounces} bounced — stage says contacted, "
-                             f"the address is dead")
+                parts.append(tr("board.audit_bounced", count=bounces))
             if parity:
-                parts.append(f"{parity} status out of step with its stage")
+                parts.append(tr("board.audit_parity", count=parity))
             if dupes:
-                parts.append(f"{dupes} with more than one open task")
-            self._label.setText(f"{scanned} checked — " + "; ".join(parts))
+                parts.append(tr("board.audit_duplicate", count=dupes))
+            self._label.setText(
+                tr("board.audit_checked", count=scanned) + " " + "; ".join(parts))
         # Re-polish so the object-name swap actually repaints.
         self.style().unpolish(self)
         self.style().polish(self)
@@ -320,7 +353,7 @@ class BoardWindow(QWidget):
         self.combo_stage.setObjectName("stageCombo")
         for stage in (Stage.IN_DIALOGUE, Stage.PHONE_INTERVIEW,
                       Stage.IN_PERSON_INTERVIEW, Stage.OFFER, Stage.WON):
-            self.combo_stage.addItem(stage.label, int(stage))
+            self.combo_stage.addItem(stage_text(stage), int(stage))
         self.combo_stage.setEnabled(False)
         self.btn_reply = QPushButton(tr("board.record_reply"))
         self.btn_no_offer = QPushButton(tr("board.record_no_offer"))
@@ -368,12 +401,11 @@ class BoardWindow(QWidget):
         for stage in sorted(by_stage, key=lambda s: s.value):
             group_rows = sorted(by_stage[stage], key=lambda r: r.company.casefold())
             group = QTreeWidgetItem(
-                    [f"{stage.label} ({len(group_rows)})"]
+                    [f"{stage_text(stage)} ({len(group_rows)})"]
                     + [""] * (len(self._shown()) - 1))
             bold = QFont()
             bold.setBold(True)
             group.setFont(0, bold)
-            group.setFirstColumnSpanned(True)
             # A group header carries no opportunity, so selecting it can do
             # nothing — but a selectable row that does nothing reads as a
             # broken click. Make it a heading, not a target.
@@ -386,6 +418,14 @@ class BoardWindow(QWidget):
             else:
                 group.setForeground(0, QColor(TEAL))
             self.tree.addTopLevelItem(group)
+            # AFTER the item is in the tree, not before. Qt resolves this
+            # against the view, so calling it on a detached item is a silent
+            # no-op — which is what it had always been. English never showed
+            # it because "In-Person Interview" happens to fit the company
+            # column; German's "Vorstellungsgesprach vor Ort" does not, and
+            # the heading came out truncated with an ellipsis in a store
+            # screenshot. A layout bug that only a longer language can reveal.
+            group.setFirstColumnSpanned(True)
 
             for row in group_rows:
                 item = QTreeWidgetItem([col.value(row) for col in self._shown()])
