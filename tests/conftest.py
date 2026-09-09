@@ -150,3 +150,26 @@ def _drain_the_thread_pool():
             f"{pool.activeThreadCount()} background task(s) still running "
             f"after this test. A task outliving its test is what makes the "
             f"suite abort at shutdown in someone else's name.")
+
+
+# ---------------------------------------------------------------------------
+# The locale is global, and a test that changes it changes every test after it
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True)
+def _locale_does_not_leak():
+    """Put the language back, whatever a test did to it.
+
+    `set_locale` mutates module state, so the first test to call it — directly
+    or through `save_locale`, which is the point of that function — silently
+    ran every later test in another language. Twenty-seven of them failed on
+    string assertions that had nothing to do with what they were testing, and
+    the failures named the wrong culprit entirely.
+
+    Pinned here rather than fixed in each test: the next one to change a
+    locale should not have to know this.
+    """
+    from app.i18n import current_locale, set_locale
+    before = current_locale()
+    yield
+    set_locale(before)

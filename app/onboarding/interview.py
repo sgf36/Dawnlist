@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from app.intelligence.assess import DRAFTING_MODEL
+from app.intelligence.assess import ASSESSMENT_MODEL, DRAFTING_MODEL
 
 #: Shown verbatim in the UI. Both sentences are load-bearing: users routinely
 #: hand over a tidied CV and lose exactly the history the screen needs.
@@ -243,6 +243,64 @@ def build_brief_request(corpus: Corpus, stated_aim: str, *,
         "messages": [{"role": "user", "content":
                       f"{corpus.as_prompt()}\n\n<stated_aim>\n{stated_aim}\n"
                       f"</stated_aim>"}],
+    }
+
+
+#: Small, cheap and entirely mechanical: pull role titles out of prose. The
+#: strong model is for the factsheet, where an error propagates into every
+#: later claim; this is a list of search terms the user then edits.
+SEARCH_TITLES_MAX_TOKENS = 1000
+
+SEARCH_TITLES_RULES = """\
+Read what this person says they are looking for and return the JOB TITLES a \
+job board would list those roles under.
+
+Rules, all of which matter because each title is billed per posting it \
+returns:
+
+- Return TITLES ONLY. Not skills, not industries, not locations, not \
+  sentences. "Revenue Manager" is a title; "the underwriting-to-property \
+  seam", "three kinds of investment" and "London" are not.
+- Two to four words each. A title nobody writes on a job advert matches \
+  nothing and costs nothing but tells the user the app misunderstood them.
+- Use the ordinary market wording, not the person's own phrasing. If they \
+  describe running a hotel, that is "General Manager" and "Hotel Manager".
+- Between three and eight of them. Prefer the obvious ones; the user can add \
+  their own.
+- If the text says nothing about what work they want, return an empty list \
+  rather than inventing titles."""
+
+SEARCH_TITLES_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "titles": {"type": "array", "items": {"type": "string"},
+                   "maxItems": 8},
+    },
+    "required": ["titles"],
+}
+
+
+def build_search_titles_request(stated_aim: str, *,
+                                model: str = ASSESSMENT_MODEL) -> dict:
+    """Job titles to seed the searches with, from what the user typed.
+
+    WHY A MODEL CALL AND NOT A SPLIT. The rule-based version split the text on
+    punctuation and kept any run of two to five words, which offered a new
+    user "including the underwriting-to-property-implementation seam" and
+    "three kinds investment" as searches to switch on — on a screen that says,
+    two lines above, that each one costs money per posting it returns.
+
+    A search the user did not write and would not recognise is worse than no
+    search: it teaches them the app did not understand them, at the first
+    screen where they could have found that out.
+    """
+    return {
+        "model": model,
+        "max_tokens": SEARCH_TITLES_MAX_TOKENS,
+        "system": [{"type": "text", "text": SEARCH_TITLES_RULES}],
+        "messages": [{"role": "user", "content": stated_aim}],
+        "output_config": {"format": {"type": "json_schema",
+                                     "schema": SEARCH_TITLES_SCHEMA}},
     }
 
 

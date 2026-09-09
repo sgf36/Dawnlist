@@ -56,5 +56,14 @@
   "board.record_reply": "A button. Records that the EMPLOYER answered - any reply from their side, not a message the user sent. It moves the opportunity to whichever stage is chosen in the dropdown beside it. Do not narrow it to 'accepted' or 'interview'.",
   "board.record_no_offer": "A button. Records that the employer said no. It closes the opportunity and every task under it. 'No offer' is the outcome the employer gave, NOT the user withdrawing or giving up.",
   "board.confirm_title": "The title of a yes/no confirmation dialog shown before either of the two buttons above writes anything. 'Outcome' here means the employer's answer.",
-  "funnel.screen_drift": "A warning on the results bar. {now} and {before} are whole numbers already converted to percentages - do not add a second % sign beyond the one in the string. 'Screening rules' are the user's own keyword rules that remove postings before anything is read."
+  "funnel.screen_drift": "A warning on the results bar. {now} and {before} are whole numbers already converted to percentages - do not add a second % sign beyond the one in the string. 'Screening rules' are the user's own keyword rules that remove postings before anything is read.",
+  "onboarding.submit_answers": "A button under a short list of questions, each with its own text box. Pressing it takes whatever the user typed into those boxes and adds it to their background record shown above. 'Responses' means their answers to the questions, NOT sending anything to anyone.",
+  "onboarding.answers_added": "Confirmation shown after that button. {count} is how many answers were just added. 'Background record' is the factsheet about the user's own career shown in the editor above the questions.",
+  "onboarding.answers_none": "Shown when the button is pressed with every answer box empty, or with nothing new since the last press. Not an error - a nudge.",
+  "menu.language": "A menu heading. Opens a submenu listing the 50 languages the app is available in.",
+  "menu.subscribe": "A menu item on the Mac App Store build only. Opens the screen where the user buys the monthly subscription through Apple.",
+  "menu.restore": "A menu item, Mac App Store only. Recovers a subscription the user ALREADY paid for on another Mac or before reinstalling - it never charges them. Apple requires this wording to be recognisable.",
+  "menu.licence": "A menu item on the Windows builds only. Opens the screen where the user pastes either the licence key from their purchase email OR a free access code they were given. Both, not one.",
+  "menu.tooltip": "Tooltip on a small button labelled with three dots. Says what is behind it.",
+  "menu.language_changed": "Shown after picking a language. {language} is that language's own name. It means the change is saved and the rest of the app will be in it after a restart - do not translate this as if the change failed."
 }

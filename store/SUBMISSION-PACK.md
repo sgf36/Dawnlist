@@ -145,13 +145,17 @@ Paste this:
 > this is declared under Product declarations. Nothing is purchased inside the
 > application.
 >
-> To review the full product, please use this licence key:
+> To review the full product, please use this access code:
 >
 >     DL-XXXX-XXXX-XXXX-XXXX
 >
-> Open the app, go to Settings, and paste it into the licence field. The code
-> may be used up to 25 times, so it will still work if you test on more than
-> one machine or re-test after a rejection.
+> Open the app, go to Settings, and paste it into the **access code** box —
+> not the licence key field above it. The access code box exchanges the code
+> for a licence; the licence field is for a key that came from a purchase
+> email, and pasting a code there will be refused.
+>
+> The code may be used up to 25 times, so it will still work if you test on
+> more than one machine or re-test after a rejection.
 >
 > Two things worth knowing before you test:
 >
@@ -168,7 +172,14 @@ Paste this:
 **The code is `DL-XXXX-XXXX-XXXX-XXXX`** — minted 2026-09-08, 25 uses, standard
 plan, 700 postings a day. Deliberately not single-use: a reviewer may test on
 several machines or re-test after a rejection, and a spent code turns that into
-a failed review.
+a failed review. The live value is in the admin console (Settings → Admin), and
+is deliberately NOT written here: `sgf36/Dawnlist` is a PUBLIC repository.
+
+**These notes changed for 1.1.0 and the change is load-bearing.** Until 1.1.0
+there was no way to redeem a code in the app at all, so the notes said to paste
+it into the licence field. That field verifies against Paddle-issued keys and
+refuses anything else — a reviewer following the old notes would have been
+told the code was not accepted, which reads as a broken product.
 
 ---
 

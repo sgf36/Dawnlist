@@ -363,23 +363,67 @@ def all_queries(conn) -> list[tuple[str, list[str], bool]]:
     return out
 
 
-def seed_queries_from_aim(conn, aim: str) -> int:
+def seed_queries_from_aim(conn, aim: str, *, send=None, titles=None) -> int:
     """Give a new user somewhere to start — turned OFF.
 
     Billing is per job returned, so a seed nobody read is a seed nobody should
-    be charged for. "the South East" is a location that no extractor can tell
-    from a job title, and sweeping it would cost real money for nothing. The
-    seeds arrive disabled and the user switches on the ones that are actually
-    searches.
+    be charged for. The seeds arrive disabled and the user switches on the
+    ones that are actually searches.
+
+    WHAT THEY ARE OFFERED HAS TO BE A SEARCH. The first version split the
+    typed text on punctuation and kept any run of two to five words, which
+    produced this, verbatim, on a real machine:
+
+        [ ] including the underwriting-to-property-implementation seam
+        [ ] three kinds investment
+
+    on a screen whose own text says each one costs money per posting it
+    returns. Nobody would tick those; the damage is that the user learns at
+    the first screen that the app did not understand a word they wrote.
+
+    So the titles come from the model when a key is available — it is a small,
+    cheap extraction against a schema — and from `titles_from_aim` when it is
+    not. The fallback now refuses anything that does not look like a title,
+    and returning NOTHING is a valid answer: the searches page explains how to
+    add one, and an empty list is honest where a nonsense list is not.
+
+    `titles` is what the interview screen already worked out in the background
+    while the user was reading their draft. Passing it in is what keeps the
+    model call off the click: without it this would run the extraction at the
+    moment Next is pressed, and the window would stop answering for the length
+    of a network round trip.
     """
     existing = {label for label, _titles, _on in all_queries(conn)}
     added = 0
-    for phrase in titles_from_aim(aim):
-        if phrase in existing:
+    for phrase in (titles if titles is not None else search_titles(aim, send=send)):
+        if phrase.lower() in {e.lower() for e in existing}:
             continue
         save_query(conn, phrase, [phrase], enabled=False)
+        existing.add(phrase)
         added += 1
     return added
+
+
+def search_titles(aim: str, *, send=None) -> list[str]:
+    """Job titles to seed searches with. Model first, rules as the fallback."""
+    if send is not None and (aim or "").strip():
+        try:
+            from app.onboarding.interview import (build_search_titles_request,
+                                                  text_of)
+            import json as _json
+
+            reply = send(build_search_titles_request(aim))
+            titles = _json.loads(text_of(reply)).get("titles") or []
+            cleaned = [t.strip() for t in titles
+                       if isinstance(t, str) and looks_like_a_title(t.strip())]
+            if cleaned:
+                return cleaned[:8]
+        except Exception:  # noqa: BLE001
+            # A failed extraction is not a failed setup. Fall through to the
+            # rules rather than stopping a user from finishing onboarding
+            # because a side errand did not work.
+            pass
+    return titles_from_aim(aim)
 
 
 #: Splitting on punctuation and on the words that join clauses. Written
@@ -389,28 +433,105 @@ def seed_queries_from_aim(conn, aim: str) -> int:
 SEED_SEPARATORS = (",", ".", ";", chr(10), " and ", " or ")
 
 
-def titles_from_aim(aim: str) -> list[str]:
-    """Titles worth searching for, pulled out of what the user typed.
+#: Words that start a clause, not a job title. A fragment beginning with one
+#: of these is prose the split happened to cut, never a role.
+CLAUSE_OPENERS = frozenset("""
+including include includes especially particularly ideally preferably
+plus also with without within across around about above below before after
+because since while whilst although though however whereas
+the a an my our their his her its this that these those
+and or but nor for yet so
+i we they you it there here what which who whom whose when where why how
+am is are was were be been being have has had do does did
+looking seeking wanting hoping trying aiming interested keen happy open
+""".split())
 
-    Crude on purpose. This only has to give a new user a non-empty
-    starting set they can then edit — guessing elaborately would produce
-    searches they did not write and would not recognise.
+#: Words that are never part of a job title, wherever they appear. A fragment
+#: containing one is a sentence, not a role.
+NOT_IN_A_TITLE = frozenset("""
+including especially particularly ideally preferably whilst although though
+however whereas because since myself really quite very rather somewhat
+kinds sort sorts kind seam seams thing things stuff area areas side sides
+""".split())
+
+#: Longest a single word in a job title plausibly gets. "Head", "Director",
+#: "Underwriting" are titles; "underwriting-to-property-implementation" is a
+#: phrase somebody typed while thinking aloud.
+MAX_TITLE_WORD = 18
+
+#: Everything from one of these onwards is where the role is, not what it is.
+#: "Hotel asset management IN LONDON" is one search and one location, and the
+#: location costs money for nothing — no extractor can tell it from a title,
+#: which is the original reason the seeds ship switched off.
+#:
+#: "of" is deliberately absent: "Head of Revenue" and "Director of Operations"
+#: are titles, and cutting at "of" would leave "Head" and "Director".
+LOCATION_PREPOSITIONS = frozenset(
+    "in at near around across within throughout for with on".split())
+
+
+def trim_to_title(phrase: str) -> str:
+    """Drop the trailing where/why clause, keeping the role.
+
+    Without this a perfectly good fragment is thrown away whole for being one
+    word too long: "Hotel asset management in London" is five words and so was
+    rejected outright, when the first three are exactly the search wanted.
     """
     import re
 
+    words = re.findall("[A-Za-z][A-Za-z&/'-]*", phrase or "")
+    for i, word in enumerate(words):
+        if word.lower() in LOCATION_PREPOSITIONS:
+            return " ".join(words[:i])
+    return " ".join(words)
+
+
+def looks_like_a_title(phrase: str) -> bool:
+    """Whether this is plausibly something a job advert is headed with.
+
+    Deliberately strict, and biased towards rejecting. A rejected title costs
+    the user nothing — the searches page tells them how to add their own — and
+    an accepted one that is not a title costs money the moment it is ticked,
+    and costs trust before that.
+    """
+    import re
+
+    words = re.findall("[A-Za-z][A-Za-z&/'-]*", phrase or "")
+    if not 2 <= len(words) <= 4:
+        return False
+    lowered = [w.lower() for w in words]
+    if lowered[0] in CLAUSE_OPENERS:
+        return False
+    if any(w in NOT_IN_A_TITLE for w in lowered):
+        return False
+    if any(len(w) > MAX_TITLE_WORD for w in words):
+        return False
+    # A title is mostly content words. Three joining words out of four is a
+    # sentence fragment however it is spelled.
+    if sum(1 for w in lowered if w in CLAUSE_OPENERS) > len(words) // 2:
+        return False
+    return True
+
+
+def titles_from_aim(aim: str) -> list[str]:
+    """Titles pulled out of what the user typed, WITHOUT a model.
+
+    The fallback for a machine with no API key yet. It now returns nothing
+    rather than something wrong: every candidate has to survive
+    `looks_like_a_title`, and an empty result is a valid answer — the searches
+    page explains how to add one, whereas a nonsense search on a screen that
+    says each one costs money teaches the user the app misread them.
+    """
     parts = [aim or ""]
     for sep in SEED_SEPARATORS:
         parts = [bit for part in parts for bit in part.split(sep)]
 
     seeds: list[str] = []
+    seen: set[str] = set()
     for part in parts:
-        words = [w for w in re.findall("[A-Za-z][A-Za-z&/-]+", part)
-                 if len(w) > 2]
-        phrase = " ".join(words).strip()
-        # Two to five words: one word is too broad to be worth billing
-        # for, and a whole clause matches nothing.
-        if 2 <= len(words) <= 5 and phrase.lower() not in {
-                t.lower() for t in seeds}:
+        phrase = trim_to_title(part)
+        if looks_like_a_title(phrase) and phrase.lower() not in seen:
+            seen.add(phrase.lower())
             seeds.append(phrase)
     return seeds[:5]
 
@@ -565,6 +686,114 @@ def build_provider(conn):
         "No licence key found. Enter the key from your purchase email in "
         "Settings. (Development builds may instead store a provider key under "
         "the keyring service 'dawnlist-feed', account 'api-key'.)")
+
+
+def save_locale(conn, code: str) -> str:
+    """Store the chosen language. THE WRITE THAT DID NOT EXIST.
+
+    `settings["locale"]` was read in three places — the app's own strings, the
+    alert-email parser and the voice profile — and written by nothing. The
+    only way to select a language was `--locale` on the command line, which no
+    Store customer has. Fifty catalogues shipped and every user saw English,
+    including the ones who could not read the setting that would have fixed
+    it, had one existed.
+
+    Applied immediately so anything built after this point is translated, and
+    stored so the rest catches up on the next launch. Qt does not retranslate
+    a widget tree that already exists, and rebuilding one mid-wizard would
+    throw away what the user has typed into it.
+    """
+    from app.i18n import LOCALE_CODES
+
+    if code not in LOCALE_CODES:
+        raise ValueError(f"unknown locale {code!r}")
+    conn.execute(
+        "INSERT INTO settings(key, value) VALUES('locale', ?) "
+        "ON CONFLICT(key) DO UPDATE SET value=excluded.value", (code,))
+    conn.commit()
+    set_locale(code)
+    return code
+
+
+def wire_quick_menu(source, conn, *, parent=None, on_subscribe=None) -> None:
+    """Give a ⋯ menu somewhere to send its three requests.
+
+    `source` is whatever carries the signals — the QuickMenu button on the
+    setup wizard, the window itself where the menu lives in the menu bar.
+    Taking either means the two surfaces share this wiring rather than
+    growing a copy each.
+    """
+    from PySide6.QtWidgets import QMessageBox
+
+    from app.i18n import SUPPORTED_LOCALES, tr
+
+    def chose(code: str) -> None:
+        native = next((n for c, _e, n in SUPPORTED_LOCALES if c == code), code)
+        save_locale(conn, code)
+        # Said plainly rather than pretended: the menu changed the setting, and
+        # the screens already on the display keep the words they were built
+        # with. Silently doing nothing visible is what makes a user press it
+        # again and conclude it is broken.
+        QMessageBox.information(
+            parent, tr("menu.language"),
+            tr("menu.language_changed", language=native))
+
+    source.language_chosen.connect(chose)
+    if on_subscribe is not None:
+        source.subscribe_requested.connect(on_subscribe)
+    source.settings_requested.connect(
+        lambda: open_settings(parent, conn))
+
+
+def onboarding_entitlement_panel():
+    """The screen on which the user actually pays, chosen by build.
+
+    THE STEP THAT DID NOT EXIST. Both panels were written, both were correct,
+    and both lived only in Settings — which onboarding never opens and never
+    mentions. So a new user on any platform finished setting up without ever
+    being asked to subscribe, arrived at calibration, and was told there were
+    "not enough live postings to calibrate against". That sentence is true and
+    completely misleading: the feed had refused because nothing had been
+    bought, and the message describes an empty market.
+
+    Which panel is not a preference:
+
+      mas     Apple forbids licence keys outright (guideline 3.1.1), so the
+              Mac App Store build must sell through StoreKit and must offer
+              Restore — somebody who paid on another Mac has already paid.
+      store   Microsoft permits third-party commerce (10.8.1, 10.8.6) and the
+      direct  the listing is free, so both Windows channels take the same
+              Paddle key, or an override code redeemed for one.
+
+    Returns None on a build with no usable variant flag rather than guessing:
+    showing a Windows key box on a Mac build is the exact shape guideline
+    3.1.1 forbids, and guessing wrong is worse than showing nothing.
+    """
+    from app.core.build_variant import variant
+
+    build = variant()
+    if build == "mas":
+        from app.ui.settings import SubscribePanel
+        return SubscribePanel()
+    if build in ("store", "direct"):
+        from app.ui.settings import LicencePanel
+        return LicencePanel()
+    return None
+
+
+def send_if_configured(conn):
+    """`build_send`, or None when no key has been entered yet.
+
+    `api_key.require()` raises, and that is right everywhere the key IS the
+    point — a run that cannot assess must say so rather than quietly do less.
+    It is wrong for a side errand at the end of onboarding: seeding searches
+    is a convenience, and a user who has not added a key yet must still be
+    able to finish setting up.
+    """
+    try:
+        return build_send(conn)
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def build_send(conn):
@@ -1467,9 +1696,16 @@ def _launch_onboarding(app, conn) -> int:
 
     wizard = OnboardingWizard(
         extract=extract, sample=sample, drafter=drafter,
+        titler=lambda text: search_titles(text, send=send_if_configured(conn)),
+        entitlement_panel=onboarding_entitlement_panel(),
         searches=lambda: all_queries(conn),
         set_search=lambda label, enabled: enable_query(
             conn, label, enabled=enabled))
+
+    # The ⋯ menu: language, subscription, restore. On the wizard as well as
+    # the main window, because the person who needs all three most is the one
+    # who has not finished setting up.
+    wire_quick_menu(wizard.menu, conn, parent=wizard)
 
     def save_documents(factsheet, brief):
         # Saved when the user leaves the interview, not when the model returns.
@@ -1485,7 +1721,13 @@ def _launch_onboarding(app, conn) -> int:
         # new install has something to sweep rather than a run that refuses for
         # want of a query. They arrive switched OFF — see
         # `seed_queries_from_aim` for why that matters to the bill.
-        seed_queries_from_aim(conn, wizard.interview.aim.toPlainText())
+        seed_queries_from_aim(
+            conn, wizard.interview.aim.toPlainText(),
+            # Already computed off the UI thread while the draft was being
+            # read. `titles=None` only when that never ran or found nothing,
+            # and then the rules answer without a network call.
+            titles=wizard.interview.suggested_titles or None,
+            send=None)
 
     def finished(result):
         brief = load_document(conn, "fit_brief") or "# Fit brief"
@@ -1694,6 +1936,16 @@ def _launch_ui(conn, *, open_board: bool) -> int:
         window.evidence = (load_document(conn, "factsheet") + "\n\n"
                            + load_cv_text()).strip()
         window.settings_requested.connect(lambda: open_settings(window, conn))
+        # Language, subscription and Restore from the menu bar. The same three
+        # the setup wizard offers, because a user who skipped past them there
+        # has to be able to find them afterwards.
+        wire_quick_menu(window, conn, parent=window,
+                        on_subscribe=lambda: open_settings(window, conn))
+        # Restore opens the panel that owns the StoreKit call rather than
+        # firing it from here. Apple's requirement is that Restore be
+        # findable; doing it from a menu with no visible result would leave
+        # the user unable to tell success from silence.
+        window.restore_requested.connect(lambda: open_settings(window, conn))
         window.alerts_dropped.connect(
             lambda paths: _added_alerts(window, conn, paths))
         connect_window(window, conn)

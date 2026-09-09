@@ -260,6 +260,11 @@ class FunnelBar(QFrame):
 class ReviewWindow(QMainWindow):
     decided = Signal(str, str)          # (job_id, decision)
     settings_requested = Signal()
+    #: The same three things the setup wizard offers, on the window a user
+    #: spends every morning in. Language was previously unreachable anywhere.
+    language_chosen = Signal(str)
+    subscribe_requested = Signal()
+    restore_requested = Signal()
     #: Job-alert emails the user dropped on the window. The listing promises
     #: "add job-alert emails yourself for anything the feeds miss", and the
     #: parser for them was complete and reachable from nowhere.
@@ -287,7 +292,19 @@ class ReviewWindow(QMainWindow):
         self.act_settings = QAction(tr("settings.title"), self)
         self.act_settings.setMenuRole(QAction.MenuRole.PreferencesRole)
         self.act_settings.triggered.connect(self.settings_requested)
-        self.menuBar().addMenu(tr("menu.app")).addAction(self.act_settings)
+        app_menu = self.menuBar().addMenu(tr("menu.app"))
+        # Language, subscription and Restore, from the same builder the setup
+        # wizard uses — so the two cannot offer different things. Settings is
+        # added by `populate`; the QAction above is kept because macOS moves
+        # anything with PreferencesRole into the application menu itself.
+        from app.ui.quickmenu import populate
+        from app.core.build_variant import variant
+        populate(app_menu, build=variant(),
+                 on_language=self.language_chosen.emit,
+                 on_subscribe=self.subscribe_requested.emit,
+                 on_restore=self.restore_requested.emit,
+                 on_settings=self.settings_requested.emit)
+        app_menu.addAction(self.act_settings)
 
         #: The factsheet and CV text, joined. Set by whoever opens the window.
         #:

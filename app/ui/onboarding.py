@@ -125,6 +125,14 @@ QFrame#warnings {{
 }}
 QFrame#warnings QLabel {{ background: transparent; color: #6b5426; }}
 
+QPushButton#quickMenu {{
+    background: transparent;
+    border: none;
+    color: {INK};
+    font-size: 20px;
+    padding: 0 6px;
+}}
+QPushButton#quickMenu:hover {{ color: {TEAL}; }}
 QPushButton#primary {{
     min-height: 34px;
     padding: 8px 22px;
@@ -480,8 +488,11 @@ class InterviewPage(QWidget):
 
     drafted = Signal()
 
-    def __init__(self, *, drafter=None, parent=None):
+    def __init__(self, *, drafter=None, titler=None, parent=None):
         super().__init__(parent)
+        #: `titler(text) -> [str]`, injected like the drafter so this widget
+        #: neither holds a key nor knows what a model is.
+        self._titler = titler
         #: (corpus, aim) -> (factsheet_md, brief_md, questions)
         self._draft = drafter
         self._questions: list[str] = []
@@ -565,6 +576,25 @@ class InterviewPage(QWidget):
         self.questions_area.hide()
         layout.addWidget(self.questions_area)
 
+        # A box you type into and nothing happens is a box you assume was
+        # ignored. The answers were in fact read — on Next, invisibly — so the
+        # only thing missing was telling the user, which is the whole job of
+        # this button: it folds the answers into the factsheet ABOVE, where
+        # they can see their own words land in the record that governs what
+        # may later be said about them.
+        self.btn_answers = QPushButton(tr("onboarding.submit_answers"))
+        self.btn_answers.setObjectName("secondary")
+        self.btn_answers.hide()
+        self.btn_answers.clicked.connect(self._submit_answers)
+        layout.addWidget(self.btn_answers)
+
+        #: Questions already folded in, so neither the button nor `documents()`
+        #: can add the same answer twice.
+        self._merged: set[str] = set()
+        #: Job titles for the searches step, computed off the UI thread.
+        self.suggested_titles: list[str] = []
+        self._titles_task = None
+
         split = QHBoxLayout()
         split.setSpacing(12)
         for title, attr in ((tr("onboarding.factsheet_label"), "factsheet"),
@@ -637,6 +667,10 @@ QPlainTextEdit#aimBox {
         self.brief.setPlainText(brief)
         self._questions = questions
         self._show_questions(questions)
+        # Start on the titles now, while the user reads the draft. By the time
+        # they press Next the searches step has something to show, and nothing
+        # had to block to get it.
+        self.request_titles()
         self.status.setText(tr("onboarding.drafted"))
         self.drafted.emit()
 
@@ -655,9 +689,11 @@ QPlainTextEdit#aimBox {
                 widget.deleteLater()
         self._answer_rows = []
 
+        self._merged = set()
         if not questions:
             self.questions.hide()
             self.questions_area.hide()
+            self.btn_answers.hide()
             return
 
         self.questions.setText(tr("onboarding.open_questions"))
@@ -672,6 +708,68 @@ QPlainTextEdit#aimBox {
             self._questions_form.addWidget(box)
             self._answer_rows.append((question, box))
         self.questions_area.show()
+        self.btn_answers.show()
+        self.btn_answers.setEnabled(True)
+
+    def _submit_answers(self) -> None:
+        """Fold the answers into the factsheet, and say what happened.
+
+        Two things the user could not previously tell apart: an answer that
+        was taken, and an answer that was ignored. Both looked identical —
+        a box with text in it and no acknowledgement anywhere.
+
+        The merge is instant and local. The searches are re-derived in the
+        BACKGROUND from the aim plus these answers, because that is a model
+        call and a model call on the UI thread is the freeze this module's
+        `run_in_background` exists to prevent (Store Policy 10.4.2).
+        """
+        pending = [(q, a) for q, a in self.question_answers()
+                   if q not in self._merged]
+        if not pending:
+            self.status.setText(tr("onboarding.answers_none"))
+            return
+
+        self.factsheet.setPlainText(self._with_answers(
+            self.factsheet.toPlainText(), pending))
+        self._merged.update(q for q, _a in pending)
+        for question, box in self._answer_rows:
+            if question in self._merged:
+                box.setReadOnly(True)
+        self.status.setText(tr("onboarding.answers_added",
+                               count=len(pending)))
+        self.btn_answers.setEnabled(False)
+        self.request_titles()
+
+    def request_titles(self) -> None:
+        """Work out the search titles off the UI thread.
+
+        Started when the draft lands and again when answers are submitted, so
+        that by the time the user reaches the searches step the list is
+        already there and no click has to wait for a network round trip.
+        """
+        if self._titler is None:
+            return
+        aim = self.aim.toPlainText()
+        answers = "\n".join(f"{q} {a}" for q, a in self.question_answers())
+        text = f"{aim}\n{answers}".strip()
+        if not text:
+            return
+        titler = self._titler
+        self._titles_task = run_in_background(
+            lambda: titler(text),
+            on_done=self._titles_ready,
+            on_error=lambda _exc: None)   # a failed side errand stays silent
+
+    def _titles_ready(self, titles) -> None:
+        self.suggested_titles = list(titles or [])
+
+    @staticmethod
+    def _with_answers(factsheet: str, answered) -> str:
+        """The factsheet is the only thing outreach may claim from, so a
+        correction that landed anywhere else would govern nothing."""
+        lines = [tr("onboarding.clarifications_heading")]
+        lines += [f"- {question} — {answer}" for question, answer in answered]
+        return factsheet.rstrip() + "\n\n" + "\n".join(lines) + "\n"
 
     def question_answers(self) -> list[tuple[str, str]]:
         """Only the questions actually answered. A blank box is not an answer,
@@ -689,11 +787,12 @@ QPlainTextEdit#aimBox {
         govern nothing. Unanswered questions are simply dropped: an unanswered
         question is not a fact, and must not read as one later."""
         factsheet = self.factsheet.toPlainText()
-        answered = self.question_answers()
+        # Only what the button has NOT already folded in. Pressing it and then
+        # pressing Next must not record the same clarification twice.
+        answered = [(q, a) for q, a in self.question_answers()
+                    if q not in self._merged]
         if answered:
-            lines = [tr("onboarding.clarifications_heading")]
-            lines += [f"- {question} — {answer}" for question, answer in answered]
-            factsheet = factsheet.rstrip() + "\n\n" + "\n".join(lines) + "\n"
+            factsheet = self._with_answers(factsheet, answered)
         return factsheet, self.brief.toPlainText()
 
     @property
@@ -784,6 +883,20 @@ class SearchesPage(QWidget):
         self.changed.emit()
 
 
+#: The steps, by name. They were bare integers compared in four places
+#: (`index < 4`, `index == 3`, `index == 1`), which is fine until a step is
+#: inserted — and a step was: nothing in this wizard ever asked the user to
+#: subscribe, so a new install finished setup, reached a feed it had not paid
+#: for, and was told there was nothing to calibrate against.
+STEP_INGEST = 0
+STEP_KEY = 1
+STEP_ENTITLEMENT = 2
+STEP_INTERVIEW = 3
+STEP_SEARCHES = 4
+STEP_CALIBRATION = 5
+LAST_STEP = STEP_CALIBRATION
+
+
 class OnboardingWizard(QWidget):
     """Ingest, then the gate.
 
@@ -797,8 +910,9 @@ class OnboardingWizard(QWidget):
     completed = Signal(object)          # CalibrationResult
     documents_ready = Signal(str, str)  # factsheet, brief
 
-    def __init__(self, *, extract, sample, drafter=None,
-                 searches=None, set_search=None, parent=None):
+    def __init__(self, *, extract, sample, drafter=None, titler=None,
+                 searches=None, set_search=None, entitlement_panel=None,
+                 parent=None):
         """`extract(paths) -> (names, warnings)` and `sample() -> [items]` are
         injected, so the wizard neither reads disks nor calls a model itself.
 
@@ -830,11 +944,25 @@ class OnboardingWizard(QWidget):
         # The interview runs AFTER the key, because it is a model call. It runs
         # BEFORE calibration, because calibration corrects verdicts made against
         # the brief this step produces — without it there is nothing to correct.
-        self.interview = InterviewPage(drafter=drafter)
+        # WHERE THE USER ACTUALLY SUBSCRIBES, which until now was nowhere.
+        #
+        # Both panels existed and both lived in Settings, which onboarding
+        # never opens and never mentions. So the answer to "when does a user
+        # subscribe?" was: they do not. They finish setting up, the feed
+        # refuses because nothing has been bought, and calibration reports
+        # that there were not enough live postings — which reads as an empty
+        # market rather than an unpaid subscription.
+        #
+        # It sits directly after the Anthropic key because the two questions
+        # are the same question — what this app needs before it can work — and
+        # before the interview, which is the first screen that spends money.
+        self.entitlement = entitlement_panel or QWidget()
+        self.interview = InterviewPage(drafter=drafter, titler=titler)
         self.calibration = CalibrationPage()
         self.searches = SearchesPage()
         self.stack.addWidget(self.ingest)
         self.stack.addWidget(self.keys)
+        self.stack.addWidget(self.entitlement)
         self.stack.addWidget(self.interview)
         # BETWEEN the interview and calibration, because the seeds are written
         # from the aim when the interview is left, and calibration needs at
@@ -845,6 +973,14 @@ class OnboardingWizard(QWidget):
 
         nav = QHBoxLayout()
         nav.setContentsMargins(16, 0, 16, 16)
+        # ON THE SETUP WIZARD TOO, and that is the point of it. Someone who
+        # cannot read English cannot find a language setting that only exists
+        # after setup, and someone who has just been told there is no feed
+        # needs the subscription now, not after finishing a flow they cannot
+        # use the result of.
+        from app.ui.quickmenu import QuickMenu
+        self.menu = QuickMenu()
+        nav.addWidget(self.menu)
         self.btn_back = QPushButton(tr("onboarding.back"))
         self.btn_back.setObjectName("secondary")
         self.btn_next = QPushButton(tr("onboarding.next"))
@@ -860,13 +996,23 @@ class OnboardingWizard(QWidget):
 
         self.ingest.files_added.connect(self._on_files)
         self.keys.key_changed.connect(self._on_key)
+        # Subscribe from the menu goes to the step that already does it,
+        # rather than opening a second copy of the same panel somewhere else.
+        self.menu.subscribe_requested.connect(
+            lambda: self._show_step(STEP_ENTITLEMENT))
+        self.menu.restore_requested.connect(self._restore)
+        # The subscribe panel reports its own outcome; the wizard only needs to
+        # stop offering the step once it has succeeded.
+        if hasattr(self.entitlement, "entitlement_changed"):
+            self.entitlement.entitlement_changed.connect(
+                lambda _ok: self.btn_next.setEnabled(True))
         self.btn_next.clicked.connect(self._next)
         self.btn_back.clicked.connect(self._back)
         self.calibration.finished.connect(self._finish)
         self._show_step(0)
 
     def _on_key(self, present: bool) -> None:
-        if self.stack.currentIndex() == 1:
+        if self.stack.currentIndex() == STEP_KEY:
             self.btn_next.setEnabled(present)
 
     def _on_files(self, paths) -> None:
@@ -880,16 +1026,21 @@ class OnboardingWizard(QWidget):
 
     def _show_step(self, index: int) -> None:
         self.stack.setCurrentIndex(index)
-        self.btn_back.setEnabled(index > 0)
+        self.btn_back.setEnabled(index > STEP_INGEST)
         # The gate has its own Finish button, so the wizard's Next is hidden
         # there — two buttons that mean different things is how people click
         # the wrong one.
-        self.btn_next.setVisible(index < 4)
-        if index == 3:
-            # Never blocked: see SearchesPage. A user whose seeds are all junk
-            # must still be able to reach the end.
+        self.btn_next.setVisible(index < LAST_STEP)
+        if index in (STEP_ENTITLEMENT, STEP_SEARCHES):
+            # NEITHER OF THESE BLOCKS, and for the same reason.
+            #
+            # Requiring the subscription here would trap someone who wants to
+            # look before they pay, and the app is deliberately useful without
+            # it — the board, the brief and everything already on the machine
+            # stay open; it is the live feed that is bought. Requiring a ticked
+            # search would trap someone whose suggestions are all wrong.
             self.btn_next.setEnabled(True)
-        if index == 1:
+        if index == STEP_KEY:
             # Cannot leave the key step without a key: the next screen spends
             # money on the user's account, and an app with no key is inert.
             from app.core import api_key
@@ -897,30 +1048,40 @@ class OnboardingWizard(QWidget):
 
     def _next(self) -> None:
         index = self.stack.currentIndex()
-        if index == 0:
-            self._show_step(1)
-        elif index == 1:
-            self._show_step(2)
+        if index == STEP_INGEST:
+            self._show_step(STEP_KEY)
+        elif index == STEP_KEY:
+            self._show_step(STEP_ENTITLEMENT)
+        elif index == STEP_ENTITLEMENT:
+            self._show_step(STEP_INTERVIEW)
             # Hand over the corpus but do NOT draft: the aim box is above the
             # button for a reason, and drafting on arrival would spend the
             # user's money on a brief drafted before they said anything.
             if self._corpus is not None and not self.interview.has_content:
                 self.interview.set_corpus(self._corpus)
-        elif index == 2:
+        elif index == STEP_INTERVIEW:
             factsheet, brief = self.interview.documents()
             # Emitting this is what writes the seed searches, so the next
             # screen has something to show. Order matters here.
             self.documents_ready.emit(factsheet, brief)
             if self._searches is not None:
                 self.searches.load(self._searches())
-            self._show_step(3)
-        elif index == 3:
+            self._show_step(STEP_SEARCHES)
+        elif index == STEP_SEARCHES:
             if self._set_search is not None:
                 for label, enabled in self.searches.selections():
                     self._set_search(label, enabled)
             # Only now is there anything to fetch with.
             self.calibration.load(self._sample())
-            self._show_step(4)
+            self._show_step(STEP_CALIBRATION)
+
+    def _restore(self) -> None:
+        """Apple requires Restore to be reachable. The panel owns the actual
+        StoreKit call; this only makes sure the user can get to it."""
+        self._show_step(STEP_ENTITLEMENT)
+        restore = getattr(self.entitlement, "restore", None)
+        if callable(restore):
+            restore()
 
     def _back(self) -> None:
         self._show_step(max(0, self.stack.currentIndex() - 1))

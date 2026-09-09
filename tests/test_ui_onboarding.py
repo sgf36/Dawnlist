@@ -228,14 +228,16 @@ def test_onboarding_has_a_key_step_before_calibration(qapp, monkeypatch):
     """Calibration fetches live postings and assesses them — the first thing
     that spends the user's money. They must have supplied a key first."""
     from app.core import api_key
-    from app.ui.onboarding import OnboardingWizard
+    from app.ui.onboarding import STEP_KEY, OnboardingWizard
     from app.ui.settings import KeyPanel
 
     monkeypatch.setattr(api_key, "get", lambda: None)
     w = OnboardingWizard(extract=lambda p: ([], []), sample=lambda: items(1))
-    assert w.stack.count() == 5, \
-        "ingest, key, interview, searches, calibration"
-    assert isinstance(w.stack.widget(1), KeyPanel)
+    assert w.stack.count() == 6, (
+        "ingest, key, ENTITLEMENT, interview, searches, calibration — the "
+        "entitlement step is where the user subscribes, and its absence is "
+        "why a new install reached calibration having paid for nothing")
+    assert isinstance(w.stack.widget(STEP_KEY), KeyPanel)
     w.close()
 
 
@@ -244,11 +246,13 @@ def test_the_interview_runs_after_the_key_and_before_calibration(qapp, monkeypat
     made against the brief this step produces, so without it there is nothing
     to correct."""
     from app.core import api_key
-    from app.ui.onboarding import InterviewPage, OnboardingWizard
+    from app.ui.onboarding import (STEP_CALIBRATION, STEP_INTERVIEW, STEP_KEY,
+                                   InterviewPage, OnboardingWizard)
 
     monkeypatch.setattr(api_key, "get", lambda: "sk-ant-stored")
     w = OnboardingWizard(extract=lambda p: (["cv.docx"], []), sample=lambda: items(1))
-    assert isinstance(w.stack.widget(2), InterviewPage)
+    assert isinstance(w.stack.widget(STEP_INTERVIEW), InterviewPage)
+    assert STEP_KEY < STEP_INTERVIEW < STEP_CALIBRATION
     w.close()
 
 
@@ -377,12 +381,14 @@ def test_entering_the_step_does_not_draft(qapp, monkeypatch):
     from app.ui.onboarding import OnboardingWizard
 
     monkeypatch.setattr(api_key, "get", lambda: "sk-ant-stored")
+    from app.ui.onboarding import STEP_ENTITLEMENT
+
     calls = []
     w = OnboardingWizard(extract=lambda p: (["cv.docx"], []),
                          sample=lambda: items(1),
                          drafter=lambda c, a: calls.append(1) or ("F", "B", []))
     w._corpus = ["cv.docx"]
-    w._show_step(1)
+    w._show_step(STEP_ENTITLEMENT)
     w._next()                       # arrives at the interview
     assert calls == [], "drafted before the user said anything"
     w.close()
@@ -442,7 +448,8 @@ def test_the_searches_step_switches_a_seed_on(qapp):
 def test_leaving_the_searches_step_saves_what_was_switched_on(qapp, monkeypatch):
     """A tick that is not written back is the same bug wearing a hat."""
     from app.core import api_key
-    from app.ui.onboarding import OnboardingWizard
+    from app.ui.onboarding import (STEP_CALIBRATION, STEP_SEARCHES,
+                                   OnboardingWizard)
 
     monkeypatch.setattr(api_key, "get", lambda: "sk-ant-stored")
     saved = []
@@ -455,12 +462,12 @@ def test_leaving_the_searches_step_saves_what_was_switched_on(qapp, monkeypatch)
 
     w.searches.load(w._searches())
     w.searches._rows[0][1].setChecked(True)
-    w.stack.setCurrentIndex(3)
+    w.stack.setCurrentIndex(STEP_SEARCHES)
     w._next()
 
     assert ("hotels", True) in saved
     assert ("junk phrase", False) in saved
-    assert w.stack.currentIndex() == 4, "and on to calibration"
+    assert w.stack.currentIndex() == STEP_CALIBRATION, "and on to calibration"
     w.close()
 
 
@@ -473,3 +480,59 @@ def test_an_unreachable_feed_does_not_trap_the_user_on_the_last_screen(qapp):
     assert page.btn_finish.isEnabled(), "nothing here for the user to act on"
     assert not page.result().passed, "but it is still not a calibration"
     page.close()
+
+
+# ---------------------------------------------------------------------------
+# When does a user actually subscribe?
+#
+# Until this step existed: never. Both panels were written and correct, and
+# both lived only in Settings, which onboarding does not open and does not
+# mention. A new user finished setting up having paid for nothing, reached
+# calibration, and was told there were "not enough live postings to calibrate
+# against" — true, and a description of an empty market rather than of an
+# unpaid subscription.
+# ---------------------------------------------------------------------------
+
+def test_the_wizard_asks_for_the_subscription_before_it_spends_anything(
+        qapp, monkeypatch):
+    from app.ui.onboarding import (STEP_ENTITLEMENT, STEP_INTERVIEW,
+                                   OnboardingWizard)
+    from PySide6.QtWidgets import QLabel
+
+    panel = QLabel("subscribe here")
+    w = OnboardingWizard(extract=lambda p: ([], []), sample=lambda: items(1),
+                         entitlement_panel=panel)
+    assert w.stack.widget(STEP_ENTITLEMENT) is panel
+    assert STEP_ENTITLEMENT < STEP_INTERVIEW, (
+        "the interview is the first screen that spends the user's money")
+    w.close()
+
+
+def test_the_subscription_step_never_traps_anyone(qapp, monkeypatch):
+    """The app is deliberately useful unpaid — the board and the brief stay
+    open, and it is the live feed that is bought. Requiring payment to finish
+    setting up would trap someone who wants to look first."""
+    from app.core import api_key
+    from app.ui.onboarding import STEP_ENTITLEMENT, OnboardingWizard
+    from PySide6.QtWidgets import QLabel
+
+    monkeypatch.setattr(api_key, "get", lambda: "sk-ant-stored")
+    w = OnboardingWizard(extract=lambda p: ([], []), sample=lambda: items(1),
+                         entitlement_panel=QLabel("subscribe"))
+    w._show_step(STEP_ENTITLEMENT)
+    assert w.btn_next.isEnabled()
+    w.close()
+
+
+def test_a_build_with_no_variant_flag_shows_no_purchase_panel():
+    """Guessing is worse than showing nothing: a Windows key box on a Mac
+    build is the exact shape guideline 3.1.1 forbids."""
+    from app.main import onboarding_entitlement_panel
+    import app.core.build_variant as bv
+
+    real = bv.variant
+    try:
+        bv.variant = lambda: "none"
+        assert onboarding_entitlement_panel() is None
+    finally:
+        bv.variant = real

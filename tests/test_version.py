@@ -56,8 +56,15 @@ def test_the_committed_manifest_matches_the_app():
 
 
 def test_the_manifest_is_ahead_of_what_is_published():
-    """1.0.2.0 is live on the Microsoft Store (9PF25H395BB8). A package at or
-    below it is refused at upload."""
+    """Read off Partner Center on 2026-09-09, not assumed:
+
+        live (Submission 1)      1.0.0.0
+        draft (Submission 2)     1.0.2.0   built, validated, never published
+
+    A package at or below the live one is refused at upload. The floor here is
+    the DRAFT's version, which is the stricter of the two — a package that
+    cannot replace what is already staged is no use either.
+    """
     published = (1, 0, 2, 0)
     current = tuple(int(p) for p in manifest_version().split("."))
     assert current > published, (
