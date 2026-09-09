@@ -39,7 +39,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import platform
+import shutil
 import plistlib
 import subprocess
 import sys
@@ -174,6 +176,27 @@ def sign(app: Path, variant: str, identity: str) -> None:
     entitlements = ENTITLEMENTS[variant]
     if not entitlements.exists():
         fail(f"{entitlements} not found")
+
+    # THE PROVISIONING PROFILE GOES IN BEFORE THE SIGNATURE, NOT AFTER.
+    #
+    # A Mac App Store build must carry Contents/embedded.provisionprofile, and
+    # it has to be inside the bundle when codesign seals it — dropping it in
+    # afterwards invalidates the signature, and the failure surfaces at upload
+    # as a rejection that names neither the profile nor the signature.
+    #
+    # Only `mas` needs one. A Developer ID build has no profile at all, so this
+    # is silent on the `direct` path rather than warning about a file it does
+    # not want.
+    if variant == "mas":
+        source = os.environ.get("PROVISION_PROFILE")
+        if not source:
+            fail("PROVISION_PROFILE is not set. A mas build needs the Mac App "
+                 "Store provisioning profile; export the path to it.")
+        source = Path(source)
+        if not source.exists():
+            fail(f"PROVISION_PROFILE points at {source}, which does not exist")
+        shutil.copy2(source, app / "Contents" / "embedded.provisionprofile")
+        print(f"  embedded {source.name}")
 
     inner = sorted(
         (p for p in app.rglob("*")
