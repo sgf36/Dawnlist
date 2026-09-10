@@ -217,6 +217,11 @@
   "tab.screened_out": "Bortsorterade",
   "tab.shortlist": "Urval",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dawnlist {version} är tillgänglig.",
+  "update.body": "Den här kopian kommer från webbplatsen, så uppdateringar sker också därifrån. Nedladdningssidan har den nya versionen, signerad, med checksumman publicerad bredvid. Inget på den här datorn ändras förrän du själv installerar den.",
+  "update.get": "Öppna nedladdningssidan",
+  "update.later": "Inte nu",
+  "update.title": "Uppdatering tillgänglig",
   "voice.no_profile": "Ingen tonalitetsprofil ännu — lägg till några av dina egna skickade e-postmeddelanden",
   "voice.profile_from": "Tonalitet inlärd från {count} av dina egna skickade meddelanden"
 }

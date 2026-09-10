@@ -101,8 +101,11 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller pytest
+          # requirements-dev.txt, not a second hand-typed list. The inline
+          # `pip install pyinstaller pytest` that used to sit here was a copy
+          # of that file, and a test dependency added to one of them would
+          # have been missing from the other.
+          pip install -r requirements-dev.txt
 
       # Tests first. A package built from code that does not pass its own
       # tests is not worth signing.
@@ -267,11 +270,20 @@ jobs:
         with:
           name: dawnlist-${{ matrix.os }}-${{ matrix.variant }}
           # `error` only when a package is genuinely expected. Both Windows
-          # legs always produce one; macOS produces a .dmg ONLY once signing
-          # secrets exist, because an unsigned run stops after the guards.
+          # legs always produce one; macOS produces a .dmg ONLY when it has
+          # actually signed, because an unsigned run stops after the guards.
           # Hard-coding `error` failed the first green macOS build for having
           # correctly produced nothing — the job had passed every real step.
-          if-no-files-found: ${{ (matrix.os == 'windows-latest' || secrets.MACOS_CERTIFICATE_P12_BASE64 != '') && 'error' || 'warn' }}
+          #
+          # "Has secrets" WAS NOT THE SAME QUESTION AS "will sign", and reading
+          # it as one failed every run on this branch. The macOS signing steps
+          # are gated on `github.event_name != 'pull_request'` as well, so on a
+          # PR from a branch in this repository the secrets are present, the
+          # signing is skipped anyway, and this line demanded a .dmg that
+          # nothing had been asked to build. The condition below now mirrors
+          # the signing steps' own conditions rather than half of them — if
+          # those gain a third clause, this needs it too.
+          if-no-files-found: ${{ (matrix.os == 'windows-latest' || (secrets.MACOS_CERTIFICATE_P12_BASE64 != '' && github.event_name != 'pull_request')) && 'error' || 'warn' }}
           retention-days: 14
           path: |
             dist/*.msix

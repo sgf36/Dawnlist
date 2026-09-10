@@ -1966,7 +1966,55 @@ def _launch_ui(conn, *, open_board: bool) -> int:
                     notes=_screen_drift_notes(conn, run_id))
 
     window.show()
+    _offer_update(window)
     return app.exec()
+
+
+def _offer_update(parent) -> None:
+    """Tell a direct-download user that a newer build exists. Nothing else.
+
+    AFTER `window.show()`, never before. A modal raised while the window is
+    still being built is a dialog with nothing behind it, on the one launch a
+    person most wants to see their shortlist.
+
+    It offers a LINK. Dawnlist does not download the new build and does not
+    replace itself on disk — the artefact on the website is signed and carries
+    a published SHA-256, and the person fetches it in their own browser. An
+    updater that swaps a binary underneath somebody needs far more trust than
+    this one has earned.
+
+    `check()` returns None for a Store or Mac App Store build, so this is a
+    no-op there. That gate lives in `app/core/updates.py` and is tested rather
+    than assumed, because a Mac build reaching out for its own updates is a
+    review rejection. Every failure here is swallowed: an update check must
+    never be the reason the application did not open.
+    """
+    try:
+        from app.core.updates import check
+
+        found = check()
+        if found is None:
+            return
+
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+        from PySide6.QtWidgets import QMessageBox
+
+        from app.i18n import tr
+
+        box = QMessageBox(parent)
+        box.setIcon(QMessageBox.Information)
+        box.setWindowTitle(tr("update.title"))
+        box.setText(tr("update.available", version=found.version))
+        box.setInformativeText(tr("update.body"))
+        get = box.addButton(tr("update.get"), QMessageBox.AcceptRole)
+        box.addButton(tr("update.later"), QMessageBox.RejectRole)
+        box.setDefaultButton(get)
+        box.exec()
+        if box.clickedButton() is get:
+            QDesktopServices.openUrl(QUrl(found.url))
+    except Exception:  # noqa: BLE001 - see the docstring: never block the launch
+        pass
 
 
 if __name__ == "__main__":

@@ -217,6 +217,11 @@
   "tab.screened_out": "除外済み",
   "tab.shortlist": "候補リスト",
   "tab.with_count": "{label}（{count}）",
+  "update.available": "Dawnlist {version} が利用可能です。",
+  "update.body": "このコピーはウェブサイトから入手されたものですので、更新もそちらから提供されます。ダウンロードページには署名済みの新しいバージョンがあり、その横にチェックサムが公開されています。ご自身でインストールされるまで、このマシン上では何も変更されません。",
+  "update.get": "ダウンロードページを開く",
+  "update.later": "今はしない",
+  "update.title": "アップデートのお知らせ",
   "voice.no_profile": "文体プロファイルがまだありません ― ご自身の送信済みメールを追加してください",
   "voice.profile_from": "ご自身が送信した {count} 件のメッセージから文体を学習しました"
 }

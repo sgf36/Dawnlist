@@ -4,6 +4,8 @@
     python tools/gen_email_strings.py --only fr,de  # a few
     python tools/gen_email_strings.py               # everything missing
     python tools/gen_email_strings.py --force       # redo them all
+    python tools/gen_email_strings.py --keys to_use_body   # one sentence,
+                                                          # all 50 languages
 
 Writes `server/dawnlist-feed-worker/src/email-strings.js`. Edit ENGLISH below
 and re-run; never hand-edit the generated file, because the next run overwrites
@@ -57,10 +59,21 @@ ENGLISH = {
     "heading": "Your Dawnlist licence key",
     "thanks": "Thank you for subscribing. Here is the key that unlocks the application.",
     "to_use_heading": "To use it",
+    # "and on both the Windows and macOS editions" was FALSE, and had been
+    # sent in fifty languages. A Mac App Store build carries no licence field
+    # at all — `app/core/entitlement.py` returns entitled for `mas` without
+    # ever looking for a key, because Apple's guideline 3.1.1 forbids one —
+    # and the Mac App Store build is the only macOS edition anybody can
+    # obtain, the direct download being Windows-only by decision. So a paying
+    # customer was told to go to Settings on their Mac and look for a field
+    # that is not there. Naming the two Windows channels and where the Mac is
+    # actually bought answers the support email before it is written.
     "to_use_body": (
         "Open Dawnlist, go to Settings, and paste the key into the licence "
-        "field. It works on every computer you own, and on both the Windows "
-        "and macOS editions."
+        "field. It works on every Windows computer you own, whether you "
+        "installed Dawnlist from our website or from the Microsoft Store. On "
+        "a Mac, Dawnlist is bought through the Mac App Store instead, so this "
+        "key is not needed there."
     ),
     "allowance": "Your plan covers up to {count} postings a day.",
     "own_key": (
@@ -80,7 +93,7 @@ NOTES = {
     "heading": "The heading inside the email. May be identical to the subject.",
     "thanks": "'The key' means the licence key that follows. Warm but not effusive.",
     "to_use_heading": "A short bold heading introducing the instructions. Two or three words.",
-    "to_use_body": "'Settings' and 'licence field' name things in the application. 'Licence key' is a CODE the person pastes, NEVER a licence agreement or terms document — if your language distinguishes these, choose the code sense. 'Every computer you own' means the licence is not tied to one machine.",
+    "to_use_body": "'Settings' and 'licence field' name things in the application. 'Licence key' is a CODE the person pastes, NEVER a licence agreement or terms document — if your language distinguishes these, choose the code sense. 'Every Windows computer you own' means the licence is not tied to one machine; keep that sense and do not narrow it to one computer. 'Our website' and 'the Microsoft Store' are the two ways of installing on Windows and both take this key. The last sentence says the key is NOT needed on a Mac, because a Mac subscription is bought inside the Mac App Store — do not soften it into 'you can also use it on a Mac'.",
     "allowance": "{count} is a number, already formatted with thousands separators. Keep the placeholder exactly. 'Postings' means job adverts.",
     "own_key": "CRITICAL. This must not imply that Dawnlist supplies the Anthropic key, nor that we charge for it. The person obtains and pays for their own key, directly with Anthropic. The point of the sentence is reassurance about privacy: their CV never reaches our servers.",
     "not_installed": "A short question followed by a link, which is appended after this text. End so that a URL reads naturally after it.",
@@ -111,8 +124,16 @@ def existing() -> dict:
         return {}
 
 
-def translate(client, code: str) -> dict:
-    notes = "\n".join(f"  {k}: {v}" for k, v in NOTES.items())
+def translate(client, code: str, keys: list[str] | None = None) -> dict:
+    """The whole catalogue for `code`, or just `keys` of it.
+
+    A one-key correction must not redo the other nine. `--force` without this
+    retranslates every string in every language to fix one sentence, and the
+    strings it churns are the ones nobody is looking at — which is how a short
+    string comes back NARROWED and stays that way for a month.
+    """
+    english = {k: ENGLISH[k] for k in keys} if keys else ENGLISH
+    notes = "\n".join(f"  {k}: {v}" for k, v in NOTES.items() if k in english)
     prompt = (
         f"Translate the values of this JSON object into the language with IETF "
         f"code '{code}', for a transactional email sent to somebody who has "
@@ -126,7 +147,7 @@ def translate(client, code: str) -> dict:
         f"Software' are names and are never translated.\n"
         f"- Use the register a competent company uses with a paying customer: "
         f"plain, warm, not marketing copy and not officialese.\n\n"
-        f"{json.dumps(ENGLISH, ensure_ascii=False, indent=2)}"
+        f"{json.dumps(english, ensure_ascii=False, indent=2)}"
     )
     # 2,000 was not enough and failed in a way that looked like a bad model
     # rather than a small ceiling: seventeen locales came back as
@@ -147,11 +168,11 @@ def translate(client, code: str) -> dict:
     body = re.sub(r"\n```\s*$", "", body)
     out = json.loads(body)
 
-    missing = set(ENGLISH) - set(out)
+    missing = set(english) - set(out)
     if missing:
         raise ValueError(f"{code}: missing keys {sorted(missing)}")
-    for key, english in ENGLISH.items():
-        want = set(PLACEHOLDER.findall(english))
+    for key, source in english.items():
+        want = set(PLACEHOLDER.findall(source))
         got = set(PLACEHOLDER.findall(out[key]))
         if want != got:
             # A dropped placeholder renders a literal brace to a paying
@@ -189,8 +210,18 @@ def main() -> int:
     ap.add_argument("--only", help="comma-separated locale codes")
     ap.add_argument("--force", action="store_true",
                     help="retranslate locales that already have an entry")
+    ap.add_argument("--keys", help="comma-separated keys to redo, merging into "
+                                   "the existing entry; implies --force")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
+
+    keys = None
+    if args.keys:
+        keys = [k.strip() for k in args.keys.split(",")]
+        unknown = [k for k in keys if k not in ENGLISH]
+        if unknown:
+            sys.exit(f"no such key: {', '.join(unknown)}")
+        args.force = True
 
     codes = load_locales()
     if args.only:
@@ -201,7 +232,8 @@ def main() -> int:
     have["en"] = ENGLISH          # always current, never translated
     todo = [c for c in codes if args.force or c not in have]
 
-    print(f"{len(codes)} locales declared by the app; {len(todo)} to translate")
+    what = f"{len(keys)} key(s): {', '.join(keys)}" if keys else "every key"
+    print(f"{len(codes)} locales declared by the app; {len(todo)} to translate, {what}")
     if args.dry_run:
         for code in todo:
             print(f"  would translate {code}")
@@ -220,7 +252,15 @@ def main() -> int:
     failures = []
     for code in todo:
         try:
-            have[code] = translate(client, code)
+            fresh = translate(client, code, keys)
+            if keys:
+                # MERGE. Replacing the entry with a two-key object would leave
+                # the other eight to fall back to English, which the file's own
+                # header promises is a graceful degradation and would here be
+                # a silent regression in forty-nine languages.
+                have.setdefault(code, {}).update(fresh)
+            else:
+                have[code] = fresh
             print(f"  {code} ok")
         except Exception as exc:  # noqa: BLE001
             # One bad language must not lose the other forty-nine.

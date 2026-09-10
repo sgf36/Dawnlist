@@ -217,6 +217,11 @@
   "tab.screened_out": "Excluídas na triagem",
   "tab.shortlist": "Pré-selecionadas",
   "tab.with_count": "{label} ({count})",
+  "update.available": "O Dawnlist {version} está disponível.",
+  "update.body": "Esta cópia foi obtida a partir do website, pelo que as atualizações também chegam por essa via. A página de transferência contém a nova versão, assinada, com o respetivo checksum publicado ao lado. Nada neste computador é alterado até que a instale por sua própria iniciativa.",
+  "update.get": "Abrir a página de transferência",
+  "update.later": "Agora não",
+  "update.title": "Atualização disponível",
   "voice.no_profile": "Ainda sem perfil de tom de voz — adicione alguns dos seus e-mails enviados",
   "voice.profile_from": "Tom de voz aprendido a partir de {count} das suas próprias mensagens enviadas"
 }

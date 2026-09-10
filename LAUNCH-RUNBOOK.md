@@ -255,6 +255,63 @@ matches nothing makes the webhook fall back to Standard and set
 only plan; the moment Global exists it means a customer paid for one thing and
 received another.
 
+> **MEASURED 2026-09-10 — READ THIS BEFORE THE BLOCK BELOW. IT IS WRONG IN
+> BOTH DIRECTIONS, AND THE ANSWER IS NEITHER OF THEM.**
+>
+> **A Dawnlist destination EXISTS. It is SWITCHED OFF.**
+>
+>     "Dawnlist Feed Worker"
+>     -> https://dawnlist-feed-worker.sgf36.workers.dev/paddle/webhook
+>     active: FALSE
+>
+> So the block below is factually wrong where it says no such destination
+> exists — and the "reported resolved" note that used to sit here was wrong
+> too, because a destination that exists and is off delivers exactly as much
+> as one that was never created. A purchase today would still deliver nothing.
+>
+> **It worked on the 8th, then stopped.** Three events delivered with
+> `times_attempted: 1`, one logging `200 {"ok":true,"action":"ignored",
+> "event_type":"customer.created"}` — the Worker was reachable and answering
+> correctly. Something switched the destination off afterwards. The secret is
+> therefore NOT the open question; the off switch is.
+>
+> **ONLY SPENCER CAN TURN IT ON.** It is an account setting in the Paddle
+> dashboard, not something any script here should reach for.
+>
+> **THE NAMING TRAP HAS RE-ARMED WITH A NEW PAIR.** The destination described
+> **"USE ME!"** is **EasyPost's**. An earlier note in this file recorded the
+> Dawnlist one as "Dawnlist Worker (USE ME)" — that is the two names crossed,
+> and it is the same fault the Easy-Post runbook records, where three
+> destinations shared a URL and the most convincingly-named one was dead.
+> **A destination name is evidence of nothing.** Read the URL and the `active`
+> flag.
+>
+> **HOW TO RE-MEASURE, BECAUSE THE OBVIOUS CALL LIES.**
+> `notificationSettings.list()` returns `count: 0` under this key. That is a
+> SCOPING ARTEFACT, not an absence. The positive control is `prices.list()`,
+> which returns four prices: a key that reads prices and no settings is
+> scoped, so the empty list proves nothing at all. The route that works:
+>
+>     notifications.list()                    -> notification_setting_id
+>     notificationSettings.get(<setting id>)  -> description, URL, active
+>     notifications.logs.list(<notification>) -> the real HTTP code
+>
+> **WHAT THAT ROUTE CANNOT SEE, STATED.** It only reaches destinations that
+> RECEIVED an event in the last 90 days, and the settings list cannot
+> enumerate. "Two destinations" means two SEEN, not two exist. A destination
+> created during a secret rotation and never delivered to is invisible here.
+>
+> **IT DOES NOT CLEAR DELIVERY EITHER WAY.** A key being *issued* is not a key
+> *received*. Issue-to-mailbox has never been observed, so purchasing stays
+> closed and the website may not invite one regardless of what this block says.
+> Turning the destination on is necessary and not sufficient.
+>
+> The shape is worth keeping. Every other stale note this week read as
+> clearance; this one read as a blocker, and would have delayed a decision
+> rather than rushed one. Both are the same fault — and striking it on the
+> earlier report would have left this file saying "resolved" over a switch that
+> is off.
+
 > **BLOCKER FOUND 2026-09-08. THERE IS NO DAWNLIST WEBHOOK DESTINATION.**
 >
 > Every notification destination on the live Paddle account points at

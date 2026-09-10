@@ -217,6 +217,11 @@
   "tab.screened_out": "Écartées",
   "tab.shortlist": "Présélection",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dawnlist {version} est disponible.",
+  "update.body": "Cette copie provient du site web, les mises à jour arrivent donc également de là. La page de téléchargement propose la nouvelle version, signée, avec son checksum publié à côté. Rien ne change sur cette machine tant que vous ne l'installez pas vous-même.",
+  "update.get": "Ouvrir la page de téléchargement",
+  "update.later": "Pas maintenant",
+  "update.title": "Mise à jour disponible",
   "voice.no_profile": "Aucun profil de ton pour l'instant — ajoutez quelques-uns de vos e-mails envoyés",
   "voice.profile_from": "Ton appris à partir de {count} de vos propres messages envoyés"
 }

@@ -217,6 +217,11 @@
   "tab.screened_out": "Baaritaanka lagama gudbin",
   "tab.shortlist": "Liiska Kooban",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dawnlist {version} waa la heli karaa.",
+  "update.body": "Nuqulkan wuxuu ka yimid websaydka, sidaas darteed cusboonaysiinuhuna halkaas ayay ka imanayaan. Boggga soo dejinta wuxuu leeyahay nooca cusub, oo la saxeexay, iyadoo checksum-kiisu uu ku daabacan yahay agtiisa. Wax kastaa oo ku saabsan mishiinkan ma isbedelayaan ilaa aad adigu rakibto.",
+  "update.get": "Fur boggga soo dejinta",
+  "update.later": "Hadda ma aha",
+  "update.title": "Cusboonaysiin ayaa la heli karaa",
   "voice.no_profile": "Wali ma jiro qaab-cod — ku dar qaar ka mid ah iimayladaada la diray",
   "voice.profile_from": "Codka waxaa laga bartay {count} fariimood oo aad adigu dirtay"
 }

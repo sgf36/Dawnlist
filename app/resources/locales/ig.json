@@ -217,6 +217,11 @@
   "tab.screened_out": "Ewepụrụ na nyocha",
   "tab.shortlist": "Ndepụta ndị ahọpụtara",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dawnlist {version} adịla.",
+  "update.body": "Ihe nnweta a sitere na weebụsaịtị ahụ, ya mere mmelite ga-esikwa ebe ahụ bịa. Ibe nbudata nwere ụdị ọhụrụ ahụ, e binyere aka, yana checksum ya e bipụtara n'akụkụ ya. Ọ dịghị ihe na-agbanwe na kọmputa a ruo mgbe ị onwe gị wụnyere ya.",
+  "update.get": "Mepee ibe nbudata",
+  "update.later": "Ọ bụghị ugbu a",
+  "update.title": "Enwere mmelite",
   "voice.no_profile": "Enweghị profaịlụ ụda olu ka ugbu a — tinye ụfọdụ ozi-e gị ndị e ziputara",
   "voice.profile_from": "Ụda olu mụtara site na {count} n'ime ozi gị ndị e zipụrụ"
 }

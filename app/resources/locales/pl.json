@@ -217,6 +217,11 @@
   "tab.screened_out": "Odrzucone wstępnie",
   "tab.shortlist": "Lista wybranych",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dostępna jest wersja Dawnlist {version}.",
+  "update.body": "Ta kopia pochodzi ze strony internetowej, dlatego aktualizacje również stamtąd docierają. Strona pobierania zawiera nową wersję, podpisaną, wraz z opublikowaną obok sumą kontrolną (checksum). Nic na tym komputerze nie zmieni się, dopóki samodzielnie nie zainstalujesz aktualizacji.",
+  "update.get": "Otwórz stronę pobierania",
+  "update.later": "Nie teraz",
+  "update.title": "Dostępna aktualizacja",
   "voice.no_profile": "Brak profilu tonu — dodaj kilka swoich wysłanych e-maili",
   "voice.profile_from": "Ton nauczony na podstawie {count} Twoich wysłanych wiadomości"
 }

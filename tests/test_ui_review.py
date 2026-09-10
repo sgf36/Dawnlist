@@ -271,3 +271,87 @@ def test_the_description_is_still_shown_below_the_gaps(win):
     win.shortlist.setCurrentItem(win.shortlist.topLevelItem(0))
     text = win.detail.toPlainText()
     assert text.index("What this posting asks for") < text.index("Desirable")
+
+
+# ---------------------------------------------------------------------------
+# The detail pane must describe the row the buttons will act on
+#
+# `_decide` reads `_current_row()`, which resolves against the CURRENT TAB.
+# `_show_detail` was wired only to `currentItemChanged` inside a tree, so
+# switching tabs left the pane describing the posting from the tab you left
+# while every button acted on the one selected in the tab you arrived at.
+#
+# A person reads posting A and presses "Reject - permanently" on posting B,
+# and rejections have no expiry by design. Found because a store screenshot
+# showed a detail pane naming a different job from the row beside it.
+# ---------------------------------------------------------------------------
+
+def _two_tab_window(qapp):
+    from app.ui.review import ReviewRow, ReviewWindow
+
+    w = ReviewWindow()
+    w.load([
+        ReviewRow(job_id="a", title="Head of Strategy", company="Acme",
+                  location="London", url="", description="d",
+                  bucket="strong", reason="fits"),
+        ReviewRow(job_id="b", title="Night Auditor", company="Beta",
+                  location="Leeds", url="", description="d",
+                  bucket="screened-out", reason="", screen_reason="night"),
+    ], {})
+    return w
+
+
+def test_switching_tabs_updates_the_detail_pane(qapp):
+    w = _two_tab_window(qapp)
+
+    # Select in the shortlist, then move to the screened-out tab.
+    shortlist = w.shortlist
+    shortlist.setCurrentItem(shortlist.topLevelItem(0))
+    assert "Head of Strategy" in w.detail.toHtml()
+
+    for i in range(w.tabs.count()):
+        if w.tabs.widget(i) is w.screened_out:
+            w.tabs.setCurrentIndex(i)
+            break
+    w.screened_out.setCurrentItem(w.screened_out.topLevelItem(0))
+
+    shown = w.detail.toHtml()
+    assert "Night Auditor" in shown, (
+        "the pane still describes the posting from the tab that was left")
+    assert "Head of Strategy" not in shown
+    w.close()
+
+
+def test_the_pane_and_the_buttons_never_disagree(qapp):
+    """The invariant, stated directly: whatever `_decide` would act on is
+    what the reader is looking at."""
+    w = _two_tab_window(qapp)
+    decided = []
+    w.decided.connect(lambda job_id, d: decided.append(job_id))
+
+    for i in range(w.tabs.count()):
+        if w.tabs.widget(i) is w.screened_out:
+            w.tabs.setCurrentIndex(i)
+            break
+    w.screened_out.setCurrentItem(w.screened_out.topLevelItem(0))
+
+    row = w._current_row()
+    assert row is not None
+    assert row.title in w.detail.toHtml(), (
+        "the buttons would act on a posting the pane is not showing")
+    w.close()
+
+
+def test_a_tab_with_nothing_selected_clears_the_pane(qapp):
+    """Better an empty pane than a stale one: an empty pane cannot be read as
+    a description of whatever the buttons are about to do."""
+    w = _two_tab_window(qapp)
+    w.shortlist.setCurrentItem(w.shortlist.topLevelItem(0))
+    assert "Head of Strategy" in w.detail.toHtml()
+
+    for i in range(w.tabs.count()):
+        if w.tabs.widget(i) is w.rejected:      # empty in this fixture
+            w.tabs.setCurrentIndex(i)
+            break
+    assert "Head of Strategy" not in w.detail.toHtml()
+    w.close()

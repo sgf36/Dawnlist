@@ -1,3 +1,8 @@
 -r requirements.txt
 pytest>=8.0.0
 pyinstaller>=6.0.0
+
+# tests/test_release_workflow.py reads .github/workflows/build.yml and checks
+# that the artefact expectations match the signing steps' own conditions. Test
+# scope only — nothing the shipped app imports.
+PyYAML>=6.0

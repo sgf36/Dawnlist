@@ -41,9 +41,18 @@ from __future__ import annotations
 
 import urllib.request
 
+from app.version import marketing_version
+
 #: Identifies the client to anything that logs or filters by agent. Never the
 #: urllib default — see the module docstring.
-USER_AGENT = "Dawnlist/1.0 (+https://dawnlist.spencerfields.com)"
+#:
+#: THE VERSION IS READ, NOT TYPED. This said "Dawnlist/1.0" throughout 1.1.0,
+#: because it was a second copy of a fact that already had one home in
+#: `app/version.py` and nothing made the two move together. Harmless in itself
+#: — it only labels outbound requests — but it is the same shape as the faults
+#: that cost this project a week: a true statement left standing after the
+#: thing it described moved. There is one version, and this reads it.
+USER_AGENT = f"Dawnlist/{marketing_version()} (+https://dawnlist.spencerfields.com)"
 
 
 def build_request(url: str, *, data: bytes | None = None,

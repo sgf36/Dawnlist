@@ -88,5 +88,8 @@
   "board.audit_checked": "Opening fragment of a warning banner, followed by a semicolon-separated list of what was found. Ends with a dash in English; use whatever punctuation introduces a list in the target language.",
   "board.audit_bounced": "Part of a warning banner. {count} opportunities are marked as contacted, but the email address bounced - so nobody was actually reached. The stage is wrong, which is the serious case.",
   "board.audit_parity": "Part of a warning banner. {count} opportunities show a status that disagrees with their pipeline stage.",
-  "board.audit_duplicate": "Part of a warning banner. {count} opportunities have more than one open task, which means a duplicate next-step was created."
+  "board.audit_duplicate": "Part of a warning banner. {count} opportunities have more than one open task, which means a duplicate next-step was created.",
+  "update.get": "A button in an update prompt. It OPENS A WEB PAGE in the user's browser. The application does NOT download, install or replace anything itself, so do not translate this as 'Download now', 'Install' or 'Update now' - all of them promise an action this button does not perform.",
+  "update.later": "The dismiss button beside 'Open the download page'. It simply closes the prompt. It does NOT schedule a reminder, so avoid wording that promises one such as 'remind me later'. Nearest sense: 'not right now'.",
+  "update.body": "Explains where the update comes from. 'checksum' is the published SHA-256 hash beside the download, used to verify the file. Keep it as the technical term your market uses; do not soften it to 'code' or 'signature'."
 }

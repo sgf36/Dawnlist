@@ -217,6 +217,11 @@
   "tab.screened_out": "제외됨",
   "tab.shortlist": "관심 목록",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dawnlist {version} 버전을 사용할 수 있습니다.",
+  "update.body": "이 복사본은 웹사이트에서 받으신 것이므로 업데이트도 그곳에서 제공됩니다. 다운로드 페이지에는 서명된 새 버전과 함께 체크섬이 게시되어 있습니다. 직접 설치하시기 전까지는 이 컴퓨터의 어떤 것도 변경되지 않습니다.",
+  "update.get": "다운로드 페이지 열기",
+  "update.later": "나중에",
+  "update.title": "업데이트 가능",
   "voice.no_profile": "아직 어조 프로필이 없습니다 — 보낸 이메일을 추가해 주세요",
   "voice.profile_from": "보내신 메시지 {count}건에서 학습된 어조"
 }

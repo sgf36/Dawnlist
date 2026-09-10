@@ -217,6 +217,11 @@
   "tab.screened_out": "Odbačeno u probiru",
   "tab.shortlist": "Uži izbor",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dostupna je nova verzija Dawnlist {version}.",
+  "update.body": "Ova kopija preuzeta je s web-mjesta, stoga i ažuriranja stižu odande. Na stranici za preuzimanje nalazi se nova, potpisana verzija, a uz nju je objavljen i njezin checksum. Ništa se na ovom računalu neće promijeniti dok sami ne instalirate ažuriranje.",
+  "update.get": "Otvori stranicu za preuzimanje",
+  "update.later": "Ne sada",
+  "update.title": "Dostupno je ažuriranje",
   "voice.no_profile": "Profil tona još ne postoji — dodajte neke od svojih poslanih e-poruka",
   "voice.profile_from": "Ton naučen iz {count} vaših poslanih poruka"
 }

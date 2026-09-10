@@ -217,6 +217,11 @@
   "tab.screened_out": "Aussortiert",
   "tab.shortlist": "Shortlist",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dawnlist {version} ist verfügbar.",
+  "update.body": "Diese Kopie stammt von der Website, daher erfolgen auch Updates von dort. Auf der Download-Seite finden Sie die neue Version, signiert, mit der daneben veröffentlichten Prüfsumme (Checksum). Auf diesem Rechner ändert sich nichts, bis Sie sie selbst installieren.",
+  "update.get": "Download-Seite öffnen",
+  "update.later": "Nicht jetzt",
+  "update.title": "Update verfügbar",
   "voice.no_profile": "Noch kein Tonfallprofil — fügen Sie einige Ihrer gesendeten E-Mails hinzu",
   "voice.profile_from": "Tonfall aus {count} Ihrer eigenen gesendeten Nachrichten gelernt"
 }

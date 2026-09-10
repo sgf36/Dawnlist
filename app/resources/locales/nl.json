@@ -217,6 +217,11 @@
   "tab.screened_out": "Uitgesloten",
   "tab.shortlist": "Shortlist",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dawnlist {version} is beschikbaar.",
+  "update.body": "Deze versie is afkomstig van de website, dus updates worden ook van daar opgehaald. Op de downloadpagina vindt u de nieuwe versie, ondertekend, met de checksum ernaast gepubliceerd. Er verandert niets op deze computer totdat u de update zelf installeert.",
+  "update.get": "Downloadpagina openen",
+  "update.later": "Niet nu",
+  "update.title": "Update beschikbaar",
   "voice.no_profile": "Nog geen toonprofiel — voeg enkele van uw eigen verzonden e-mails toe",
   "voice.profile_from": "Toon geleerd van {count} van uw eigen verzonden berichten"
 }

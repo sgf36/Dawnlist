@@ -45,6 +45,17 @@ from tools.asc import APP, call, errs  # noqa: E402
 #: The order they appear on the product page. `02-needs-review` is deliberately
 #: absent: it is mostly empty white with a stale detail pane, and was dropped
 #: from the Microsoft listing for the same reason.
+#: FIVE, NOT SIX. `02-needs-review` is deliberately absent: it is mostly
+#: empty white with a stale detail pane, and was dropped from the Microsoft
+#: listing for the same reason.
+#:
+#: Restored 2026-09-09 after being removed by someone who did not read this
+#: comment before deciding Apple's ten-slot allowance meant the omission was
+#: a habit carried over from the other store. It is not. Look at the image:
+#: one row above ninety percent empty striping, and a detail pane describing
+#: a different posting from the one selected. A reviewer reads that as a
+#: broken product, and they would be half right — see the note in
+#: `store/MACOS-LISTING.md` about the pane not following a tab change.
 ORDER = ["01-shortlist", "03-board", "04-understood", "05-calibration",
          "06-rules"]
 
@@ -94,7 +105,9 @@ def upload_one(set_id: str, path: Path) -> tuple[bool, str]:
 
 
 def main() -> int:
-    src = Path(sys.argv[1] if len(sys.argv) > 1 else "dist/mac-screenshots")
+    argv = [a for a in sys.argv[1:] if a != "--replace"]
+    replace = "--replace" in sys.argv
+    src = Path(argv[0] if argv else "dist/mac-screenshots")
     files = [src / f"{n}.png" for n in ORDER]
     missing = [p.name for p in files if not p.exists()]
     if missing:
@@ -121,10 +134,26 @@ def main() -> int:
         set_id = existing[0]["id"]
         st, shots = call("GET", f"appScreenshotSets/{set_id}/appScreenshots")
         have = len(shots.get("data", []))
-        if have >= len(files):
-            print(f"set already holds {have} screenshot(s) — nothing to do")
+        if replace:
+            # WHY --replace EXISTS. "Already holds N" asks whether SOME
+            # screenshots are there. It never asks whether they are the RIGHT
+            # ones, so a set uploaded before a UI change stays stale for ever
+            # and the tool reports success. On 2026-09-09 the listing held
+            # five images of a board that no longer had those buttons, and
+            # re-running this said "nothing to do".
+            for shot in shots.get("data", []):
+                st2, _ = call("DELETE", f"appScreenshots/{shot['id']}")
+                if st2 not in (204, 200):
+                    sys.exit(f"could not delete {shot['id']} -> {st2}")
+            print(f"removed {have} existing screenshot(s) from set {set_id}")
+        elif have >= len(files):
+            print(f"set already holds {have} screenshot(s) — nothing to do.")
+            print("Pass --replace to swap them for the ones in "
+                  f"{src}: a count is not a comparison, and this will not "
+                  "notice that the images are out of date.")
             return 0
-        print(f"reusing set {set_id} ({have} already there)")
+        else:
+            print(f"reusing set {set_id} ({have} already there)")
     else:
         st, d = call("POST", "appScreenshotSets", {
             "data": {"type": "appScreenshotSets",
