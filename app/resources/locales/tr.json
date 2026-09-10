@@ -217,6 +217,11 @@
   "tab.screened_out": "Elenenler",
   "tab.shortlist": "Kısa liste",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dawnlist {version} sürümü kullanılabilir.",
+  "update.body": "Bu kopya web sitesinden alındığından güncellemeler de oradan gelir. İndirme sayfasında yeni sürüm, imzalanmış olarak ve yanında yayımlanan sağlama toplamıyla (checksum) birlikte yer alır. Siz kendiniz kurmadıkça bu makinede hiçbir şey değişmez.",
+  "update.get": "İndirme Sayfasını Aç",
+  "update.later": "Şimdi Değil",
+  "update.title": "Güncelleme mevcut",
   "voice.no_profile": "Henüz ton profili yok — gönderdiğiniz bazı e-postaları ekleyin",
   "voice.profile_from": "Ton, gönderdiğiniz {count} mesajdan öğrenildi"
 }

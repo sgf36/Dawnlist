@@ -217,6 +217,11 @@
   "tab.screened_out": "נפסלו בסינון",
   "tab.shortlist": "רשימה מקוצרת",
   "tab.with_count": "{label} ({count})",
+  "update.available": "גרסה {version} של Dawnlist זמינה.",
+  "update.body": "עותק זה הגיע מהאתר, ולכן גם העדכונים מגיעים משם. בדף ההורדה תמצאו את הגרסה החדשה, חתומה, כאשר ה-checksum שלה מפורסם לצידה. שום דבר במחשב זה לא ישתנה עד שתתקינו אותה בעצמכם.",
+  "update.get": "פתח את דף ההורדה",
+  "update.later": "לא כעת",
+  "update.title": "עדכון זמין",
   "voice.no_profile": "עדיין אין פרופיל טון — הוסף כמה מהמיילים שנשלחת בעצמך",
   "voice.profile_from": "הטון נלמד מ-{count} מהודעות שנשלחו על ידך"
 }

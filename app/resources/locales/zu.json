@@ -217,6 +217,11 @@
   "tab.screened_out": "Kwenqatshelwe ekuhlungeni",
   "tab.shortlist": "Uhlu lokuqoka",
   "tab.with_count": "{label} ({count})",
+  "update.available": "I-Dawnlist {version} iyatholakala.",
+  "update.body": "Le khophi ivela ewebhusayithi, ngakho-ke izibuyekezo zifika nazo lapho. Ikhasi lokulanda linenguqulo entsha, esayiniwe, ne-checksum yayo ishicilelwe eceleni kwayo. Akukho lutho kule mishini oluguqukayo uze ulifake ngokwakho.",
+  "update.get": "Vula ikhasi lokulanda",
+  "update.later": "Hhayi manje",
+  "update.title": "Isibuyekezo siyatholakala",
   "voice.no_profile": "Asikho isimo somoya okwamanje — engeza eminye imiyalezo yakho owayithumela",
   "voice.profile_from": "Isimo somoya sifundwe kusukela kwimiyalezo {count} owayithumela wena ngokwakho"
 }

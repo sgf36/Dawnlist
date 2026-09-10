@@ -217,6 +217,11 @@
   "tab.screened_out": "An fitar bayan bincike",
   "tab.shortlist": "Jerin zaɓaɓɓu",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dawnlist {version} yana samuwa.",
+  "update.body": "Wannan kwafin ya fito ne daga gidan yanar gizo, don haka sabuntawa suna zuwa daga can ma. Shafin sauke fayil yana da sabon sigar, sanya hannu, tare da checksum ɗinsa wanda aka buga kusa da shi. Babu wani abu da zai canza a wannan na'ura sai kun shigar da shi da kanku.",
+  "update.get": "Bude shafin sauke fayil",
+  "update.later": "Ba yanzu ba",
+  "update.title": "Akwai sabuntawa",
   "voice.no_profile": "Babu bayanin salon magana tukuna — ƙara wasu daga cikin imel ɗin da ka aika",
   "voice.profile_from": "An koyi salon magana daga {count} na saƙonnin da kake aikawa"
 }

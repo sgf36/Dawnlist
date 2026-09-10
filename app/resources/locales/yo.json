@@ -217,6 +217,11 @@
   "tab.screened_out": "Tí a Yọ Jáde",
   "tab.shortlist": "Àkọsílẹ̀ Yíyan",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dawnlist {version} wa.",
+  "update.body": "Ẹ̀dà yìí ti orí wẹ́ẹ̀bùsàìtì wá, nítorí náà àwọn ìmúdójúìwọ̀n máa ń wá láti ibẹ̀ pẹ̀lú. Ojú-ìwé ìgbàsílẹ̀ ní ẹ̀dà tuntun, tí a ti fi ọwọ́ sí, pẹ̀lú checksum rẹ̀ tí a tẹ̀jáde lẹ́gbẹ̀ẹ́ rẹ̀. Kò sí ohun tí yóò yí padà lórí ẹ̀rọ yìí títí tí ẹ o fi fi ọwọ́ ẹ o fi sórí i rẹ̀.",
+  "update.get": "Ṣí ojú-ìwé ìgbàsílẹ̀",
+  "update.later": "Kì í ṣe nísinsìnyí",
+  "update.title": "Ìmúdójúìwọ̀n wà",
   "voice.no_profile": "Kò sí àkọsílẹ̀ ohùn síbẹ̀ — fi díẹ̀ nínú àwọn ímeèlì tí o ti fi ránṣẹ́ kún",
   "voice.profile_from": "A kọ́ ohùn láti inú {count} nínú àwọn ìránṣẹ́ tí o ti fi ránṣẹ́"
 }

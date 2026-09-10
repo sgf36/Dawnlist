@@ -217,6 +217,11 @@
   "tab.screened_out": "ማጣሪያ ውስጥ የቀሩ",
   "tab.shortlist": "የመጨረሻ ዝርዝር",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dawnlist {version} ይገኛል።",
+  "update.body": "ይህ ቅጂ ከድረ-ገጹ የተገኘ በመሆኑ፣ ዝማኔዎችም ከዚያው ይመጣሉ። የማውረጃ ገጹ የተፈረመ አዲሱን ስሪት እና ከጎኑ የታተመውን checksum ይይዛል። እርስዎ በራስዎ እስከሚጭኑት ድረስ በዚህ መሣሪያ ላይ ምንም ነገር አይቀየርም።",
+  "update.get": "የማውረጃ ገጹን ክፈት",
+  "update.later": "አሁን አይደለም",
+  "update.title": "ዝማኔ ይገኛል",
   "voice.no_profile": "እስካሁን የቃና መገለጫ የለም — ከእርስዎ የተላኩ ኢሜይሎችን ጨምሩ",
   "voice.profile_from": "ቃናው ከ{count} እርስዎ ከላኳቸው መልእክቶች ተማረ"
 }

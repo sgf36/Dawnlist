@@ -217,6 +217,11 @@
   "tab.screened_out": "Ora Lulus Saring",
   "tab.shortlist": "Dhaptar Pilihan",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dawnlist {version} sampun kasedhiya.",
+  "update.body": "Salinan menika asalipun saking situs web, mila pembaruanipun ugi dhateng saking ngriku. Kaca unduh ngemot versi enggal, ingkang sampun ditandatangani, kanthi checksum ingkang dipunterbitaken ing sisihipun. Boten wonten ingkang ewah ing komputer menika ngantos panjenengan piyambak masang.",
+  "update.get": "Bikak kaca unduh",
+  "update.later": "Boten sakmenika",
+  "update.title": "Pembaruan kasedhiya",
   "voice.no_profile": "Durung ana profil gaya basa — tambahaké sawetara email kiriman dhewe",
   "voice.profile_from": "Gaya basa disinaoni saka {count} pesen sing wis dikirim dhewe"
 }

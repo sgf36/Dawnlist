@@ -217,6 +217,11 @@
   "tab.screened_out": "Kiszűrve",
   "tab.shortlist": "Rövidlista",
   "tab.with_count": "{label} ({count})",
+  "update.available": "A Dawnlist {version} elérhető.",
+  "update.body": "Ez a példány a weboldalról származik, így a frissítések is onnan érkeznek. A letöltési oldalon megtalálható az új verzió, aláírva, mellette a közzétett checksummal. Ezen a gépen semmi sem változik, amíg saját maga nem telepíti.",
+  "update.get": "Letöltési oldal megnyitása",
+  "update.later": "Most nem",
+  "update.title": "Frissítés elérhető",
   "voice.no_profile": "Még nincs hangnem-profil — adj hozzá néhány saját elküldött e-mailt",
   "voice.profile_from": "A hangnem {count} saját elküldött üzenetedből tanulva"
 }

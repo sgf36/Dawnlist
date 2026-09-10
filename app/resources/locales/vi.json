@@ -217,6 +217,11 @@
   "tab.screened_out": "Bị loại sơ bộ",
   "tab.shortlist": "Danh sách rút gọn",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Đã có phiên bản Dawnlist {version}.",
+  "update.body": "Bản sao này được tải từ trang web, vì vậy các bản cập nhật cũng đến từ đó. Trang tải xuống có phiên bản mới, đã được ký, kèm theo checksum công bố bên cạnh. Không có gì trên máy này thay đổi cho đến khi bạn tự cài đặt.",
+  "update.get": "Mở trang tải xuống",
+  "update.later": "Để sau",
+  "update.title": "Có bản cập nhật mới",
   "voice.no_profile": "Chưa có hồ sơ giọng văn — hãy thêm một số email bạn đã gửi",
   "voice.profile_from": "Giọng văn học được từ {count} tin nhắn bạn đã gửi"
 }

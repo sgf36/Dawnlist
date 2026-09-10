@@ -217,6 +217,11 @@
   "tab.screened_out": "Zilizokataliwa kwenye uchunguzi",
   "tab.shortlist": "Orodha fupi",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dawnlist {version} inapatikana.",
+  "update.body": "Nakala hii ilitoka kwenye tovuti, hivyo masasisho pia yanatoka huko. Ukurasa wa upakuaji una toleo jipya, lililosainiwa, pamoja na checksum yake iliyochapishwa kando yake. Hakuna kitu kinachobadilika kwenye kompyuta hii mpaka wewe mwenyewe uisakinishe.",
+  "update.get": "Fungua ukurasa wa upakuaji",
+  "update.later": "Sio sasa",
+  "update.title": "Sasisho linapatikana",
   "voice.no_profile": "Bado hakuna wasifu wa sauti — ongeza baadhi ya barua pepe ulizotuma mwenyewe",
   "voice.profile_from": "Sauti imejifunza kutoka kwa jumbe {count} ulizotuma mwenyewe"
 }

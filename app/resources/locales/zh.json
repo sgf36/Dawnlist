@@ -217,6 +217,11 @@
   "tab.screened_out": "已筛除",
   "tab.shortlist": "候选名单",
   "tab.with_count": "{label}（{count}）",
+  "update.available": "Dawnlist {version} 现已发布。",
+  "update.body": "此副本来自官方网站,更新也将从该网站获取。下载页面提供新版本,已签名,并在旁附有其校验和(checksum)。在您自行安装之前,本机上的任何内容都不会改变。",
+  "update.get": "打开下载页面",
+  "update.later": "暂不需要",
+  "update.title": "有可用更新",
   "voice.no_profile": "尚无语气画像 — 请添加一些您已发送的邮件",
   "voice.profile_from": "语气已根据您发送的 {count} 条消息学习得出"
 }

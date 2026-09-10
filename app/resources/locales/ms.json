@@ -217,6 +217,11 @@
   "tab.screened_out": "Gagal saringan",
   "tab.shortlist": "Senarai pendek",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dawnlist {version} tersedia.",
+  "update.body": "Salinan ini diperoleh daripada laman web, jadi kemas kini juga akan tiba dari sana. Laman muat turun mempunyai versi baharu, ditandatangani, dengan checksum-nya disiarkan di sebelahnya. Tiada apa-apa pada komputer ini berubah sehingga anda memasangnya sendiri.",
+  "update.get": "Buka laman muat turun",
+  "update.later": "Bukan sekarang",
+  "update.title": "Kemas kini tersedia",
   "voice.no_profile": "Belum ada profil nada — tambah beberapa e-mel hantar anda sendiri",
   "voice.profile_from": "Nada dipelajari daripada {count} mesej hantar anda sendiri"
 }

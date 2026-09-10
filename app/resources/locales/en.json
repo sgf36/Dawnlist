@@ -217,6 +217,11 @@
   "tab.screened_out": "Screened out",
   "tab.shortlist": "Shortlist",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dawnlist {version} is available.",
+  "update.body": "This copy came from the website, so updates arrive from there too. The download page has the new version, signed, with its checksum published beside it. Nothing on this machine changes until you install it yourself.",
+  "update.get": "Open the download page",
+  "update.later": "Not now",
+  "update.title": "Update available",
   "voice.no_profile": "No tone profile yet — add some of your own sent emails",
   "voice.profile_from": "Tone learned from {count} of your own sent messages"
 }

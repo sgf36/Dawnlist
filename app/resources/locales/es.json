@@ -217,6 +217,11 @@
   "tab.screened_out": "Descartados",
   "tab.shortlist": "Preseleccionados",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dawnlist {version} está disponible.",
+  "update.body": "Esta copia proviene del sitio web, por lo que las actualizaciones también llegan desde allí. La página de descarga contiene la nueva versión, firmada, con su checksum publicado junto a ella. Nada en este equipo cambia hasta que usted mismo la instale.",
+  "update.get": "Abrir la página de descarga",
+  "update.later": "Ahora no",
+  "update.title": "Actualización disponible",
   "voice.no_profile": "Aún no hay un perfil de tono — añade algunos de tus correos enviados",
   "voice.profile_from": "Tono aprendido a partir de {count} de tus propios mensajes enviados"
 }

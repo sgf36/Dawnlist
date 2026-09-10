@@ -217,6 +217,11 @@
   "tab.screened_out": "Saralab chiqarilgan",
   "tab.shortlist": "Tanlanganlar",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dawnlist {version} versiyasi mavjud.",
+  "update.body": "Ushbu nusxa veb-saytdan olingan, shuning uchun yangilanishlar ham o'sha yerdan keladi. Yuklab olish sahifasida yangi versiya, imzolangan holda, uning nashr etilgan checksum qiymati bilan birga joylashtirilgan. Siz o'zingiz o'rnatmaguningizcha, ushbu qurilmada hech narsa o'zgarmaydi.",
+  "update.get": "Yuklab olish sahifasini ochish",
+  "update.later": "Hozir emas",
+  "update.title": "Yangilanish mavjud",
   "voice.no_profile": "Hozircha ohang profili yo'q — o'zingiz yuborgan e-pochtalardan qo'shing",
   "voice.profile_from": "Ohang sizning {count} ta yuborilgan xabaringizdan o'rganildi"
 }

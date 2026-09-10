@@ -217,6 +217,11 @@
   "tab.screened_out": "Vyřazené výběrem",
   "tab.shortlist": "Užší výběr",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Je k dispozici Dawnlist {version}.",
+  "update.body": "Tato kopie pochází z webových stránek, proto odtud přicházejí i aktualizace. Na stránce ke stažení najdete novou verzi, podepsanou, s vedle uvedeným kontrolním součtem (checksum). Na tomto počítači se nic nezmění, dokud aktualizaci sami nenainstalujete.",
+  "update.get": "Otevřít stránku ke stažení",
+  "update.later": "Teď ne",
+  "update.title": "K dispozici je aktualizace",
   "voice.no_profile": "Zatím žádný profil tónu — přidejte některé své odeslané e-maily",
   "voice.profile_from": "Tón se učí z {count} vašich odeslaných zpráv"
 }

@@ -217,6 +217,11 @@
   "tab.screened_out": "Respinse la triaj",
   "tab.shortlist": "Listă scurtă",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dawnlist {version} este disponibil.",
+  "update.body": "Această copie provine de pe site-ul web, astfel încât actualizările sosesc tot de acolo. Pagina de descărcare conține noua versiune, semnată, cu suma de control (checksum) publicată alături. Nimic de pe acest computer nu se modifică până când nu o instalați chiar dumneavoastră.",
+  "update.get": "Deschide pagina de descărcare",
+  "update.later": "Nu acum",
+  "update.title": "Actualizare disponibilă",
   "voice.no_profile": "Încă niciun profil de ton — adaugă câteva dintre e-mailurile tale trimise",
   "voice.profile_from": "Ton învățat din {count} dintre mesajele tale trimise"
 }

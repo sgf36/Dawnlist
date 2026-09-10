@@ -217,6 +217,11 @@
   "tab.screened_out": "Tersaring keluar",
   "tab.shortlist": "Daftar pendek",
   "tab.with_count": "{label} ({count})",
+  "update.available": "Dawnlist {version} tersedia.",
+  "update.body": "Salinan ini berasal dari situs web, sehingga pembaruan juga datang dari sana. Halaman unduhan memuat versi baru, yang telah ditandatangani, beserta checksum-nya yang dipublikasikan di sampingnya. Tidak ada yang berubah di perangkat ini hingga Anda menginstalnya sendiri.",
+  "update.get": "Buka halaman unduhan",
+  "update.later": "Tidak sekarang",
+  "update.title": "Pembaruan tersedia",
   "voice.no_profile": "Belum ada profil nada — tambahkan beberapa email terkirim Anda sendiri",
   "voice.profile_from": "Nada bahasa dipelajari dari {count} pesan terkirim Anda"
 }
