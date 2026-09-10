@@ -41,6 +41,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 LISTING = ROOT / "store" / "listing"
 
 #: app locale -> Partner Center language-locale code. Only the four that differ
@@ -100,15 +101,27 @@ def check_limits(rows, header) -> list[str]:
     return problems
 
 
+from listing_slots import SLOT_ORDER, caption_index_for_slot  # noqa: E402
+
+#: Locales with their own rendered screenshot set, so their image cells are
+#: left alone. Read off the directories the renderer produces rather than
+#: listed by hand: a seventh language added there must not silently keep
+#: getting English pictures.
+LOCALISED = {p.name for p in (ROOT / "store" / "screenshots").iterdir()
+             if p.is_dir()}
+
+
 def store_code(locale: str) -> str:
     return CODE_OVERRIDES.get(locale, locale)
 
 
 def main() -> int:
-    if len(sys.argv) < 2:
+    argv = [a for a in sys.argv[1:] if a != "--captions-only"]
+    captions_only = "--captions-only" in sys.argv
+    if not argv:
         sys.exit(__doc__.strip().split("\n")[2].strip())
-    export = Path(sys.argv[1])
-    out = Path(sys.argv[2]) if len(sys.argv) > 2 else export.with_name(
+    export = Path(argv[0])
+    out = Path(argv[1]) if len(argv) > 1 else export.with_name(
         export.stem + "-IMPORT.csv")
 
     rows = list(csv.reader(io.open(export, encoding="utf-8-sig")))
@@ -200,12 +213,52 @@ def main() -> int:
                 except ValueError:
                     continue
                 caps = d.get("screenshot_captions") or []
-                if 1 <= n <= len(caps):
-                    r[col] = caps[n - 1]
+                # THE SLOT, NOT THE POSITION IN THE LIST. The live listing's
+                # slot order is not file order, so `caps[n - 1]` put three of
+                # six captions against the wrong picture in every language.
+                # `tools/listing_slots.py` is the single definition.
+                if 1 <= n <= len(SLOT_ORDER):
+                    idx = caption_index_for_slot(n)
+                    if idx < len(caps):
+                        r[col] = caps[idx]
             elif field == "Title":
                 r[col] = TITLE
             elif field in shots:
-                r[col] = shots[field]
+                # NOT for a language that has its OWN screenshots.
+                #
+                # This wrote the English asset URL into every language,
+                # including the six with localised sets. That made the import
+                # ORDER load-bearing: csv-then-folder worked, folder-then-csv
+                # silently reverted all six back to English images, and
+                # nothing in either file said so.
+                #
+                # The established order for this Store is FOLDER FIRST, then
+                # the csv URL fan-out — it has to be, because a csv can only
+                # reference assets Partner Center already holds, so on a
+                # listing whose localised images do not exist yet the folder
+                # is what creates them. Leaving these cells blank means
+                # "leave unchanged", so the fan-out fills the 41 that need
+                # English and does not touch the 6 that do not.
+                # BLANKED, not merely left unwritten. The row is copied from
+                # the export, which already carries the English URL in these
+                # cells, so skipping the write preserves exactly the value we
+                # are trying not to send. Partner Center reads an empty image
+                # cell as "leave unchanged", which is the only way to say
+                # "this language keeps whatever the folder import gave it".
+                #
+                # --captions-only BLANKS EVERY LANGUAGE, and it exists because
+                # writing these cells is not free. Measured on 2026-09-09 by
+                # exporting either side of one import: the run moved 123 IMAGE
+                # cells and 3 caption cells. Partner Center treats the caption
+                # as a property of the SLOT and the picture as the thing it is
+                # free to move, so asking for "slot 2 = asset X" shuffles
+                # assets underneath captions that stay where they are. On a
+                # listing whose pictures are already right, that is pure churn
+                # in the one direction that can break the pairing.
+                if captions_only or loc in LOCALISED:
+                    r[col] = ""
+                else:
+                    r[col] = shots[field]
             elif field.startswith("Feature"):
                 try:
                     n = int(field[len("Feature"):])
@@ -215,6 +268,24 @@ def main() -> int:
                 if 1 <= n <= len(feats):
                     r[col] = feats[n - 1]
         out_rows.append(r)
+
+    if captions_only:
+        # EVERY image cell, including en-us. The English column is copied
+        # straight from the export rather than going through the branch above,
+        # so blanking there alone left six live URLs in the file — identical to
+        # what Partner Center already holds, and therefore invisible, but still
+        # an instruction to set an image on a run whose whole point is not to
+        # touch one. Asserted below rather than trusted.
+        for r in out_rows[1:]:
+            if (r[0].startswith("DesktopScreenshot")
+                    and not r[0].startswith("DesktopScreenshotCaption")):
+                for i in range(3, len(r)):
+                    r[i] = ""
+        left = sum(1 for r in out_rows[1:]
+                   if r[0].startswith("DesktopScreenshot")
+                   and not r[0].startswith("DesktopScreenshotCaption")
+                   for v in r[3:] if v.strip())
+        assert left == 0, f"{left} image cell(s) survived --captions-only"
 
     problems = check_limits(out_rows, header)
     if problems:
