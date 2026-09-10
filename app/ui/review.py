@@ -369,6 +369,20 @@ class ReviewWindow(QMainWindow):
 
         for tree in (self.shortlist, self.rejected, self.screened_out, self.contained):
             tree.currentItemChanged.connect(self._show_detail)
+        # AND ON A TAB CHANGE, which nothing did.
+        #
+        # `_decide` reads `_current_row()`, which resolves against the CURRENT
+        # TAB. `_show_detail` was wired only to selection changes inside a
+        # tree, so switching tabs left the pane describing the posting from
+        # the tab you just left while every button acted on the one selected
+        # in the tab you arrived at.
+        #
+        # A person reads posting A and presses "Reject - permanently" on
+        # posting B. Rejections have no expiry by design (spec 4), so that is
+        # not a mistake the app lets them take back. Found because a store
+        # screenshot showed a detail pane naming a different job from the row
+        # highlighted beside it.
+        self.tabs.currentChanged.connect(self._show_detail)
         self.btn_pursue.clicked.connect(lambda: self._decide("pursue"))
         self.btn_later.clicked.connect(lambda: self._decide("later"))
         self.btn_reject.clicked.connect(lambda: self._decide("reject"))
