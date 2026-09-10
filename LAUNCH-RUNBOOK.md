@@ -255,6 +255,30 @@ matches nothing makes the webhook fall back to Standard and set
 only plan; the moment Global exists it means a customer paid for one thing and
 received another.
 
+> **REPORTED RESOLVED 2026-09-09 — READ THIS BEFORE THE BLOCK BELOW.**
+>
+> A destination named **"Dawnlist Worker (USE ME)"** was created and its secret
+> set. Reported evidence: two live Paddle events signature-verified
+> (`price.updated`, `api_key.created`), and a real Paddle-signed
+> `subscription.created` answering `200 {"ok":true,"action":"issued"}`.
+>
+> **Not re-verified from the repository.** Nothing in this tree records it, and
+> the Paddle MCP was not authorised in the session that wrote this note, so
+> this is a second-hand report rather than a measurement. It is left as an
+> annotation instead of a deletion deliberately: striking a blocker is the
+> direction that says "safe to proceed", and that is the wrong way to be wrong.
+> Confirm with `notifications.logs.list(<destination id>)` — `times_attempted:
+> 0` means the destination is inactive, `401` means the wrong secret — or by
+> replaying an event and reading the Worker's response.
+>
+> **IT DOES NOT CLEAR DELIVERY EITHER WAY.** A key being *issued* is not a key
+> *received*. Issue-to-mailbox has never been observed, so purchasing stays
+> closed and the website may not invite one regardless of what this block says.
+>
+> The shape is worth noting: every other stale note this week read as
+> clearance. This one reads as a blocker, and would have delayed a decision
+> rather than rushed one. Both are the same fault.
+
 > **BLOCKER FOUND 2026-09-08. THERE IS NO DAWNLIST WEBHOOK DESTINATION.**
 >
 > Every notification destination on the live Paddle account points at
