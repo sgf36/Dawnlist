@@ -27,19 +27,47 @@ def make_docx(path: Path, *, with_table: bool = False) -> Path:
 
 
 def make_text_pdf(path: Path) -> Path:
-    """A real PDF with real text, drawn with Qt so the test needs no extra dep."""
-    from PySide6.QtGui import QPageSize, QPdfWriter, QPainter
-    from PySide6.QtWidgets import QApplication
+    """A real PDF with real text, written here rather than drawn with Qt.
 
-    QApplication.instance() or QApplication([])
-    writer = QPdfWriter(str(path))
-    writer.setPageSize(QPageSize(QPageSize.A4))
-    painter = QPainter(writer)
-    y = 400
-    for line in CV_TEXT.splitlines():
-        painter.drawText(400, y, line)
-        y += 300
-    painter.end()
+    Qt drew one until 2026-09-11, and the test failed under the offscreen and
+    minimal Qt platforms — the ones tests run under — because those embed no
+    font, so the page carried glyphs with nothing to extract. It passed only on
+    a real display, which left a standing red failure everybody learned to
+    ignore. These bytes use Helvetica, which every reader knows without an
+    embedded font, so the result is the same everywhere.
+    """
+    def escaped(line: str) -> str:
+        for char in ("\\", "(", ")"):
+            line = line.replace(char, "\\" + char)
+        return line
+
+    drawing = ["BT", "/F1 12 Tf", "72 780 Td", "14 TL"]
+    for line in (ln for ln in CV_TEXT.splitlines() if ln.strip()):
+        drawing += [f"({escaped(line)}) Tj", "T*"]
+    drawing.append("ET")
+    stream = "\n".join(drawing).encode("latin-1")
+
+    bodies = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842]"
+        b" /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        b"<< /Length %d >>\nstream\n%s\nendstream" % (len(stream), stream),
+    ]
+
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for number, body in enumerate(bodies, start=1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n" % number + body + b"\nendobj\n"
+    start_xref = len(out)
+    out += b"xref\n0 %d\n0000000000 65535 f \n" % (len(bodies) + 1)
+    for offset in offsets:
+        out += b"%010d 00000 n \n" % offset
+    out += (b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n"
+            % (len(bodies) + 1, start_xref))
+    path.write_bytes(bytes(out))
     return path
 
 
