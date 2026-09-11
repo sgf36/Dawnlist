@@ -51,7 +51,7 @@ export function newCode(prefix = 'DL') {
   return `${prefix}-${body.match(/.{1,4}/g).slice(0, 4).join('-')}`;
 }
 
-function normalise(code) {
+export function normalise(code) {
   // People type them with spaces, lower case, or without hyphens.
   return (code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
@@ -114,32 +114,22 @@ export async function handleRedeem(request, env, newLicenceKey) {
   const given = normalise(body.code);
   if (!given) return json({ error: 'no_code' }, 400);
 
-  // Fetch by normalised comparison rather than exact match, so a code typed
-  // without hyphens still works.
-  const { results } = await env.DB.prepare('SELECT * FROM codes').all();
-  const row = (results || []).find((r) => sameCode(r.code, given));
+  // One row, through the index on the normalised form, so a code typed without
+  // hyphens still works and a guess costs the same however many codes exist.
+  const row = await env.DB.prepare(
+    `SELECT code, role, plan, max_uses, revoked, expires_at
+       FROM codes WHERE code_normalised = ?1`
+  ).bind(given).first();
 
-  if (!row || row.revoked) {
+  // Unknown, revoked, expired and spent all answer the SAME, deliberately.
+  // Each distinct answer tells somebody probing a fact about a code they do
+  // not hold: that it once existed, that it was real until a date, that
+  // somebody else has already used it.
+  const refuse = async () => {
     await recordFailure(env, ip);
-    // "Unknown" and "revoked" answer the same, deliberately: distinguishing
-    // them tells someone probing that a code once existed.
     return json({ error: 'invalid_code' }, 403);
-  }
-
-  if (row.expires_at && row.expires_at < new Date().toISOString()) {
-    await recordFailure(env, ip);
-    return json({ error: 'expired_code' }, 403);
-  }
-
-  // Counted from redemptions, which is the only place a redemption is written.
-  const used = await env.DB.prepare(
-    'SELECT COUNT(*) AS n FROM redemptions WHERE code = ?1'
-  ).bind(row.code).first();
-
-  if ((used?.n || 0) >= row.max_uses) {
-    await recordFailure(env, ip);
-    return json({ error: 'code_spent' }, 403);
-  }
+  };
+  if (!row || row.revoked || hasExpired(row.expires_at)) return refuse();
 
   const licenceKey = newLicenceKey();
   // The caps the CODE carries. Without this a redeemed code took the Worker's
@@ -147,23 +137,37 @@ export async function handleRedeem(request, env, newLicenceKey) {
   // from a paid subscription in the only place that decides what a licence can
   // actually do — and a card-free trial could not be offered at all.
   const caps = capsFor(row.plan || 'standard');
-  await env.DB.prepare(
-    `INSERT INTO licences (licence_key, tier, status, plan,
-                           max_postings_per_day, max_refreshes_per_day,
-                           max_saved_queries, expires_at)
-     VALUES (?1, ?2, 'active', ?3, ?4, ?5, ?6, ?7)`
-  ).bind(licenceKey, row.role === 'admin' ? 'managed' : row.role,
-         caps.plan, caps.max_postings_per_day, caps.max_refreshes_per_day,
-         caps.max_saved_queries, licenceExpiry(caps.plan, row.role)).run();
 
-  await env.DB.prepare(
-    `INSERT INTO licence_roles (licence_key, role, from_code) VALUES (?1, ?2, ?3)`
-  ).bind(licenceKey, row.role, row.code).run();
-
-  await env.DB.prepare(
-    `INSERT INTO redemptions (code, licence_key, redeemed_at)
-     VALUES (?1, ?2, datetime('now'))`
-  ).bind(row.code, licenceKey).run();
+  // The use limit is checked and spent in ONE transaction. It used to be a
+  // count, then three inserts, so parallel redemptions of a single-use code
+  // each counted zero and each got a licence. The redemption row is inserted
+  // only while the count is under max_uses and the code is still unrevoked,
+  // and the licence and role are inserted only if that row now exists — so a
+  // refused redemption leaves nothing behind. Usage is still counted from
+  // redemptions alone; there is no counter to drift from it.
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO redemptions (code, licence_key, redeemed_at)
+       SELECT ?1, ?2, datetime('now')
+        WHERE (SELECT COUNT(*) FROM redemptions WHERE code = ?1)
+              < (SELECT max_uses FROM codes WHERE code = ?1 AND revoked = 0)`
+    ).bind(row.code, licenceKey),
+    env.DB.prepare(
+      `INSERT INTO licences (licence_key, tier, status, plan,
+                             max_postings_per_day, max_refreshes_per_day,
+                             max_saved_queries, expires_at)
+       SELECT ?1, ?2, 'active', ?3, ?4, ?5, ?6, ?7
+        WHERE EXISTS (SELECT 1 FROM redemptions WHERE licence_key = ?1)`
+    ).bind(licenceKey, row.role === 'admin' ? 'managed' : row.role,
+           caps.plan, caps.max_postings_per_day, caps.max_refreshes_per_day,
+           caps.max_saved_queries, licenceExpiry(caps.plan, row.role)),
+    env.DB.prepare(
+      `INSERT INTO licence_roles (licence_key, role, from_code)
+       SELECT ?1, ?2, ?3
+        WHERE EXISTS (SELECT 1 FROM redemptions WHERE licence_key = ?1)`
+    ).bind(licenceKey, row.role, row.code),
+  ]);
+  if (results.some((r) => r.meta?.changes !== 1)) return refuse();
 
   return json({ ok: true, licence_key: licenceKey, role: row.role });
 }
@@ -256,9 +260,10 @@ export async function handleAdmin(request, env) {
 
     const code = newCode();
     await env.DB.prepare(
-      `INSERT INTO codes (code, note, max_uses, revoked, created_at, expires_at, role, plan)
-       VALUES (?1, ?2, ?3, 0, datetime('now'), ?4, ?5, ?6)`
-    ).bind(code, note, maxUses, expiresAt, role, plan).run();
+      `INSERT INTO codes (code, note, max_uses, revoked, created_at, expires_at, role, plan,
+                          code_normalised)
+       VALUES (?1, ?2, ?3, 0, datetime('now'), ?4, ?5, ?6, ?7)`
+    ).bind(code, note, maxUses, expiresAt, role, plan, normalise(code)).run();
 
     // The plan and expiry are returned so whoever mints a code can see what
     // they just handed out. A trial code and a comp code are otherwise
@@ -274,8 +279,9 @@ export async function handleAdmin(request, env) {
     const target = normalise(body.code);
     if (!target) return json({ error: 'no_code' }, 400);
 
-    const { results } = await env.DB.prepare('SELECT code FROM codes').all();
-    const row = (results || []).find((r) => sameCode(r.code, target));
+    const row = await env.DB.prepare(
+      'SELECT code FROM codes WHERE code_normalised = ?1'
+    ).bind(target).first();
     if (!row) return json({ error: 'unknown_code' }, 404);
 
     // Revoking the code this caller is using would sign them out of the

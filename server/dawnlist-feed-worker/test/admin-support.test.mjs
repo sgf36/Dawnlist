@@ -11,10 +11,14 @@
  *
  * `/admin/resend` is a support tool before it is a test. The commonest thing a
  * paying customer will ever ask for is the key they lost.
+ *
+ * Runs against a real SQLite D1.
  */
 import assert from 'node:assert';
-import { handleAdmin, handleRedeem, newCode } from '../src/codes.js';
+import { handleAdmin, handleRedeem } from '../src/codes.js';
 import { newLicenceKey } from '../src/paddle.js';
+import { makeD1 } from './d1.mjs';
+import { seedCode } from './seed.mjs';
 
 let passed = 0, failed = 0;
 async function test(name, fn) {
@@ -22,41 +26,7 @@ async function test(name, fn) {
   catch (e) { console.log(`  FAIL ${name}\n       ${e.message}`); failed++; }
 }
 
-function makeDB() {
-  const db = { codes: [], licences: [], roles: [], redemptions: [] };
-  db.prepare = (sql) => ({
-    _a: [],
-    bind(...a) { this._a = a; return this; },
-    async first() {
-      if (sql.includes('FROM code_attempts')) return null;
-      if (sql.includes('COUNT(*) AS n FROM redemptions')) {
-        return { n: db.redemptions.filter((r) => r.code === this._a[0]).length };
-      }
-      if (sql.includes('FROM licences WHERE licence_key')) {
-        return db.licences.find((l) => l.licence_key === this._a[0]) || null;
-      }
-      if (sql.includes('FROM licence_roles WHERE licence_key')) {
-        return db.roles.find((r) => r.licence_key === this._a[0]) || null;
-      }
-      return null;
-    },
-    async all() { return { results: sql.includes('FROM codes') ? db.codes : [] }; },
-    async run() {
-      if (sql.includes('INSERT INTO licences')) {
-        db.licences.push({
-          licence_key: this._a[0], tier: this._a[1], status: 'active',
-          plan: this._a[2], max_postings_per_day: this._a[3],
-        });
-      } else if (sql.includes('INSERT INTO licence_roles')) {
-        db.roles.push({ licence_key: this._a[0], role: this._a[1] });
-      } else if (sql.includes('INSERT INTO redemptions')) {
-        db.redemptions.push({ code: this._a[0], licence_key: this._a[1] });
-      }
-      return { success: true };
-    },
-  });
-  return db;
-}
+const makeDB = () => makeD1();
 
 const post = (path, body, auth) => new Request(`https://x${path}`, {
   method: 'POST',
@@ -71,13 +41,15 @@ const get = (path, auth) => new Request(`https://x${path}`, {
 });
 
 async function seedAdmin(db) {
-  db.codes.push({
-    code: newCode(), note: 'owner', max_uses: 1, revoked: 0,
-    created_at: 'now', expires_at: null, role: 'admin', plan: 'standard',
-  });
-  const res = await handleRedeem(
-    post('/redeem', { code: db.codes[0].code }), { DB: db }, newLicenceKey);
+  const c = seedCode(db, { note: 'owner', role: 'admin', plan: 'standard' });
+  const res = await handleRedeem(post('/redeem', { code: c.code }), { DB: db }, newLicenceKey);
   return (await res.json()).licence_key;
+}
+
+function seedLicence(db, key, status) {
+  db.sqlite.prepare(
+    "INSERT INTO licences (licence_key, tier, status, plan) VALUES (?, 'managed', ?, 'standard')"
+  ).run(key, status);
 }
 
 /** Replace fetch for one call, and always put it back. */
@@ -96,7 +68,7 @@ await test('an unauthenticated caller is refused', async () => {
 
 await test('a licence without the admin role is refused', async () => {
   const db = makeDB();
-  db.licences.push({ licence_key: 'DAWN-PLAIN', status: 'active' });
+  seedLicence(db, 'DAWN-PLAIN', 'active');
   const res = await handleAdmin(get('/admin/selftest', 'DAWN-PLAIN'), { DB: db });
   assert.equal(res.status, 403);
 });
@@ -172,7 +144,7 @@ await test('a revoked licence is refused rather than re-sent', async () => {
   // to tell that from the key being wrong.
   const db = makeDB();
   const licence = await seedAdmin(db);
-  db.licences.push({ licence_key: 'DAWN-DEAD', status: 'expired', plan: 'standard' });
+  seedLicence(db, 'DAWN-DEAD', 'expired');
   const res = await handleAdmin(
     post('/admin/resend', { licence_key: 'DAWN-DEAD', to: 'a@b.test' }, licence), { DB: db });
   assert.equal(res.status, 409);

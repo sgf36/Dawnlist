@@ -8,11 +8,15 @@
  * from a paid subscription in the only place that decides what a licence may
  * actually do.
  *
+ * Runs against a real SQLite D1, so the caps asserted are the ones written.
+ *
  * Run: node test/trial.test.mjs
  */
 import assert from 'node:assert';
 import { handleRedeem, handleAdmin } from '../src/codes.js';
 import { PLANS } from '../src/plans.js';
+import { makeD1 } from './d1.mjs';
+import { seedCode } from './seed.mjs';
 
 let passed = 0, failed = 0;
 async function test(name, fn) {
@@ -20,58 +24,8 @@ async function test(name, fn) {
   catch (e) { console.log(`  FAIL ${name}\n       ${e.message}`); failed++; }
 }
 
-/** D1 stub that records the licence cap columns, which is the whole point. */
-function makeDB({ codes = [], roles = [], redemptions = [] } = {}) {
-  const licences = [];
-  return {
-    codes, roles, redemptions, licences,
-    prepare(sql) {
-      return {
-        _a: [],
-        bind(...a) { this._a = a; return this; },
-        async first() {
-          if (sql.includes('FROM codes')) {
-            return codes.find(c => c.code === this._a[0]) || null;
-          }
-          if (sql.includes('FROM licence_roles')) {
-            return roles.find(r => r.licence_key === this._a[0]) || null;
-          }
-          if (sql.includes('FROM licences')) {
-            return licences.find(l => l.licence_key === this._a[0]) || null;
-          }
-          if (sql.includes('COUNT')) return { n: redemptions.length };
-          return null;
-        },
-        async all() {
-          // handleRedeem reads ALL codes and matches on a normalised
-          // comparison, so a code typed without hyphens still works.
-          if (sql.includes('FROM codes')) return { results: codes };
-          return { results: [] };
-        },
-        async run() {
-          if (sql.includes('INSERT INTO licences')) {
-            licences.push({
-              licence_key: this._a[0], tier: this._a[1], status: 'active',
-              plan: this._a[2],
-              max_postings_per_day: this._a[3],
-              max_refreshes_per_day: this._a[4],
-              max_saved_queries: this._a[5],
-            });
-          } else if (sql.includes('INSERT INTO codes')) {
-            codes.push({ code: this._a[0], note: this._a[1],
-                         max_uses: this._a[2], revoked: 0,
-                         role: this._a[4], plan: this._a[5] });
-          } else if (sql.includes('INSERT INTO redemptions')) {
-            redemptions.push({ code: this._a[0] });
-          }
-          return { success: true };
-        },
-      };
-    },
-  };
-}
-
 const newKey = () => 'DAWN-TEST-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+const licences = (db) => db.query('SELECT * FROM licences');
 
 async function redeem(db, code) {
   const req = new Request('https://w/redeem', {
@@ -84,11 +38,11 @@ async function redeem(db, code) {
 console.log('redeeming');
 
 await test('a TRIAL code grants the trial allowance, not the default', async () => {
-  const db = makeDB({ codes: [{ code: 'TRY', role: 'managed', plan: 'trial',
-                                max_uses: 1, revoked: 0 }] });
+  const db = makeD1();
+  seedCode(db, { code: 'TRY', role: 'managed', plan: 'trial' });
   const out = await redeem(db, 'TRY');
   assert.equal(out.ok, true);
-  const lic = db.licences[0];
+  const lic = licences(db)[0];
   assert.equal(lic.plan, 'trial');
   assert.equal(lic.max_postings_per_day, PLANS.trial.maxPostingsPerDay);
   assert.notEqual(lic.max_postings_per_day, PLANS.standard.maxPostingsPerDay,
@@ -96,27 +50,28 @@ await test('a TRIAL code grants the trial allowance, not the default', async () 
 });
 
 await test('a comp code can still grant the full plan', async () => {
-  const db = makeDB({ codes: [{ code: 'COMP', role: 'managed', plan: 'standard',
-                                max_uses: 1, revoked: 0 }] });
+  const db = makeD1();
+  seedCode(db, { code: 'COMP', role: 'managed', plan: 'standard' });
   await redeem(db, 'COMP');
-  assert.equal(db.licences[0].max_postings_per_day, PLANS.standard.maxPostingsPerDay);
+  assert.equal(licences(db)[0].max_postings_per_day, PLANS.standard.maxPostingsPerDay);
 });
 
 await test('a code predating plans falls back rather than granting nothing', async () => {
   // plan IS NULL on codes issued before migration 002.
-  const db = makeDB({ codes: [{ code: 'OLD', role: 'managed', plan: null,
-                                max_uses: 1, revoked: 0 }] });
+  const db = makeD1();
+  seedCode(db, { code: 'OLD', role: 'managed', plan: null });
   await redeem(db, 'OLD');
-  assert.equal(db.licences[0].plan, 'standard');
-  assert.ok(db.licences[0].max_postings_per_day > 0);
+  assert.equal(licences(db)[0].plan, 'standard');
+  assert.ok(licences(db)[0].max_postings_per_day > 0);
 });
 
 console.log('minting');
 
 await test('minting defaults to TRIAL, the smallest allowance', async () => {
   // The safe default for a credential handed to a stranger.
-  const db = makeDB({ roles: [{ licence_key: 'ADMIN', role: 'admin' }] });
-  db.licences.push({ licence_key: 'ADMIN', status: 'active' });
+  const db = makeD1();
+  db.sqlite.exec(`INSERT INTO licences (licence_key, tier, status) VALUES ('ADMIN', 'managed', 'active');
+                  INSERT INTO licence_roles (licence_key, role) VALUES ('ADMIN', 'admin');`);
   const req = new Request('https://w/admin/codes', {
     method: 'POST',
     body: JSON.stringify({ note: 'for a tester' }),

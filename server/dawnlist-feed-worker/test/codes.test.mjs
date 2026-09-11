@@ -1,10 +1,12 @@
 /**
- * Override codes and the admin console, against a stubbed D1.
+ * Override codes and the admin console, against a real SQLite D1.
  * Run: node test/codes.test.mjs
  */
 import assert from 'node:assert';
 import { handleAdmin, handleRedeem, newCode } from '../src/codes.js';
 import { newLicenceKey } from '../src/paddle.js';
+import { makeD1 } from './d1.mjs';
+import { seedCode } from './seed.mjs';
 
 let passed = 0, failed = 0;
 async function test(name, fn) {
@@ -12,66 +14,8 @@ async function test(name, fn) {
   catch (e) { console.log(`  FAIL ${name}\n       ${e.message}`); failed++; }
 }
 
-/** D1 stub with just enough SQL awareness for these paths. */
-function makeDB() {
-  const db = { codes: [], licences: [], roles: [], redemptions: [], attempts: [], usage: [] };
-  db.prepare = (sql) => ({
-    _a: [],
-    bind(...a) { this._a = a; return this; },
-    async first() {
-      if (sql.includes('FROM code_attempts')) {
-        const r = db.attempts.find(x => x.ip === this._a[0] && x.day === this._a[1]);
-        return r || null;
-      }
-      if (sql.includes('COUNT(*) AS n FROM redemptions')) {
-        return { n: db.redemptions.filter(r => r.code === this._a[0]).length };
-      }
-      if (sql.includes('FROM licences WHERE licence_key')) {
-        return db.licences.find(l => l.licence_key === this._a[0]) || null;
-      }
-      if (sql.includes('FROM licence_roles WHERE licence_key')) {
-        return db.roles.find(r => r.licence_key === this._a[0]) || null;
-      }
-      return null;
-    },
-    async all() {
-      if (sql.includes('FROM codes c')) {
-        return { results: db.codes.map(c => ({ ...c,
-          uses: db.redemptions.filter(r => r.code === c.code).length })) };
-      }
-      if (sql.includes('SELECT * FROM codes') || sql.includes('SELECT code FROM codes')) {
-        return { results: db.codes };
-      }
-      if (sql.includes('FROM licences l')) {
-        return { results: db.licences.map(l => ({ ...l,
-          role: db.roles.find(r => r.licence_key === l.licence_key)?.role || null })) };
-      }
-      return { results: [] };
-    },
-    async run() {
-      if (sql.includes('INSERT INTO code_attempts')) {
-        const e = db.attempts.find(x => x.ip === this._a[0] && x.day === this._a[1]);
-        if (e) e.failures += 1; else db.attempts.push({ ip: this._a[0], day: this._a[1], failures: 1 });
-      } else if (sql.includes('INSERT INTO licences')) {
-        db.licences.push({ licence_key: this._a[0], tier: this._a[1], status: 'active', created_at: 'now' });
-      } else if (sql.includes('INSERT INTO licence_roles')) {
-        db.roles.push({ licence_key: this._a[0], role: this._a[1], from_code: this._a[2] });
-      } else if (sql.includes('INSERT INTO redemptions')) {
-        db.redemptions.push({ code: this._a[0], licence_key: this._a[1] });
-      } else if (sql.includes('INSERT INTO codes')) {
-        db.codes.push({ code: this._a[0], note: this._a[1], max_uses: this._a[2],
-                        revoked: 0, created_at: 'now', expires_at: this._a[3], role: this._a[4] });
-      } else if (sql.includes('UPDATE codes SET revoked')) {
-        const c = db.codes.find(c => c.code === this._a[0]); if (c) c.revoked = 1;
-      } else if (sql.includes("UPDATE licences SET status = 'expired' WHERE licence_key IN")) {
-        const keys = db.redemptions.filter(r => r.code === this._a[0]).map(r => r.licence_key);
-        for (const l of db.licences) if (keys.includes(l.licence_key)) l.status = 'expired';
-      }
-      return {};
-    },
-  });
-  return db;
-}
+const makeDB = () => makeD1();
+const count = (db, table) => db.query(`SELECT COUNT(*) AS n FROM ${table}`)[0].n;
 
 const post = (path, body, auth) => new Request(`https://x${path}`, {
   method: 'POST', body: JSON.stringify(body),
@@ -80,13 +24,6 @@ const post = (path, body, auth) => new Request(`https://x${path}`, {
 const get = (path, auth) => new Request(`https://x${path}`, {
   headers: auth ? { authorization: `Bearer ${auth}` } : {},
 });
-
-function seedCode(db, over = {}) {
-  const c = { code: newCode(), note: 'test', max_uses: 1, revoked: 0,
-              created_at: 'now', expires_at: null, role: 'byo', ...over };
-  db.codes.push(c);
-  return c;
-}
 
 async function seedAdmin(db) {
   const c = seedCode(db, { role: 'admin', note: 'Spencer' });
@@ -101,8 +38,8 @@ await test('a valid code issues a licence', async () => {
   const db = makeDB(); const c = seedCode(db);
   const res = await handleRedeem(post('/redeem', { code: c.code }), { DB: db }, newLicenceKey);
   assert.equal(res.status, 200);
-  assert.equal(db.licences.length, 1);
-  assert.equal(db.redemptions.length, 1);
+  assert.equal(count(db, 'licences'), 1);
+  assert.equal(count(db, 'redemptions'), 1);
 });
 
 await test('formatting never decides whether a code works', async () => {
@@ -117,7 +54,10 @@ await test('a single-use code cannot be redeemed twice', async () => {
   await handleRedeem(post('/redeem', { code: c.code }), { DB: db }, newLicenceKey);
   const res = await handleRedeem(post('/redeem', { code: c.code }), { DB: db }, newLicenceKey);
   assert.equal(res.status, 403);
-  assert.equal((await res.json()).error, 'code_spent');
+  // The same answer as an unknown code: "spent" would tell a prober the code
+  // was real.
+  assert.equal((await res.json()).error, 'invalid_code');
+  assert.equal(count(db, 'licences'), 1);
 });
 
 await test('a STORE REVIEW code with max_uses > 1 can be reused', async () => {
@@ -128,7 +68,7 @@ await test('a STORE REVIEW code with max_uses > 1 can be reused', async () => {
     const res = await handleRedeem(post('/redeem', { code: c.code }), { DB: db }, newLicenceKey);
     assert.equal(res.status, 200, `redemption ${i + 1} failed`);
   }
-  assert.equal(db.licences.length, 5);
+  assert.equal(count(db, 'licences'), 5);
 });
 
 await test('an unknown and a revoked code answer identically', async () => {
@@ -145,7 +85,9 @@ await test('an expired code is refused', async () => {
   const db = makeDB();
   const c = seedCode(db, { expires_at: '2020-01-01T00:00:00Z' });
   const res = await handleRedeem(post('/redeem', { code: c.code }), { DB: db }, newLicenceKey);
-  assert.equal((await res.json()).error, 'expired_code');
+  assert.equal(res.status, 403);
+  assert.equal((await res.json()).error, 'invalid_code', 'and says no more than an unknown code');
+  assert.equal(count(db, 'licences'), 0);
 });
 
 await test('repeated failures are rate limited', async () => {
@@ -191,13 +133,13 @@ await test('withdrawing an admin takes effect IMMEDIATELY on a valid licence', a
   const db = makeDB(); const { licence } = await seedAdmin(db);
   assert.equal((await handleAdmin(get('/admin/codes', licence), { DB: db })).status, 200);
 
-  db.roles.find(r => r.licence_key === licence).role = 'byo';
+  db.sqlite.prepare("UPDATE licence_roles SET role = 'byo' WHERE licence_key = ?").run(licence);
   assert.equal((await handleAdmin(get('/admin/codes', licence), { DB: db })).status, 403);
 });
 
 await test('an expired licence loses the console', async () => {
   const db = makeDB(); const { licence } = await seedAdmin(db);
-  db.licences.find(l => l.licence_key === licence).status = 'expired';
+  db.sqlite.prepare("UPDATE licences SET status = 'expired' WHERE licence_key = ?").run(licence);
   assert.equal((await handleAdmin(get('/admin/codes', licence), { DB: db })).status, 403);
 });
 
@@ -234,8 +176,9 @@ await test('revoking a code also expires the licences it issued', async () => {
   const issued = (await r.json()).licence_key;
 
   await handleAdmin(post('/admin/revoke', { code: c.code }, licence), { DB: db });
-  assert.equal(db.codes.find(x => x.code === c.code).revoked, 1);
-  assert.equal(db.licences.find(l => l.licence_key === issued).status, 'expired');
+  assert.equal(db.query('SELECT revoked FROM codes WHERE code = ?', c.code)[0].revoked, 1);
+  assert.equal(db.query('SELECT status FROM licences WHERE licence_key = ?', issued)[0].status,
+    'expired');
 });
 
 await test('an admin cannot revoke the code they are using', async () => {

@@ -175,8 +175,14 @@ CREATE TABLE IF NOT EXISTS codes (
                CHECK (role IN ('byo', 'managed', 'admin')),
     -- The plan a redeemed licence receives. Without it every redeemed code took
     -- the Worker's full default, so a trial could not be told from a purchase.
-    plan       TEXT
+    plan       TEXT,
+    -- The code as normalise() in src/codes.js reduces it: upper case, letters
+    -- and digits only. Redemption reads by this, through the index below;
+    -- matching formatting in JavaScript meant reading every code on every
+    -- attempt, on a route anybody can call.
+    code_normalised TEXT
 );
+CREATE UNIQUE INDEX IF NOT EXISTS codes_by_normalised ON codes (code_normalised);
 
 CREATE TABLE IF NOT EXISTS redemptions (
     code        TEXT NOT NULL,
