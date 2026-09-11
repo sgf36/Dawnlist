@@ -879,6 +879,44 @@ def save_locale(conn, code: str) -> str:
     return code
 
 
+def start_storekit() -> bool:
+    """Register the Mac App Store transaction observer, once, at launch.
+
+    AT LAUNCH, not when Settings opens: Apple delivers unfinished transactions
+    — a renewal, a purchase interrupted by a crash, an approved Ask to Buy — as
+    soon as an observer exists, and a process with none never hears of them.
+    Only on `mas`; elsewhere it registers nothing.
+    """
+    from app.core.build_variant import variant
+
+    if variant() != "mas":
+        return False
+
+    from app.core import mac_storekit
+    from app.core.entitlement import AppleExchange, exchange_and_cache
+    from app.ui.background import run_in_background
+    from app.ui.settings import storekit_events
+
+    tasks: list = []
+
+    def run(fn, on_done):
+        # Held until it answers: a task nothing references is collected and
+        # never delivers, and the transaction would wait for ever.
+        def settle(value):
+            if box and box[0] in tasks:
+                tasks.remove(box[0])
+            on_done(value)
+
+        box: list = []
+        box.append(run_in_background(
+            fn, on_done=settle,
+            on_error=lambda _exc: settle(AppleExchange("unreachable"))))
+        tasks.append(box[0])
+
+    return mac_storekit.install(exchange=exchange_and_cache, run=run,
+                                emit=storekit_events().finished.emit)
+
+
 def wire_quick_menu(source, conn, *, parent=None, on_subscribe=None) -> None:
     """Give a ⋯ menu somewhere to send its three requests.
 
@@ -1899,6 +1937,8 @@ def _launch_onboarding(app, conn) -> int:
     from app.onboarding.extract import extract_corpus
     from app.ui.onboarding import OnboardingWizard
 
+    start_storekit()
+
     def extract(paths):
         result = extract_corpus(list(paths))
         return [d.name for d in result.corpus.documents], result.warnings
@@ -2195,6 +2235,8 @@ def _launch_ui(conn, *, open_board: bool) -> int:
 
     if not is_calibrated(conn) and not open_board:
         return _launch_onboarding(app, conn)
+
+    start_storekit()
 
     if open_board:
         window = BoardWindow()

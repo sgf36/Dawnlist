@@ -23,7 +23,7 @@ Three decisions about handling the key:
 """
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (QComboBox, QFrame, QGridLayout, QHBoxLayout,
                                QLabel,
@@ -851,6 +851,27 @@ class AdminPanel(QWidget):
         self.result.setText(tr("settings.admin_revoked", code=code))
 
 
+class StoreKitEvents(QObject):
+    """Where the one transaction observer reports, for whichever panel is open.
+
+    A SIGNAL, not a callback handed to StoreKit by the panel that pressed the
+    button. That panel may be closed by the time Apple answers, and a
+    transaction Apple redelivers at launch has no panel at all.
+    """
+
+    finished = Signal(object)
+
+
+_STOREKIT_EVENTS: StoreKitEvents | None = None
+
+
+def storekit_events() -> StoreKitEvents:
+    global _STOREKIT_EVENTS
+    if _STOREKIT_EVENTS is None:
+        _STOREKIT_EVENTS = StoreKitEvents()
+    return _STOREKIT_EVENTS
+
+
 class SubscribePanel(QWidget):
     """Buy the subscription, on a Mac App Store build.
 
@@ -878,13 +899,14 @@ class SubscribePanel(QWidget):
     entitlement_changed = Signal(bool)
 
     def __init__(self, *, storekit=None, redeemer=None, storer=None,
-                 parent=None):
+                 events=None, parent=None):
         super().__init__(parent)
         from app.core import mac_storekit
 
         self._redeemer = redeemer
         self._storer = storer
         self._sk = storekit or mac_storekit
+        (events or storekit_events()).finished.connect(self._finished)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -1035,6 +1057,15 @@ class SubscribePanel(QWidget):
             # their mind, which is a normal thing to do in a payment sheet.
             self.result.setText("")
             return
+        if result.outcome is Outcome.IN_PROGRESS:
+            # A second press while Apple's queue still holds the first. Adding
+            # another payment would stack purchase sheets; saying nothing new
+            # is the honest answer.
+            self.result.setText(tr("settings.subscribe_working"))
+            return
+        if result.outcome is Outcome.DEFERRED:
+            self.result.setText(tr("settings.subscribe_deferred"))
+            return
         self.result.setText(result.detail or tr("settings.subscribe_unavailable"))
 
     #: How long to wait before saying something, in milliseconds. Not a
@@ -1045,11 +1076,28 @@ class SubscribePanel(QWidget):
 
     def _purchase(self) -> None:
         self._busy(True)
-        self._sk.purchase(self._finished)
+        sk = self._sk
+        if sk.has_product():
+            self._start_purchase()
+            return
+        # FETCHED OFF THE UI THREAD, then bought from the answer on it. The
+        # fetch waits for a delegate that fires on the main run loop, so doing
+        # it here waited for itself for thirty seconds and then failed.
+        self._product_task = run_in_background(
+            sk.load_product,
+            on_done=lambda _product: self._start_purchase(),
+            on_error=lambda _exc: self._start_purchase())
+
+    def _start_purchase(self) -> None:
+        started = self._sk.purchase()
+        if started is not None:
+            self._finished(started)
 
     def _restore(self) -> None:
         self._busy(True)
-        self._sk.restore(self._finished)
+        started = self._sk.restore()
+        if started is not None:
+            self._finished(started)
 
     def _start_waiting(self) -> None:
         """Arm the "still waiting" message.

@@ -102,5 +102,8 @@
   "entitlement.mac_lapsed": "Mac App Store only. Apple has said the subscription is NOT active - this is a definite answer, not a connection problem. 'Restore purchase' is the name of a button in Settings: use exactly the wording you used for settings.subscribe_restore.",
   "entitlement.mac_not_subscribed": "Mac App Store only. Nothing has been bought or restored on this Mac yet. 'Restore purchase' is a button name - use exactly the wording of settings.subscribe_restore.",
   "entitlement.mac_unreachable": "Mac App Store only. The app could not ask whether the subscription is active - a connection problem, NOT a refusal. Keep 'nothing has been cancelled' explicit; it is the reassurance.",
+  "settings.subscribe_deferred": "Mac App Store only. 'Ask to Buy' is Apple's name for the Family Sharing feature where a family organiser approves purchases - use Apple's own name for it in this language. The purchase is NOT refused; it is waiting.",
+  "storekit.unconfirmed": "Mac App Store only. Apple has taken the purchase; only the app's confirmation is delayed. Must not read as a failed payment or a refusal. 'Charged twice' means billed a second time.",
+  "storekit.nothing_to_restore": "Shown after pressing 'Restore purchase' when the Apple account holds no Dawnlist subscription. A plain statement, not an error.",
   "update.body":"Explains where the update comes from. 'checksum' is the published SHA-256 hash beside the download, used to verify the file. Keep it as the technical term your market uses; do not soften it to 'code' or 'signature'."
 }
