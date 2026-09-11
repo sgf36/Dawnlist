@@ -342,8 +342,9 @@ async function routeAdmin(request, env, auth, path, audit) {
 
   // --- issue a code ------------------------------------------------------
   if (path === '/admin/codes' && request.method === 'POST') {
-    let body;
-    try { body = await request.json(); } catch { return json({ error: 'bad_json' }, 400); }
+    const parsed = await parseJsonObject(request);
+    if (!parsed.ok) return json({ error: parsed.error, message: parsed.message }, 400);
+    const body = parsed.body;
 
     const role = ROLES.includes(body.role) ? body.role : 'byo';
     // Which plan the code grants. Defaults to `trial` DELIBERATELY: the usual
@@ -393,8 +394,9 @@ async function routeAdmin(request, env, auth, path, audit) {
 
   // --- withdraw a code ---------------------------------------------------
   if (path === '/admin/revoke' && request.method === 'POST') {
-    let body;
-    try { body = await request.json(); } catch { return json({ error: 'bad_json' }, 400); }
+    const parsed = await parseJsonObject(request);
+    if (!parsed.ok) return json({ error: parsed.error, message: parsed.message }, 400);
+    const body = parsed.body;
     const target = normalise(body.code);
     if (!target) return json({ error: 'no_code' }, 400);
 
@@ -533,8 +535,9 @@ async function routeAdmin(request, env, auth, path, audit) {
   // client — which is slower, less consistent, and puts the key through a
   // second system.
   if (path === '/admin/resend' && request.method === 'POST') {
-    let body;
-    try { body = await request.json(); } catch { return json({ error: 'bad_json' }, 400); }
+    const parsed = await parseJsonObject(request);
+    if (!parsed.ok) return json({ error: parsed.error, message: parsed.message }, 400);
+    const body = parsed.body;
 
     const target = (body.licence_key || '').trim();
     const to = (body.to || '').trim();

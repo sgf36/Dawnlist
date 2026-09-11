@@ -246,5 +246,32 @@ await test('a result cut short by one licence\'s allowance is not cached', async
   assert.equal(calls.search.length, 2);
 });
 
+await test('a result narrowed by the user\'s held postings is not cached', async () => {
+  makeCaches();
+  const calls = stubUpstream({ available: 3 });
+  await worker.fetch(req({ titles: ['a'], countries: ['GB'], excludeJobIds: ['j0'] }),
+    { DB: makeDB() }, ctx);
+  await settle();
+  const res = await worker.fetch(req({ titles: ['a'], countries: ['GB'] }),
+    { DB: makeDB() }, ctx);
+  const out = await res.json();
+  assert.equal(out.cached, false,
+    'the second user was not served a result with the first user\'s postings missing');
+  assert.equal(calls.search.length, 2);
+});
+
+await test('a search that would fan out into hundreds of place lookups is refused',
+  async () => {
+    makeCaches();
+    const calls = stubUpstream({ available: 3 });
+    const countries = Array.from({ length: 25 }, (_, i) => `C${i}`);
+    const res = await worker.fetch(
+      req({ titles: ['a'], countries, cities: ['Nowhere'] }), { DB: makeDB() }, ctx);
+    assert.equal(res.status, 400);
+    assert.equal((await res.json()).error, 'too_many_place_lookups');
+    assert.equal(calls.places.length, 20, 'it stopped at the budget, not at 25');
+    assert.equal(calls.search.length, 0, 'and nothing was fetched or billed');
+  });
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

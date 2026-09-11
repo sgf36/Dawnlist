@@ -495,7 +495,15 @@ function pickPlace(rows, name) {
     .sort((a, b) => rank(a.feature_code) - rank(b.feature_code))[0] || null;
 }
 
-async function resolvePlace(env, name, countries) {
+// A name the cache has not seen is looked up once per listed country, so 20
+// cities across 250 countries is 5,000 upstream calls from one request — past
+// Cloudflare's per-request limit and well past TheirStack's 50 an hour, which
+// would then refuse everybody's searches for the rest of the hour. Counted
+// against FETCHES, not places, so a search whose places are all cached is free
+// however many it names.
+const MAX_PLACE_LOOKUPS = 20;
+
+async function resolvePlace(env, name, countries, budget) {
   const cache = caches.default;
   const key = new Request('https://cache.dawnlist.internal/place?n='
     + encodeURIComponent(name.trim().toLowerCase())
@@ -504,6 +512,12 @@ async function resolvePlace(env, name, countries) {
   if (hit) return (await hit.json()).id;
 
   for (const country of countries.length ? countries : [null]) {
+    if (budget.spent >= MAX_PLACE_LOOKUPS) {
+      throw new HttpError(400, 'too_many_place_lookups',
+        'This search names too many places across too many countries to look up. '
+        + 'Name fewer places, or fewer countries.');
+    }
+    budget.spent += 1;
     const url = new URL('https://api.theirstack.com/v0/catalog/locations');
     url.searchParams.set('name', name.trim());
     url.searchParams.set('limit', '25');
@@ -532,8 +546,9 @@ async function resolvePlace(env, name, countries) {
 
 async function resolvePlaces(env, names, countries) {
   const ids = [];
+  const budget = { spent: 0 };
   for (const name of names) {
-    const id = await resolvePlace(env, name, countries);
+    const id = await resolvePlace(env, name, countries, budget);
     if (id === null) {
       // Refused, never widened. Dropping the place would search the whole
       // country, and the user would pay for postings they had ruled out.
@@ -665,7 +680,13 @@ async function deliverSearch(env, ctx, query, caps) {
   // served the short list as if it were everything.
   const cutByCap = jobs.length >= caps.headroom
     && !(typeof total === 'number' && total <= jobs.length);
-  if (!cutByCap) {
+  // Nor when THIS user's held ids narrowed the fetch. `job_id_not` keeps those
+  // postings out of the upstream answer, so the result is complete only for the
+  // user who asked. Cached, it would reach the next user as a full result with
+  // somebody else's postings silently missing — postings they would then never
+  // be shown. Day-one searches still fill the cache; they hold nothing yet.
+  const cutByHeld = (query.excludeJobIds?.length || 0) > 0;
+  if (!cutByCap && !cutByHeld) {
     ctx.waitUntil(cache.put(cacheKey, new Response(JSON.stringify({ jobs, total }), {
       headers: { 'cache-control': `max-age=${SEARCH_TTL_SECONDS}`,
                  'content-type': 'application/json' },

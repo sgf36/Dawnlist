@@ -238,5 +238,31 @@ await test('a failed send is a 502 carrying the reason', async () => {
   assert.ok((await res.json()).detail.includes('domain not verified'));
 });
 
+// A 500 is indistinguishable, from the app's side, from the Worker being down,
+// so a malformed admin request must answer for itself.
+await test('an admin POST whose body is not an object is a 400, not a crash', async () => {
+  const db = makeDB();
+  const licence = await seedAdmin(db);
+  for (const path of ['/admin/codes', '/admin/revoke', '/admin/resend']) {
+    for (const body of [null, [1, 2], 7, 'text']) {
+      const res = await handleAdmin(post(path, body, licence), { DB: db });
+      assert.equal(res.status, 400, `${path} with ${JSON.stringify(body)}`);
+      assert.equal((await res.json()).error, 'invalid_body');
+    }
+  }
+});
+
+await test('an admin POST whose body is not JSON says so', async () => {
+  const db = makeDB();
+  const licence = await seedAdmin(db);
+  const res = await handleAdmin(new Request('https://x/admin/codes', {
+    method: 'POST',
+    body: '{ not json',
+    headers: { 'cf-connecting-ip': '1.2.3.4', authorization: `Bearer ${licence}` },
+  }), { DB: db });
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).error, 'bad_json');
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
