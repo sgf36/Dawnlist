@@ -22,7 +22,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Sequence
+from typing import Any, Callable, Iterable, Sequence
 
 from app.feed.models import Job
 from app.intelligence.prompts import (FIRST_PASS_CHARS, VERDICT_SCHEMA,
@@ -262,16 +262,22 @@ def parse_verdicts(payload: Any, jobs_by_ref: dict[str, Job],
 def assess(jobs: list[Job], fit_brief: str, factsheet: str, *,
            send,
            already_judged: set[str] | None = None,
-           model: str = ASSESSMENT_MODEL) -> AssessmentReport:
+           model: str = ASSESSMENT_MODEL,
+           on_batch: Callable[[list[Verdict]], None] | None = None,
+           ) -> AssessmentReport:
     """Assess every job in `jobs`. Resumable, and honest about what it missed.
 
     `send(request) -> payload` is injected so the caller owns transport: a live
     Anthropic client, the Batch API, or a stub in tests. Nothing here spends
     money by itself.
 
-    `already_judged` carries provider_job_ids from a crashed run's scratch
-    state; those are skipped, which is what halves the cost of a bad day
-    (spec 7.7).
+    `already_judged` carries provider_job_ids already assessed; those are
+    skipped, which is what halves the cost of a bad day (spec 7.7).
+
+    `on_batch(verdicts)` is called as each batch's verdicts arrive, and again
+    with any verdict the full re-read replaced. The report exists only in
+    memory until the run ends, so without it an interrupted run lost every
+    verdict it had already paid for.
     """
     already_judged = already_judged or set()
     todo = [j for j in jobs if j.provider_job_id not in already_judged]
@@ -293,17 +299,21 @@ def assess(jobs: list[Job], fit_brief: str, factsheet: str, *,
             v.full_read = read_whole_on_first_pass(v.job)
         report.verdicts.extend(verdicts)
         report.errors.extend(errs)
+        if on_batch and verdicts:
+            on_batch(verdicts)
 
         judged = {v.job.provider_job_id for v in verdicts}
         missing = [j for j in chunk if j.provider_job_id not in judged]
         report.unread.extend(missing)
 
-    _second_pass(report, fit_brief, factsheet, send=send, model=model)
+    _second_pass(report, fit_brief, factsheet, send=send, model=model,
+                 on_batch=on_batch)
     return report
 
 
 def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
-                 send, model: str) -> None:
+                 send, model: str,
+                 on_batch: Callable[[list[Verdict]], None] | None = None) -> None:
     """spec 7.6 — re-read in full any verdict formed on a cut-off description.
 
     The first pass reads a description whole up to FIRST_PASS_CHARS, which is
@@ -348,11 +358,13 @@ def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
             {ref: render_job(j, full=True) for ref, j in chunk_refs.items()})
         report.errors.extend(errs)
 
+        replaced: list[Verdict] = []
         for fresh in rereads:
             ref = fresh.job.provider_job_id
             original = by_ref.get(ref)
             if original is None:
                 continue
+            replaced.append(fresh)
             fresh.full_read = True
             # A re-read that CHANGES the verdict is the whole point, and the
             # change is surfaced rather than quietly applied: the first answer
@@ -364,6 +376,8 @@ def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
                     "re-read in full: the complete description changed the "
                     f"verdict from {original.bucket}")
             report.verdicts[report.verdicts.index(original)] = fresh
+        if on_batch and replaced:
+            on_batch(replaced)
 
 
 def merge_batch_results(results: Iterable[Any],

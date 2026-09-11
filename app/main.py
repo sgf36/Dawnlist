@@ -1193,23 +1193,25 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
         *scope_gates(enabled_scopes(conn)),
     ]
 
+    from app.core.pipeline import judged_refs
+
+    # `run_morning` stores what it fetched and screened before any model call,
+    # stores verdicts batch by batch, and advances each search's mark once its
+    # postings are stored — so an interrupted run has lost nothing it paid
+    # for. Postings already judged are skipped, rather than paying the model
+    # to read them twice.
     outcome = run_morning(
         conn, provider or build_provider(conn), queries, load_rules(conn),
         fit_brief=brief, factsheet=factsheet,
         send=send or build_send(conn), gates=gates, already_seen=seen,
+        already_judged=judged_refs(conn),
     )
-    persist(conn, outcome)
 
     # `seen_jobs` is a rolling window, not a permanent record — rejections live
     # in `decisions`, which never expires. Nothing pruned it, so the table grew
     # for the life of the install and every run rebuilt a larger and larger
     # already-seen set to compare against.
     db.prune_seen(conn)
-
-    # After `persist`, so a window is only marked read once what it returned is
-    # stored. Each query advances on its own fetch: a failed one keeps its
-    # mark, because advancing it would skip the window it never read.
-    mark_queries_run(conn, outcome.marks)
     return outcome
 
 

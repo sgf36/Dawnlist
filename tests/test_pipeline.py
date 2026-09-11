@@ -363,3 +363,87 @@ def test_fed_postings_keep_their_salary_date_place_and_tags(conn):
     assert row["posted_at"] == "2026-09-01"
     assert json.loads(row["locations_json"]) == ["London", "Greater London"]
     assert json.loads(row["raw_criteria_json"])["country_codes"] == ["GB"]
+
+
+# ---------------------------------------------------------------------------
+# An interrupted run keeps what it paid for, and resumes without paying again
+# ---------------------------------------------------------------------------
+
+def _thirty():
+    """Two batches' worth, so a run can be stopped between them."""
+    return [job(f"s{i}") for i in range(30)]
+
+
+def _interrupted_on_the_second_batch(conn):
+    calls = []
+
+    def send(request):
+        calls.append(request)
+        if len(calls) == 2:
+            raise KeyboardInterrupt            # the user closed the app
+        return strong_send(request)
+
+    with pytest.raises(KeyboardInterrupt):
+        run_morning(conn, StubProvider({"strategy": ok(_thirty())}), [Q], RULES,
+                    fit_brief="b", factsheet="f", send=send)
+
+
+def test_an_interrupted_run_has_already_stored_what_it_paid_for(conn):
+    """Nothing was written until `persist` ran after the whole run returned, so
+    a run stopped during assessment kept no posting it had bought and no
+    verdict the model had been paid for."""
+    _interrupted_on_the_second_batch(conn)
+
+    def count(sql):
+        return conn.execute(sql).fetchone()[0]
+
+    assert count("SELECT COUNT(*) FROM jobs") == 30
+    assert count("SELECT COUNT(*) FROM assessments") == 25
+    # Positive control: the batch that never came back has nothing invented.
+    assert count("SELECT COUNT(*) FROM assessments a JOIN jobs j ON j.id = a.job_id"
+                 " WHERE j.provider_job_id IN ('s25','s26','s27','s28','s29')") == 0
+
+
+def test_a_resumed_run_does_not_pay_the_model_twice(conn):
+    import re
+
+    from app.core.pipeline import judged_refs
+
+    _interrupted_on_the_second_batch(conn)
+
+    sent = []
+
+    def records(request):
+        sent.append(request)
+        return strong_send(request)
+
+    run_morning(conn, StubProvider({"strategy": ok(_thirty())}), [Q], RULES,
+                fit_brief="b", factsheet="f", send=records,
+                already_judged=judged_refs(conn))
+    refs = re.findall(r'ref="([^"]+)"',
+                      "".join(r["messages"][0]["content"] for r in sent))
+    assert sorted(refs) == ["s25", "s26", "s27", "s28", "s29"]
+
+
+def test_a_re_read_that_changes_the_verdict_replaces_the_stored_one(conn):
+    """Verdicts are now stored as each batch arrives, so the full re-read's
+    answer has to overwrite the first one, not be dropped as a duplicate."""
+    from app.intelligence.prompts import FIRST_PASS_CHARS
+
+    long_desc = "A strategy role. " + "x" * (FIRST_PASS_CHARS + 500)
+    calls = []
+
+    def send(request):
+        calls.append(request)
+        import re
+        ref = re.findall(r'ref="([^"]+)"', request["messages"][0]["content"])[0]
+        return {"verdicts": [{"job_ref": ref,
+                              "bucket": "strong" if len(calls) == 1 else "possible",
+                              "reason": "read", "disqualifying_quote": None,
+                              "requirement_checked": True}]}
+
+    run_morning(conn, StubProvider({"strategy": ok([job("long", desc=long_desc)])}),
+                [Q], RULES, fit_brief="b", factsheet="f", send=send)
+    row = conn.execute("SELECT bucket, full_read FROM assessments").fetchone()
+    assert len(calls) == 2, "positive control: the re-read happened"
+    assert row["bucket"] == "possible" and row["full_read"] == 1

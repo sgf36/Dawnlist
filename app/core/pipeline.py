@@ -223,6 +223,14 @@ def run_morning(
         run.record_counts(screened_likely=len(likely),
                           screened_out=len(outcome.screen.unlikely))
 
+        # Stored BEFORE any model call. Nothing used to be written until
+        # `persist` ran after the whole run returned, so a run stopped during
+        # assessment kept none of the postings it had bought. The marks move
+        # only once the postings their windows returned are on disk.
+        persist_screen(conn, run.id, outcome.screen.results)
+        persist_near_duplicates(conn, outcome.deduped)
+        db.advance_query_marks(conn, outcome.marks)
+
         # Per-query yield, measured on what each query actually contributed.
         #
         # A query whose fetch FAILED is excluded entirely rather than scored on
@@ -241,8 +249,10 @@ def run_morning(
             outcome.per_query_yield[label] = yield_rate(len(jobs), hits)
 
         # --- assessment ----------------------------------------------------
-        outcome.assessment = assess(likely, fit_brief, factsheet, send=send,
-                                    already_judged=already_judged)
+        outcome.assessment = assess(
+            likely, fit_brief, factsheet, send=send,
+            already_judged=already_judged,
+            on_batch=lambda verdicts: persist_verdicts(conn, run.id, verdicts))
         run.record_counts(assessed=len(outcome.assessment.verdicts))
 
         # --- close it honestly ---------------------------------------------
@@ -263,73 +273,105 @@ def run_morning(
 
 
 def persist(conn: sqlite3.Connection, outcome: RunOutcome) -> None:
-    """Write the run's jobs and verdicts. Screened-out rows are kept."""
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    """Write the run's jobs and verdicts. Screened-out rows are kept.
+
+    `run_morning` now writes each part as it happens. This writes them all
+    again, and harmlessly, for a caller holding an outcome of its own.
+    """
     if outcome.screen:
-        for result in outcome.screen.results:
-            j = result.job
-            # Salary, posted date, place and the feed's tags were written for
-            # a PASTED posting only. A fed one read back from its row had none
-            # of them, so anything rebuilt from the database showed the model
-            # "not stated" for fields the feed did state — and those are the
-            # fields a brief's hard constraints are written in.
-            #
-            # On a later write of the same posting a value is updated, never
-            # blanked: an emptier copy (a cached row, an alert email) must not
-            # erase what an earlier, fuller one recorded.
-            conn.execute(
-                """INSERT INTO jobs(provider, provider_job_id, title, company,
-                       locations_json, description_text, posted_at, salary, url,
-                       raw_criteria_json, name_key, first_seen_run,
-                       funnel_status, screen_verdict, screen_tier, screen_reason)
-                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                   ON CONFLICT(provider, provider_job_id) DO UPDATE SET
-                       locations_json=CASE WHEN excluded.locations_json <> '[]'
-                           THEN excluded.locations_json ELSE jobs.locations_json END,
-                       posted_at=COALESCE(excluded.posted_at, jobs.posted_at),
-                       salary=COALESCE(excluded.salary, jobs.salary),
-                       raw_criteria_json=CASE WHEN excluded.raw_criteria_json <> '{}'
-                           THEN excluded.raw_criteria_json ELSE jobs.raw_criteria_json END,
-                       screen_verdict=excluded.screen_verdict,
-                       screen_tier=excluded.screen_tier,
-                       screen_reason=excluded.screen_reason""",
-                (j.provider, j.provider_job_id, j.title, j.company,
-                 json.dumps(list(j.locations)), j.description_text,
-                 j.posted_at.isoformat() if j.posted_at else None, j.salary,
-                 j.url, json.dumps(j.raw_criteria or {}, default=str),
-                 name_key(j.company, j.title), outcome.run_id, "screened",
-                 result.verdict.value, result.tier.value, result.reason))
-            conn.execute(
-                "INSERT INTO seen_jobs(provider, provider_job_id, seen_at) "
-                "VALUES(?,?,?) ON CONFLICT DO NOTHING",
-                (j.provider, j.provider_job_id, now))
-
+        persist_screen(conn, outcome.run_id, outcome.screen.results)
     if outcome.assessment:
-        for v in outcome.assessment.verdicts:
-            row = conn.execute(
-                "SELECT id FROM jobs WHERE provider=? AND provider_job_id=?",
-                (v.job.provider, v.job.provider_job_id)).fetchone()
-            if row is None:
-                continue
-            reason = v.reason
-            if v.downgrade_reason:
-                reason = f"{reason} [downgraded: {v.downgrade_reason}]"
-            conn.execute(
-                """INSERT INTO assessments(job_id, run_id, bucket, reason,
-                       disqualifying_quote, requirement_checked, full_read,
-                       model, created_at)
-                   VALUES(?,?,?,?,?,?,?,?,?)
-                   ON CONFLICT(job_id, run_id) DO NOTHING""",
-                (row["id"], outcome.run_id, v.bucket, reason,
-                 v.disqualifying_quote, int(v.requirement_checked),
-                 int(v.full_read), "", now))
+        persist_verdicts(conn, outcome.run_id, outcome.assessment.verdicts)
+    persist_near_duplicates(conn, outcome.deduped)
 
+
+def persist_screen(conn: sqlite3.Connection, run_id: int, results) -> None:
+    """Every screened posting, both piles, with why it landed where it did."""
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    for result in results:
+        j = result.job
+        # Salary, posted date, place and the feed's tags were written for a
+        # PASTED posting only. A fed one read back from its row had none of
+        # them, so anything rebuilt from the database showed the model "not
+        # stated" for fields the feed did state — and those are the fields a
+        # brief's hard constraints are written in.
+        #
+        # On a later write of the same posting a value is updated, never
+        # blanked: an emptier copy (a cached row, an alert email) must not
+        # erase what an earlier, fuller one recorded.
+        conn.execute(
+            """INSERT INTO jobs(provider, provider_job_id, title, company,
+                   locations_json, description_text, posted_at, salary, url,
+                   raw_criteria_json, name_key, first_seen_run,
+                   funnel_status, screen_verdict, screen_tier, screen_reason)
+               VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(provider, provider_job_id) DO UPDATE SET
+                   locations_json=CASE WHEN excluded.locations_json <> '[]'
+                       THEN excluded.locations_json ELSE jobs.locations_json END,
+                   posted_at=COALESCE(excluded.posted_at, jobs.posted_at),
+                   salary=COALESCE(excluded.salary, jobs.salary),
+                   raw_criteria_json=CASE WHEN excluded.raw_criteria_json <> '{}'
+                       THEN excluded.raw_criteria_json ELSE jobs.raw_criteria_json END,
+                   screen_verdict=excluded.screen_verdict,
+                   screen_tier=excluded.screen_tier,
+                   screen_reason=excluded.screen_reason""",
+            (j.provider, j.provider_job_id, j.title, j.company,
+             json.dumps(list(j.locations)), j.description_text,
+             j.posted_at.isoformat() if j.posted_at else None, j.salary,
+             j.url, json.dumps(j.raw_criteria or {}, default=str),
+             name_key(j.company, j.title), run_id, "screened",
+             result.verdict.value, result.tier.value, result.reason))
+        conn.execute(
+            "INSERT INTO seen_jobs(provider, provider_job_id, seen_at) "
+            "VALUES(?,?,?) ON CONFLICT DO NOTHING",
+            (j.provider, j.provider_job_id, now))
+    conn.commit()
+
+
+def persist_verdicts(conn: sqlite3.Connection, run_id: int, verdicts) -> None:
+    """This run's verdicts, as they arrive.
+
+    A second verdict for the same posting in the same run REPLACES the first.
+    Verdicts are written batch by batch, so the full re-read's answer lands
+    after the first pass's has been stored — and keeping the first would keep
+    the answer formed on the cut-off text.
+    """
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    for v in verdicts:
+        row = conn.execute(
+            "SELECT id FROM jobs WHERE provider=? AND provider_job_id=?",
+            (v.job.provider, v.job.provider_job_id)).fetchone()
+        if row is None:
+            continue
+        reason = v.reason
+        if v.downgrade_reason:
+            reason = f"{reason} [downgraded: {v.downgrade_reason}]"
+        conn.execute(
+            """INSERT INTO assessments(job_id, run_id, bucket, reason,
+                   disqualifying_quote, requirement_checked, full_read,
+                   model, created_at)
+               VALUES(?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(job_id, run_id) DO UPDATE SET
+                   bucket=excluded.bucket,
+                   reason=excluded.reason,
+                   disqualifying_quote=excluded.disqualifying_quote,
+                   requirement_checked=excluded.requirement_checked,
+                   full_read=excluded.full_read,
+                   model=excluded.model""",
+            (row["id"], run_id, v.bucket, reason,
+             v.disqualifying_quote, int(v.requirement_checked),
+             int(v.full_read), "", now))
+    conn.commit()
+
+def persist_near_duplicates(conn: sqlite3.Connection,
+                            deduped: DedupResult | None) -> None:
     # Near-duplicates are FLAGGED, never merged (spec 6.6) — and a flag that is
     # computed and then dropped is not a flag. `dedup` has always found these;
-    # nothing ever wrote them down, so nothing could show them. Written last
-    # because both jobs have to be stored before they can be referenced.
-    if outcome.deduped:
-        for nd in outcome.deduped.near_duplicates:
+    # nothing ever wrote them down, so nothing could show them. Written after
+    # the screen because both jobs have to be stored before they can be
+    # referenced.
+    if deduped:
+        for nd in deduped.near_duplicates:
             rows = [conn.execute(
                 "SELECT id FROM jobs WHERE provider=? AND provider_job_id=?",
                 (j.provider, j.provider_job_id)).fetchone()
@@ -342,3 +384,15 @@ def persist(conn: sqlite3.Connection, outcome: RunOutcome) -> None:
                 "INSERT INTO near_duplicates(job_id, other_id, reason) "
                 "VALUES(?,?,?) ON CONFLICT DO NOTHING", (a, b, nd.reason))
     conn.commit()
+
+
+def judged_refs(conn: sqlite3.Connection) -> set[str]:
+    """Every posting already assessed, keyed as `assess` skips them.
+
+    Read from the stored verdicts rather than kept in memory, so it survives
+    the run that produced them: a run resumed after an interruption skips what
+    the interrupted one had already paid the model to read.
+    """
+    return {r["provider_job_id"] for r in conn.execute(
+        "SELECT DISTINCT j.provider_job_id FROM assessments a "
+        "JOIN jobs j ON j.id = a.job_id")}
