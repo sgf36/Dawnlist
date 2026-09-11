@@ -780,11 +780,10 @@ async function handlePlan(request, env) {
       postings: Math.max(0, maxPostings - used.postings),
       refreshes: Math.max(0, maxRefresh - used.refreshes),
     },
-    // SELLABLE plans only. This list is rendered as an upgrade ladder, and it
-    // used to be every plan — so a customer could be offered `trial`, and
-    // adding the developer's own `owner` plan would have advertised an
-    // allowance nobody can buy.
-    plans: sellablePlans().map((pl) => ({
+    // Plans with a price configured HERE only. This list is rendered as an
+    // upgrade ladder: it once offered `trial`, and then offered Global while no
+    // Global price existed, so the app advertised an upgrade no checkout sold.
+    plans: sellablePlans(env).map((pl) => ({
       key: pl.key,
       postings_per_day: pl.maxPostingsPerDay,
       refreshes_per_day: pl.maxRefreshesPerDay,

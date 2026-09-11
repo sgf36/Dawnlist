@@ -37,12 +37,16 @@
  * plans. The refresh and saved-query numbers are anti-abuse limits, not the
  * thing being sold, and they move together.
  *
- * `sellable` decides whether a plan appears in the ladder `/v1/plan` returns —
- * which is what the app renders as "the Global plan covers 2,500 a day". A
- * plan nobody can buy must never appear there: offering someone an upgrade to
- * `trial`, or to the developer's own allowance, is at best confusing and at
- * worst a support ticket about a plan that does not exist. Absent means false,
- * so a new internal plan is excluded by default rather than by remembering.
+ * `priceEnv` names the variable holding the plan's Paddle price ids, and a
+ * price being configured there is what puts the plan in the ladder `/v1/plan`
+ * returns — which the app renders as "the Global plan covers 2,500 a day". A
+ * plan nobody can buy must never appear there. This used to be a hand-set
+ * `sellable: true`, and Global carried it while PADDLE_PRICE_GLOBAL was
+ * deliberately unset, so the app offered an upgrade that no checkout could
+ * sell. Deriving it from the configured price means the ladder and the
+ * checkout cannot disagree. A plan with no `priceEnv` (trial, owner) is never
+ * offered, so a new internal plan is excluded by default rather than by
+ * remembering.
  */
 export const PLANS = {
   /**
@@ -54,7 +58,7 @@ export const PLANS = {
    */
   standard: {
     key: 'standard',
-    sellable: true,
+    priceEnv: 'PADDLE_PRICE_STANDARD',
     maxPostingsPerDay: 700,
     maxRefreshesPerDay: 3,
     maxSavedQueries: 10,
@@ -77,7 +81,7 @@ export const PLANS = {
    */
   global: {
     key: 'global',
-    sellable: true,
+    priceEnv: 'PADDLE_PRICE_GLOBAL',
     maxPostingsPerDay: 2500,
     maxRefreshesPerDay: 6,
     maxSavedQueries: 30,
@@ -131,16 +135,21 @@ export const PLANS = {
   },
 };
 
+/** The price ids configured for one plan in this environment. */
+function priceIds(env, name) {
+  return String(env?.[name] || '').split(',').map((s) => s.trim()).filter(Boolean);
+}
+
 /**
- * The plans a customer may actually buy, smallest first.
+ * The plans a customer can buy IN THIS ENVIRONMENT, smallest first.
  *
- * This is what the app renders as an upgrade ladder. `trial` and `owner` are
- * absent deliberately: neither can be bought, and an upgrade prompt naming
- * one is a support ticket.
+ * This is what the app renders as an upgrade ladder, so it takes `env`: a plan
+ * is only purchasable where a price exists for it, and sandbox and production
+ * configure different ones.
  */
-export function sellablePlans() {
+export function sellablePlans(env = {}) {
   return Object.values(PLANS)
-    .filter((p) => p.sellable)
+    .filter((p) => p.priceEnv && priceIds(env, p.priceEnv).length > 0)
     .sort((a, b) => a.maxPostingsPerDay - b.maxPostingsPerDay);
 }
 
@@ -160,14 +169,8 @@ export const FALLBACK_PLAN = 'standard';
  */
 export function planForPriceId(env, priceId) {
   if (!priceId) return null;
-  const table = {
-    standard: env.PADDLE_PRICE_STANDARD,
-    global: env.PADDLE_PRICE_GLOBAL,
-  };
-  for (const [plan, configured] of Object.entries(table)) {
-    if (!configured) continue;
-    const ids = String(configured).split(',').map((s) => s.trim()).filter(Boolean);
-    if (ids.includes(priceId)) return plan;
+  for (const plan of Object.values(PLANS)) {
+    if (plan.priceEnv && priceIds(env, plan.priceEnv).includes(priceId)) return plan.key;
   }
   return null;
 }
