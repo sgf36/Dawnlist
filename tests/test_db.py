@@ -350,3 +350,17 @@ def test_old_undecided_descriptions_are_cleared_and_everything_else_kept(conn):
     for kept in ("recent", "old-decided", "old-on-board", "pasted"):
         assert rows[kept]["description_text"] == "The full text."
         assert rows[kept]["description_pruned_at"] is None
+
+
+def test_an_installed_database_gains_the_model_calls_table(tmp_path):
+    """Usage has somewhere to go on an install that predates it."""
+    c = _version_one(tmp_path / "old.sqlite3")
+
+    def tables():
+        return {r[0] for r in c.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
+
+    assert "model_calls" not in tables(), "positive control"
+    db.migrate(c)
+    assert "model_calls" in tables()
+    c.close()

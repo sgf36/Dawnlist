@@ -130,6 +130,19 @@ def system_prefix(fit_brief: str, factsheet: str) -> list[dict]:
     worked. It travels to the user's OWN Anthropic account, on their own key,
     because Dawnlist is bring-your-own-key and no career data crosses Spencer's
     infrastructure at all.
+
+    WHETHER IT CACHES IS NOT UP TO THIS FUNCTION. The assessment model
+    (claude-haiku-4-5) caches a prefix only from 4,096 tokens, and below that
+    the marker is ignored without any error. The rules alone are well under
+    that, so a short brief and factsheet are sent at full price on every
+    request. Nothing is restructured to reach the minimum: the breakpoint
+    already follows the two documents, so the prefix caches as soon as they
+    are long enough, and padding it would only pay to write tokens that decide
+    nothing. Once it does cache, the first request of a run pays a premium to
+    write it and every later one within the cache's lifetime reads it cheaply,
+    so a run of one batch gains nothing. Whether it cached is read from each
+    request's recorded usage (`model_calls`,
+    `AssessmentReport.cached_prefix_tokens`), never assumed from the marker.
     """
     return [
         {"type": "text", "text": ASSESSMENT_RULES},

@@ -523,3 +523,24 @@ def test_each_stored_verdict_names_the_model_that_gave_it(conn):
     persist_verdicts(conn, out.run_id, report.verdicts)
     assert conn.execute("SELECT model FROM assessments").fetchone()["model"] \
         == "claude-other"
+
+
+def test_a_runs_model_calls_are_stored_with_their_usage(conn):
+    """The tokens a run spent on the user's key were never written anywhere."""
+    import json
+
+    from app.intelligence.assess import ModelReply
+
+    def send(request):
+        return ModelReply(text=json.dumps(strong_send(request)),
+                          stop_reason="end_turn", model="claude-haiku-4-5",
+                          input_tokens=3000, output_tokens=120,
+                          cache_read_tokens=0, cache_write_tokens=4100)
+
+    out = run_morning(conn, StubProvider({"strategy": ok(_thirty())}), [Q],
+                      RULES, fit_brief="b", factsheet="f", send=send)
+    rows = conn.execute("SELECT run_id, model, input_tokens, output_tokens, "
+                        "cache_write_tokens FROM model_calls").fetchall()
+    assert len(rows) == 2, "one row per request: thirty postings, two batches"
+    assert all(r["run_id"] == out.run_id and r["input_tokens"] == 3000
+               and r["cache_write_tokens"] == 4100 for r in rows)

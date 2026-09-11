@@ -266,7 +266,8 @@ def run_morning(
         outcome.assessment = assess(
             likely, fit_brief, factsheet, send=send,
             already_judged=already_judged,
-            on_batch=lambda verdicts: persist_verdicts(conn, run.id, verdicts))
+            on_batch=lambda verdicts: persist_verdicts(conn, run.id, verdicts),
+            on_call=lambda call: persist_call(conn, run.id, call))
         run.record_counts(assessed=len(outcome.assessment.verdicts))
 
         # --- close it honestly ---------------------------------------------
@@ -379,6 +380,26 @@ def persist_verdicts(conn: sqlite3.Connection, run_id: int, verdicts) -> None:
              v.disqualifying_quote, int(v.requirement_checked),
              int(v.full_read), v.model, now))
     conn.commit()
+
+
+def persist_call(conn: sqlite3.Connection, run_id: int, call) -> None:
+    """One model request's usage, stored as it returns.
+
+    Every token is the user's own money on their own key, and none of it was
+    written anywhere, so neither what a run cost nor whether the cached prefix
+    ever cached could be read back.
+    """
+    conn.execute(
+        """INSERT INTO model_calls(run_id, model, stop_reason, full_read,
+               input_tokens, output_tokens, cache_read_tokens,
+               cache_write_tokens, created_at)
+           VALUES(?,?,?,?,?,?,?,?,?)""",
+        (run_id, call.model, call.stop_reason, int(call.full_read),
+         call.input_tokens, call.output_tokens, call.cache_read_tokens,
+         call.cache_write_tokens,
+         datetime.now(timezone.utc).isoformat(timespec="seconds")))
+    conn.commit()
+
 
 def persist_near_duplicates(conn: sqlite3.Connection,
                             deduped: DedupResult | None) -> None:

@@ -328,6 +328,23 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         # purpose rather than as a posting that never had one.
         "ALTER TABLE jobs ADD COLUMN description_pruned_at TEXT",
     )),
+    (3, (
+        # One row per model request, so what a run cost on the user's key —
+        # and whether the cached prefix ever cached — can be read back.
+        """CREATE TABLE model_calls (
+               id                 INTEGER PRIMARY KEY,
+               run_id             INTEGER NOT NULL
+                                  REFERENCES runs(id) ON DELETE CASCADE,
+               model              TEXT NOT NULL,
+               stop_reason        TEXT,
+               full_read          INTEGER NOT NULL DEFAULT 0,
+               input_tokens       INTEGER NOT NULL DEFAULT 0,
+               output_tokens      INTEGER NOT NULL DEFAULT 0,
+               cache_read_tokens  INTEGER NOT NULL DEFAULT 0,
+               cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+               created_at         TEXT NOT NULL
+           )""",
+    )),
 )
 
 SCHEMA_VERSION = max(number for number, _ in MIGRATIONS)

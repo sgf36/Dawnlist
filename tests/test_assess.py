@@ -636,3 +636,56 @@ def test_the_live_transport_reports_why_a_reply_ended():
     assert reply.stop_reason == "max_tokens"
     assert reply.model == "claude-haiku-4-5-20251001"
     assert seen["model"] == "claude-haiku-4-5", "the request went through as built"
+
+
+# -- what each request cost, and whether the prefix cached ------------------
+def test_every_model_call_records_what_it_cost():
+    """No request's usage was kept, so the user's spend on a run could not be
+    read back, and nothing showed whether the cached prefix ever cached."""
+    recorded = []
+
+    def send(request):
+        return ModelReply(text=_reply_for(request).text, stop_reason="end_turn",
+                          model="claude-haiku-4-5", input_tokens=5200,
+                          output_tokens=180, cache_read_tokens=4300,
+                          cache_write_tokens=0)
+
+    report = assess([job("a")], "b", "f", send=send, on_call=recorded.append)
+    assert len(report.calls) == 1 and recorded == report.calls
+    call = report.calls[0]
+    assert (call.input_tokens, call.output_tokens, call.cache_read_tokens,
+            call.cache_write_tokens) == (5200, 180, 4300, 0)
+    assert report.cached_prefix_tokens == 4300
+
+    # A prefix that never cached measures as zero, not as unknown.
+    uncached = assess([job("a")], "b", "f", send=_reply_for)
+    assert uncached.calls and uncached.cached_prefix_tokens == 0
+
+
+def test_a_call_that_stopped_short_is_still_recorded():
+    """It was billed all the same."""
+    def cut_off(_request):
+        return ModelReply(text="{", stop_reason="max_tokens",
+                          input_tokens=900, output_tokens=8000)
+
+    report = assess([job("a")], "b", "f", send=cut_off)
+    assert [c.output_tokens for c in report.calls] == [8000]
+    assert report.unread, "positive control: the reply itself was not used"
+
+
+def test_the_live_transport_reads_the_usage_including_the_cache():
+    from types import SimpleNamespace
+
+    class Messages:
+        def create(self, **request):
+            return SimpleNamespace(
+                content=[SimpleNamespace(type="text", text='{"verdicts": []}')],
+                stop_reason="end_turn", model="claude-haiku-4-5",
+                usage=SimpleNamespace(input_tokens=812, output_tokens=40,
+                                      cache_read_input_tokens=None,
+                                      cache_creation_input_tokens=4200))
+
+    reply = anthropic_transport(client=SimpleNamespace(messages=Messages()))(
+        build_request([job()], "b", "f"))
+    assert (reply.input_tokens, reply.output_tokens, reply.cache_read_tokens,
+            reply.cache_write_tokens) == (812, 40, 0, 4200)

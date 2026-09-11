@@ -50,14 +50,39 @@ BUCKETS = ("strong", "possible", "rejected", "judgement-call")
 
 @dataclass(frozen=True)
 class ModelReply:
-    """What the live transport returns: the text, and why the reply ended.
+    """What the live transport returns: the text, why the reply ended, and
+    what it cost.
 
     The text alone cannot say it was cut off or refused, and once parsed both
-    look like a malformed payload with the cause lost.
+    look like a malformed payload with the cause lost. The token counts are
+    the user's own money on their own key, and nothing recorded any of them.
     """
     text: str
     stop_reason: str | None = None
     model: str = ""
+    input_tokens: int = 0
+    output_tokens: int = 0
+    #: Read from and written to the prompt cache. Both zero on every call means
+    #: the prefix never cached: under the model's minimum, or changing between
+    #: requests.
+    cache_read_tokens: int = 0
+    cache_write_tokens: int = 0
+
+
+@dataclass(frozen=True)
+class ModelCall:
+    """One request's usage, as stored with its run."""
+    model: str
+    stop_reason: str | None
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_write_tokens: int
+    full_read: bool = False
+
+    @property
+    def cached_prefix_tokens(self) -> int:
+        return self.cache_read_tokens + self.cache_write_tokens
 
 
 class ModelStopped(RuntimeError):
@@ -111,6 +136,23 @@ def _reply_payload(reply: Any) -> Any:
             raise ReplyRefused("the model refused to assess this batch")
         return reply.text
     return reply
+
+
+def _record_call(report: "AssessmentReport", reply: Any, model: str,
+                 full_read: bool, on_call) -> None:
+    """Keep what a request cost, before anything decides the reply is usable:
+    a reply cut off at max_tokens was billed all the same."""
+    if not isinstance(reply, ModelReply):
+        return
+    call = ModelCall(model=reply.model or model, stop_reason=reply.stop_reason,
+                     input_tokens=reply.input_tokens,
+                     output_tokens=reply.output_tokens,
+                     cache_read_tokens=reply.cache_read_tokens,
+                     cache_write_tokens=reply.cache_write_tokens,
+                     full_read=full_read)
+    report.calls.append(call)
+    if on_call:
+        on_call(call)
 
 
 def _normalise(text: str) -> str:
@@ -285,10 +327,21 @@ class AssessmentReport:
     #: Jobs that were in the likely set but never judged. MUST be reported.
     unread: list[Job] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    #: Every request's usage, in the order sent.
+    calls: list[ModelCall] = field(default_factory=list)
 
     @property
     def complete(self) -> bool:
         return not self.unread and not self.errors
+
+    @property
+    def cached_prefix_tokens(self) -> int:
+        """The cached prefix as the API measured it; 0 means it never cached.
+
+        Measured rather than assumed, because a prefix under the model's
+        caching minimum is ignored without any error (`prompts.system_prefix`).
+        """
+        return max((c.cached_prefix_tokens for c in self.calls), default=0)
 
     @property
     def downgraded(self) -> list[Verdict]:
@@ -384,8 +437,12 @@ def assess(jobs: list[Job], fit_brief: str, factsheet: str, *,
            already_judged: set[str] | None = None,
            model: str = ASSESSMENT_MODEL,
            on_batch: Callable[[list[Verdict]], None] | None = None,
+           on_call: Callable[[ModelCall], None] | None = None,
            ) -> AssessmentReport:
     """Assess every job in `jobs`. Resumable, and honest about what it missed.
+
+    `on_call(call)` receives each request's usage as it returns, so it can be
+    stored with the run while the run is still going.
 
     `send(request) -> payload` is injected so the caller owns transport: a live
     Anthropic client, the Batch API, or a stub in tests. Nothing here spends
@@ -409,8 +466,9 @@ def assess(jobs: list[Job], fit_brief: str, factsheet: str, *,
         by_ref = {job_ref(j): j for j in chunk}
         rendered = {ref: render_job(j) for ref, j in by_ref.items()}
         try:
-            payload = _reply_payload(
-                send(build_request(chunk, fit_brief, factsheet, model=model)))
+            reply = send(build_request(chunk, fit_brief, factsheet, model=model))
+            _record_call(report, reply, model, False, on_call)
+            payload = _reply_payload(reply)
         except Exception as exc:  # noqa: BLE001
             if is_account_fault(exc):
                 # Every later batch would be refused the same way. Sending them
@@ -443,13 +501,14 @@ def assess(jobs: list[Job], fit_brief: str, factsheet: str, *,
         report.unread.extend(missing)
 
     _second_pass(report, fit_brief, factsheet, send=send, model=model,
-                 on_batch=on_batch)
+                 on_batch=on_batch, on_call=on_call)
     return report
 
 
 def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
                  send, model: str,
-                 on_batch: Callable[[list[Verdict]], None] | None = None) -> None:
+                 on_batch: Callable[[list[Verdict]], None] | None = None,
+                 on_call: Callable[[ModelCall], None] | None = None) -> None:
     """spec 7.6 — re-read in full any verdict formed on a cut-off description.
 
     The first pass reads a description whole up to FIRST_PASS_CHARS, which is
@@ -480,8 +539,10 @@ def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
     chunks = list(batches([v.job for v in pending], full=True))
     for index, chunk in enumerate(chunks):
         try:
-            payload = _reply_payload(send(build_request(
-                chunk, fit_brief, factsheet, model=model, full=True)))
+            reply = send(build_request(chunk, fit_brief, factsheet,
+                                       model=model, full=True))
+            _record_call(report, reply, model, True, on_call)
+            payload = _reply_payload(reply)
         except Exception as exc:  # noqa: BLE001
             if is_account_fault(exc):
                 left = sum(len(c) for c in chunks[index:])
@@ -591,10 +652,21 @@ def anthropic_transport(api_key: str | None = None, *, client=None):
 
     def send(request: dict) -> ModelReply:
         response = client.messages.create(**request)
+        usage = getattr(response, "usage", None)
+
+        def count(name: str) -> int:
+            # The cache counts are absent or None on a request that used no
+            # cache, which is a zero and not a missing figure.
+            return int(getattr(usage, name, 0) or 0)
+
         return ModelReply(
             text="".join(getattr(b, "text", "") for b in response.content
                          if getattr(b, "type", None) == "text"),
             stop_reason=getattr(response, "stop_reason", None),
-            model=getattr(response, "model", "") or request.get("model", ""))
+            model=getattr(response, "model", "") or request.get("model", ""),
+            input_tokens=count("input_tokens"),
+            output_tokens=count("output_tokens"),
+            cache_read_tokens=count("cache_read_input_tokens"),
+            cache_write_tokens=count("cache_creation_input_tokens"))
 
     return send
