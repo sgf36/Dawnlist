@@ -1,5 +1,6 @@
 /**
- * Places, exclusions and paging, against a stubbed D1, cache and upstream.
+ * Places, exclusions and paging, against a real SQLite D1 and a stubbed cache
+ * and upstream.
  * Run: node test/location.test.mjs
  *
  * What these protect, in one line each:
@@ -11,6 +12,7 @@
  *   - one user's narrowed or cap-cut result is never served to another.
  */
 import assert from 'node:assert';
+import { makeSearchDB } from './search-db.mjs';
 
 let passed = 0, failed = 0;
 async function test(name, fn) {
@@ -20,41 +22,7 @@ async function test(name, fn) {
 
 // --- stubs -----------------------------------------------------------------
 
-function makeDB({ postings = 0, refreshes = 0, maxPostings = 700 } = {}) {
-  const state = { postings, refreshes };
-  return {
-    state,
-    prepare(sql) {
-      return {
-        _a: [],
-        bind(...a) { this._a = a; return this; },
-        async first() {
-          if (sql.includes('FROM licences WHERE licence_key')) {
-            return { licence_key: 'L1', tier: 'managed', status: 'active',
-                     max_postings_per_day: maxPostings, max_refreshes_per_day: null };
-          }
-          if (sql.includes('FROM usage_daily')) {
-            return { refreshes: state.refreshes, postings: state.postings };
-          }
-          return null;
-        },
-        async all() {
-          if (sql.includes('FROM providers')) {
-            return { results: [{ name: 'theirstack', enabled: 1, priority: 10 }] };
-          }
-          return { results: [] };
-        },
-        async run() {
-          if (sql.includes('INSERT INTO usage_daily')) {
-            const [, , r, p] = this._a;
-            state.refreshes += r; state.postings += p;
-          }
-          return { success: true };
-        },
-      };
-    },
-  };
-}
+const makeDB = (opts) => makeSearchDB(opts);
 
 /** A cache keyed by URL, so different queries really are different entries. */
 function makeCaches() {
