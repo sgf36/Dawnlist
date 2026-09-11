@@ -2316,6 +2316,32 @@ def _screen_drift_notes(conn, run_id) -> list[str]:
                before=round(before * 100))]
 
 
+def _schedule_panel(conn):
+    """The run-time, keep-running and start-at-sign-in panel, wired for real.
+
+    The sign-in reader is passed only on a build that has a way to do it, so
+    an unmarked build shows no switch rather than one that cannot work.
+    """
+    from PySide6.QtWidgets import QSystemTrayIcon
+
+    from app.core import schedule as sched
+    from app.core import sign_in
+    from app.core.build_variant import variant
+    from app.ui.settings import SchedulePanel
+
+    build = variant()
+    return SchedulePanel(
+        loader=lambda: (sched.load_run_time(conn),
+                        sched.load_flag(conn, sched.KEEP_RUNNING_KEY)),
+        time_saver=lambda value: sched.save_run_time(conn, value),
+        keep_saver=lambda on: sched.save_flag(conn, sched.KEEP_RUNNING_KEY, on),
+        sign_in_reader=((lambda: sign_in.is_enabled(build))
+                        if sign_in.supported(build) else None),
+        sign_in_setter=lambda on: sign_in.set_enabled(build, on),
+        page_opener=sign_in.open_page,
+        tray_available=QSystemTrayIcon.isSystemTrayAvailable())
+
+
 def open_settings(parent=None, conn=None):
     """The settings window, wired to the real keyring.
 
@@ -2339,8 +2365,9 @@ def open_settings(parent=None, conn=None):
     # real redeemer; the injection points exist so the tests can spend nothing.
     # The rules panel cannot default, because the rules are per-user and live
     # in the database — so it is offered only when there is one.
-    rules = families = searches = None
+    rules = families = searches = when = None
     if conn is not None:
+        when = _schedule_panel(conn)
         searches = SearchesPanel(
             loader=lambda: all_queries(conn),
             saver=lambda label, titles: save_new_search(conn, label, titles),
@@ -2359,9 +2386,15 @@ def open_settings(parent=None, conn=None):
             forgetter=lambda field, term: forget_rule_term(conn, field, term))
 
     window = SettingsWindow(rules=rules, families=families,
-                            searches=searches, home=parent)
+                            searches=searches, schedule=when, home=parent)
     if parent is not None:
         parent._settings_window = window
+        # A run time changed here changes whether Run now is offered on the
+        # window behind this one. Without this the shortlist keeps yesterday's
+        # answer until the next tick, which reads as the setting not taking.
+        daily = getattr(parent, "_daily_run", None)
+        if when is not None and daily is not None:
+            when.changed.connect(daily[0].tick)
     window.show()
     return window
 
