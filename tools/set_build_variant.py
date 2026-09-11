@@ -23,13 +23,15 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-RESOURCES = Path(__file__).resolve().parents[1] / "app" / "resources"
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-VARIANTS = {
-    "store": "store_build.flag",     # Microsoft Store: Paddle licence key
-    "mas": "mas_build.flag",         # Mac App Store: StoreKit subscription
-    "direct": "license_required.flag",  # direct download: Paddle licence key
-}
+# Both the flag names and the directory come from the module the APP reads
+# them with, rather than being restated here. A writer and a reader holding
+# separate copies can disagree about which file means which variant, and the
+# symptom is not an error — it is a package that quietly is the wrong build.
+# Which storefront and which purchase each variant means is documented there
+# too, beside the code that acts on it.
+from app.core.build_variant import FLAGS as VARIANTS, RESOURCES  # noqa: E402
 
 
 def current() -> list[str]:

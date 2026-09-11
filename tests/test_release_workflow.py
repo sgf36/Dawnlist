@@ -28,7 +28,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-WORKFLOW = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "build.yml"
+ROOT = Path(__file__).resolve().parents[1]
+WORKFLOW = ROOT / ".github" / "workflows" / "build.yml"
 
 
 @pytest.fixture(scope="module")
@@ -146,3 +147,45 @@ def test_windows_signing_is_gated_on_the_signing_account_being_ready(build_job):
     assert "AZURE_SIGNING_READY" in gate
     assert "pull_request" in gate, (
         "a pull request from a fork would reach the signing credentials")
+
+
+# ---------------------------------------------------------------------------
+# One list of build-variant flags, not three
+# ---------------------------------------------------------------------------
+
+VARIANT_PRODUCERS = ("tools/set_build_variant.py", "packaging/build_exe.spec")
+
+
+def test_the_variant_setter_writes_the_flags_the_app_reads():
+    """The setter and the app used to hold separate copies of the same three
+    names. They agreed, so nothing failed — but a variant added to one and not
+    the other produces a build that is silently the wrong variant, which is the
+    failure the flags exist to prevent."""
+    import importlib
+    import sys
+
+    sys.path.insert(0, str(ROOT))
+    from app.core.build_variant import FLAGS, RESOURCES
+
+    setter = importlib.import_module("tools.set_build_variant")
+    assert setter.VARIANTS is FLAGS
+    assert setter.RESOURCES == RESOURCES, (
+        "the setter writes flags somewhere the app does not look")
+
+
+def test_no_producer_quotes_a_flag_name_of_its_own():
+    """Reading the import is not enough: a producer can import FLAGS and still
+    carry a stale literal beside it. Quoted is the test, because the prose in
+    both files names the flags deliberately."""
+    import sys
+
+    sys.path.insert(0, str(ROOT))
+    from app.core.build_variant import FLAGS
+
+    for rel in VARIANT_PRODUCERS:
+        text = (ROOT / rel).read_text(encoding="utf-8")
+        assert "build_variant import FLAGS" in text, (
+            f"{rel} no longer reads the flag names from the app")
+        for flag in FLAGS.values():
+            for literal in (f'"{flag}"', f"'{flag}'"):
+                assert literal not in text, f"{rel} repeats {flag} as a literal"
