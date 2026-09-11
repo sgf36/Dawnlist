@@ -189,3 +189,36 @@ def test_no_producer_quotes_a_flag_name_of_its_own():
         for flag in FLAGS.values():
             for literal in (f'"{flag}"', f"'{flag}'"):
                 assert literal not in text, f"{rel} repeats {flag} as a literal"
+
+
+# ---------------------------------------------------------------------------
+# The package is built from the repository, not from a machine
+# ---------------------------------------------------------------------------
+
+def _packaging_module(name: str):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        name, ROOT / "packaging" / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_every_store_tile_is_resized_from_a_committed_master():
+    msix = _packaging_module("build_msix")
+    assert msix.SOURCE_ICON.is_relative_to(ROOT), (
+        "the tile master lives outside the repository, so two machines "
+        "building this commit can produce different tiles")
+    assert msix.source_icon() == msix.SOURCE_ICON
+
+
+def test_a_missing_tile_master_stops_the_build_rather_than_finding_another(
+        monkeypatch, tmp_path):
+    """The control. This fell back to a folder in one developer's OneDrive,
+    which is worse than failing: a stale export there is preferred to nothing
+    and the package records nowhere which file it took."""
+    msix = _packaging_module("build_msix")
+    monkeypatch.setattr(msix, "SOURCE_ICON", tmp_path / "not-here.png")
+    with pytest.raises(SystemExit):
+        msix.source_icon()

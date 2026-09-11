@@ -53,23 +53,17 @@ staging_dir = project_root / "build" / "msix_staging"
 manifest_src = Path(__file__).parent / "msix" / "AppxManifest.xml"
 output_msix = dist_dir / "Dawnlist.msix"
 
-# The REPOSITORY copy comes first, deliberately.
+# THE COMMITTED MASTER, AND NOTHING ELSE.
 #
-# This looked in Spencer's OneDrive brand folder first and fell back to the
-# repository — but `packaging/icons/` was never committed, so the fallback did
-# not exist and the only working source was one person's Documents folder. A CI
-# runner would have failed at `source_icon()` with "no source icon found", and
-# the MSIX could only ever be built on one machine. A build that depends on
-# somebody's OneDrive is not a build.
+# A second candidate under one developer's OneDrive used to follow this one.
+# What that bought was a package whose tiles depend on the machine that built
+# it: a stale export in that folder is preferred to no file at all, the
+# artefact records nothing about which it took, and two machines building the
+# same commit produce different tiles. A build that can reach outside the
+# repository is not reproducible, and the divergence is silent.
 #
-# The brand folder stays as a SECOND choice so a fresh export can be picked up
-# without a commit, but nothing requires it any more.
-BRAND = Path(r"C:\Users\SpencerFields\OneDrive - Spencer Fields\Apps\Claude"
-             r"\brand-dawnlist\png")
-SOURCE_ICON_CANDIDATES = [
-    project_root / "packaging" / "icons" / "dawnlist-1024.png",
-    BRAND / "mark-tile-1024.png",
-]
+# If this file is missing, export it from the brand pack and COMMIT it.
+SOURCE_ICON = project_root / "packaging" / "icons" / "dawnlist-1024.png"
 
 # (output filename, pixel size). Every one is referenced by AppxManifest.xml;
 # a missing asset is a certification failure, not a warning.
@@ -101,11 +95,11 @@ def find_makeappx() -> Path:
 
 
 def source_icon() -> Path:
-    for candidate in SOURCE_ICON_CANDIDATES:
-        if candidate.exists():
-            return candidate
-    fail("no source icon found; looked in:\n  "
-         + "\n  ".join(str(c) for c in SOURCE_ICON_CANDIDATES))
+    if not SOURCE_ICON.exists():
+        fail(f"{SOURCE_ICON} is missing. Every Store tile is resized from it, "
+             f"and there is no fallback on purpose — export the 1024px master "
+             f"from the brand pack and commit it.")
+    return SOURCE_ICON
 
 
 def build_assets(target: Path) -> None:
