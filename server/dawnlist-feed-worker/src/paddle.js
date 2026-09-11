@@ -135,6 +135,9 @@ function priceIdsIn(event) {
     .slice(0, 10);
 }
 
+const reply = (body, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+
 export async function handlePaddleWebhook(request, env, ctx) {
   const raw = await request.text();
   const check = await verifySignature(
@@ -147,8 +150,7 @@ export async function handlePaddleWebhook(request, env, ctx) {
     // work on. Whoever diagnoses a failed delivery reads it in the Worker's
     // observability logs, where "timestamp" still points away from the secret.
     console.warn('paddle: signature refused', { reason: check.reason });
-    return new Response(JSON.stringify({ error: 'bad_signature' }),
-      { status: 401, headers: { 'content-type': 'application/json' } });
+    return reply({ error: 'bad_signature' }, 401);
   }
 
   let event;
@@ -161,19 +163,51 @@ export async function handlePaddleWebhook(request, env, ctx) {
   const type = event.event_type;
   const eventId = event.event_id;
 
-  // Idempotency. Paddle retries on any non-2xx, and a retry that issues a
-  // SECOND licence for one payment is worse than a missed one: the customer
-  // has two keys, the meter is split across them, and nothing looks wrong.
+  // Idempotency, CLAIMED before anything is done. Paddle retries on any
+  // non-2xx, and a retry that issues a SECOND licence for one payment is worse
+  // than a missed one: the customer has two keys, the meter is split across
+  // them, and nothing looks wrong. This used to be a read here and a write at
+  // the end, so two deliveries of one event arriving together both read
+  // "unseen" and both issued. The conditional insert lets exactly one of them
+  // through.
   if (eventId) {
-    const seen = await env.DB.prepare(
-      'SELECT 1 FROM webhook_events WHERE event_id = ?1'
-    ).bind(eventId).first();
-    if (seen) {
-      return new Response(JSON.stringify({ ok: true, deduplicated: true }),
-        { status: 200, headers: { 'content-type': 'application/json' } });
-    }
+    const claimed = await env.DB.prepare(
+      `INSERT INTO webhook_events (event_id, event_type, action, received_at)
+       VALUES (?1, ?2, 'processing', datetime('now'))
+       ON CONFLICT(event_id) DO NOTHING
+       RETURNING event_id`
+    ).bind(eventId, String(type || 'unknown')).first();
+    if (!claimed) return reply({ ok: true, deduplicated: true });
   }
 
+  let result;
+  try {
+    result = await applyEvent(env, ctx, event);
+  } catch (err) {
+    // Release the claim so Paddle's retry is processed rather than answered as
+    // a duplicate of an event that never finished. Retrying is safe: a licence
+    // already written is found by the unique subscription index, not issued
+    // again.
+    if (eventId) {
+      try {
+        await env.DB.prepare('DELETE FROM webhook_events WHERE event_id = ?1')
+          .bind(eventId).run();
+      } catch {
+        console.error('paddle: could not release a failed event', { type });
+      }
+    }
+    throw err;
+  }
+
+  if (eventId) {
+    await env.DB.prepare('UPDATE webhook_events SET action = ?2 WHERE event_id = ?1')
+      .bind(eventId, result.action).run();
+  }
+  return reply(result);
+}
+
+async function applyEvent(env, ctx, event) {
+  const type = event.event_type;
   let result = { ok: true, action: 'ignored', event_type: type };
 
   if (GRANTING.has(type)) {
@@ -209,15 +243,30 @@ export async function handlePaddleWebhook(request, env, ctx) {
       // fell back to the Worker's anti-abuse default and paying more bought
       // nothing at all.
       const caps = capsFor(chosen.plan);
-      await env.DB.prepare(
+      // RETURNING says whether THIS request created the row. The read above
+      // is not enough: subscription.created and transaction.completed for one
+      // purchase are different events, so both pass the idempotency claim,
+      // both read "no licence", and both reach here. The unique index on
+      // paddle_subscription_id refuses the second, and nothing is returned.
+      const created = await env.DB.prepare(
         `INSERT INTO licences (licence_key, tier, status, paddle_subscription_id,
                                plan, plan_unmatched,
                                max_postings_per_day, max_refreshes_per_day,
                                max_saved_queries)
-         VALUES (?1, ?2, 'active', ?3, ?4, 0, ?5, ?6, ?7)`
+         VALUES (?1, ?2, 'active', ?3, ?4, 0, ?5, ?6, ?7)
+         ON CONFLICT DO NOTHING
+         RETURNING licence_key`
       ).bind(key, tierFor(event), subscriptionId, caps.plan,
              caps.max_postings_per_day, caps.max_refreshes_per_day,
-             caps.max_saved_queries).run();
+             caps.max_saved_queries).first();
+
+      if (!created) {
+        // Another event for this purchase issued it first, and sent the email.
+        // Sending one here too would put a key in the inbox that does not
+        // exist in the database.
+        return { ok: true, action: 'already_issued' };
+      }
+
       // The key is NOT returned in the response: the webhook response goes to
       // Paddle, not to the customer. Delivery is the separate step below.
       //
@@ -315,14 +364,5 @@ export async function handlePaddleWebhook(request, env, ctx) {
     }
   }
 
-  if (eventId) {
-    await env.DB.prepare(
-      `INSERT INTO webhook_events (event_id, event_type, action, received_at)
-       VALUES (?1, ?2, ?3, datetime('now'))
-       ON CONFLICT(event_id) DO NOTHING`
-    ).bind(eventId, type, result.action).run();
-  }
-
-  return new Response(JSON.stringify(result),
-    { status: 200, headers: { 'content-type': 'application/json' } });
+  return result;
 }

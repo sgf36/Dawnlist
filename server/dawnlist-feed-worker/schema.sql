@@ -48,6 +48,12 @@ CREATE TABLE IF NOT EXISTS licences (
     plan_unmatched       INTEGER NOT NULL DEFAULT 0
 );
 
+-- One licence per Paddle subscription. Two events for one purchase once each
+-- found no licence and each minted one; this makes the database refuse the
+-- second. NULLs are distinct, so code-minted licences are unaffected.
+CREATE UNIQUE INDEX IF NOT EXISTS licences_by_subscription
+    ON licences (paddle_subscription_id);
+
 -- Managed inference was metered in tokens here until the inference proxy was
 -- removed on 2026-09-06. Databases created before then still carry
 -- usage_daily.input_tokens, usage_daily.output_tokens and
