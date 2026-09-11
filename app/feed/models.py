@@ -78,6 +78,19 @@ def _singular(word: str) -> str:
     return word
 
 
+def company_key(company: str) -> str:
+    """An employer's name with case, punctuation, spacing and corporate
+    suffixes normalised away — the company half of `name_key`.
+
+    For telling whether two names are the SAME employer. Everything that
+    compares employers goes through this rather than a substring test,
+    because a short name sits inside countless longer ones: "EY" is inside
+    "Bentley" and "The Walt Disney Company", "GIC" inside "Logic".
+    """
+    norm = _WS.sub(" ", _PUNCT.sub(" ", (company or "").lower())).strip()
+    return _WS.sub(" ", _COMPANY_NOISE.sub(" ", norm)).strip()
+
+
 def name_key(company: str, title: str) -> str:
     """A *near*-duplicate detector. Never a dedup key.
 
@@ -101,8 +114,7 @@ def name_key(company: str, title: str) -> str:
     "same company, different role" still produces a DIFFERENT key and can never
     collapse — that remains the worse failure.
     """
-    company_norm = _WS.sub(" ", _PUNCT.sub(" ", (company or "").lower())).strip()
-    company_norm = _WS.sub(" ", _COMPANY_NOISE.sub(" ", company_norm)).strip()
+    company_norm = company_key(company)
 
     title_norm = _WS.sub(" ", _PUNCT.sub(" ", (title or "").lower())).strip()
     tokens = sorted(_singular(w) for w in title_norm.split()

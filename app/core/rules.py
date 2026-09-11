@@ -14,6 +14,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field, replace
 
+from app.feed.models import company_key
+
 
 def word_boundary(terms: list[str]) -> re.Pattern | None:
     r"""Compile terms into ONE word-boundary alternation.
@@ -88,8 +90,10 @@ class KillFamily:
         object.__setattr__(self, "_saves_re", word_boundary(list(self.saves_titles)))
 
     def covers_employer(self, company: str) -> bool:
-        c = (company or "").casefold()
-        return any(e.casefold() in c for e in self.employers)
+        # The whole normalised name, never a substring: "EY" is inside
+        # "Bentley", and a family armed against EY killed Bentley's postings.
+        key = company_key(company)
+        return bool(key) and any(company_key(e) == key for e in self.employers)
 
     def match(self, company: str, title: str) -> tuple[str, int] | None:
         """Return (reason, match offset), or None if this family does not kill.
@@ -135,7 +139,8 @@ class RuleTable:
             unsupported=word_boundary(self.unsupported_titles),
             strong=word_boundary(self.strong_terms),
             contextual=word_boundary(self.contextual_terms),
-            employers=tuple(e.casefold() for e in self.known_employers),
+            employers=tuple((company_key(e), e) for e in self.known_employers
+                            if company_key(e)),
             families=tuple(self.kill_families),
         )
 
@@ -145,14 +150,23 @@ class CompiledRules:
     unsupported: re.Pattern | None
     strong: re.Pattern | None
     contextual: re.Pattern | None
-    employers: tuple[str, ...]
+    #: (normalised key, name as the user's decision recorded it)
+    employers: tuple[tuple[str, str], ...]
     families: tuple[KillFamily, ...]
 
     def known_employer(self, company: str) -> str | None:
-        c = (company or "").casefold()
-        for e in self.employers:
-            if e and e in c:
-                return e
+        """The pursued employer this posting is at, matched on the whole
+        normalised name.
+
+        A substring test made every posting at "The Walt Disney Company" or
+        "Bentley" a known employer once the user pursued a role at EY.
+        """
+        key = company_key(company)
+        if not key:
+            return None
+        for employer_key, name in self.employers:
+            if employer_key == key:
+                return name
         return None
 
     @property
@@ -360,10 +374,14 @@ def propose_families(rejected: list[tuple[str, str]],
     for _company, title in pursued:
         pursued_words |= _title_words(title)
 
+    # Grouped on the same normalised name the family will match on, so "Kier
+    # Ltd" and "Kier Limited" are one employer's shape, not two lone
+    # rejections that never reach the two a family needs.
     by_employer: dict[str, list[tuple[str, str]]] = {}
     for company, title in rejected:
-        if company:
-            by_employer.setdefault(company.casefold(), []).append((company, title))
+        if company_key(company):
+            by_employer.setdefault(company_key(company), []).append(
+                (company, title))
 
     out: list[KillFamily] = []
     for _key, group in sorted(by_employer.items()):
@@ -384,7 +402,7 @@ def propose_families(rejected: list[tuple[str, str]],
 
         # SAVES: what the user has pursued at this employer, plus the terms
         # they told the screen always to read. Rule 2 — required, not optional.
-        saves = sorted({w for c, t in pursued if c.casefold() == _key
+        saves = sorted({w for c, t in pursued if company_key(c) == _key
                         for w in _title_words(t)}
                        | {t.casefold() for t in saves_terms if t.strip()})
         if not saves:
