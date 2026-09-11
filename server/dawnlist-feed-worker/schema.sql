@@ -215,3 +215,18 @@ CREATE TABLE IF NOT EXISTS licence_roles (
     role        TEXT NOT NULL,
     from_code   TEXT
 );
+
+-- What the admin console was used to do. The console can mint and revoke codes
+-- and resend licence keys, and a leaked administrator licence used to leave no
+-- trace. One row per handled request: the action, a SHA-256 of the
+-- administrator's licence key (never the key), the target masked to its last
+-- four characters, and the time — no notes, addresses or bodies. The same rows
+-- bound how many requests one administrator may make in ten minutes.
+CREATE TABLE IF NOT EXISTS admin_audit (
+    id         INTEGER PRIMARY KEY,
+    at         TEXT NOT NULL DEFAULT (datetime('now')),
+    action     TEXT NOT NULL,
+    actor_hash TEXT NOT NULL,
+    target     TEXT
+);
+CREATE INDEX IF NOT EXISTS admin_audit_by_actor ON admin_audit (actor_hash, at);

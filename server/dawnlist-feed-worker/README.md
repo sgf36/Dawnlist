@@ -143,6 +143,25 @@ the destination is not subscribed to.
 (with a code such as `no_address_lookup_failed_403`) or still `pending`. Send
 one again with `POST /admin/resend`, which marks it sent.
 
+## Admin console — what it shows, records and allows
+
+- **No listing prints a licence key.** `/admin/licences` and
+  `/admin/undelivered` show the last four characters. A key is the whole
+  credential, so a screenshot of the console must not be one. To resend a key,
+  read it from D1 and pass it to `POST /admin/resend`.
+- **Every handled request writes one row to `admin_audit`:** the action, a
+  SHA-256 of the administrator's licence key, the target masked to its last
+  four characters, and the time. Never a note, an address or a body.
+- **Sixty requests in ten minutes per administrator**, counted from those rows;
+  the sixty-first gets `429 too_many_requests`.
+- **Failed authentication is capped like failed codes**: twenty a day per
+  connection, on the same counter, then `429 too_many_attempts`.
+
+```bash
+npx wrangler d1 execute dawnlist --remote --command \
+  "SELECT at, action, target FROM admin_audit ORDER BY id DESC LIMIT 50"
+```
+
 ## Deployed
 
 Live at **https://dawnlist-feed-worker.sgf36.workers.dev** (deployed 2026-09-06,

@@ -206,6 +206,58 @@ export async function handleRedeem(request, env, newLicenceKey) {
 // ---------------------------------------------------------------------------
 
 /**
+ * What each admin route is recorded as. A request to anything not listed is
+ * refused before it is recorded or counted.
+ */
+const ADMIN_ACTIONS = {
+  'GET /admin/codes': 'codes.list',
+  'POST /admin/codes': 'codes.mint',
+  'POST /admin/revoke': 'codes.revoke',
+  'GET /admin/licences': 'licences.list',
+  'GET /admin/undelivered': 'undelivered.list',
+  'GET /admin/selftest': 'selftest',
+  'POST /admin/resend': 'licence.resend',
+};
+
+/**
+ * Requests one administrator may make in ten minutes. The console makes a few
+ * per screen, so this sits far above real use; what it bounds is a leaked
+ * administrator licence minting codes in a loop or paging through every
+ * licence before anybody notices.
+ */
+const ADMIN_REQUESTS_PER_WINDOW = 60;
+const ADMIN_WINDOW = '-10 minutes';
+
+/** Who made an admin request, as the audit stores it: a hash, never the key. */
+async function actorHash(licenceKey) {
+  return hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(licenceKey)));
+}
+
+async function adminBusy(env, actor) {
+  const row = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM admin_audit
+      WHERE actor_hash = ?1 AND at >= datetime('now', ?2)`
+  ).bind(actor, ADMIN_WINDOW).first();
+  return (row?.n || 0) >= ADMIN_REQUESTS_PER_WINDOW;
+}
+
+/**
+ * Written AFTER the request is handled, because the target of a mint does not
+ * exist until then. A failed write is logged and not turned into an error: the
+ * action has already been committed, and a failed response would have the
+ * administrator retry it — minting a second code.
+ */
+async function recordAudit(env, action, actor, target) {
+  try {
+    await env.DB.prepare(
+      'INSERT INTO admin_audit (action, actor_hash, target) VALUES (?1, ?2, ?3)'
+    ).bind(action, actor, target ?? null).run();
+  } catch (err) {
+    console.error('admin: audit write failed', { action, error: err?.name });
+  }
+}
+
+/**
  * Authorise an admin request by RE-READING the role from the table.
  *
  * The bearer is the licence the machine already holds — not a second
@@ -234,11 +286,38 @@ async function requireAdmin(request, env) {
 }
 
 export async function handleAdmin(request, env) {
+  // Guessing at the console's credential is capped like guessing at a code, on
+  // the same counter: both are somebody trying keys they were not given.
+  const client = await clientHash(env, request);
+  if (await tooManyFailures(env, client)) {
+    return json({ error: 'too_many_attempts' }, 429);
+  }
   const auth = await requireAdmin(request, env);
-  if (!auth.ok) return auth.response;
+  if (!auth.ok) {
+    await recordFailure(env, client);
+    return auth.response;
+  }
 
-  const url = new URL(request.url);
-  const path = url.pathname;
+  const path = new URL(request.url).pathname;
+  const action = ADMIN_ACTIONS[`${request.method} ${path}`];
+  if (!action) return json({ error: 'not_found' }, 404);
+
+  const actor = await actorHash(auth.licenceKey);
+  if (await adminBusy(env, actor)) {
+    return json({ error: 'too_many_requests',
+                  message: `More than ${ADMIN_REQUESTS_PER_WINDOW} admin requests in ten minutes; `
+                    + 'wait a few minutes and try again' }, 429);
+  }
+
+  const audit = { target: null };
+  try {
+    return await routeAdmin(request, env, auth, path, audit);
+  } finally {
+    await recordAudit(env, action, actor, audit.target);
+  }
+}
+
+async function routeAdmin(request, env, auth, path, audit) {
 
   // --- list codes --------------------------------------------------------
   if (path === '/admin/codes' && request.method === 'GET') {
@@ -288,6 +367,7 @@ export async function handleAdmin(request, env) {
     }
 
     const code = newCode();
+    audit.target = maskKey(code);
     await env.DB.prepare(
       `INSERT INTO codes (code, note, max_uses, revoked, created_at, expires_at, role, plan,
                           code_normalised)
@@ -323,6 +403,7 @@ export async function handleAdmin(request, env) {
                     message: 'That is the code this session is using' }, 409);
     }
 
+    audit.target = maskKey(row.code);
     await env.DB.prepare('UPDATE codes SET revoked = 1 WHERE code = ?1')
       .bind(row.code).run();
     // Licences already redeemed from it are expired too — a withdrawn code
@@ -346,7 +427,10 @@ export async function handleAdmin(request, env) {
          LEFT JOIN licence_roles r ON r.licence_key = l.licence_key
         ORDER BY l.created_at DESC LIMIT 200`
     ).all();
-    return json({ licences: results || [] });
+    return json({
+      licences: (results || []).map(({ licence_key: key, ...row }) =>
+        ({ licence: maskKey(key), ...row })),
+    });
   }
 
   // --- licences a customer paid for and may not have received -------------
@@ -437,6 +521,7 @@ export async function handleAdmin(request, env) {
          FROM licences WHERE licence_key = ?1`
     ).bind(target).first();
     if (!row) return json({ error: 'unknown_licence' }, 404);
+    audit.target = maskKey(row.licence_key);
     if (row.status !== 'active') {
       // Re-sending a revoked key would have somebody paste it in and be
       // refused, with no way to tell that from the key being wrong.
