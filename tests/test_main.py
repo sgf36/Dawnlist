@@ -167,6 +167,26 @@ def test_a_posting_left_unjudged_is_read_on_the_next_run(conn):
     assert third.assessment.verdicts == [] and not third.requeued
 
 
+def test_a_morning_run_clears_old_undecided_descriptions(conn):
+    """Nothing ever removed a swept posting's text, so the table grew for the
+    life of the install. The run now clears the old undecided ones."""
+    seed(conn)
+    old = conn.execute("INSERT INTO runs(started_at) "
+                       "VALUES('2020-01-01T00:00:00+00:00')").lastrowid
+    conn.execute("INSERT INTO jobs(provider, provider_job_id, title, company, "
+                 "description_text, first_seen_run, screen_verdict) "
+                 "VALUES('theirstack', 'old', 'Old role', 'Acme', 'Long ago.', "
+                 "?, 'unlikely')", (old,))
+    conn.commit()
+
+    morning_run(conn, provider=Stub(ok([job("new")])), send=strong_send)
+    text = {r["provider_job_id"]: r["description_text"] for r in conn.execute(
+        "SELECT provider_job_id, description_text FROM jobs")}
+    assert text["old"] == ""
+    assert text["new"] == "A strategy role.", (
+        "positive control: today's posting keeps its text")
+
+
 def test_a_seen_posting_is_deduped_on_the_next_run(conn):
     """The short-term layer: seen_jobs stops a recurring alert re-listing."""
     seed(conn)

@@ -1214,6 +1214,10 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
     # for the life of the install and every run rebuilt a larger and larger
     # already-seen set to compare against.
     db.prune_seen(conn)
+    # Every swept posting's full text was likewise kept for ever, although
+    # only one the user decides on is read again. The rows stay; the text of
+    # old undecided ones goes.
+    db.prune_descriptions(conn)
     return outcome
 
 
