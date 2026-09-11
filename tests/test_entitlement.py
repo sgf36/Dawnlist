@@ -148,6 +148,85 @@ def test_a_REFUSAL_is_not_covered_by_grace(conn, monkeypatch):
     assert not e.unverifiable
 
 
+def _unreachable(_key):
+    return None
+
+
+def _verified(_key):
+    return True
+
+
+def test_a_stamp_from_the_future_earns_no_grace(conn, monkeypatch):
+    """A stamp days ahead of the clock never ages out, so it would be grace
+    for ever — a clock set wrong once, or a hand-edited database."""
+    as_variant(monkeypatch, "direct")
+    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+
+    check(conn, verifier=_verified, now=NOW + timedelta(days=3))
+    e = check(conn, verifier=_unreachable, now=NOW)
+    assert not e.entitled and e.unverifiable
+
+
+def test_a_stamp_a_few_hours_ahead_still_counts(conn, monkeypatch):
+    """The positive control: clocks disagree by hours, and that is ordinary."""
+    as_variant(monkeypatch, "direct")
+    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+
+    check(conn, verifier=_verified, now=NOW + timedelta(hours=6))
+    e = check(conn, verifier=_unreachable, now=NOW)
+    assert e.entitled and e.source == "grace"
+
+
+def test_a_stamp_belongs_to_the_key_that_earned_it(conn, monkeypatch):
+    """Without this, any string pasted in after a real key verified ran on
+    that key's stamp through an outage."""
+    as_variant(monkeypatch, "direct")
+    stored = {"key": "DAWN-REAL"}
+    monkeypatch.setattr(ent, "stored_licence", lambda: stored["key"])
+    check(conn, verifier=_verified, now=NOW)
+
+    assert check(conn, verifier=_unreachable, now=NOW + timedelta(days=1)).entitled
+
+    stored["key"] = "DAWN-SOMETHING-ELSE"
+    e = check(conn, verifier=_unreachable, now=NOW + timedelta(days=1))
+    assert not e.entitled and e.unverifiable
+    assert ent._get(conn, ent.VERIFIED_KEY) != "DAWN-REAL", \
+        "the key itself must not be written to the settings database"
+
+
+def test_saving_a_licence_clears_its_old_stamp(conn, monkeypatch):
+    """A refunded key pasted back during an outage matches its own stamp; the
+    save has to wipe it or grace pays for the refund."""
+    import keyring
+
+    as_variant(monkeypatch, "direct")
+    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    monkeypatch.setattr(keyring, "set_password", lambda *a: None)
+    check(conn, verifier=_verified, now=NOW)
+    assert check(conn, verifier=_unreachable, now=NOW + timedelta(days=1)).entitled
+
+    ent.store_licence("DAWN-XXXX", conn=conn)
+    e = check(conn, verifier=_unreachable, now=NOW + timedelta(days=1))
+    assert not e.entitled
+
+
+def test_saving_without_a_connection_clears_the_default_database(conn, monkeypatch):
+    """The panels that save a key hold no connection."""
+    import pathlib
+
+    import keyring
+
+    as_variant(monkeypatch, "direct")
+    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    monkeypatch.setattr(keyring, "set_password", lambda *a: None)
+    path = pathlib.Path(conn.execute("PRAGMA database_list").fetchone()[2])
+    monkeypatch.setattr("app.core.db.default_db_path", lambda *a, **k: path)
+    check(conn, verifier=_verified, now=NOW)
+
+    ent.store_licence("DAWN-XXXX")
+    assert ent._get(conn, ent.VERIFIED_AT) is None
+
+
 def test_unreachable_and_refused_are_distinguishable(conn, monkeypatch):
     """Conflating them turns an outage into an accusation."""
     as_variant(monkeypatch, "direct")

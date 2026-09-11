@@ -63,6 +63,14 @@ GRACE_DAYS = 14
 
 VERIFIED_AT = "entitlement_verified_at"
 VERIFIED_SOURCE = "entitlement_verified_source"
+#: A SHA-256 of the key the stamp was earned by. A hash, because the settings
+#: database is a plain file and the key itself belongs in the credential store.
+VERIFIED_KEY = "entitlement_verified_key"
+
+#: How far ahead of this machine's clock a stamp may sit and still count.
+#: Clocks disagree by hours across zones and daylight saving; a stamp days in
+#: the future came from a wrong clock or a hand edit, and would never age out.
+FUTURE_TOLERANCE = timedelta(days=1)
 
 #: The Worker. One constant so the endpoints cannot drift apart.
 WORKER_BASE = "https://dawnlist-feed-worker.sgf36.workers.dev"
@@ -111,6 +119,42 @@ def _parse(value: str | None) -> datetime | None:
     except ValueError:
         return None
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _fingerprint(key: str) -> str:
+    import hashlib
+    return hashlib.sha256(key.strip().encode("utf-8")).hexdigest()
+
+
+def _stamp(conn: sqlite3.Connection, key: str, source: str,
+           now: datetime) -> None:
+    _set(conn, VERIFIED_AT, now.isoformat(timespec="seconds"))
+    _set(conn, VERIFIED_SOURCE, source)
+    _set(conn, VERIFIED_KEY, _fingerprint(key))
+
+
+def clear_verification(conn: sqlite3.Connection) -> None:
+    conn.execute("DELETE FROM settings WHERE key IN (?, ?, ?)",
+                 (VERIFIED_AT, VERIFIED_SOURCE, VERIFIED_KEY))
+    conn.commit()
+
+
+def _grace_elapsed(conn: sqlite3.Connection, key: str,
+                   now: datetime) -> int | None:
+    """Whole days since `key` last verified, or None when grace does not apply."""
+    verified_at = _parse(_get(conn, VERIFIED_AT))
+    if verified_at is None or verified_at - now > FUTURE_TOLERANCE:
+        return None
+    # The stamp belongs to the key that earned it. Without this, any string
+    # pasted into the box inherited a real key's stamp and ran through an
+    # outage for a fortnight. A stamp written before fingerprints existed has
+    # none, and earns grace again at its next successful check.
+    if _get(conn, VERIFIED_KEY) != _fingerprint(key):
+        return None
+    age = now - verified_at
+    if age >= timedelta(days=GRACE_DAYS):
+        return None
+    return max(0, age.days)
 
 
 def stored_licence() -> str | None:
@@ -265,8 +309,7 @@ def check(conn: sqlite3.Connection, *, verifier=None,
     verdict = (verifier or verify_against_worker)(key)
 
     if verdict is True:
-        _set(conn, VERIFIED_AT, now.isoformat(timespec="seconds"))
-        _set(conn, VERIFIED_SOURCE, "licence")
+        _stamp(conn, key, "licence", now)
         return Entitlement(True, "licence", "licence verified")
 
     # A REFUSAL is final and is checked BEFORE the grace period. Grace exists
@@ -283,9 +326,8 @@ def check(conn: sqlite3.Connection, *, verifier=None,
             "Dawnlist, check the key from your purchase email.")
 
     # verdict is None: we reached nothing conclusive. THIS is what grace is for.
-    verified_at = _parse(_get(conn, VERIFIED_AT))
-    if verified_at and now - verified_at < timedelta(days=GRACE_DAYS):
-        elapsed = (now - verified_at).days
+    elapsed = _grace_elapsed(conn, key, now)
+    if elapsed is not None:
         return Entitlement(
             True, "grace",
             f"last verified {elapsed} day(s) ago; running on a cached licence "
@@ -308,7 +350,7 @@ def require(conn: sqlite3.Connection, *, verifier=None,
     return result
 
 
-def store_licence(key: str) -> None:
+def store_licence(key: str, *, conn: sqlite3.Connection | None = None) -> None:
     """Save a licence from a purchase or an override code.
 
     One slot for both, because an override code produces a real licence — so
@@ -317,9 +359,38 @@ def store_licence(key: str) -> None:
     Deliberately does NOT mark it verified: the next check verifies it
     properly, so a mistyped key fails at the door rather than being trusted
     because it was the most recent thing written.
+
+    AND IT CLEARS THE OLD STAMP. The fingerprint stops a DIFFERENT key riding
+    it, but not the same key saved again: a licence refunded and then pasted
+    back during an outage would match its own old stamp and run on grace for
+    the rest of the fortnight.
     """
     import keyring
     keyring.set_password(LICENCE_SERVICE, LICENCE_ACCOUNT, key.strip())
+    _forget_verification(conn)
+
+
+def _forget_verification(conn: sqlite3.Connection | None) -> None:
+    """Clear the stamp in `conn`, or in the default database when none is given.
+
+    The panels that save a key have no connection of their own. Failure is
+    swallowed: the fingerprint still stops any other key using the stamp, and
+    a save that raised here would lose a licence the user just paid for.
+    """
+    try:
+        if conn is not None:
+            clear_verification(conn)
+            return
+        from contextlib import closing
+
+        from app.core.db import connect, default_db_path
+        path = default_db_path()
+        if not path.exists():
+            return
+        with closing(connect(path)) as own:
+            clear_verification(own)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def exchange_mac_receipt(receipt: bytes, *, base: str | None = None,
