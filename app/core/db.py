@@ -345,6 +345,11 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
                created_at         TEXT NOT NULL
            )""",
     )),
+    (4, (
+        # What a run was for. The calibration sample is now stored as a run of
+        # its own, and without this it could not be told from a morning sweep.
+        "ALTER TABLE runs ADD COLUMN kind TEXT NOT NULL DEFAULT 'sweep'",
+    )),
 )
 
 SCHEMA_VERSION = max(number for number, _ in MIGRATIONS)
@@ -401,14 +406,15 @@ class RunIncomplete(RuntimeError):
 
 
 @contextmanager
-def run(conn: sqlite3.Connection) -> Iterator["Run"]:
+def run(conn: sqlite3.Connection, kind: str = "sweep") -> Iterator["Run"]:
     """Open a run. On any exception the run is recorded as failed, never lost.
 
     spec 6.2/6.4: a crash, a context exhaustion or an empty fetch is named as
     such. The one thing that must never happen is a bad run filed as a normal
     one.
     """
-    cur = conn.execute("INSERT INTO runs(started_at) VALUES(?)", (_now(),))
+    cur = conn.execute("INSERT INTO runs(started_at, kind) VALUES(?, ?)",
+                       (_now(), kind))
     conn.commit()
     r = Run(conn, cur.lastrowid)
     try:

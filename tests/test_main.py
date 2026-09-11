@@ -236,6 +236,81 @@ def test_a_stored_posting_is_not_judged_again_after_the_seen_window(conn):
         "positive control: the new posting is still read")
 
 
+def _calibration_setup(conn, monkeypatch, tmp_path):
+    import app.main as main_mod
+    from app.main import save_query
+
+    # The real alerts folder is the developer's own mail; never read it here.
+    monkeypatch.setattr(main_mod, "alerts_dir", lambda: tmp_path / "no-alerts")
+    seed(conn, queries=False)
+    save_query(conn, "strategy", ["strategy"], countries=["GB"])
+
+
+def test_the_calibration_sample_is_kept_so_the_first_run_does_not_buy_it_again(
+        conn, monkeypatch, tmp_path):
+    """Calibration fetched and assessed ten live postings and kept none of
+    them: no row, no verdict, no exclusion. The first morning run then asked
+    the feed for the same postings and paid for them a second time."""
+    from app.main import calibration_sample
+
+    _calibration_setup(conn, monkeypatch, tmp_path)
+    sample = [job(str(100 + i)) for i in range(10)]
+    items = calibration_sample(conn, provider=Stub(ok(sample)), send=strong_send)
+    assert len(items) == 10
+
+    run = conn.execute("SELECT kind, swept FROM runs").fetchone()
+    assert run["kind"] == "calibration" and run["swept"] == 10
+    assert conn.execute("SELECT COUNT(*) FROM assessments").fetchone()[0] == 10
+
+    feed = Stub(ok(sample + [job("200")]))
+    outcome = morning_run(conn, provider=feed, send=strong_send)
+    assert {str(100 + i) for i in range(10)} <= set(feed.seen[0].exclude_job_ids), (
+        "the feed is told not to return what calibration already bought")
+    assert [v.job.provider_job_id for v in outcome.assessment.verdicts] == ["200"], (
+        "positive control: a posting calibration never saw is still read")
+
+
+def test_a_calibration_posting_nobody_judged_is_not_called_rejected(
+        conn, monkeypatch, tmp_path, capsys):
+    """A screened-in posting with no verdict was shown as "rejected", so the
+    user was asked to correct a rejection nobody had made, and every "strong"
+    they gave it demanded a brief sentence for a failure of the transport.
+    The assessment's errors were never shown at all."""
+    from app.main import calibration_sample
+
+    _calibration_setup(conn, monkeypatch, tmp_path)
+    sample = [job(str(300 + i)) for i in range(10)]
+
+    def judges_half(request):
+        payload = strong_send(request)
+        payload["verdicts"] = payload["verdicts"][:5]
+        return payload
+
+    items = calibration_sample(conn, provider=Stub(ok(sample)), send=judges_half)
+    judged = [i for i in items if i.app_verdict == "strong"]
+    unjudged = [i for i in items if i.app_verdict != "strong"]
+    assert len(judged) == 5 and len(unjudged) == 5
+    assert all(i.app_verdict == "not-assessed" for i in unjudged)
+
+    for item in unjudged:
+        item.user_verdict = "strong"
+    assert not any(i.disagreed for i in unjudged), "there is nothing to disagree with"
+    judged[0].user_verdict = "rejected"
+    assert judged[0].disagreed, "positive control: a real verdict still counts"
+
+    # When the assessment itself failed, the reason says why, and so does the
+    # error stream.
+    def broken(_request):
+        raise RuntimeError("upstream 503")
+
+    failed = calibration_sample(conn, provider=Stub(ok([job(str(400 + i))
+                                                         for i in range(10)])),
+                                send=broken)
+    assert all(i.app_verdict == "not-assessed" for i in failed)
+    assert "upstream 503" in failed[0].app_reason
+    assert "upstream 503" in capsys.readouterr().err
+
+
 def test_a_seen_posting_is_deduped_on_the_next_run(conn):
     """The short-term layer: seen_jobs stops a recurring alert re-listing."""
     seed(conn)

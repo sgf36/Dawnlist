@@ -153,9 +153,10 @@ def run_morning(
     already_judged: set[str] | None = None,
     clock: Callable[[], datetime] = _utcnow,
     requeued: Sequence[Job] = (),
+    kind: str = "sweep",
 ) -> RunOutcome:
     """One morning run, recorded end to end."""
-    with db.run(conn) as run:
+    with db.run(conn, kind=kind) as run:
         outcome = RunOutcome(run_id=run.id)
 
         # --- fetch ---------------------------------------------------------

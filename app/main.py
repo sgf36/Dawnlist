@@ -1097,6 +1097,15 @@ CALIBRATION_SAMPLE = 10
 #: every one of those rows was paid for, by every new user.
 CALIBRATION_FETCH = 15
 
+#: The search label the stored calibration run is filed under. It is not the
+#: name of a saved search, so the run moves no search's delta mark: a few
+#: postings drawn across all the searches is not a reading of any one
+#: search's window.
+CALIBRATION_LABEL = "(calibration sample)"
+
+#: What the user is shown for a screened-in posting nothing judged.
+NOT_ASSESSED = "not-assessed"
+
 
 def calibration_sample(conn, *, provider=None, send=None):
     """Live postings for the calibration gate, screened and assessed.
@@ -1111,7 +1120,7 @@ def calibration_sample(conn, *, provider=None, send=None):
     asking the user for decisions they cannot make.
     """
     from app.core.screen import screen_all
-    from app.intelligence.assess import assess
+    from app.intelligence.assess import job_ref
     from app.onboarding.calibration import CalibrationItem
 
     jobs = []
@@ -1152,30 +1161,67 @@ def calibration_sample(conn, *, provider=None, send=None):
 
     brief = load_document(conn, "fit_brief")
     factsheet = load_document(conn, "factsheet")
-    report = screen_all(jobs, load_rules(conn))
+    rules = load_rules(conn)
 
-    # Assess the survivors so the user is correcting a real verdict. The
-    # screened-out ones still appear, marked as such: an over-reaching rule is
-    # exactly the thing calibration should catch, and hiding those rows would
-    # hide the failure the gate exists to surface.
-    verdicts = {}
-    likely = [r.job for r in report.likely]
-    if likely:
-        judged = assess(likely, brief, factsheet, send=send or build_send(conn))
-        verdicts = {v.job.provider_job_id: v for v in judged.verdicts}
+    # The key is asked for only if something will be assessed: screening is
+    # free, and a user with no key must still see a sample the screen removed
+    # entirely.
+    if send is None and screen_all(jobs, rules).likely:
+        from app.core import api_key
+        from app.intelligence.assess import anthropic_transport
+        send = anthropic_transport(api_key.require())
 
+    # Stored as a run of its own, down the same path as a morning sweep. The
+    # sample was fetched, assessed and kept nowhere, so the first morning run
+    # asked the feed for the same postings and paid for them again. Dedup and
+    # the scope gates are not applied a second time: these postings were
+    # already chosen, and the user should see exactly them.
+    outcome = run_morning(
+        conn, AlertProvider(jobs), [SearchQuery(label=CALIBRATION_LABEL)],
+        rules, fit_brief=brief, factsheet=factsheet, send=send,
+        kind="calibration")
+
+    class NotAssessed(CalibrationItem):
+        """A screened-in posting the model never judged. Its "verdict" is an
+        absence, so the user's answer disagrees with nothing, and demanding a
+        sentence for the brief would teach the brief to correct a failure of
+        the transport."""
+
+        @property
+        def disagreed(self) -> bool:
+            return False
+
+    assessment = outcome.assessment
+    errors = assessment.errors if assessment else []
+    for error in errors:
+        print(f"calibration: {error}", file=sys.stderr)
+    verdicts = {job_ref(v.job): v
+                for v in (assessment.verdicts if assessment else [])}
+
+    # The screened-out ones still appear, marked as such: an over-reaching rule
+    # is exactly the thing calibration should catch, and hiding those rows
+    # would hide the failure the gate exists to surface.
     items = []
-    for result in report.results:
+    for result in outcome.screen.results:
         job = result.job
-        verdict = verdicts.get(job.provider_job_id)
-        items.append(CalibrationItem(
-            job_key=f"{job.provider}:{job.provider_job_id}",
-            title=job.title,
-            company=job.company,
-            description=job.description_text,
-            app_verdict=verdict.bucket if verdict else "rejected",
-            app_reason=(verdict.reason if verdict
-                        else result.reason or "screened out before reading")))
+        shown = dict(job_key=f"{job.provider}:{job.provider_job_id}",
+                     title=job.title, company=job.company,
+                     description=job.description_text)
+        verdict = verdicts.get(job_ref(job))
+        if verdict is not None:
+            items.append(CalibrationItem(**shown, app_verdict=verdict.bucket,
+                                         app_reason=verdict.reason))
+        elif result.is_likely:
+            # Never "rejected". It was shown as one, so the user was asked to
+            # correct a rejection nobody made, and why it went unjudged was
+            # never shown at all.
+            items.append(NotAssessed(
+                **shown, app_verdict=NOT_ASSESSED,
+                app_reason=errors[0] if errors else tr("onboarding.app_no_verdict")))
+        else:
+            items.append(CalibrationItem(
+                **shown, app_verdict="rejected",
+                app_reason=result.reason or "screened out before reading"))
     return items
 
 
