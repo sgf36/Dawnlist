@@ -447,3 +447,28 @@ def test_a_re_read_that_changes_the_verdict_replaces_the_stored_one(conn):
     row = conn.execute("SELECT bucket, full_read FROM assessments").fetchone()
     assert len(calls) == 2, "positive control: the re-read happened"
     assert row["bucket"] == "possible" and row["full_read"] == 1
+
+
+def test_a_run_with_assessment_errors_is_stored_as_incomplete(conn):
+    """`finish` counted only postings left unread, so a run whose model call
+    returned a verdict for a posting it was never sent was filed complete."""
+    def adds_a_stranger(request):
+        payload = strong_send(request)
+        payload["verdicts"].append({"job_ref": "ghost", "bucket": "strong",
+                                    "reason": "?", "disqualifying_quote": None,
+                                    "requirement_checked": True})
+        return payload
+
+    out = run_morning(conn, StubProvider({"strategy": ok([job("a")])}), [Q],
+                      RULES, fit_brief="b", factsheet="f", send=adds_a_stranger)
+    assert out.assessment.errors and not out.assessment.unread
+    row = conn.execute("SELECT status, incomplete_note FROM runs WHERE id=?",
+                       (out.run_id,)).fetchone()
+    assert row["status"] == "incomplete"
+    assert "ghost" in row["incomplete_note"]
+
+    # Positive control: the same run without the stray verdict is complete.
+    clean = run_morning(conn, StubProvider({"strategy": ok([job("b")])}), [Q],
+                        RULES, fit_brief="b", factsheet="f", send=strong_send)
+    assert conn.execute("SELECT status FROM runs WHERE id=?",
+                        (clean.run_id,)).fetchone()["status"] == "complete"

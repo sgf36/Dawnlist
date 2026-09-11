@@ -433,3 +433,28 @@ def test_long_postings_are_split_so_a_request_stays_inside_the_context():
     # Positive control: short postings still travel twenty-five at a time.
     assert [len(c) for c in batches([_job(str(i), "x" * 500)
                                      for i in range(25)])] == [25]
+
+
+def test_a_re_read_that_never_comes_back_is_an_error():
+    """The second pass replaced what came back and said nothing about what did
+    not, so a verdict still standing on a cut-off read left a clean report."""
+    calls = []
+
+    def send(request):
+        calls.append(request)
+        if len(calls) == 1:
+            return _payload("j1", "strong")
+        return {"verdicts": []}            # the re-read answered for nobody
+
+    report = assess([_job("j1", LONG)], "brief", "facts", send=send)
+    assert len(calls) == 2, "positive control: the re-read was asked for"
+    assert report.verdicts[0].needs_full_read
+    assert any("j1" in e and "truncated" in e for e in report.errors)
+    assert not report.complete
+
+    # Positive control: a re-read that does come back leaves no error.
+    calls.clear()
+    clean = assess([_job("j1", LONG)], "brief", "facts",
+                   send=lambda r: calls.append(r) or _payload("j1", "strong"))
+    assert len(calls) == 2
+    assert clean.errors == [] and clean.complete

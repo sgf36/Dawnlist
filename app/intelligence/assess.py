@@ -358,6 +358,16 @@ def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
             {ref: render_job(j, full=True) for ref, j in chunk_refs.items()})
         report.errors.extend(errs)
 
+        # A re-read that does not come back is not a re-read. The verdict
+        # still stands on the cut-off text, and with nothing recorded the run
+        # was reported clean while `needs_full_read` stayed true unseen.
+        returned = {v.job.provider_job_id for v in rereads}
+        for ref in chunk_refs:
+            if ref not in returned:
+                report.errors.append(
+                    f"no full re-read came back for {ref} — its verdict was "
+                    f"formed on a truncated description")
+
         replaced: list[Verdict] = []
         for fresh in rereads:
             ref = fresh.job.provider_job_id

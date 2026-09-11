@@ -263,9 +263,12 @@ def run_morning(
             note = "; ".join(outcome.assessment.errors)[:500]
         run.finish(left_unread=len(outcome.assessment.unread), note=note)
 
-        # A run with a fetch failure is never 'complete', even when everything
-        # it did manage to fetch was assessed.
-        if outcome.fetch_errors:
+        # A run with a fetch failure OR an assessment error is never
+        # 'complete', even when everything it did manage to fetch was judged.
+        # `finish` counts only postings left unread, so a batch that returned
+        # an unusable verdict, or a re-read that never came back, was filed as
+        # a clean run.
+        if outcome.fetch_errors or outcome.assessment.errors:
             conn.execute("UPDATE runs SET status='incomplete' WHERE id=?", (run.id,))
             conn.commit()
 
