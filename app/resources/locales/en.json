@@ -85,6 +85,7 @@
   "onboarding.answer_placeholder": "Your answer — leave blank if you would rather not say",
   "onboarding.answers_added": "{count} response(s) added to your background record above.",
   "onboarding.answers_none": "Nothing new to add — type an answer first.",
+  "onboarding.app.judgement-call": "a judgement call",
   "onboarding.app.not-assessed": "not assessed",
   "onboarding.app.possible": "possible",
   "onboarding.app.rejected": "not a fit",
