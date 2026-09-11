@@ -819,17 +819,11 @@ def build_provider(conn):
     # No licence and no developer key. WHAT TO SAY DEPENDS ON THE BUILD, and
     # getting it wrong is worse than saying nothing.
     #
-    # A store build reaches here with the entitlement gate already satisfied —
-    # `entitlement.require` treats a store build as entitled BY POSSESSION,
-    # because the storefront does not hand the binary to someone who has not
-    # bought it. That reasoning holds for a one-time purchase and does NOT hold
-    # here: the feed is metered per licence server-side, so possession alone
-    # gives the app nothing to meter against and no way to fetch. The customer
-    # has paid and cannot run.
-    #
-    # Telling that person to "enter your licence key" is advice they cannot
-    # act on — no key was ever issued to them — and telling them to put a
-    # provider key in their keyring is advice for a product they did not buy.
+    # Both Windows channels sell through Paddle, so whoever reads this either
+    # has a key to enter or has not bought yet, and the message names that.
+    # Telling a customer to put a provider key in their keyring is advice for
+    # a product they did not buy, so only a build with no store variant says
+    # it.
     if build == "store":
         # Windows Store: the licence box IS shown (Microsoft permits
         # third-party commerce), so this is something the user can act on

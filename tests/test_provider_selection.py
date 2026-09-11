@@ -129,17 +129,13 @@ def test_the_managed_module_is_importable_from_a_frozen_build():
 # ---------------------------------------------------------------------------
 
 def test_a_store_build_without_a_licence_says_so_honestly(no_keyring, monkeypatch):
-    """A paying store customer must not be told to do something impossible.
+    """A store customer must be told something they can do.
 
-    `entitlement.require` treats a store build as entitled BY POSSESSION,
-    which is sound for a one-time purchase and unsound here: the feed is
-    metered per licence server-side, so possession gives the app nothing to
-    meter against. The customer has paid and cannot run.
-
-    Until a store purchase issues a licence, the least this can do is fail in
-    words the person can act on. Telling them to "enter your licence key" is
-    advice they cannot follow — no key was ever issued — and pointing them at
-    a keyring entry is advice for a product they did not buy.
+    The Store build sells through Paddle, so the licence box is on screen and
+    "enter your licence key in Settings" is an action they can take. Pointing
+    them at a keyring entry is advice for a product they did not buy. (This
+    docstring used to describe the Store build as entitled by possession,
+    which stopped being true on 2026-09-08.)
     """
     monkeypatch.setattr("app.core.build_variant.variant", lambda: "store")
     with pytest.raises(NotConfigured) as e:

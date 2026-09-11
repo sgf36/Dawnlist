@@ -4,9 +4,10 @@ The flag is chosen at BUILD time by `tools/set_build_variant.py` and bundled by
 the PyInstaller spec. This module is the only thing that reads it, so the
 question "which variant am I?" has one answer rather than several.
 
-`entitlement.require()` reads `variant()` and treats a store or MAS build as
-entitled by possession — the storefront already took the money, so re-asking it
-would put a network call between a paying user and the app they bought.
+`entitlement.check()` reads `variant()` to decide WHICH purchase to ask about —
+a Paddle licence on `store` and `direct`, Apple's subscription on `mas` — and
+refuses `none` and `ambiguous` outright. No variant is entitled by possession:
+both store listings are free, so having the app proves nothing was paid.
 
 The variant is also OBSERVABLE: `--doctor` reports it, because a Store package
 that is silently the direct-download build is exactly the failure the flags are
