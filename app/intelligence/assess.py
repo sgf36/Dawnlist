@@ -600,6 +600,13 @@ def merge_batch_results(results: Iterable[Any],
 
     Reading them positionally attaches every verdict to the wrong job, and the
     output looks entirely plausible, which is what makes it dangerous.
+
+    NOT USED BY THE RUN, deliberately. The Message Batches API halves the
+    price but may take up to 24 hours to return, and the app offers a manual
+    "Run now" that has to give the user a shortlist within minutes. So the
+    assessment is sent as ordinary requests on the user's key. This stays
+    because keying by custom_id is the part that must not be relearnt if a
+    background-only run is ever added; nothing calls it today.
     """
     verdicts: list[Verdict] = []
     errors: list[str] = []

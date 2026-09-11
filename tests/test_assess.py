@@ -254,6 +254,23 @@ def test_batch_results_are_keyed_by_custom_id():
     assert errors == []
 
 
+def test_the_run_is_never_sent_through_the_message_batches_api():
+    """A manual "Run now" must return within minutes, and a batch may take up
+    to 24 hours. `merge_batch_results` is kept for its keying, not wired in;
+    this holds that decision in place rather than in a comment."""
+    from pathlib import Path
+
+    import app
+
+    root = Path(app.__file__).parent
+    sources = list(root.rglob("*.py"))
+    assert root / "intelligence" / "assess.py" in sources, (
+        "positive control: the scan covers the assessment")
+    offenders = [str(p.relative_to(root)) for p in sources
+                 if "messages.batches" in p.read_text(encoding="utf-8")]
+    assert offenders == []
+
+
 def test_an_errored_batch_entry_is_reported_not_dropped():
     verdicts, errors = merge_batch_results(
         [{"custom_id": "a", "result": {"type": "errored"}}], {"a": job("a")})
