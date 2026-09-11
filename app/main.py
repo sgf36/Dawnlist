@@ -2282,12 +2282,26 @@ def _launch_ui(conn, *, open_board: bool) -> int:
     return app.exec()
 
 
-def _offer_update(parent) -> None:
+#: How long after the window appears the daily check starts. Not zero: the
+#: first moments belong to painting the shortlist.
+UPDATE_CHECK_DELAY_MS = 3_000
+
+#: Held until each check answers; a task nothing references is collected and
+#: never delivers.
+_UPDATE_TASKS: list = []
+
+
+def _offer_update(parent, *, checker=None,
+                  delay_ms: int = UPDATE_CHECK_DELAY_MS) -> None:
     """Tell a direct-download user that a newer build exists. Nothing else.
 
-    AFTER `window.show()`, never before. A modal raised while the window is
-    still being built is a dialog with nothing behind it, on the one launch a
-    person most wants to see their shortlist.
+    AFTER THE WINDOW SHOWS, AND OFF THE UI THREAD. `check()` fetches a
+    manifest over the network with a ten-second timeout, and it ran inline
+    straight after `window.show()` — before the event loop had started — so
+    a slow host held the first paint of the shortlist for up to ten seconds.
+    It is now scheduled onto the running loop, runs on a worker thread, and
+    the dialog comes from the answer. A modal raised while the window is still
+    being built would also be a dialog with nothing behind it.
 
     It offers a LINK. Dawnlist does not download the new build and does not
     replace itself on disk — the artefact on the website is signed and carries
@@ -2302,23 +2316,68 @@ def _offer_update(parent) -> None:
     never be the reason the application did not open.
     """
     try:
-        from app.core.updates import check
+        from PySide6.QtCore import QTimer
 
-        found = check()
-        if found is None:
-            return
+        from app.core import updates
+        from app.ui.background import run_in_background
 
+        def start():
+            def done(found, task=None):
+                if task in _UPDATE_TASKS:
+                    _UPDATE_TASKS.remove(task)
+                _show_update(parent, found)
+
+            box: list = []
+            box.append(run_in_background(
+                checker or updates.check,
+                on_done=lambda found: done(found, box[0]),
+                on_error=lambda _exc: done(None, box[0])))
+            _UPDATE_TASKS.append(box[0])
+
+        QTimer.singleShot(delay_ms, start)
+    except Exception:  # noqa: BLE001 - see the docstring: never block the launch
+        pass
+
+
+def _readable_size(size: int | None) -> str:
+    if not size:
+        return ""
+    return f"{size / 1_048_576:.1f} MB"
+
+
+def _update_texts(found) -> tuple[str, str]:
+    """The prompt's headline and body, with the checksum to verify against."""
+    from app.i18n import tr
+
+    lines = [tr("update.body")]
+    if found.sha256:
+        lines.append(tr("update.checksum", sha256=found.sha256))
+    if found.size:
+        lines.append(tr("update.size", size=_readable_size(found.size)))
+    return tr("update.available", version=found.version), "\n\n".join(lines)
+
+
+def _show_update(parent, found) -> None:
+    """The prompt itself, on the UI thread, from the check's answer."""
+    if found is None:
+        return
+    try:
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QDesktopServices
         from PySide6.QtWidgets import QMessageBox
 
         from app.i18n import tr
 
+        headline, body = _update_texts(found)
+        from PySide6.QtCore import Qt
+
         box = QMessageBox(parent)
         box.setIcon(QMessageBox.Information)
         box.setWindowTitle(tr("update.title"))
-        box.setText(tr("update.available", version=found.version))
-        box.setInformativeText(tr("update.body"))
+        box.setText(headline)
+        box.setInformativeText(body)
+        # Selectable, so the checksum can be copied into a verification tool.
+        box.setTextInteractionFlags(Qt.TextSelectableByMouse)
         get = box.addButton(tr("update.get"), QMessageBox.AcceptRole)
         box.addButton(tr("update.later"), QMessageBox.RejectRole)
         box.setDefaultButton(get)

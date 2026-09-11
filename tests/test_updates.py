@@ -69,7 +69,75 @@ def state(tmp_path):
 
 @pytest.fixture
 def direct(monkeypatch):
+    # Windows too: the manifest is the Windows download, and the check is
+    # gated on the platform as well as the variant. Pinned so the suite
+    # means the same on the macOS and Linux runners.
     monkeypatch.setattr(updates, "variant", lambda: "direct")
+    monkeypatch.setattr(updates.sys, "platform", "win32")
+
+
+# ---------------------------------------------------------------------------
+# Windows only, one host, and the checksum shown
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("platform", ["darwin", "linux"])
+def test_a_direct_build_off_windows_never_checks(monkeypatch, state, platform):
+    """windows.json describes a Windows zip. A direct build anywhere else
+    would be told to download it."""
+    monkeypatch.setattr(updates, "variant", lambda: "direct")
+    monkeypatch.setattr(updates.sys, "platform", platform)
+    opener = _opener(_manifest("9.9.9"))
+    assert updates.check(current="1.0.0", opener=opener, state_path=state) is None
+    assert opener.seen is None
+
+
+def test_a_direct_build_on_windows_does_check(direct, state):
+    """The positive control for the platform gate."""
+    opener = _opener(_manifest("9.9.9"))
+    assert updates.check(current="1.0.0", opener=opener, state_path=state) is not None
+    assert opener.seen is not None
+
+
+@pytest.mark.parametrize("bad", [
+    "https://evil.example/Dawnlist-windows-9.9.9.zip",
+    "https://dawnlist.spencerfields.com.evil.example/x.zip",   # starts right
+    "https://dawnlist.spencerfields.com@evil.example/x.zip",   # user-info
+    "https://evil.example/dawnlist.spencerfields.com/x.zip",   # host in path
+    "https://dawnlist.spencerfields.com:8443/x.zip",           # another port
+    "https://spencerfields.com/x.zip",                         # parent domain
+])
+def test_a_download_on_any_other_host_is_refused(direct, state, bad):
+    """"https://" alone let a manifest point at anybody's binary."""
+    assert updates.check(current="1.1.0", opener=_opener(_manifest(url=bad)),
+                         state_path=state) is None
+
+
+def test_the_checksum_and_size_are_carried_to_the_prompt(direct, state):
+    found = updates.check(current="1.1.0", state_path=state, opener=_opener(
+        _manifest("1.2.0", sha256="AB" * 32, size=48_123_456)))
+    assert found.sha256 == "ab" * 32
+    assert found.size == 48_123_456
+
+
+@pytest.mark.parametrize("digest", ["abc", "z" * 64, 123, "0" * 63])
+def test_a_malformed_checksum_refuses_the_update(direct, state, digest):
+    """It would be shown as the thing to check the download against."""
+    assert updates.check(current="1.1.0", state_path=state,
+                         opener=_opener(_manifest("1.2.0", sha256=digest))) is None
+
+
+def test_an_unpublished_checksum_still_offers_the_update(direct, state):
+    manifest = _manifest("1.2.0")
+    del manifest["sha256"]
+    found = updates.check(current="1.1.0", state_path=state, opener=_opener(manifest))
+    assert found is not None and found.sha256 is None
+
+
+@pytest.mark.parametrize("size", ["big", -1, 0, True, 1.5])
+def test_a_nonsense_size_is_dropped_not_fatal(direct, state, size):
+    found = updates.check(current="1.1.0", state_path=state,
+                          opener=_opener(_manifest("1.2.0", size=size)))
+    assert found is not None and found.size is None
 
 
 # ---------------------------------------------------------------------------
@@ -312,14 +380,26 @@ def test_the_launch_path_actually_calls_the_checker():
         "with nothing behind it")
 
 
-def test_the_prompt_is_a_no_op_when_there_is_no_update(monkeypatch):
+@pytest.fixture
+def qapp():
+    from PySide6.QtWidgets import QApplication
+    yield QApplication.instance() or QApplication([])
+
+
+def test_the_prompt_is_a_no_op_when_there_is_no_update(qapp, settle, monkeypatch):
     from app import main as main_module
 
+    shown = []
     monkeypatch.setattr("app.core.updates.check", lambda *a, **k: None)
-    main_module._offer_update(None)          # must not raise, must not prompt
+    monkeypatch.setattr("PySide6.QtWidgets.QMessageBox.exec",
+                        lambda self: shown.append(self))
+    main_module._offer_update(None, delay_ms=0)       # must not raise
+    settle(lambda: not main_module._UPDATE_TASKS and _spun(qapp), what="the check")
+    main_module._show_update(None, None)
+    assert shown == [], "prompted with nothing to offer"
 
 
-def test_a_failure_inside_the_prompt_never_blocks_the_launch(monkeypatch):
+def test_a_failure_inside_the_check_never_blocks_the_launch(qapp, settle, monkeypatch):
     """An update check must never be the reason the application did not open."""
     from app import main as main_module
 
@@ -327,4 +407,54 @@ def test_a_failure_inside_the_prompt_never_blocks_the_launch(monkeypatch):
         raise RuntimeError("catalogue on fire")
 
     monkeypatch.setattr("app.core.updates.check", boom)
-    main_module._offer_update(None)          # swallowed
+    main_module._offer_update(None, delay_ms=0)       # swallowed
+    settle(lambda: not main_module._UPDATE_TASKS and _spun(qapp), what="the check")
+
+
+def test_the_daily_check_waits_for_the_window_and_runs_off_the_ui_thread(
+        qapp, settle, monkeypatch):
+    """Inline after `window.show()`, a slow manifest host held the first paint
+    of the shortlist for up to its ten-second timeout."""
+    import threading
+
+    from app import main as main_module
+
+    seen, shown = {}, []
+
+    def checker():
+        seen["thread"] = threading.current_thread()
+        return updates.Update(version="9.9.9",
+                              url="https://dawnlist.spencerfields.com/x.zip")
+
+    monkeypatch.setattr(main_module, "_show_update",
+                        lambda parent, found: shown.append((found, threading.current_thread())))
+    main_module._offer_update(None, checker=checker, delay_ms=0)
+    assert seen == {}, "the check ran inside the launch call"
+
+    settle(lambda: shown, what="the update check")
+    assert seen["thread"] is not threading.main_thread()
+    found, shown_on = shown[0]
+    assert found.version == "9.9.9"
+    assert shown_on is threading.main_thread(), "a dialog belongs on the UI thread"
+
+
+def test_the_prompt_shows_the_checksum_and_size_to_verify_against():
+    from app import main as main_module
+
+    found = updates.Update(version="1.2.0",
+                           url="https://dawnlist.spencerfields.com/x.zip",
+                           sha256="ab" * 32, size=48_123_456)
+    headline, body = main_module._update_texts(found)
+    assert "1.2.0" in headline
+    assert "ab" * 32 in body
+    assert "45.9 MB" in body
+
+    bare = updates.Update(version="1.2.0",
+                          url="https://dawnlist.spencerfields.com/x.zip")
+    assert "SHA-256" not in main_module._update_texts(bare)[1]
+
+
+def _spun(qapp):
+    """True once the event loop has had a turn, so a zero-delay timer fires."""
+    qapp.processEvents()
+    return True
