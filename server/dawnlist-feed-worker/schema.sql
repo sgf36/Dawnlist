@@ -103,6 +103,23 @@ CREATE TABLE IF NOT EXISTS webhook_events (
     received_at TEXT NOT NULL
 );
 
+-- The newest thing Paddle has said about each subscription, and when. Paddle
+-- does not deliver in order and retries reorder freely, so an older "canceled"
+-- could arrive after a newer "resumed" and switch off a paying customer. An
+-- event is applied only if it is at least as new as last_event_at, and a
+-- licence's status is copied from licence_status, so a grant that arrives
+-- after a newer cancellation still honours it.
+--
+-- paddle_status is Paddle's own word — 'past_due' is recorded here while access
+-- continues — and licence_status is what it means for access.
+CREATE TABLE IF NOT EXISTS paddle_subscriptions (
+    subscription_id TEXT PRIMARY KEY,
+    last_event_at   TEXT,
+    paddle_status   TEXT,
+    licence_status  TEXT,
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- ---------------------------------------------------------------------------
 -- Override codes and the admin console.
 --

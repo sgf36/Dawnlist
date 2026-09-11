@@ -17,21 +17,32 @@
  *   3. A Paddle secret embeds its own destination id. If several destinations
  *      point at this URL, the correct secret is the one matching THIS
  *      destination — the most convincingly named one may be dead.
+ *
+ * The notification destination must be subscribed to every event named in the
+ * sets below, or the change that event carries never arrives. The README lists
+ * them and what each one does.
  */
 import { planForEvent, capsFor } from './plans.js';
 import { customerDetails, licenceEmail, sendEmail } from './email.js';
 
 const SIGNATURE_TOLERANCE_SECONDS = 5 * 60;
 
-/** Events that grant or revoke access. Anything else is acknowledged and ignored. */
+/** Events that may ISSUE a licence, and restore one that exists. */
 const GRANTING = new Set([
   'transaction.completed',
   'subscription.created',
   'subscription.activated',
 ]);
-const REVOKING = new Set([
+/**
+ * Events that only move an existing licence's status. With no licence yet they
+ * are still recorded, so a grant that arrives later honours them.
+ */
+const STATUS_ONLY = new Set([
   'subscription.canceled',
   'subscription.paused',
+  'subscription.resumed',
+  'subscription.past_due',
+  'subscription.trialing',
 ]);
 /**
  * A plan change. This is the event that makes "pay more for a higher cap"
@@ -47,6 +58,33 @@ const REVOKING = new Set([
 const UPDATING = new Set([
   'subscription.updated',
 ]);
+
+/**
+ * What a Paddle subscription status means for access.
+ *
+ * `past_due` keeps access: Paddle is still retrying the payment, and switching
+ * a customer off at the first failed renewal locks out somebody whose card is
+ * about to go through. It is recorded in paddle_subscriptions.paddle_status so
+ * support can see it.
+ */
+const ACCESS_FOR_STATUS = {
+  active: 'active',
+  trialing: 'active',
+  past_due: 'active',
+  canceled: 'expired',
+  paused: 'expired',
+};
+/** What an event implies when its payload carries no recognised status. */
+const ACCESS_FOR_EVENT = {
+  'transaction.completed': 'active',
+  'subscription.created': 'active',
+  'subscription.activated': 'active',
+  'subscription.resumed': 'active',
+  'subscription.trialing': 'active',
+  'subscription.past_due': 'active',
+  'subscription.canceled': 'expired',
+  'subscription.paused': 'expired',
+};
 
 function timingSafeEqual(a, b) {
   if (a.length !== b.length) return false;
@@ -135,6 +173,124 @@ function priceIdsIn(event) {
     .slice(0, 10);
 }
 
+/**
+ * The subscription an event is about. A transaction names it separately from
+ * its own id; a one-time purchase has none, and its transaction id stands in,
+ * which is what the licence was always keyed by.
+ */
+function subscriptionIdOf(event) {
+  const data = event.data || {};
+  return event.event_type?.startsWith('transaction.')
+    ? (data.subscription_id || data.id || null)
+    : (data.id || data.subscription_id || null);
+}
+
+/**
+ * The event's own time, as text that sorts in time order.
+ *
+ * Paddle sends RFC 3339 with microseconds ("…T10:18:49.621022Z"). Padding the
+ * fraction to a fixed width makes string order equal time order, which is what
+ * lets the "is this newer?" comparison sit inside a single SQL statement rather
+ * than in a read followed by a write that another delivery could get between.
+ */
+export function occurredAt(event) {
+  const raw = event.occurred_at;
+  if (typeof raw !== 'string') return null;
+  const exact = /^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d{1,9}))?Z$/.exec(raw);
+  if (exact) return `${exact[1]}.${(exact[2] || '').padEnd(9, '0')}Z`;
+  const ms = Date.parse(raw);
+  if (Number.isNaN(ms)) return null;
+  const iso = new Date(ms).toISOString();
+  return `${iso.slice(0, 19)}.${iso.slice(20, 23).padEnd(9, '0')}Z`;
+}
+
+function statusesFor(event) {
+  const type = event.event_type;
+  const reported = type.startsWith('subscription.') && typeof event.data?.status === 'string'
+    ? event.data.status
+    : null;
+  return {
+    paddleStatus: reported,
+    access: ACCESS_FOR_STATUS[reported] ?? ACCESS_FOR_EVENT[type] ?? null,
+  };
+}
+
+/**
+ * Record an event against its subscription if it is at least as new as the
+ * last one recorded. RETURNING says whether it was. An event with no time
+ * cannot be ordered and is applied, which is how every event was treated
+ * before this existed.
+ */
+const STATE_UPSERT = `
+  INSERT INTO paddle_subscriptions
+         (subscription_id, last_event_at, paddle_status, licence_status, updated_at)
+  VALUES (?1, ?2, ?3, ?4, datetime('now'))
+  ON CONFLICT(subscription_id) DO UPDATE SET
+    last_event_at  = COALESCE(excluded.last_event_at, paddle_subscriptions.last_event_at),
+    paddle_status  = COALESCE(excluded.paddle_status, paddle_subscriptions.paddle_status),
+    licence_status = COALESCE(excluded.licence_status, paddle_subscriptions.licence_status),
+    updated_at     = excluded.updated_at
+  WHERE excluded.last_event_at IS NULL
+     OR paddle_subscriptions.last_event_at IS NULL
+     OR excluded.last_event_at >= paddle_subscriptions.last_event_at
+  RETURNING subscription_id`;
+
+/**
+ * Copy the newest recorded access onto the licence.
+ *
+ * It copies from the table rather than from the event, so running it after a
+ * STALE event is harmless — it re-applies what the newer event said. A
+ * 'suspended' licence is support's decision and no subscription status
+ * overrides it.
+ */
+const LICENCE_SYNC = `
+  UPDATE licences
+     SET status = (SELECT licence_status FROM paddle_subscriptions WHERE subscription_id = ?1)
+   WHERE paddle_subscription_id = ?1
+     AND status <> 'suspended'
+     AND (SELECT licence_status FROM paddle_subscriptions WHERE subscription_id = ?1) IS NOT NULL`;
+
+const LICENCE_BY_SUBSCRIPTION =
+  'SELECT licence_key, status, plan FROM licences WHERE paddle_subscription_id = ?1';
+
+/**
+ * RETURNING says whether THIS request created the row. subscription.created and
+ * transaction.completed for one purchase are different events, so both pass the
+ * idempotency claim and both reach here; the unique index on
+ * paddle_subscription_id refuses the second, and nothing is returned. The
+ * status written is provisional — LICENCE_SYNC, in the same batch, replaces it
+ * with the newest recorded state.
+ */
+const INSERT_LICENCE = `
+  INSERT INTO licences (licence_key, tier, status, paddle_subscription_id,
+                        plan, plan_unmatched,
+                        max_postings_per_day, max_refreshes_per_day, max_saved_queries)
+  SELECT ?1, ?2, 'active', ?3, ?4, 0, ?5, ?6, ?7 WHERE true
+  ON CONFLICT DO NOTHING
+  RETURNING licence_key`;
+
+/**
+ * A plan change, applied only if this event is still the newest recorded for
+ * the subscription — otherwise a delayed older update would put a customer
+ * back on the plan they had just left.
+ */
+const PLAN_CHANGE = `
+  UPDATE licences
+     SET plan = ?1, plan_unmatched = 0,
+         max_postings_per_day = ?2,
+         max_refreshes_per_day = ?3,
+         max_saved_queries = ?4
+   WHERE licence_key = ?5
+     AND plan IS NOT ?1
+     AND (?6 IS NULL
+          OR (SELECT last_event_at FROM paddle_subscriptions WHERE subscription_id = ?7) = ?6)`;
+
+function stateStatement(env, subscriptionId, event) {
+  const { paddleStatus, access } = statusesFor(event);
+  return env.DB.prepare(STATE_UPSERT)
+    .bind(subscriptionId, occurredAt(event), paddleStatus, access);
+}
+
 const reply = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
@@ -208,161 +364,178 @@ export async function handlePaddleWebhook(request, env, ctx) {
 
 async function applyEvent(env, ctx, event) {
   const type = event.event_type;
-  let result = { ok: true, action: 'ignored', event_type: type };
+  if (typeof type !== 'string') return { ok: true, action: 'ignored' };
+  if (GRANTING.has(type)) return grant(env, ctx, event);
+  if (STATUS_ONLY.has(type)) return moveStatus(env, event);
+  if (UPDATING.has(type)) return update(env, event);
+  return { ok: true, action: 'ignored', event_type: type };
+}
 
-  if (GRANTING.has(type)) {
-    const subscriptionId = event.data?.subscription_id || event.data?.id || null;
-    const existing = subscriptionId
-      ? await env.DB.prepare(
-          'SELECT licence_key FROM licences WHERE paddle_subscription_id = ?1'
-        ).bind(subscriptionId).first()
-      : null;
-
-    const chosen = planForEvent(env, event);
-    if (existing) {
-      // Reactivating an existing subscriber must not mint a second key. Not
-      // gated on the price: the licence already exists, however it came to.
-      await env.DB.prepare(
-        "UPDATE licences SET status = 'active' WHERE licence_key = ?1"
-      ).bind(existing.licence_key).run();
-      result = { ok: true, action: 'reactivated' };
-    } else if (!chosen.matched) {
-      // An unrecognised price issues NOTHING. The fallback used to issue a
-      // Standard licence and flag it, which handed a working key and a welcome
-      // email to whoever bought something this Worker does not sell — another
-      // product's price on the shared Paddle account, a test price, an id
-      // missing from configuration. A licence wrongly withheld can be granted
-      // by hand with a code minted in /admin; one wrongly issued is a live
-      // credential already sitting in somebody's inbox.
-      console.warn('paddle: price matched no plan; nothing issued',
-                   { prices: priceIdsIn(event) });
-      result = { ok: true, action: 'unmatched_product' };
-    } else {
-      const key = newLicenceKey();
-      // The caps the customer actually paid for. Before this, every licence
-      // fell back to the Worker's anti-abuse default and paying more bought
-      // nothing at all.
-      const caps = capsFor(chosen.plan);
-      // RETURNING says whether THIS request created the row. The read above
-      // is not enough: subscription.created and transaction.completed for one
-      // purchase are different events, so both pass the idempotency claim,
-      // both read "no licence", and both reach here. The unique index on
-      // paddle_subscription_id refuses the second, and nothing is returned.
-      const created = await env.DB.prepare(
-        `INSERT INTO licences (licence_key, tier, status, paddle_subscription_id,
-                               plan, plan_unmatched,
-                               max_postings_per_day, max_refreshes_per_day,
-                               max_saved_queries)
-         VALUES (?1, ?2, 'active', ?3, ?4, 0, ?5, ?6, ?7)
-         ON CONFLICT DO NOTHING
-         RETURNING licence_key`
-      ).bind(key, tierFor(event), subscriptionId, caps.plan,
-             caps.max_postings_per_day, caps.max_refreshes_per_day,
-             caps.max_saved_queries).first();
-
-      if (!created) {
-        // Another event for this purchase issued it first, and sent the email.
-        // Sending one here too would put a key in the inbox that does not
-        // exist in the database.
-        return { ok: true, action: 'already_issued' };
-      }
-
-      // The key is NOT returned in the response: the webhook response goes to
-      // Paddle, not to the customer. Delivery is the separate step below.
-      //
-      // It runs AFTER the licence is committed and OUTSIDE the response, via
-      // waitUntil. Two reasons, and both are about what a retry would cost:
-      // Paddle retries any non-2xx, so a slow or failing Resend call must not
-      // turn a successful issue into a redelivery — and a redelivery that got
-      // past the idempotency table would issue a second subscription for one
-      // payment. A customer who does not receive the email can be sent it
-      // again; a customer charged twice cannot be un-charged so easily.
-      const deliver = (async () => {
-        const who = await customerDetails(env, event);
-        if (!who.email) {
-          // Logged loudly and by cause. This is the failure that strands a
-          // paying customer, and the only trace left will be this line.
-          console.error('paddle: licence issued but NOT delivered — no email',
-                        { source: who.source, subscription: subscriptionId ? 'yes' : 'no' });
-          return;
-        }
-        const mail = licenceEmail({
-          licenceKey: key,
-          postingsPerDay: caps.max_postings_per_day,
-          lang: who.lang,
-        });
-        const sent = await sendEmail(env, { to: who.email, ...mail });
-        if (!sent.ok) {
-          console.error('paddle: licence issued but email failed',
-                        { error: sent.error, status: sent.status, lang: who.lang });
-        } else {
-          // Counts and ids only, never the address.
-          console.log('paddle: licence delivered', { id: sent.id, lang: who.lang });
-        }
-      })();
-      if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(deliver);
-      else await deliver;
-
-      result = { ok: true, action: 'issued' };
-    }
-  } else if (REVOKING.has(type)) {
-    const subscriptionId = event.data?.id || event.data?.subscription_id;
-    if (subscriptionId) {
-      await env.DB.prepare(
-        "UPDATE licences SET status = 'expired' WHERE paddle_subscription_id = ?1"
-      ).bind(subscriptionId).run();
-      result = { ok: true, action: 'revoked' };
-    }
-  } else if (UPDATING.has(type)) {
-    const subscriptionId = event.data?.id || event.data?.subscription_id;
-    const row = subscriptionId
-      ? await env.DB.prepare(
-          `SELECT licence_key, plan FROM licences WHERE paddle_subscription_id = ?1`
-        ).bind(subscriptionId).first()
-      : null;
-
-    if (!row) {
-      // An update for a subscription we never issued a licence for. Not an
-      // error worth a retry — Paddle would redeliver forever — but it is worth
-      // saying, because it means an earlier grant was missed.
-      result = { ok: true, action: 'update_no_licence' };
-    } else {
-      const chosen = planForEvent(env, event);
-      if (!chosen.matched) {
-        // Do NOT fall back here. It would DOWNGRADE a paying customer to
-        // Standard because a price id was not configured. Leave the caps alone
-        // and say so.
-        console.warn('paddle: subscription.updated matched no plan; caps unchanged',
-                     { had: row.plan || 'unset' });
-        result = { ok: true, action: 'update_unmatched_ignored' };
-      } else if (chosen.plan === row.plan) {
-        result = { ok: true, action: 'update_no_plan_change' };
-      } else {
-        const caps = capsFor(chosen.plan);
-        // Read the previous plan BEFORE the update. Do not rely on the driver
-        // handing back a detached row: if it returns a live reference, the
-        // UPDATE below rewrites it and the "from" reported here becomes the
-        // value it was changed TO — an audit line that says a licence moved
-        // from global to global.
-        const previous = row.plan || 'unset';
-        await env.DB.prepare(
-          `UPDATE licences
-              SET plan = ?1, plan_unmatched = 0,
-                  max_postings_per_day = ?2,
-                  max_refreshes_per_day = ?3,
-                  max_saved_queries = ?4
-            WHERE licence_key = ?5`
-        ).bind(caps.plan, caps.max_postings_per_day, caps.max_refreshes_per_day,
-               caps.max_saved_queries, row.licence_key).run();
-        // Today's usage is deliberately NOT reset. An upgrade raises the
-        // ceiling, which immediately gives back headroom on the same day; a
-        // downgrade lowers it, and a customer already above the new cap simply
-        // has no headroom until tomorrow. Zeroing the meter on either would
-        // make repeated plan changes a way to fetch without limit.
-        result = { ok: true, action: 'plan_changed', from: previous, to: caps.plan };
-      }
-    }
+async function grant(env, ctx, event) {
+  const subscriptionId = subscriptionIdOf(event);
+  if (!subscriptionId) {
+    // A licence with no subscription id could never be cancelled, paused or
+    // refunded by a later event.
+    console.warn('paddle: granting event carried no id; nothing issued', { type: event.event_type });
+    return { ok: true, action: 'no_subscription_id' };
   }
 
-  return result;
+  const chosen = planForEvent(env, event);
+  const caps = chosen.matched ? capsFor(chosen.plan) : null;
+  const key = caps ? newLicenceKey() : null;
+
+  // One transaction: record the event, create the licence if there is none,
+  // then set its status from the newest recorded state. Separately, a
+  // cancellation could land between the insert and the status and be lost.
+  const statements = [stateStatement(env, subscriptionId, event)];
+  if (caps) {
+    // The caps the customer actually paid for. Before plans, every licence
+    // fell back to the Worker's anti-abuse default and paying more bought
+    // nothing at all.
+    statements.push(env.DB.prepare(INSERT_LICENCE).bind(
+      key, tierFor(event), subscriptionId, caps.plan,
+      caps.max_postings_per_day, caps.max_refreshes_per_day, caps.max_saved_queries));
+  }
+  statements.push(env.DB.prepare(LICENCE_SYNC).bind(subscriptionId));
+  statements.push(env.DB.prepare(LICENCE_BY_SUBSCRIPTION).bind(subscriptionId));
+  const results = await env.DB.batch(statements);
+
+  const fresh = results[0].results.length > 0;
+  const created = caps ? results[1].results.length > 0 : false;
+  const licence = results[results.length - 1].results[0] || null;
+
+  if (created) {
+    if (licence?.status !== 'active') {
+      // A newer event had already ended this subscription. The row exists so
+      // support can see it; a key emailed now would not work.
+      return { ok: true, action: 'issued_inactive' };
+    }
+    await deliverLicence(env, ctx, event, key, caps, subscriptionId);
+    return { ok: true, action: 'issued' };
+  }
+  if (licence) {
+    // Reactivating an existing subscriber must not mint a second key. Not
+    // gated on the price: the licence already exists, however it came to.
+    return { ok: true, action: fresh ? 'reactivated' : 'stale_ignored' };
+  }
+
+  // An unrecognised price issues NOTHING. The fallback used to issue a
+  // Standard licence and flag it, which handed a working key and a welcome
+  // email to whoever bought something this Worker does not sell — another
+  // product's price on the shared Paddle account, a test price, an id missing
+  // from configuration. A licence wrongly withheld can be granted by hand with
+  // a code minted in /admin; one wrongly issued is a live credential already
+  // sitting in somebody's inbox.
+  console.warn('paddle: price matched no plan; nothing issued', { prices: priceIdsIn(event) });
+  return { ok: true, action: 'unmatched_product' };
+}
+
+/**
+ * Send the licence to the buyer.
+ *
+ * The key is NOT returned in the webhook response: that goes to Paddle, not to
+ * the customer. Delivery runs AFTER the licence is committed and OUTSIDE the
+ * response, via waitUntil, because Paddle retries any non-2xx: a slow or
+ * failing Resend call must not turn a successful issue into a redelivery. A
+ * customer who does not receive the email can be sent it again; a customer
+ * charged twice cannot be un-charged so easily.
+ */
+async function deliverLicence(env, ctx, event, key, caps, subscriptionId) {
+  const work = (async () => {
+    const who = await customerDetails(env, event);
+    if (!who.email) {
+      // Logged loudly and by cause. This is the failure that strands a paying
+      // customer, and the only trace left will be this line.
+      console.error('paddle: licence issued but NOT delivered — no email',
+                    { source: who.source, subscription: subscriptionId ? 'yes' : 'no' });
+      return;
+    }
+    const mail = licenceEmail({
+      licenceKey: key,
+      postingsPerDay: caps.max_postings_per_day,
+      lang: who.lang,
+    });
+    const sent = await sendEmail(env, { to: who.email, ...mail });
+    if (!sent.ok) {
+      console.error('paddle: licence issued but email failed',
+                    { error: sent.error, status: sent.status, lang: who.lang });
+    } else {
+      // Counts and ids only, never the address.
+      console.log('paddle: licence delivered', { id: sent.id, lang: who.lang });
+    }
+  })();
+  if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(work);
+  else await work;
+}
+
+async function moveStatus(env, event) {
+  const subscriptionId = subscriptionIdOf(event);
+  if (!subscriptionId) return { ok: true, action: 'ignored', event_type: event.event_type };
+
+  const results = await env.DB.batch([
+    stateStatement(env, subscriptionId, event),
+    env.DB.prepare(LICENCE_SYNC).bind(subscriptionId),
+    env.DB.prepare(LICENCE_BY_SUBSCRIPTION).bind(subscriptionId),
+  ]);
+  const fresh = results[0].results.length > 0;
+  const licence = results[2].results[0] || null;
+
+  // Recorded even with no licence yet, so a grant delivered after it honours it.
+  if (!licence) return { ok: true, action: 'status_no_licence' };
+  if (!fresh) return { ok: true, action: 'stale_ignored' };
+  return { ok: true, action: 'status_changed', status: licence.status };
+}
+
+async function update(env, event) {
+  const subscriptionId = subscriptionIdOf(event);
+  const row = subscriptionId
+    ? await env.DB.prepare(LICENCE_BY_SUBSCRIPTION).bind(subscriptionId).first()
+    : null;
+  const chosen = planForEvent(env, event);
+  const caps = row && chosen.matched && chosen.plan !== row.plan ? capsFor(chosen.plan) : null;
+  // Read the previous plan BEFORE the update. Do not rely on the driver
+  // handing back a detached row: if it returns a live reference, the UPDATE
+  // rewrites it and the "from" reported here becomes the value it was changed
+  // TO — an audit line that says a licence moved from global to global.
+  const previous = row?.plan || 'unset';
+
+  let results = null;
+  if (subscriptionId) {
+    // The status is recorded even when there is no licence or no plan change:
+    // subscription.updated is also how a pause, a cancellation or a past-due
+    // renewal is reported.
+    const statements = [
+      stateStatement(env, subscriptionId, event),
+      env.DB.prepare(LICENCE_SYNC).bind(subscriptionId),
+    ];
+    if (caps) {
+      statements.push(env.DB.prepare(PLAN_CHANGE).bind(
+        caps.plan, caps.max_postings_per_day, caps.max_refreshes_per_day,
+        caps.max_saved_queries, row.licence_key, occurredAt(event), subscriptionId));
+    }
+    results = await env.DB.batch(statements);
+  }
+
+  if (!row) {
+    // An update for a subscription we never issued a licence for. Not an error
+    // worth a retry — Paddle would redeliver forever — but it is worth saying,
+    // because it means an earlier grant was missed.
+    return { ok: true, action: 'update_no_licence' };
+  }
+  if (!chosen.matched) {
+    // Do NOT fall back here. It would DOWNGRADE a paying customer to Standard
+    // because a price id was not configured. Leave the caps alone and say so.
+    console.warn('paddle: subscription.updated matched no plan; caps unchanged',
+                 { had: row.plan || 'unset' });
+    return { ok: true, action: 'update_unmatched_ignored' };
+  }
+  if (!caps) return { ok: true, action: 'update_no_plan_change' };
+  if (results[2].meta.changes !== 1) return { ok: true, action: 'stale_ignored' };
+
+  // Today's usage is deliberately NOT reset. An upgrade raises the ceiling,
+  // which immediately gives back headroom on the same day; a downgrade lowers
+  // it, and a customer already above the new cap simply has no headroom until
+  // tomorrow. Zeroing the meter on either would make repeated plan changes a
+  // way to fetch without limit.
+  return { ok: true, action: 'plan_changed', from: previous, to: caps.plan };
 }
