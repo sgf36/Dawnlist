@@ -145,6 +145,28 @@ def test_only_the_query_that_fetched_advances(conn):
     assert marks["revenue"] is None, "the one that failed keeps its window"
 
 
+def test_a_posting_left_unjudged_is_read_on_the_next_run(conn):
+    """A likely posting whose batch failed or was never sent stayed unread for
+    good: it was held, so every later fetch deduped it, and nothing queued it
+    again."""
+    seed(conn)
+
+    def skips(_request):
+        return {"verdicts": []}
+
+    first = morning_run(conn, provider=Stub(ok([job("7")])), send=skips)
+    assert [j.provider_job_id for j in first.assessment.unread] == ["7"], (
+        "positive control: the first run really did leave it unjudged")
+
+    second = morning_run(conn, provider=Stub(ok([])), send=strong_send)
+    assert [v.job.provider_job_id for v in second.assessment.verdicts] == ["7"]
+    assert second.funnel()["requeued"] == 1
+
+    # Judged now, so it is not queued (or paid for) a third time.
+    third = morning_run(conn, provider=Stub(ok([])), send=strong_send)
+    assert third.assessment.verdicts == [] and not third.requeued
+
+
 def test_a_seen_posting_is_deduped_on_the_next_run(conn):
     """The short-term layer: seen_jobs stops a recurring alert re-listing."""
     seed(conn)

@@ -100,6 +100,9 @@ class RunOutcome:
     #: label -> postings the query matched but did not fetch. Kept apart from
     #: the errors so a search too wide to read can be named and narrowed.
     unfetched: dict[str, int] = field(default_factory=dict)
+    #: Postings an earlier run bought and screened in but never judged, put
+    #: back in front of the gates and the screen at the start of this one.
+    requeued: list[Job] = field(default_factory=list)
 
     @property
     def complete(self) -> bool:
@@ -125,6 +128,8 @@ class RunOutcome:
             out["near_duplicates_flagged"] = len(self.deduped.near_duplicates)
         if self.unfetched:
             out["not_fetched"] = sum(self.unfetched.values())
+        if self.requeued:
+            out["requeued"] = len(self.requeued)
         return out
 
     def loose_queries(self, threshold: float = 0.10) -> list[str]:
@@ -147,6 +152,7 @@ def run_morning(
     already_seen: set[tuple[str, str]] | None = None,
     already_judged: set[str] | None = None,
     clock: Callable[[], datetime] = _utcnow,
+    requeued: Sequence[Job] = (),
 ) -> RunOutcome:
     """One morning run, recorded end to end."""
     with db.run(conn) as run:
@@ -206,9 +212,17 @@ def run_morning(
         survivors = outcome.deduped.unique
         run.record_counts(swept=len(all_jobs), deduped=len(survivors))
 
+        # Postings already held, so dedup would drop them, and never judged:
+        # without this a posting whose batch failed, whose run was stopped, or
+        # that the model skipped stayed unread for good. They skip dedup and
+        # still pass the gates and the screen, so a rejection or a rule added
+        # since applies to them too.
+        fresh = {j.dedup_key for j in survivors}
+        outcome.requeued = [j for j in requeued if j.dedup_key not in fresh]
+
         # --- mechanical gates ----------------------------------------------
         kept: list[Job] = []
-        for job in survivors:
+        for job in survivors + outcome.requeued:
             for gate in gates:
                 if not gate.predicate(job):
                     outcome.gated_out.append((job, gate.reason))
@@ -399,3 +413,35 @@ def judged_refs(conn: sqlite3.Connection) -> set[str]:
     return {r["provider_job_id"] for r in conn.execute(
         "SELECT DISTINCT j.provider_job_id FROM assessments a "
         "JOIN jobs j ON j.id = a.job_id")}
+
+
+def stored_job(row) -> Job:
+    """A posting rebuilt from its `jobs` row, with the fields its assessment
+    renders and its gates read."""
+    posted = None
+    if row["posted_at"]:
+        try:
+            posted = date.fromisoformat(str(row["posted_at"])[:10])
+        except ValueError:
+            posted = None
+    return Job(
+        provider=row["provider"], provider_job_id=row["provider_job_id"],
+        title=row["title"], company=row["company"],
+        locations=tuple(json.loads(row["locations_json"] or "[]")),
+        description_text=row["description_text"] or "",
+        posted_at=posted, salary=row["salary"], url=row["url"] or "",
+        raw_criteria=json.loads(row["raw_criteria_json"] or "{}"))
+
+
+def unassessed_likely(conn: sqlite3.Connection) -> list[Job]:
+    """Stored postings the screen let through that nothing has judged.
+
+    Only undecided ones with a description: a decided posting needs no verdict,
+    and one whose description is gone would be assessed on nothing.
+    """
+    return [stored_job(r) for r in conn.execute(
+        "SELECT j.* FROM jobs j"
+        " WHERE j.screen_verdict = 'likely' AND j.description_text <> ''"
+        "   AND NOT EXISTS (SELECT 1 FROM assessments a WHERE a.job_id = j.id)"
+        "   AND NOT EXISTS (SELECT 1 FROM decisions d WHERE d.job_id = j.id)"
+        " ORDER BY j.id")]

@@ -1193,18 +1193,20 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
         *scope_gates(enabled_scopes(conn)),
     ]
 
-    from app.core.pipeline import judged_refs
+    from app.core.pipeline import judged_refs, unassessed_likely
 
     # `run_morning` stores what it fetched and screened before any model call,
     # stores verdicts batch by batch, and advances each search's mark once its
     # postings are stored — so an interrupted run has lost nothing it paid
     # for. Postings already judged are skipped, rather than paying the model
-    # to read them twice.
+    # to read them twice, and postings an earlier run screened in but never
+    # judged are queued again before anything new is fetched.
     outcome = run_morning(
         conn, provider or build_provider(conn), queries, load_rules(conn),
         fit_brief=brief, factsheet=factsheet,
         send=send or build_send(conn), gates=gates, already_seen=seen,
         already_judged=judged_refs(conn),
+        requeued=unassessed_likely(conn),
     )
 
     # `seen_jobs` is a rolling window, not a permanent record — rejections live

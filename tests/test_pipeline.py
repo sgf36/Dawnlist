@@ -472,3 +472,36 @@ def test_a_run_with_assessment_errors_is_stored_as_incomplete(conn):
                         RULES, fit_brief="b", factsheet="f", send=strong_send)
     assert conn.execute("SELECT status FROM runs WHERE id=?",
                         (clean.run_id,)).fetchone()["status"] == "complete"
+
+
+def test_only_unjudged_undecided_likely_postings_are_queued_again(conn):
+    """Re-queueing costs a model call, so it takes exactly the postings that
+    still need one — never a decided, judged, screened-out or emptied one."""
+    from app.core.pipeline import unassessed_likely
+
+    left = Job(provider="theirstack", provider_job_id="left",
+               title="Head of Strategy", company="Acme",
+               description_text="A strategy role.", salary="£90,000",
+               posted_at=date(2026, 9, 1), locations=("London",),
+               raw_criteria={"country_codes": ["GB"]})
+    jobs = [left, job("judged"), job("decided"), job("emptied"),
+            job("porter", title="Kitchen Porter", desc="washing up")]
+
+    def judges_one(request):
+        payload = strong_send(request)
+        payload["verdicts"] = [v for v in payload["verdicts"]
+                               if v["job_ref"] == "judged"]
+        return payload
+
+    run_morning(conn, StubProvider({"strategy": ok(jobs)}), [Q], RULES,
+                fit_brief="b", factsheet="f", send=judges_one)
+    conn.execute("INSERT INTO decisions(job_id, kind, decided_at) "
+                 "SELECT id, 'reject', 'x' FROM jobs WHERE provider_job_id='decided'")
+    conn.execute("UPDATE jobs SET description_text='' "
+                 "WHERE provider_job_id='emptied'")
+    conn.commit()
+
+    queued = unassessed_likely(conn)
+    assert [j.provider_job_id for j in queued] == ["left"]
+    # Rebuilt with what the assessment renders and the gates read.
+    assert queued[0] == left
