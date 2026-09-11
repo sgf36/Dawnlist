@@ -222,3 +222,57 @@ def test_a_missing_tile_master_stops_the_build_rather_than_finding_another(
     monkeypatch.setattr(msix, "SOURCE_ICON", tmp_path / "not-here.png")
     with pytest.raises(SystemExit):
         msix.source_icon()
+
+
+# ---------------------------------------------------------------------------
+# Release tooling runs on a machine that is not Spencer's
+# ---------------------------------------------------------------------------
+
+RELEASE_TOOLS = ("tools/asc.py", "tools/scrub_for_public.py",
+                 "tools/set_build_variant.py")
+
+#: A path under somebody's user directory. `C:\Program Files` is not one.
+HOME_PATH = re.compile(r"[A-Za-z]:[\\/]Users[\\/]|/home/[A-Za-z]")
+
+
+def _asc():
+    import importlib
+    import sys
+
+    sys.path.insert(0, str(ROOT))
+    return importlib.import_module("tools.asc")
+
+
+def test_the_app_store_key_location_comes_from_the_environment(
+        monkeypatch, tmp_path):
+    key = tmp_path / "AuthKey.p8"
+    key.write_text("not a real key", encoding="utf-8")
+    asc = _asc()
+    monkeypatch.setenv(asc.KEY_ENV, str(key))
+    assert asc.key_path() == key
+
+
+def test_an_unconfigured_app_store_key_refuses_rather_than_401ing(monkeypatch):
+    """Apple answers a missing key and a wrong key with the same 401, so the
+    refusal has to happen here to be legible at all."""
+    import keyring
+
+    asc = _asc()
+    monkeypatch.delenv(asc.KEY_ENV, raising=False)
+    monkeypatch.setattr(keyring, "get_password", lambda *a, **k: None)
+    with pytest.raises(SystemExit):
+        asc.key_path()
+
+
+def test_no_release_tool_carries_a_path_into_somebodys_home_directory():
+    """A literal path into one machine makes a script unrunnable everywhere
+    else, and on a PUBLIC repository it also publishes that machine's filing."""
+    assert HOME_PATH.search(r'KEY = Path(r"C:\Users\Someone\signing\key.p8")'), (
+        "the pattern cannot match the line it exists to catch")
+
+    paths = [ROOT / rel for rel in RELEASE_TOOLS]
+    paths += sorted(p for p in (ROOT / "packaging").rglob("*")
+                    if p.suffix in {".py", ".spec", ".ps1"})
+    for path in paths:
+        found = HOME_PATH.findall(path.read_text(encoding="utf-8"))
+        assert not found, f"{path.relative_to(ROOT)} names {found}"
