@@ -171,6 +171,48 @@ def test_a_failed_redemption_keeps_the_code_in_the_box(qapp):
     assert panel.field.text() == "DL-BAD"
 
 
+# -- a credential store that will not save ----------------------------------
+def _refusing_store(_key):
+    from app.core.credentials import KeyringUnavailable
+    raise KeyringUnavailable("locked")
+
+
+def test_a_verified_key_that_cannot_be_saved_is_not_called_verified(qapp):
+    """The user would close Settings believing they were set up.
+    `test_a_verified_key_is_stored` is the positive control."""
+    panel = KeyPanel(verifier=lambda k: (True, "Verified — 3 models available."),
+                     storer=_refusing_store, reader=lambda: None)
+    panel.field.setText("sk-ant-api03-" + "x" * 40)
+    panel.save()
+    assert "Verified" not in panel.result.text()
+    assert "could not save" in panel.result.text().lower()
+    assert panel.field.text(), "left in the box so it can be saved again"
+    panel.close()
+
+
+def test_a_redeemed_code_that_cannot_be_saved_shows_the_licence(qapp):
+    """The code may be single-use and is already spent, so the licence on
+    screen is the only copy there is."""
+    from PySide6.QtCore import Qt
+
+    panel = LicencePanel(redeemer=lambda c: "DAWN-ONLY-COPY",
+                         storer=_refusing_store, reader=lambda: None)
+    panel.field.setText("DL-ONCE")
+    panel.save()
+    assert "DAWN-ONLY-COPY" in panel.result.text()
+    assert panel.result.textInteractionFlags() & Qt.TextSelectableByMouse
+    panel.close()
+
+
+def test_a_licence_key_that_cannot_be_saved_says_so(qapp):
+    panel = LicencePanel(storer=_refusing_store, reader=lambda: None)
+    panel.field.setText("DAWN-AAAA-BBBB")
+    panel.save()
+    assert "could not save" in panel.result.text().lower()
+    assert "Licence saved." not in panel.result.text()
+    panel.close()
+
+
 # -- the window -------------------------------------------------------------
 def test_the_window_carries_both_panels(qapp):
     w = SettingsWindow()

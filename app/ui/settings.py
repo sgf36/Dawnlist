@@ -217,13 +217,20 @@ class KeyPanel(QWidget):
         finally:
             self.button.setEnabled(True)
 
+        if ok:
+            try:
+                self._store(entered)
+            except Exception:  # noqa: BLE001 - any failure means it was not kept
+                # Never "Verified" over a key that was not kept: the user would
+                # close Settings believing they were set up.
+                ok, message = False, tr("settings.key_store_failed")
+
         self.result.setObjectName("ok" if ok else "bad")
         self.result.setText(message)
         self.result.style().unpolish(self.result)
         self.result.style().polish(self.result)
 
         if ok:
-            self._store(entered)
             # Cleared on success only. A rejected key stays in the box so the
             # user can see what they pasted and fix it, rather than starting
             # again from nothing.
@@ -275,6 +282,9 @@ class LicencePanel(QWidget):
 
         self.result = QLabel()
         self.result.setWordWrap(True)
+        # Selectable, because a licence the credential store refused is shown
+        # here, and a key that cannot be copied is a key retyped wrongly.
+        self.result.setTextInteractionFlags(Qt.TextSelectableByMouse)
         layout.addWidget(self.result)
         layout.addStretch(1)
 
@@ -304,11 +314,20 @@ class LicencePanel(QWidget):
         # given. A licence key starts DAWN-; anything else is tried as a code.
         try:
             if entered.upper().startswith("DAWN-"):
-                self._store(entered)
+                try:
+                    self._store(entered)
+                except Exception:  # noqa: BLE001
+                    raise RuntimeError(tr("settings.licence_store_failed")) from None
                 ok, message = True, tr("settings.licence_saved")
             else:
                 licence = self._redeem(entered)
-                self._store(licence)
+                try:
+                    self._store(licence)
+                except Exception:  # noqa: BLE001
+                    # The code may be single-use and is now spent, so the key on
+                    # this screen is the only copy of the licence that exists.
+                    raise RuntimeError(
+                        tr("settings.code_store_failed", key=licence)) from None
                 ok, message = True, tr("settings.code_redeemed")
         except Exception as exc:  # noqa: BLE001 - the reason is the message
             ok, message = False, str(exc)
@@ -938,9 +957,15 @@ class SubscribePanel(QWidget):
             return
         try:
             key = (self._redeemer or entitlement.redeem_override_code)(code)
-            (self._storer or entitlement.store_licence)(key)
         except Exception as exc:  # noqa: BLE001
             self.result.setText(str(exc))
+            return
+        try:
+            (self._storer or entitlement.store_licence)(key)
+        except Exception:  # noqa: BLE001
+            # The code is spent; the key on screen is the only copy.
+            self.result.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            self.result.setText(tr("settings.code_store_failed", key=key))
             return
         self.code.clear()
         self.result.setText(tr("settings.code_redeemed"))

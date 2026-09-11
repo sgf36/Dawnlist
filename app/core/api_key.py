@@ -48,8 +48,10 @@ def get() -> str | None:
 
 
 def store(key: str) -> None:
-    import keyring
-    keyring.set_password(SERVICE, ACCOUNT, key.strip())
+    """Save the key. Raises `KeyringUnavailable` when the store refuses, so the
+    screen can say the key was NOT saved instead of reporting it verified."""
+    from app.core.credentials import write
+    write(SERVICE, ACCOUNT, key.strip())
 
 
 def forget() -> None:

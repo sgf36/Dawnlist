@@ -54,6 +54,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from app.core.build_variant import variant
+from app.core.credentials import KeyringUnavailable
 from app.i18n import tr
 
 #: How long a verified licence is honoured without re-checking. Long enough to
@@ -139,9 +140,13 @@ def clear_verification(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def _grace_elapsed(conn: sqlite3.Connection, key: str,
+def _grace_elapsed(conn: sqlite3.Connection, key: str | None,
                    now: datetime) -> int | None:
-    """Whole days since `key` last verified, or None when grace does not apply."""
+    """Whole days since `key` last verified, or None when grace does not apply.
+
+    `key` is None only when the credential store cannot be read, so there is
+    nothing to compare.
+    """
     verified_at = _parse(_get(conn, VERIFIED_AT))
     if verified_at is None or verified_at - now > FUTURE_TOLERANCE:
         return None
@@ -149,7 +154,7 @@ def _grace_elapsed(conn: sqlite3.Connection, key: str,
     # pasted into the box inherited a real key's stamp and ran through an
     # outage for a fortnight. A stamp written before fingerprints existed has
     # none, and earns grace again at its next successful check.
-    if _get(conn, VERIFIED_KEY) != _fingerprint(key):
+    if key is not None and _get(conn, VERIFIED_KEY) != _fingerprint(key):
         return None
     age = now - verified_at
     if age >= timedelta(days=GRACE_DAYS):
@@ -157,11 +162,22 @@ def _grace_elapsed(conn: sqlite3.Connection, key: str,
     return max(0, age.days)
 
 
+def read_licence() -> str | None:
+    """The stored licence, None when there is none; raises `KeyringUnavailable`
+    when the credential store itself cannot be read."""
+    from app.core import credentials
+    return credentials.read(LICENCE_SERVICE, LICENCE_ACCOUNT)
+
+
 def stored_licence() -> str | None:
+    """The stored licence, or None for BOTH "no licence" and "no store".
+
+    For callers that only display or forward a key. `check()` must tell the
+    two apart and reads through `read_licence` instead.
+    """
     try:
-        import keyring
-        return keyring.get_password(LICENCE_SERVICE, LICENCE_ACCOUNT)
-    except Exception:  # noqa: BLE001 - a broken keyring is not a refusal
+        return read_licence()
+    except KeyringUnavailable:
         return None
 
 
@@ -306,7 +322,22 @@ def check(conn: sqlite3.Connection, *, verifier=None,
     # Do not "restore" the possession shortcut for `store`. Apple is the store
     # that forbids keys; Microsoft is not, and applying Apple's rule to both
     # by assumption is what produced the hole.
-    key = stored_licence()
+    try:
+        key = read_licence()
+    except KeyringUnavailable:
+        # NOT a refusal and not "no licence": nothing was asked, and the key
+        # may be perfectly good. Grace goes by the stamp's age alone, because
+        # no fingerprint can be compared — and nothing can be gained by it,
+        # since a key the store will not hand over reaches no feed either.
+        elapsed = _grace_elapsed(conn, None, now)
+        if elapsed is not None:
+            return Entitlement(
+                True, "grace",
+                f"the credential store could not be read; last verified "
+                f"{elapsed} day(s) ago, running on grace for up to "
+                f"{GRACE_DAYS - elapsed} more")
+        return Entitlement(False, "", tr("entitlement.keyring_unavailable"),
+                           unverifiable=True)
     if not key:
         return Entitlement(
             False, "",
@@ -373,8 +404,8 @@ def store_licence(key: str, *, conn: sqlite3.Connection | None = None) -> None:
     back during an outage would match its own old stamp and run on grace for
     the rest of the fortnight.
     """
-    import keyring
-    keyring.set_password(LICENCE_SERVICE, LICENCE_ACCOUNT, key.strip())
+    from app.core import credentials
+    credentials.write(LICENCE_SERVICE, LICENCE_ACCOUNT, key.strip())
     _forget_verification(conn)
 
 

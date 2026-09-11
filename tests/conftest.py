@@ -75,6 +75,11 @@ def _variant_is_not_ambient(monkeypatch):
     # Tests that are ABOUT entitlement override both of these.
     monkeypatch.setattr("app.core.entitlement.stored_licence",
                         lambda: "DAWN-TEST-LICENCE", raising=False)
+    # `check()` reads through `read_licence`, which tells a missing key from an
+    # unreadable credential store; pinning only `stored_licence` would send the
+    # gate to the developer's real Credential Manager.
+    monkeypatch.setattr("app.core.entitlement.read_licence",
+                        lambda: "DAWN-TEST-LICENCE", raising=False)
     monkeypatch.setattr("app.core.entitlement.verify_against_worker",
                         lambda _key: True, raising=False)
 

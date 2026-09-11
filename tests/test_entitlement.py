@@ -12,6 +12,7 @@ NOW = datetime(2026, 9, 6, 12, 0, tzinfo=timezone.utc)
 #: Captured at import, before conftest pins `verify_against_worker` to always
 #: pass, so a test can run the real verifier over a stubbed transport.
 REAL_VERIFY = ent.verify_against_worker
+REAL_STORED = ent.stored_licence
 
 
 @pytest.fixture()
@@ -25,7 +26,7 @@ def conn(tmp_path):
 @pytest.fixture(autouse=True)
 def no_real_keyring(monkeypatch):
     """Never read the real Credential Manager from a test."""
-    monkeypatch.setattr(ent, "stored_licence", lambda: None)
+    monkeypatch.setattr(ent, "read_licence", lambda: None)
 
 
 def as_variant(monkeypatch, name):
@@ -42,7 +43,7 @@ def as_variant(monkeypatch, name):
 def test_a_microsoft_store_build_is_not_entitled_by_possession(conn, monkeypatch):
     """A free Store download with no key buys nothing."""
     as_variant(monkeypatch, "store")
-    monkeypatch.setattr(ent, "stored_licence", lambda: None)
+    monkeypatch.setattr(ent, "read_licence", lambda: None)
     e = check(conn, now=NOW)
     assert not e.entitled
     assert "licence key" in e.reason.lower()
@@ -51,7 +52,7 @@ def test_a_microsoft_store_build_is_not_entitled_by_possession(conn, monkeypatch
 def test_a_microsoft_store_build_is_entitled_by_a_paddle_licence(conn, monkeypatch):
     """The same key the direct-download build takes, on the same path."""
     as_variant(monkeypatch, "store")
-    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-XXXX")
     e = check(conn, verifier=lambda _k: True, now=NOW)
     assert e.entitled and e.source == "licence"
 
@@ -61,7 +62,7 @@ def test_a_microsoft_store_build_does_verify_remotely(conn, monkeypatch):
     build asks the Worker, because nothing else establishes that it was paid
     for."""
     as_variant(monkeypatch, "store")
-    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-XXXX")
     asked = []
     check(conn, verifier=lambda k: asked.append(k) or True, now=NOW)
     assert asked == ["DAWN-XXXX"]
@@ -73,7 +74,7 @@ def test_a_mac_store_build_is_entitled_without_a_key(conn, monkeypatch):
     `build_provider`, which trades the App Store receipt for a licence and
     refuses when Apple reports no active subscription."""
     as_variant(monkeypatch, "mas")
-    monkeypatch.setattr(ent, "stored_licence", lambda: None)
+    monkeypatch.setattr(ent, "read_licence", lambda: None)
     assert check(conn, now=NOW).entitled
 
 
@@ -92,7 +93,7 @@ def test_a_build_without_one_variant_is_refused_without_asking(conn, monkeypatch
     """Guessing the store would either unlock a Mac build with a key or ask a
     Windows customer for Apple's subscription. It says the copy is broken."""
     as_variant(monkeypatch, build)
-    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-XXXX")
 
     def explode(_key):
         raise AssertionError("a broken build must not verify anything")
@@ -105,7 +106,7 @@ def test_a_build_without_one_variant_is_refused_without_asking(conn, monkeypatch
 def test_the_same_licence_runs_on_a_named_build(conn, monkeypatch):
     """Positive control for the refusal above: identical key and verifier."""
     as_variant(monkeypatch, "direct")
-    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-XXXX")
     assert check(conn, verifier=lambda _k: True, now=NOW).entitled
 
 
@@ -125,14 +126,14 @@ def test_the_refusal_says_the_board_stays_open(conn, monkeypatch):
 
 def test_a_valid_licence_runs(conn, monkeypatch):
     as_variant(monkeypatch, "direct")
-    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-XXXX")
     e = check(conn, verifier=lambda k: True, now=NOW)
     assert e.entitled and e.source == "licence"
 
 
 def test_a_refused_licence_does_not_run(conn, monkeypatch):
     as_variant(monkeypatch, "direct")
-    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-BAD")
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-BAD")
     e = check(conn, verifier=lambda k: False, now=NOW)
     assert not e.entitled and not e.unverifiable
     assert "not accepted" in e.reason
@@ -141,7 +142,7 @@ def test_a_refused_licence_does_not_run(conn, monkeypatch):
 # -- the grace period, which is the point ----------------------------------
 def test_an_outage_does_not_lock_out_someone_who_has_paid(conn, monkeypatch):
     as_variant(monkeypatch, "direct")
-    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-XXXX")
 
     assert check(conn, verifier=lambda k: True, now=NOW).entitled   # verified
     later = NOW + timedelta(days=3)
@@ -152,7 +153,7 @@ def test_an_outage_does_not_lock_out_someone_who_has_paid(conn, monkeypatch):
 
 def test_the_grace_period_does_expire(conn, monkeypatch):
     as_variant(monkeypatch, "direct")
-    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-XXXX")
     check(conn, verifier=lambda k: True, now=NOW)
 
     e = check(conn, verifier=lambda k: None, now=NOW + timedelta(days=20))
@@ -163,7 +164,7 @@ def test_a_REFUSAL_is_not_covered_by_grace(conn, monkeypatch):
     """Grace absorbs an outage, never a revoked licence — otherwise a refund
     keeps working for a fortnight."""
     as_variant(monkeypatch, "direct")
-    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-XXXX")
     check(conn, verifier=lambda k: True, now=NOW)
 
     e = check(conn, verifier=lambda k: False, now=NOW + timedelta(days=1))
@@ -183,7 +184,7 @@ def test_a_stamp_from_the_future_earns_no_grace(conn, monkeypatch):
     """A stamp days ahead of the clock never ages out, so it would be grace
     for ever — a clock set wrong once, or a hand-edited database."""
     as_variant(monkeypatch, "direct")
-    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-XXXX")
 
     check(conn, verifier=_verified, now=NOW + timedelta(days=3))
     e = check(conn, verifier=_unreachable, now=NOW)
@@ -193,7 +194,7 @@ def test_a_stamp_from_the_future_earns_no_grace(conn, monkeypatch):
 def test_a_stamp_a_few_hours_ahead_still_counts(conn, monkeypatch):
     """The positive control: clocks disagree by hours, and that is ordinary."""
     as_variant(monkeypatch, "direct")
-    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-XXXX")
 
     check(conn, verifier=_verified, now=NOW + timedelta(hours=6))
     e = check(conn, verifier=_unreachable, now=NOW)
@@ -205,7 +206,7 @@ def test_a_stamp_belongs_to_the_key_that_earned_it(conn, monkeypatch):
     that key's stamp through an outage."""
     as_variant(monkeypatch, "direct")
     stored = {"key": "DAWN-REAL"}
-    monkeypatch.setattr(ent, "stored_licence", lambda: stored["key"])
+    monkeypatch.setattr(ent, "read_licence", lambda: stored["key"])
     check(conn, verifier=_verified, now=NOW)
 
     assert check(conn, verifier=_unreachable, now=NOW + timedelta(days=1)).entitled
@@ -223,7 +224,7 @@ def test_saving_a_licence_clears_its_old_stamp(conn, monkeypatch):
     import keyring
 
     as_variant(monkeypatch, "direct")
-    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-XXXX")
     monkeypatch.setattr(keyring, "set_password", lambda *a: None)
     check(conn, verifier=_verified, now=NOW)
     assert check(conn, verifier=_unreachable, now=NOW + timedelta(days=1)).entitled
@@ -240,7 +241,7 @@ def test_saving_without_a_connection_clears_the_default_database(conn, monkeypat
     import keyring
 
     as_variant(monkeypatch, "direct")
-    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-XXXX")
     monkeypatch.setattr(keyring, "set_password", lambda *a: None)
     path = pathlib.Path(conn.execute("PRAGMA database_list").fetchone()[2])
     monkeypatch.setattr("app.core.db.default_db_path", lambda *a, **k: path)
@@ -250,10 +251,55 @@ def test_saving_without_a_connection_clears_the_default_database(conn, monkeypat
     assert ent._get(conn, ent.VERIFIED_AT) is None
 
 
+def _store_unreadable():
+    from app.core.credentials import KeyringUnavailable
+    raise KeyringUnavailable("locked")
+
+
+def _must_not_ask(_key):
+    raise AssertionError("nothing was read, so nothing may be verified")
+
+
+def test_an_unreadable_credential_store_is_unverifiable_not_unlicensed(conn, monkeypatch):
+    """"No licence key found" told a paying customer with a locked keychain
+    that they had never bought anything."""
+    as_variant(monkeypatch, "direct")
+    monkeypatch.setattr(ent, "read_licence", _store_unreadable)
+    e = check(conn, verifier=_must_not_ask, now=NOW)
+    assert not e.entitled and e.unverifiable
+    assert "credential store" in e.reason
+    assert "No licence key found" not in e.reason
+
+    # Positive control: a working store with nothing in it IS unlicensed.
+    monkeypatch.setattr(ent, "read_licence", lambda: None)
+    empty = check(conn, now=NOW)
+    assert not empty.unverifiable and "No licence key found" in empty.reason
+
+
+def test_an_unreadable_store_runs_on_grace_after_a_recent_check(conn, monkeypatch):
+    as_variant(monkeypatch, "direct")
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-XXXX")
+    check(conn, verifier=_verified, now=NOW)
+
+    monkeypatch.setattr(ent, "read_licence", _store_unreadable)
+    recent = check(conn, verifier=_must_not_ask, now=NOW + timedelta(days=2))
+    assert recent.entitled and recent.source == "grace"
+
+    stale = check(conn, verifier=_must_not_ask, now=NOW + timedelta(days=20))
+    assert not stale.entitled and stale.unverifiable
+
+
+def test_callers_that_only_show_a_key_still_get_none(monkeypatch):
+    """The panels and the admin check use `stored_licence`, which must keep
+    answering None rather than raising into a screen."""
+    monkeypatch.setattr(ent, "read_licence", _store_unreadable)
+    assert REAL_STORED() is None
+
+
 def test_unreachable_and_refused_are_distinguishable(conn, monkeypatch):
     """Conflating them turns an outage into an accusation."""
     as_variant(monkeypatch, "direct")
-    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-XXXX")
 
     refused = check(conn, verifier=lambda k: False, now=NOW)
     unreachable = check(conn, verifier=lambda k: None, now=NOW)
@@ -272,7 +318,7 @@ def test_require_raises_when_not_entitled(conn, monkeypatch):
 def test_require_refuses_a_store_build_with_no_licence(conn, monkeypatch):
     """The gate a free Store download actually meets."""
     as_variant(monkeypatch, "store")
-    monkeypatch.setattr(ent, "stored_licence", lambda: None)
+    monkeypatch.setattr(ent, "read_licence", lambda: None)
     with pytest.raises(NotEntitled, match="No licence key"):
         require(conn, now=NOW)
 
@@ -438,7 +484,7 @@ def test_a_lapsed_licence_says_so_rather_than_calling_the_key_wrong(conn, monkey
     import json
 
     as_variant(monkeypatch, "direct")
-    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-LAPSED")
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-LAPSED")
     monkeypatch.setattr(
         ent, "licence_check",
         lambda key, **kw: ("refused", json.loads('{"error": "licence_inactive"}')))
@@ -460,7 +506,7 @@ def test_cloudflare_blocking_the_check_runs_on_grace(conn, monkeypatch):
     """Through the real verifier: a verified licence, then a Cloudflare 403,
     must be grace — not a refusal."""
     as_variant(monkeypatch, "direct")
-    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-XXXX")
     monkeypatch.setattr(ent, "licence_check", lambda key, **kw: ("ok", {"ok": True}))
     assert check(conn, verifier=REAL_VERIFY, now=NOW).entitled
 

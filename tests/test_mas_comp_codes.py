@@ -96,3 +96,29 @@ def test_the_mac_panel_can_redeem_a_code(monkeypatch):
     assert stored == ["DAWN-FOR-DL-ABC"]
     assert panel.code.text() == ""
     panel.close()
+
+
+def test_a_mac_code_that_cannot_be_saved_shows_the_licence(monkeypatch):
+    """The code is spent by the time the store refuses, so the key on screen
+    is the only copy. The test above is the positive control."""
+    pytest.importorskip("PySide6")
+    from PySide6.QtWidgets import QApplication
+    from app.core.credentials import KeyringUnavailable
+    from app.ui.settings import SubscribePanel
+
+    QApplication.instance() or QApplication([])
+
+    class SK:
+        def available(self): return True
+        def can_make_payments(self): return True
+        def price(self): return "$79.00"
+
+    def refuse(_key):
+        raise KeyringUnavailable("locked")
+
+    panel = SubscribePanel(storekit=SK(), redeemer=lambda code: "DAWN-ONLY-COPY",
+                           storer=refuse)
+    panel.code.setText("DL-ABC")
+    panel.btn_code.click()
+    assert "DAWN-ONLY-COPY" in panel.result.text()
+    panel.close()
