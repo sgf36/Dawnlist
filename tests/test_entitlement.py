@@ -9,6 +9,10 @@ from app.core.entitlement import Entitlement, NotEntitled, check, require
 
 NOW = datetime(2026, 9, 6, 12, 0, tzinfo=timezone.utc)
 
+#: Captured at import, before conftest pins `verify_against_worker` to always
+#: pass, so a test can run the real verifier over a stubbed transport.
+REAL_VERIFY = ent.verify_against_worker
+
 
 @pytest.fixture()
 def conn(tmp_path):
@@ -273,16 +277,95 @@ def test_verification_asks_a_route_that_reads_the_key(monkeypatch):
     assert seen["auth"] == "Bearer DAWN-XYZ"
 
 
-def test_an_unrecognised_key_is_refused_not_accepted(monkeypatch):
-    """The shape of the shipped bug: a made-up key must NOT verify."""
+def _http_error(status, body: bytes | None):
+    import io
     import urllib.error
+
+    def opener(request, timeout=None):
+        raise urllib.error.HTTPError(
+            request.full_url, status, "no", {},
+            io.BytesIO(body) if body is not None else None)
+    return opener
+
+
+def test_an_unrecognised_key_is_refused_not_accepted(monkeypatch):
+    """The shape of the shipped bug: a made-up key must NOT verify.
+
+    The Worker's refusal carries its reason. This used to raise a bare 403
+    with no body and expect a refusal — which is also exactly what Cloudflare
+    sends, so the test was pinning the misreading below as correct.
+    """
+    import json
 
     from app.core import entitlement
 
-    def opener(request, timeout=None):
-        raise urllib.error.HTTPError(request.full_url, 403, "Forbidden", {}, None)
-
+    opener = _http_error(403, json.dumps({"error": "unknown_licence"}).encode())
     assert entitlement.licence_details("MADE-UP", opener=opener) is False
+
+
+@pytest.mark.parametrize("status,code", [(401, "no_licence"),
+                                         (403, "unknown_licence"),
+                                         (403, "licence_inactive")])
+def test_the_workers_own_refusals_are_refusals(status, code):
+    import json
+
+    from app.core import entitlement
+
+    opener = _http_error(status, json.dumps({"error": code}).encode())
+    assert entitlement.licence_check("DAWN-X", opener=opener)[0] == "refused"
+
+
+@pytest.mark.parametrize("status,body", [
+    (403, b"<html>error code: 1010</html>"),     # Cloudflare's bot block
+    (403, None),                                  # nothing at all
+    (401, b'{"error": "something_else"}'),        # a code the app does not own
+    (403, b"[1, 2]"),                             # JSON, but not the Worker's
+])
+def test_a_403_that_is_not_the_worker_refusing_is_unverifiable(status, body):
+    """Cloudflare answers 403 with an HTML page. Read as a refusal, it skips
+    the grace period and tells a paying customer their key was rejected."""
+    from app.core import entitlement
+
+    opener = _http_error(status, body)
+    assert entitlement.licence_details("DAWN-X", opener=opener) is None
+    assert entitlement.licence_check("DAWN-X", opener=opener)[0] == "unreachable"
+
+
+def test_a_lapsed_licence_says_so_rather_than_calling_the_key_wrong(conn, monkeypatch):
+    """A real key that stopped working needs renewing, not re-typing."""
+    import json
+
+    as_variant(monkeypatch, "direct")
+    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-LAPSED")
+    monkeypatch.setattr(
+        ent, "licence_check",
+        lambda key, **kw: ("refused", json.loads('{"error": "licence_inactive"}')))
+
+    lapsed = check(conn, verifier=REAL_VERIFY, now=NOW)
+    assert not lapsed.entitled and not lapsed.unverifiable
+    assert "no longer active" in lapsed.reason
+    assert "not accepted" not in lapsed.reason
+
+    # The positive control: an unknown key still gets the "check the key" line.
+    monkeypatch.setattr(
+        ent, "licence_check",
+        lambda key, **kw: ("refused", {"error": "unknown_licence"}))
+    unknown = check(conn, verifier=REAL_VERIFY, now=NOW)
+    assert "not accepted" in unknown.reason
+
+
+def test_cloudflare_blocking_the_check_runs_on_grace(conn, monkeypatch):
+    """Through the real verifier: a verified licence, then a Cloudflare 403,
+    must be grace — not a refusal."""
+    as_variant(monkeypatch, "direct")
+    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    monkeypatch.setattr(ent, "licence_check", lambda key, **kw: ("ok", {"ok": True}))
+    assert check(conn, verifier=REAL_VERIFY, now=NOW).entitled
+
+    monkeypatch.setattr(ent, "licence_check",
+                        lambda key, **kw: ("unreachable", {}))
+    e = check(conn, verifier=REAL_VERIFY, now=NOW + timedelta(days=2))
+    assert e.entitled and e.source == "grace"
 
 
 def test_an_outage_is_not_a_refusal(monkeypatch):

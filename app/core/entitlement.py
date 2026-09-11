@@ -54,6 +54,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from app.core.build_variant import variant
+from app.i18n import tr
 
 #: How long a verified licence is honoured without re-checking. Long enough to
 #: cover an outage or a fortnight offline; short enough that a refunded licence
@@ -120,6 +121,66 @@ def stored_licence() -> str | None:
         return None
 
 
+#: The Worker's own words for "this licence is no good". ONLY these refuse.
+#: Cloudflare answers 403 too — error 1010, a WAF rule, an account-level block
+#: — with an HTML body that says nothing about the licence, and reading that
+#: status as a refusal skips the grace period and tells a paying customer
+#: their key was not accepted.
+REFUSAL_CODES = frozenset({"unknown_licence", "licence_inactive", "no_licence"})
+
+
+@dataclass(frozen=True)
+class Refused:
+    """A refusal that remembers WHY, and is falsy like the `False` it replaces.
+
+    A lapsed subscription and a mistyped key need different instructions, and
+    `False` could only say "no".
+    """
+
+    code: str = ""
+
+    def __bool__(self) -> bool:
+        return False
+
+
+def licence_check(key: str, *, opener=None) -> tuple[str, dict]:
+    """`("ok", body)`, `("refused", body)` or `("unreachable", body)`.
+
+    The body is the Worker's JSON — its account of the licence on 200, its
+    error on a refusal — or `{}` when nothing readable came back.
+    """
+    import json
+    import urllib.error
+    import urllib.request
+
+    from app.core.http import build_request
+
+    # Built through `build_request` so the User-Agent cannot be forgotten.
+    # It was forgotten here, and Cloudflare's error 1010 answered 403 — which
+    # was then read as the server refusing the licence.
+    request = build_request(WORKER_BASE.rstrip("/") + "/v1/licence",
+                            headers={"authorization": f"Bearer {key}"})
+    try:
+        with (opener or urllib.request.urlopen)(request, timeout=15) as response:
+            return "ok", json.loads(response.read().decode())
+    except urllib.error.HTTPError as exc:
+        body = _json_body(exc)
+        if exc.code in (401, 403) and body.get("error") in REFUSAL_CODES:
+            return "refused", body
+        return "unreachable", body
+    except Exception:  # noqa: BLE001
+        return "unreachable", {}
+
+
+def _json_body(exc) -> dict:
+    import json
+    try:
+        loaded = json.loads(exc.read().decode())
+    except Exception:  # noqa: BLE001 - HTML, empty or absent: not the Worker
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
 def licence_details(key: str, *, opener=None):
     """The server's own account of this licence.
 
@@ -139,39 +200,23 @@ def licence_details(key: str, *, opener=None):
     It survived because every test injects `verifier=`, so this function was
     never the thing under test.
     """
-    import json
-    import urllib.error
-    import urllib.request
-
-    from app.core.http import build_request
-
-    # Built through `build_request` so the User-Agent cannot be forgotten.
-    # It was forgotten here, and a 403 from Cloudflare's error 1010 reads as
-    # "the server said no" three lines below — which is FINAL, checked before
-    # the grace period. Every paying customer would have been told their key
-    # was not accepted.
-    request = build_request(WORKER_BASE.rstrip("/") + "/v1/licence",
-                            headers={"authorization": f"Bearer {key}"})
-    try:
-        with (opener or urllib.request.urlopen)(request, timeout=15) as response:
-            return json.loads(response.read().decode())
-    except urllib.error.HTTPError as exc:
-        # 401/403 are the server saying no. Anything else is the network
-        # saying nothing, which is a different fact.
-        return False if exc.code in (401, 403) else None
-    except Exception:  # noqa: BLE001
-        return None
+    outcome, body = licence_check(key, opener=opener)
+    if outcome == "ok":
+        return body
+    return False if outcome == "refused" else None
 
 
-def verify_against_worker(key: str) -> bool | None:
-    """True, False, or None for 'could not tell'.
+def verify_against_worker(key: str) -> bool | Refused | None:
+    """True, a `Refused`, or None for 'could not tell'.
 
-    None is NOT False. It is what the grace period exists to absorb.
+    None is NOT a refusal. It is what the grace period exists to absorb.
     """
-    detail = licence_details(key)
-    if detail is None or detail is False:
-        return detail
-    return bool(detail.get("ok"))
+    outcome, body = licence_check(key)
+    if outcome == "ok":
+        return True if body.get("ok") else Refused()
+    if outcome == "refused":
+        return Refused(str(body.get("error") or ""))
+    return None
 
 
 def check(conn: sqlite3.Connection, *, verifier=None,
@@ -227,7 +272,11 @@ def check(conn: sqlite3.Connection, *, verifier=None,
     # A REFUSAL is final and is checked BEFORE the grace period. Grace exists
     # to absorb an outage, never a revoked licence — otherwise a refund keeps
     # working for a fortnight, which is the grace period paying for fraud.
-    if verdict is False:
+    if verdict is not None:
+        if getattr(verdict, "code", "") == "licence_inactive":
+            # The key is real and has stopped working. "Not accepted" would
+            # send this person to re-type a key that was never wrong.
+            return Entitlement(False, "", tr("entitlement.licence_inactive"))
         return Entitlement(
             False, "",
             "This licence key was not accepted. If you have just bought "

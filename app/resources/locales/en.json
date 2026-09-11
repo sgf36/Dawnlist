@@ -50,6 +50,7 @@
   "draft.needs_evidence": "Needs evidence",
   "draft.never_sends": "Dawnlist never sends. You send it yourself.",
   "draft.send_ready": "Ready to send from your mail app",
+  "entitlement.licence_inactive": "This licence key is real but no longer active — the subscription has lapsed, been cancelled or been refunded. Renew the subscription, then run again; if you believe it should still be active, write to Apps@spencerfields.com. Your board and your brief stay open either way.",
   "families.adopt": "Arm this rule",
   "families.armed": "Armed",
   "families.armed_now": "{name} is armed. Matching roles there will be screened out for nothing.",
