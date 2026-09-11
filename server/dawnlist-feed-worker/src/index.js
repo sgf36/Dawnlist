@@ -41,7 +41,7 @@
 import { newLicenceKey } from './paddle.js';
 import { handlePaddleWebhook } from './paddle.js';
 import { handleAdmin, handleRedeem } from './codes.js';
-import { PLANS, FALLBACK_PLAN, sellablePlans } from './plans.js';
+import { PLANS, FALLBACK_PLAN, hasExpired, sellablePlans } from './plans.js';
 import { parseJsonObject } from './body.js';
 
 const SEARCH_TTL_SECONDS = 6 * 60 * 60;   // 6h on search results
@@ -183,13 +183,23 @@ async function authenticate(env, request) {
 
   const row = await env.DB.prepare(
     `SELECT licence_key, tier, status, plan,
-            max_postings_per_day, max_refreshes_per_day
+            max_postings_per_day, max_refreshes_per_day, expires_at
        FROM licences WHERE licence_key = ?1`
   ).bind(key).first();
 
   if (!row) throw new HttpError(403, 'unknown_licence', 'Licence not recognised');
   if (row.status !== 'active') {
     throw new HttpError(403, 'licence_inactive', `Licence is ${row.status}`);
+  }
+  // Checked here, on every request, rather than by a job that flips a status:
+  // a job that fails or runs late leaves an expired licence working, and this
+  // cannot. The same code the app already shows for an inactive licence, so it
+  // needs no new handling to say so.
+  if (hasExpired(row.expires_at)) {
+    const ends = Date.parse(row.expires_at);
+    throw new HttpError(403, 'licence_inactive', Number.isNaN(ends)
+      ? 'Licence expiry date cannot be read'
+      : `Licence expired on ${new Date(ends).toISOString().slice(0, 10)}`);
   }
   return row;
 }

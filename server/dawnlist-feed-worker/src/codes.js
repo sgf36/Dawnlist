@@ -18,7 +18,7 @@
  * truth that drifts the first time an increment succeeds and the matching
  * insert does not.
  */
-import { PLANS, capsFor } from './plans.js';
+import { PLANS, capsFor, defaultCodeExpiry, hasExpired, licenceExpiry } from './plans.js';
 import { licenceEmail, localeFor, sendEmail } from './email.js';
 import { parseJsonObject } from './body.js';
 
@@ -137,11 +137,11 @@ export async function handleRedeem(request, env, newLicenceKey) {
   await env.DB.prepare(
     `INSERT INTO licences (licence_key, tier, status, plan,
                            max_postings_per_day, max_refreshes_per_day,
-                           max_saved_queries)
-     VALUES (?1, ?2, 'active', ?3, ?4, ?5, ?6)`
+                           max_saved_queries, expires_at)
+     VALUES (?1, ?2, 'active', ?3, ?4, ?5, ?6, ?7)`
   ).bind(licenceKey, row.role === 'admin' ? 'managed' : row.role,
          caps.plan, caps.max_postings_per_day, caps.max_refreshes_per_day,
-         caps.max_saved_queries).run();
+         caps.max_saved_queries, licenceExpiry(caps.plan, row.role)).run();
 
   await env.DB.prepare(
     `INSERT INTO licence_roles (licence_key, role, from_code) VALUES (?1, ?2, ?3)`
@@ -172,7 +172,7 @@ async function requireAdmin(request, env) {
   if (!key) return { ok: false, response: json({ error: 'no_licence' }, 401) };
 
   const licence = await env.DB.prepare(
-    'SELECT status FROM licences WHERE licence_key = ?1'
+    'SELECT status, expires_at FROM licences WHERE licence_key = ?1'
   ).bind(key).first();
   const role = await env.DB.prepare(
     'SELECT role FROM licence_roles WHERE licence_key = ?1'
@@ -180,7 +180,8 @@ async function requireAdmin(request, env) {
 
   // Withdrawn administrator and never-was-one answer identically. Telling them
   // apart tells a former administrator exactly what changed.
-  if (!licence || licence.status !== 'active' || role?.role !== 'admin') {
+  if (!licence || licence.status !== 'active' || hasExpired(licence.expires_at)
+      || role?.role !== 'admin') {
     return { ok: false, response: json({ error: 'not_permitted' }, 403) };
   }
   return { ok: true, licenceKey: key };
@@ -224,16 +225,33 @@ export async function handleAdmin(request, env) {
                     message: 'Say who this is for; an unlabelled code cannot be audited' }, 400);
     }
 
+    // Stored as ISO 8601 UTC, whatever form it was given in, because the
+    // redemption check compares it with the current time: a date typed as
+    // "2026-12-01" or with an offset is otherwise compared as text and can
+    // expire a day early or never.
+    let expiresAt;
+    if (body.expires_at === undefined || body.expires_at === null || body.expires_at === '') {
+      expiresAt = defaultCodeExpiry(role, plan);
+    } else {
+      const ms = typeof body.expires_at === 'string' ? Date.parse(body.expires_at) : NaN;
+      if (Number.isNaN(ms)) {
+        return json({ error: 'invalid_expires_at',
+                      message: 'expires_at must be a date, such as 2026-12-01 or 2026-12-01T09:00:00Z' }, 400);
+      }
+      expiresAt = new Date(ms).toISOString();
+    }
+
     const code = newCode();
     await env.DB.prepare(
       `INSERT INTO codes (code, note, max_uses, revoked, created_at, expires_at, role, plan)
        VALUES (?1, ?2, ?3, 0, datetime('now'), ?4, ?5, ?6)`
-    ).bind(code, note, maxUses, body.expires_at || null, role, plan).run();
+    ).bind(code, note, maxUses, expiresAt, role, plan).run();
 
-    // The plan is returned so whoever mints a code can see what they just
-    // handed out. A trial code and a comp code are otherwise identical to look
-    // at, and the difference between them is the entire allowance.
-    return json({ ok: true, code, role, plan, max_uses: maxUses, note });
+    // The plan and expiry are returned so whoever mints a code can see what
+    // they just handed out. A trial code and a comp code are otherwise
+    // identical to look at, and the difference between them is the entire
+    // allowance.
+    return json({ ok: true, code, role, plan, max_uses: maxUses, note, expires_at: expiresAt });
   }
 
   // --- withdraw a code ---------------------------------------------------

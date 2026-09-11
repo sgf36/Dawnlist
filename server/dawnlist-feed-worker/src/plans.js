@@ -156,6 +156,56 @@ export function sellablePlans(env = {}) {
 /** What an unrecognised or absent plan falls back to. */
 export const FALLBACK_PLAN = 'standard';
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * How long a trial licence works after it is issued. A trial with no end is a
+ * subscription at trial caps that nobody pays for, and codes are easy to ask
+ * for again.
+ */
+export const TRIAL_LICENCE_DAYS = 14;
+
+/**
+ * How long a code minted in /admin stays redeemable when no expiry is given.
+ * An unredeemed code is a credential sitting in somebody's inbox; one that
+ * lapses on its own is one fewer to remember to revoke.
+ */
+export const CODE_DEFAULT_DAYS = 30;
+
+/**
+ * When a licence issued now stops working, or null for never.
+ *
+ * Only trial licences end. A trial-plan code minted for an ADMINISTRATOR is the
+ * exception, because minting defaults to the trial plan and an administrator
+ * whose licence lapsed after a fortnight would lose the console with nothing on
+ * screen to say why.
+ */
+export function licenceExpiry(planKey, role, now = Date.now()) {
+  if (planKey !== 'trial' || role === 'admin') return null;
+  return new Date(now + TRIAL_LICENCE_DAYS * DAY_MS).toISOString();
+}
+
+/**
+ * When a code minted now stops being redeemable, if the minter gave no expiry.
+ * Administrator codes and codes for the owner plan never lapse: they are how
+ * the console and the developer's own machines keep working.
+ */
+export function defaultCodeExpiry(role, planKey, now = Date.now()) {
+  if (role === 'admin' || planKey === 'owner') return null;
+  return new Date(now + CODE_DEFAULT_DAYS * DAY_MS).toISOString();
+}
+
+/**
+ * Whether a stored expiry has passed. An expiry that cannot be read counts as
+ * passed: a value someone wrote by hand and got wrong should lock a licence,
+ * not quietly make it permanent.
+ */
+export function hasExpired(expiresAt, now = Date.now()) {
+  if (expiresAt === null || expiresAt === undefined || expiresAt === '') return false;
+  const ends = Date.parse(expiresAt);
+  return Number.isNaN(ends) || ends <= now;
+}
+
 /**
  * Which plan a Paddle price id maps to.
  *
