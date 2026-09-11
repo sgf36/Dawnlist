@@ -1,7 +1,8 @@
 # dawnlist-feed-worker
 
 The feed proxy. Holds the provider keys, meters per licence in D1, caches
-across users, and makes the provider a config value rather than a code path.
+across users within each Cloudflare data centre (the Cache API is not global),
+and makes the provider a config value rather than a code path.
 
 ## Deploy
 
@@ -79,7 +80,11 @@ Three properties the tests in `test/caps.test.mjs` hold in place:
 3. **A cache hit spends the receiving licence's allowance.** Metering the
    upstream fetch instead would make the cache an unmetered bypass, and would
    make two users' caps depend on who ran the query first. Spencer still pays
-   only once.
+   only once **per data centre**: the Cache API is local to each Cloudflare
+   location, so the same search from users served by two locations is fetched,
+   and billed, twice. Rows the user already holds (`excludeJobIds`) are removed
+   from a cache hit before it is cut and metered, so nobody pays twice for a
+   posting they have.
 
 The default of 700/day is an **anti-abuse ceiling, not a product tier**. A
 comprehensive UK user measures ~513 fetched/day, so the default sits above

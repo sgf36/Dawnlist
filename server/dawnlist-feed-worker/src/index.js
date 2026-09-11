@@ -6,7 +6,10 @@
  *   - the managed-tier user never sees an API key;
  *   - usage is metered per licence in D1 and fair-use caps are enforced;
  *   - query results are cached ACROSS users, so two people searching
- *     "hotel general manager, Dubai" share one upstream call;
+ *     "hotel general manager, Dubai" share one upstream call — when both are
+ *     served by the same Cloudflare data centre. The Cache API is local to
+ *     each data centre, not global, so the saving grows with how concentrated
+ *     users are, not simply with how many there are;
  *   - the provider is a config value, swappable with no app release.
  *
  * That last point is the structural answer to the data-source fragility that
@@ -534,6 +537,10 @@ async function resolvePlaces(env, names, countries) {
 
 // ---------------------------------------------------------------------------
 // Cross-user cache
+//
+// Shared only between users served by the SAME Cloudflare data centre:
+// `caches.default` is local to each one, so a search cached in London is a
+// miss in Frankfurt and is fetched, and billed, again there.
 // ---------------------------------------------------------------------------
 
 function cacheKeyFor(query) {
@@ -588,15 +595,24 @@ async function deliverSearch(env, ctx, query, caps) {
   if (hit) {
     const cached = await hit.json();
     // Meter on rows DELIVERED to this licence, not rows fetched upstream.
-    // Spencer pays once for a shared result; each user still spends their own
-    // allowance on receiving it. Metering the upstream fetch instead would let
-    // a licence draw unlimited postings through the cache, and would also make
-    // two users' caps depend on who happened to run the query first.
+    // Spencer pays once per data centre for a shared result (the Cache API is
+    // not global); each user still spends their own allowance on receiving
+    // it. Metering the upstream fetch instead would let a licence draw
+    // unlimited postings through the cache, and would also make two users'
+    // caps depend on who happened to run the query first.
     //
-    // Cut to the reservation — what the request asked for, clamped to what the
-    // licence has left. Cutting to the headroom alone handed a request for five
-    // postings every cached row, and billed for all of them.
-    const jobs = cached.jobs.slice(0, caps.reserved);
+    // Rows this user already holds come out BEFORE the cut and the meter. A
+    // fetch sends those ids to the feed so they are never returned or billed,
+    // but a cached result was fetched for somebody else and still carries
+    // them — so without this a user is charged again for postings they have.
+    //
+    // Then cut to the reservation — what the request asked for, clamped to
+    // what the licence has left. Cutting to the headroom alone handed a
+    // request for five postings every cached row, and billed for all of them.
+    const held = new Set(query.excludeJobIds || []);
+    const jobs = cached.jobs
+      .filter((job) => !held.has(String(job.provider_job_id)))
+      .slice(0, caps.reserved);
     return {
       jobs,
       body: { jobs, cached: true, provider: 'cache', counts: funnel(jobs, caps, cached.total) },

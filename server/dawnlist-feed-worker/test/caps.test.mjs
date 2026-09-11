@@ -275,6 +275,40 @@ await test('a cache hit delivers no more than the request asked for', async () =
   assert.equal(DB.state.postings, 5, 'and billed for five');
 });
 
+await test('a cache hit never bills for postings the user already holds', async () => {
+  const DB = makeSearchDB({ maxPostings: 700 });
+  makeCaches(cachedJobs(40));
+  stubUpstream({ available: 500 });
+  const res = await worker.fetch(
+    req({ maxResults: 10, excludeJobIds: ['j0', 'j1', 'j2'] }), { DB }, ctx);
+  const ids = (await res.json()).jobs.map((j) => j.provider_job_id);
+
+  assert.ok(!ids.some((id) => ['j0', 'j1', 'j2'].includes(id)), `held rows delivered: ${ids}`);
+  assert.equal(ids.length, 10, 'ten NEW postings, not seven');
+  assert.equal(ids[0], 'j3');
+  assert.equal(DB.state.postings, 10);
+});
+
+await test('held rows removed from a cache hit are refunded, not billed', async () => {
+  const DB = makeSearchDB({ maxPostings: 700 });
+  makeCaches(cachedJobs(40));
+  stubUpstream({ available: 500 });
+  const held = Array.from({ length: 36 }, (_, i) => `j${i}`);
+  const res = await worker.fetch(req({ maxResults: 10, excludeJobIds: held }), { DB }, ctx);
+  assert.equal((await res.json()).jobs.length, 4);
+  assert.equal(DB.state.postings, 4, 'only the four the user did not hold are billed');
+});
+
+await test('positive control: without held ids the same cache hit starts at the first row', async () => {
+  const DB = makeSearchDB({ maxPostings: 700 });
+  makeCaches(cachedJobs(40));
+  stubUpstream({ available: 500 });
+  const res = await worker.fetch(req({ maxResults: 10 }), { DB }, ctx);
+  const ids = (await res.json()).jobs.map((j) => j.provider_job_id);
+  assert.equal(ids[0], 'j0');
+  assert.equal(DB.state.postings, 10);
+});
+
 console.log('\nper-licence override');
 
 await test('a licence column beats the Worker default, with no deploy', async () => {
