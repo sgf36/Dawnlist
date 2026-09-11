@@ -177,6 +177,9 @@ class ManagedProvider(FeedProvider):
                                 if query.discovered_since else None),
             "excludeJobIds": list(query.exclude_job_ids),
             "maxResults": query.max_results,
+            "cities": list(query.cities),
+            "excludeTitleTerms": list(query.exclude_title_terms),
+            "excludeCompanies": list(query.exclude_companies),
         }
         status, payload = self._call(SEARCH_PATH, body, method="POST")
 

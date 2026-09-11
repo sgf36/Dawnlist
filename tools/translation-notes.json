@@ -91,5 +91,10 @@
   "board.audit_duplicate": "Part of a warning banner. {count} opportunities have more than one open task, which means a duplicate next-step was created.",
   "update.get": "A button in an update prompt. It OPENS A WEB PAGE in the user's browser. The application does NOT download, install or replace anything itself, so do not translate this as 'Download now', 'Install' or 'Update now' - all of them promise an action this button does not perform.",
   "update.later": "The dismiss button beside 'Open the download page'. It simply closes the prompt. It does NOT schedule a reminder, so avoid wording that promises one such as 'remind me later'. Nearest sense: 'not right now'.",
-  "update.body": "Explains where the update comes from. 'checksum' is the published SHA-256 hash beside the download, used to verify the file. Keep it as the technical term your market uses; do not soften it to 'code' or 'signature'."
+  "searches.where_placeholder": "Placeholder in a text box where the user types the city and country of the jobs they want. Keep 'London, GB' EXACTLY as written: 'GB' is a two-letter ISO country code the app reads, and the job feed only recognises place names in English.",
+  "searches.where_needs_country": "An error shown when a city was typed without a country code. Keep 'London, GB' EXACTLY as written, including the comma: the app reads the two-letter code.",
+  "searches.where_empty": "Shown when the box is empty. Keep 'London, GB' EXACTLY as written.",
+  "searches.where_apply": "A button that sets the same city and country on EVERY saved job search at once. Not 'apply for a job'.",
+  "searches.needs_where": "{label} is the name of a saved job search. 'Switched on' means the search runs each morning. Not an error in the app: the user must first say where they want to work.",
+  "update.body":"Explains where the update comes from. 'checksum' is the published SHA-256 hash beside the download, used to verify the file. Keep it as the technical term your market uses; do not soften it to 'code' or 'signature'."
 }

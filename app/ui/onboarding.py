@@ -490,7 +490,8 @@ class InterviewPage(QWidget):
 
     def __init__(self, *, drafter=None, titler=None, parent=None):
         super().__init__(parent)
-        #: `titler(text) -> [str]`, injected like the drafter so this widget
+        #: `titler(text, brief) -> plan`, where `plan.titles` is the list of
+        #: search titles. Injected like the drafter so this widget
         #: neither holds a key nor knows what a model is.
         self._titler = titler
         #: (corpus, aim) -> (factsheet_md, brief_md, questions)
@@ -593,6 +594,9 @@ class InterviewPage(QWidget):
         self._merged: set[str] = set()
         #: Job titles for the searches step, computed off the UI thread.
         self.suggested_titles: list[str] = []
+        #: The whole plan — titles, where, contract types, exclusions — or
+        #: None until the background call has returned.
+        self.suggested_plan = None
         self._titles_task = None
 
         split = QHBoxLayout()
@@ -752,16 +756,20 @@ QPlainTextEdit#aimBox {
         aim = self.aim.toPlainText()
         answers = "\n".join(f"{q} {a}" for q, a in self.question_answers())
         text = f"{aim}\n{answers}".strip()
-        if not text:
+        # The brief as well, because corrections such as "roles must be BASED
+        # in London" are made in the brief, never in the aim box.
+        brief = self.brief.toPlainText()
+        if not text and not brief.strip():
             return
         titler = self._titler
         self._titles_task = run_in_background(
-            lambda: titler(text),
+            lambda: titler(text, brief),
             on_done=self._titles_ready,
             on_error=lambda _exc: None)   # a failed side errand stays silent
 
-    def _titles_ready(self, titles) -> None:
-        self.suggested_titles = list(titles or [])
+    def _titles_ready(self, plan) -> None:
+        self.suggested_plan = plan
+        self.suggested_titles = list(getattr(plan, "titles", plan) or [])
 
     @staticmethod
     def _with_answers(factsheet: str, answered) -> str:
@@ -835,6 +843,7 @@ class SearchesPage(QWidget):
         layout.addWidget(body)
 
         self._rows: list[tuple[str, QCheckBox]] = []
+        self._where: str | None = None
         self._form = QVBoxLayout()
         self._form.setContentsMargins(0, 0, 0, 0)
         self._form.setSpacing(4)
@@ -850,20 +859,32 @@ class SearchesPage(QWidget):
         self.note.setWordWrap(True)
         layout.addWidget(self.note)
 
-    def load(self, rows) -> None:
-        """`rows` is (label, titles, enabled), as `all_queries` returns."""
+    def load(self, rows, where: str | None = None) -> None:
+        """`rows` is (label, titles, enabled), as `all_queries` returns.
+
+        `where` is the place every search looks. Blank means setup found none,
+        and then nothing here can be switched on: a search with no location
+        looks across the whole world and pays for every posting it returns.
+        None means the caller did not say, which only tests do.
+        """
         while self._form.count():
             item = self._form.takeAt(0)
             widget = item.widget()
             if widget is not None:
                 widget.deleteLater()
         self._rows = []
+        self._where = where
+        blocked = where is not None and not where.strip()
         for label, _titles, enabled in rows:
             box = QCheckBox(label)
-            box.setChecked(bool(enabled))
+            box.setChecked(bool(enabled) and not blocked)
+            box.setEnabled(not blocked)
             box.stateChanged.connect(lambda *_: self._refresh())
             self._form.addWidget(box)
             self._rows.append((label, box))
+        # Without this the layout shares the scroll area's spare height out
+        # between the rows, and five searches spread down the whole window.
+        self._form.addStretch(1)
         self._refresh()
 
     def selections(self) -> list[tuple[str, bool]]:
@@ -876,8 +897,12 @@ class SearchesPage(QWidget):
     def _refresh(self) -> None:
         if not self._rows:
             self.note.setText(tr("onboarding.searches_none"))
+        elif self._where is not None and not self._where.strip():
+            self.note.setText(tr("onboarding.searches_nowhere"))
         elif not self.any_enabled:
             self.note.setText(tr("onboarding.searches_off"))
+        elif self._where:
+            self.note.setText(tr("onboarding.searches_where", where=self._where))
         else:
             self.note.setText("")
         self.changed.emit()
@@ -912,7 +937,7 @@ class OnboardingWizard(QWidget):
 
     def __init__(self, *, extract, sample, drafter=None, titler=None,
                  searches=None, set_search=None, entitlement_panel=None,
-                 parent=None):
+                 where=None, parent=None):
         """`extract(paths) -> (names, warnings)` and `sample() -> [items]` are
         injected, so the wizard neither reads disks nor calls a model itself.
 
@@ -926,6 +951,8 @@ class OnboardingWizard(QWidget):
         self._sample = sample
         self._searches = searches
         self._set_search = set_search
+        #: `where() -> str`, the place the seeded searches look ("" if none).
+        self._where = where
         self._corpus = None
 
         self.setWindowTitle(tr("onboarding.title"))
@@ -1065,12 +1092,20 @@ class OnboardingWizard(QWidget):
             # screen has something to show. Order matters here.
             self.documents_ready.emit(factsheet, brief)
             if self._searches is not None:
-                self.searches.load(self._searches())
+                self.searches.load(
+                    self._searches(),
+                    where=self._where() if self._where is not None else None)
             self._show_step(STEP_SEARCHES)
         elif index == STEP_SEARCHES:
             if self._set_search is not None:
                 for label, enabled in self.searches.selections():
-                    self._set_search(label, enabled)
+                    try:
+                        self._set_search(label, enabled)
+                    except ValueError:
+                        # Refused because the search has no location. Leaving
+                        # it off is the right outcome, and Settings says how
+                        # to fix it; stopping setup here would strand the user.
+                        pass
             # Only now is there anything to fetch with.
             self.calibration.load(self._sample())
             self._show_step(STEP_CALIBRATION)

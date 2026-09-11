@@ -246,43 +246,66 @@ def build_brief_request(corpus: Corpus, stated_aim: str, *,
     }
 
 
-#: Small, cheap and entirely mechanical: pull role titles out of prose. The
+#: Small, cheap and entirely mechanical: pull the search out of prose. The
 #: strong model is for the factsheet, where an error propagates into every
-#: later claim; this is a list of search terms the user then edits.
-SEARCH_TITLES_MAX_TOKENS = 1000
+#: later claim; this is a set of search terms the user then reviews.
+SEARCH_PLAN_MAX_TOKENS = 1500
 
-SEARCH_TITLES_RULES = """\
-Read what this person says they are looking for and return the JOB TITLES a \
-job board would list those roles under.
+#: Titles ALONE were what this used to return, and location was deliberately
+#: left out — so every search set up from it looked across the whole world, and
+#: every posting that returned was paid for. Where the role is based, the
+#: contract types accepted and the employers ruled out are decided by the
+#: person, not by judgement, so they can be applied before anything is fetched.
+SEARCH_PLAN_RULES = """\
+Read what this person says they are looking for, and the fit brief drafted \
+with them, and return what a job feed needs in order to search for those roles.
 
-Rules, all of which matter because each title is billed per posting it \
-returns:
+Every posting a search returns is paid for, and a search with no location \
+looks across the whole world, so each rule matters:
 
-- Return TITLES ONLY. Not skills, not industries, not locations, not \
-  sentences. "Revenue Manager" is a title; "the underwriting-to-property \
-  seam", "three kinds of investment" and "London" are not.
-- Two to four words each. A title nobody writes on a job advert matches \
-  nothing and costs nothing but tells the user the app misunderstood them.
-- Use the ordinary market wording, not the person's own phrasing. If they \
-  describe running a hotel, that is "General Manager" and "Hotel Manager".
-- Between three and eight of them. Prefer the obvious ones; the user can add \
-  their own.
-- If the text says nothing about what work they want, return an empty list \
-  rather than inventing titles."""
+- titles: JOB TITLES ONLY, as a job advert would write them. Not skills, \
+  industries, locations or sentences. "Revenue Manager" is a title; "the \
+  underwriting-to-property seam" and "London" are not. Two to four words \
+  each, in ordinary market wording rather than the person's own phrasing. \
+  Between three and eight. Empty if nothing says what work they want.
+- countries: ISO 3166-1 alpha-2 codes ("GB", never "UK") for the countries \
+  the ROLE must be based in. Only countries the person states, or that follow \
+  from a city they name. Never infer one from where they used to work, where \
+  an employer is headquartered, or a language they speak.
+- cities: only when the person limits the search to particular cities, named \
+  in English as a map would name them. Empty when anywhere in the country will do.
+- employment_types: only contract types the person says they accept. \
+  "Permanent" means full_time. Empty when they say nothing about it.
+- exclude_title_terms: a word or short phrase that, in a job title, always \
+  means a role the person has explicitly ruled out, and could never appear in \
+  a title they would want. Leave it out whenever there is doubt: an exclusion \
+  hides a posting before anyone has read it.
+- exclude_companies: employers the person says must never be suggested or \
+  contacted, exactly as written. Empty when none are named."""
 
-SEARCH_TITLES_SCHEMA = {
+SEARCH_PLAN_SCHEMA = {
     "type": "object",
     "properties": {
         "titles": {"type": "array", "items": {"type": "string"},
                    "maxItems": 8},
+        "countries": {"type": "array", "items": {"type": "string"}},
+        "cities": {"type": "array", "items": {"type": "string"}},
+        "employment_types": {"type": "array", "items": {
+            "type": "string",
+            "enum": ["full_time", "part_time", "contract", "temporary",
+                     "internship", "freelance"]}},
+        "exclude_title_terms": {"type": "array", "items": {"type": "string"}},
+        "exclude_companies": {"type": "array", "items": {"type": "string"}},
     },
-    "required": ["titles"],
+    "required": ["titles", "countries", "cities", "employment_types",
+                 "exclude_title_terms", "exclude_companies"],
+    "additionalProperties": False,
 }
 
 
-def build_search_titles_request(stated_aim: str, *,
-                                model: str = ASSESSMENT_MODEL) -> dict:
-    """Job titles to seed the searches with, from what the user typed.
+def build_search_plan_request(stated_aim: str, brief: str = "", *,
+                              model: str = ASSESSMENT_MODEL) -> dict:
+    """The search to seed setup with, from what the user typed and the brief.
 
     WHY A MODEL CALL AND NOT A SPLIT. The rule-based version split the text on
     punctuation and kept any run of two to five words, which offered a new
@@ -290,17 +313,19 @@ def build_search_titles_request(stated_aim: str, *,
     "three kinds investment" as searches to switch on — on a screen that says,
     two lines above, that each one costs money per posting it returns.
 
-    A search the user did not write and would not recognise is worse than no
-    search: it teaches them the app did not understand them, at the first
-    screen where they could have found that out.
+    The brief is included because that is where the person's corrections land:
+    "roles must be BASED in London" was written into a brief, never into the
+    aim box, and a search built from the aim alone could not know it.
     """
     return {
         "model": model,
-        "max_tokens": SEARCH_TITLES_MAX_TOKENS,
-        "system": [{"type": "text", "text": SEARCH_TITLES_RULES}],
-        "messages": [{"role": "user", "content": stated_aim}],
+        "max_tokens": SEARCH_PLAN_MAX_TOKENS,
+        "system": [{"type": "text", "text": SEARCH_PLAN_RULES}],
+        "messages": [{"role": "user", "content":
+                      f"<stated_aim>\n{stated_aim}\n</stated_aim>\n\n"
+                      f"<fit_brief>\n{brief}\n</fit_brief>"}],
         "output_config": {"format": {"type": "json_schema",
-                                     "schema": SEARCH_TITLES_SCHEMA}},
+                                     "schema": SEARCH_PLAN_SCHEMA}},
     }
 
 

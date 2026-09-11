@@ -94,13 +94,32 @@ class _Task(QRunnable):
             pass
 
 
+#: Every task whose result has not yet been delivered.
+#:
+#: Held HERE, not only by the caller, because a caller's reference dies with
+#: the window that holds it. Closing Settings while its administrator check was
+#: still on the network collected that window, and with it the only reference
+#: to a task the thread pool was still running; the process then died with an
+#: access violation (CI, 2026-09-11, in an unrelated test that happened to be
+#: pumping events at the time). A task now lives until its answer reaches the
+#: UI thread, whatever happens to the window that asked for it.
+_UNDELIVERED: set[_Task] = set()
+
+
 def run_in_background(fn: Callable[[], Any], *,
                       on_done: Callable[[Any], None],
                       on_error: Callable[[BaseException], None]) -> _Task:
     """Run `fn` on a worker thread. Returns the task — KEEP A REFERENCE."""
     task = _Task(fn)
+    # Python owns the task, never the pool: a pool that deletes the C++ object
+    # when `run()` returns leaves a live Python wrapper pointing at freed memory.
+    task.setAutoDelete(False)
+    _UNDELIVERED.add(task)
     # Queued by default across threads, so both callbacks arrive on the UI
-    # thread and may touch widgets safely.
+    # thread and may touch widgets safely. The release is connected FIRST so it
+    # still happens when the caller's own callback raises.
+    for signal in (task.signals.done, task.signals.failed):
+        signal.connect(lambda _payload, t=task: _UNDELIVERED.discard(t))
     task.signals.done.connect(on_done)
     task.signals.failed.connect(on_error)
     QThreadPool.globalInstance().start(task)

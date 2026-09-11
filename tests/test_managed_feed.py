@@ -228,7 +228,8 @@ def test_no_personal_content_is_sent_upstream(monkeypatch):
         assert forbidden not in sent
     assert set(body) == {"label", "titles", "countries", "companies",
                          "postedWithinDays", "discoveredSince",
-                         "excludeJobIds", "maxResults"}
+                         "excludeJobIds", "maxResults", "cities",
+                         "excludeTitleTerms", "excludeCompanies"}
     # excludeJobIds carries PROVIDER IDS ONLY — opaque strings the provider
     # issued. It is a billing control, and it must never become a channel for
     # anything about the user.
