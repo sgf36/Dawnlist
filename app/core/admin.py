@@ -31,12 +31,40 @@ from app.core.entitlement import WORKER_BASE
 #: presumes 'managed', which presumes 'byo'.
 ROLES = ("byo", "managed", "admin")
 
-#: What a code hands out. `trial` is the server's default on purpose: the safe
-#: default for a credential given to a stranger is the smallest allowance.
-PLANS = ("trial", "standard", "pro")
+#: What a code hands out, spelt exactly as the Worker's PLANS
+#: (server/dawnlist-feed-worker/src/plans.js). `trial` is the server's default
+#: on purpose: the safe default for a credential given to a stranger is the
+#: smallest allowance. This listed "pro", which the Worker has never had, so a
+#: code issued as "pro" silently became a trial.
+PLANS = ("trial", "standard", "global", "owner")
 
 #: Not 1. See the class docstring — this is the Wren scar.
 REVIEW_USES = 25
+
+#: How long a code works when the issuer does not say otherwise. A reviewer's
+#: or a friend's code that never expires is a standing grant nobody remembers
+#: issuing.
+DEFAULT_EXPIRY_DAYS = 30
+
+
+def may_be_open_ended(role: str, plan: str) -> bool:
+    """Only an administrator's own code, or the owner plan, may never expire."""
+    return role == "admin" or plan == "owner"
+
+
+def expiry_after(days: int, *, now=None) -> str | None:
+    """`expires_at` for a code lasting `days`; None for 0, which means never.
+
+    In the Worker's own shape, because it compares `expires_at` with
+    `new Date().toISOString()` AS TEXT: a Python isoformat ending "+00:00"
+    sorts wrongly against a string ending "Z".
+    """
+    if days <= 0:
+        return None
+    from datetime import datetime, timedelta, timezone
+
+    when = (now or datetime.now(timezone.utc)) + timedelta(days=days)
+    return when.strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
 
 class AdminError(RuntimeError):

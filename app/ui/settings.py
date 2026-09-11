@@ -418,10 +418,11 @@ def _divider() -> QFrame:
 class SettingsWindow(QWidget):
     """The panels, for the Settings menu and for onboarding.
 
-    In a store build the licence panel is not shown. Entitlement there is by
-    possession — the storefront already took the money and there is no licence
-    key in existence — so a box asking for one sends a paying user hunting
-    through their email for something nobody ever sent them.
+    Which purchase panel appears follows the build, because the rules do: both
+    Windows channels sell a Paddle licence, so `store` and `direct` show the
+    licence box; guideline 3.1.1 forbids a key on the Mac, so `mas` shows the
+    StoreKit subscription instead; and a build that does not know which it is
+    shows neither rather than guessing.
     """
 
     def __init__(self, parent=None, *, variant=None, rules=None,
@@ -775,13 +776,16 @@ class AdminPanel(QWidget):
     issues free grants rather than selling anything.
     """
 
-    def __init__(self, *, key_source=None, api=None, parent=None):
+    def __init__(self, *, key_source=None, api=None, confirm=None, parent=None):
         super().__init__(parent)
         from app.core import admin as admin_api
         from app.core import entitlement
 
         self._api = api or admin_api
         self._key_source = key_source or entitlement.stored_licence
+        #: `confirm(code) -> bool`, asked before a withdrawal. Injectable so a
+        #: test can answer without a modal dialog.
+        self._confirm = confirm or self._ask_before_revoking
         self._codes: list[dict] = []
 
         layout = QVBoxLayout(self)
@@ -819,6 +823,16 @@ class AdminPanel(QWidget):
         self.uses.setToolTip(tr("settings.admin_uses_tip"))
         form.addWidget(self.uses)
 
+        # Days rather than a date: "how long should this work?" is the question
+        # the issuer can answer. Codes went out with no expiry at all, so every
+        # reviewer's and friend's grant stood for ever.
+        self.expires = QSpinBox()
+        self.expires.setRange(1, 3650)
+        self.expires.setValue(self._api.DEFAULT_EXPIRY_DAYS)
+        self.expires.setSuffix(tr("settings.admin_expires_suffix"))
+        self.expires.setToolTip(tr("settings.admin_expires_tip"))
+        form.addWidget(self.expires)
+
         self.btn_issue = QPushButton(tr("settings.admin_issue"))
         self.btn_issue.setObjectName("primary")
         form.addWidget(self.btn_issue)
@@ -847,6 +861,9 @@ class AdminPanel(QWidget):
         self.btn_refresh.clicked.connect(self.refresh)
         self.btn_revoke.clicked.connect(self._revoke)
         self.role.currentTextChanged.connect(self._role_changed)
+        self.role.currentTextChanged.connect(self._limit_expiry)
+        self.plan.currentTextChanged.connect(self._limit_expiry)
+        self._limit_expiry()
 
     # -- helpers -----------------------------------------------------------
     def _role_changed(self, role: str) -> None:
@@ -855,6 +872,34 @@ class AdminPanel(QWidget):
         still want a one-shot managed code for a friend."""
         if role == "managed" and self.uses.value() == 1:
             self.uses.setValue(self._api.REVIEW_USES)
+
+    def _limit_expiry(self, *_) -> None:
+        """Zero — never — only for an administrator's own code or the owner plan.
+
+        A floor of one day for everything else, so an open-ended grant cannot
+        be issued by leaving the box at its lowest value. The "never" wording
+        is shown only where zero is allowed: a spin box shows its special text
+        at its minimum, which would otherwise label one day "never".
+        """
+        if self._api.may_be_open_ended(self.role.currentText(),
+                                       self.plan.currentText()):
+            self.expires.setMinimum(0)
+            self.expires.setSpecialValueText(tr("settings.admin_never"))
+        else:
+            self.expires.setSpecialValueText("")
+            self.expires.setMinimum(1)
+
+    def _ask_before_revoking(self, code: str) -> bool:
+        """Withdrawing also expires every licence already redeemed from the
+        code, and nothing reverses it — one click on the wrong row would cut a
+        reviewer off mid-review."""
+        from PySide6.QtWidgets import QMessageBox
+
+        answer = QMessageBox.question(
+            self, tr("settings.admin_confirm_revoke_title"),
+            tr("settings.admin_confirm_revoke", code=code),
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        return answer == QMessageBox.Yes
 
     def _key(self):
         return self._key_source()
@@ -891,9 +936,12 @@ class AdminPanel(QWidget):
         for row in self._codes:
             used, cap = row.get("uses", 0), row.get("max_uses", 1)
             state = " REVOKED" if row.get("revoked") else ""
+            expires = row.get("expires_at")
+            when = (f"  {tr('settings.admin_expires_on', date=str(expires)[:10])}"
+                    if expires else "")
             self.codes.addItem(
                 f"{row.get('code')}  {row.get('role')}/{row.get('plan')}  "
-                f"{used}/{cap}{state}  — {row.get('note') or ''}")
+                f"{used}/{cap}{state}{when}  — {row.get('note') or ''}")
         # LISTED FIRST, THEN SAY WHAT HAPPENED. Listing blanked the message,
         # so setting it beforehand wiped the code the operator was told to
         # copy — on a line that reads "Copy it now; it is shown once here".
@@ -907,10 +955,11 @@ class AdminPanel(QWidget):
         api = self._api
         note, role = self.note.text(), self.role.currentText()
         plan, uses = self.plan.currentText(), self.uses.value()
+        expires_at = api.expiry_after(self.expires.value())
 
         def work():
             made = api.issue_code(key, note=note, role=role, plan=plan,
-                                  max_uses=uses)
+                                  max_uses=uses, expires_at=expires_at)
             return made, api.list_codes(key)
 
         def done(pair):
@@ -928,6 +977,8 @@ class AdminPanel(QWidget):
             return
         key = self._key()
         code = self._codes[index].get("code")
+        if not self._confirm(code):
+            return
         api = self._api
 
         def work():

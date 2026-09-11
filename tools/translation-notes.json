@@ -113,5 +113,8 @@
   "settings.licence_unverified": "The key WAS saved; only the online check could not happen. Must not read as the key being wrong or rejected.",
   "update.checksum": "{sha256} is a 64-character hexadecimal hash the user may copy to check the file. Keep it exactly as it is, and keep 'SHA-256' as the technical name.",
   "update.size": "{size} is already formatted, for example '48.1 MB'. Leave it as it is.",
+  "settings.admin_expires_suffix": "A unit shown after a number in a spin box, for example '30 days'. Keep the LEADING SPACE, and use the plural form that follows a number in this language.",
+  "settings.admin_never": "Shown in the same spin box when the number is 0: the code never expires. Short - it replaces '0 days'.",
+  "settings.admin_confirm_revoke": "{code} is an access code such as DL-AB12-CD34 - keep it exactly. 'Withdraw' means cancel the code permanently; licences created from it stop working too.",
   "update.body":"Explains where the update comes from. 'checksum' is the published SHA-256 hash beside the download, used to verify the file. Keep it as the technical term your market uses; do not soften it to 'code' or 'signature'."
 }
