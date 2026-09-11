@@ -11,10 +11,14 @@
  *
  * `/admin/resend` is a support tool before it is a test. The commonest thing a
  * paying customer will ever ask for is the key they lost.
+ *
+ * Runs against a real SQLite D1.
  */
 import assert from 'node:assert';
-import { handleAdmin, handleRedeem, newCode } from '../src/codes.js';
+import { handleAdmin, handleRedeem } from '../src/codes.js';
 import { newLicenceKey } from '../src/paddle.js';
+import { makeD1 } from './d1.mjs';
+import { seedCode } from './seed.mjs';
 
 let passed = 0, failed = 0;
 async function test(name, fn) {
@@ -22,41 +26,7 @@ async function test(name, fn) {
   catch (e) { console.log(`  FAIL ${name}\n       ${e.message}`); failed++; }
 }
 
-function makeDB() {
-  const db = { codes: [], licences: [], roles: [], redemptions: [] };
-  db.prepare = (sql) => ({
-    _a: [],
-    bind(...a) { this._a = a; return this; },
-    async first() {
-      if (sql.includes('FROM code_attempts')) return null;
-      if (sql.includes('COUNT(*) AS n FROM redemptions')) {
-        return { n: db.redemptions.filter((r) => r.code === this._a[0]).length };
-      }
-      if (sql.includes('FROM licences WHERE licence_key')) {
-        return db.licences.find((l) => l.licence_key === this._a[0]) || null;
-      }
-      if (sql.includes('FROM licence_roles WHERE licence_key')) {
-        return db.roles.find((r) => r.licence_key === this._a[0]) || null;
-      }
-      return null;
-    },
-    async all() { return { results: sql.includes('FROM codes') ? db.codes : [] }; },
-    async run() {
-      if (sql.includes('INSERT INTO licences')) {
-        db.licences.push({
-          licence_key: this._a[0], tier: this._a[1], status: 'active',
-          plan: this._a[2], max_postings_per_day: this._a[3],
-        });
-      } else if (sql.includes('INSERT INTO licence_roles')) {
-        db.roles.push({ licence_key: this._a[0], role: this._a[1] });
-      } else if (sql.includes('INSERT INTO redemptions')) {
-        db.redemptions.push({ code: this._a[0], licence_key: this._a[1] });
-      }
-      return { success: true };
-    },
-  });
-  return db;
-}
+const makeDB = () => makeD1();
 
 const post = (path, body, auth) => new Request(`https://x${path}`, {
   method: 'POST',
@@ -71,13 +41,15 @@ const get = (path, auth) => new Request(`https://x${path}`, {
 });
 
 async function seedAdmin(db) {
-  db.codes.push({
-    code: newCode(), note: 'owner', max_uses: 1, revoked: 0,
-    created_at: 'now', expires_at: null, role: 'admin', plan: 'standard',
-  });
-  const res = await handleRedeem(
-    post('/redeem', { code: db.codes[0].code }), { DB: db }, newLicenceKey);
+  const c = seedCode(db, { note: 'owner', role: 'admin', plan: 'standard' });
+  const res = await handleRedeem(post('/redeem', { code: c.code }), { DB: db }, newLicenceKey);
   return (await res.json()).licence_key;
+}
+
+function seedLicence(db, key, status) {
+  db.sqlite.prepare(
+    "INSERT INTO licences (licence_key, tier, status, plan) VALUES (?, 'managed', ?, 'standard')"
+  ).run(key, status);
 }
 
 /** Replace fetch for one call, and always put it back. */
@@ -96,7 +68,7 @@ await test('an unauthenticated caller is refused', async () => {
 
 await test('a licence without the admin role is refused', async () => {
   const db = makeDB();
-  db.licences.push({ licence_key: 'DAWN-PLAIN', status: 'active' });
+  seedLicence(db, 'DAWN-PLAIN', 'active');
   const res = await handleAdmin(get('/admin/selftest', 'DAWN-PLAIN'), { DB: db });
   assert.equal(res.status, 403);
 });
@@ -150,6 +122,67 @@ await test('the feed key is never CALLED, because a feed request costs a credit'
   assert.equal(body.checks.theirstack.checked, false);
 });
 
+await test('a Resend key restricted to sending is reported healthy, and as restricted', async () => {
+  // A send-only key is the right key for a Worker that only sends. It cannot
+  // list domains, so the check used to call it broken.
+  const db = makeDB();
+  const licence = await seedAdmin(db);
+  const body = await withFetch(
+    async () => (await handleAdmin(get('/admin/selftest', licence),
+      { DB: db, RESEND_API_KEY: 're_send_only', PADDLE_API_KEY: 'p' })).json(),
+    async (url) => (String(url).includes('resend')
+      ? { ok: false, status: 401, text: async () => JSON.stringify({
+          name: 'restricted_api_key', message: 'This API key is restricted to only send emails' }) }
+      : { ok: true, status: 200 }));
+  assert.equal(body.checks.resend.ok, true);
+  assert.equal(body.checks.resend.restricted, true);
+  assert.equal(body.ok, true);
+});
+
+await test('negative control: a Resend key refused for any other reason still fails', async () => {
+  const db = makeDB();
+  const licence = await seedAdmin(db);
+  const body = await withFetch(
+    async () => (await handleAdmin(get('/admin/selftest', licence),
+      { DB: db, RESEND_API_KEY: 're_wrong', PADDLE_API_KEY: 'p' })).json(),
+    async (url) => (String(url).includes('resend')
+      ? { ok: false, status: 401, text: async () => '{"name":"invalid_api_key"}' }
+      : { ok: true, status: 200 }));
+  assert.equal(body.checks.resend.ok, false);
+  assert.equal(body.checks.resend.status, 401);
+  assert.equal(body.ok, false);
+});
+
+await test('one check that throws cannot take the others down with it', async () => {
+  const db = makeDB();
+  const licence = await seedAdmin(db);
+  const res = await withFetch(
+    async () => handleAdmin(get('/admin/selftest', licence),
+      { DB: db, RESEND_API_KEY: 'r', PADDLE_API_KEY: 'p' }),
+    async (url) => {
+      if (String(url).includes('paddle')) throw new TypeError('fetch failed');
+      return { ok: true, status: 200 };
+    });
+  assert.equal(res.status, 200, 'a broken upstream is a finding, not a 500');
+  const body = await res.json();
+  assert.equal(body.checks.paddle.ok, false);
+  assert.equal(body.checks.paddle.reason, 'unreachable');
+  assert.equal(body.checks.resend.ok, true, 'the other answer is still there');
+  assert.equal(body.ok, false);
+});
+
+await test('a failure body that cannot be read is reported by status, not thrown', async () => {
+  const db = makeDB();
+  const licence = await seedAdmin(db);
+  const body = await withFetch(
+    async () => (await handleAdmin(get('/admin/selftest', licence),
+      { DB: db, RESEND_API_KEY: 'r', PADDLE_API_KEY: 'p' })).json(),
+    async (url) => (String(url).includes('resend')
+      ? { ok: false, status: 500, text: async () => '<html>gateway</html>' }
+      : { ok: true, status: 200 }));
+  assert.deepEqual(body.checks.resend, { ok: false, status: 500 });
+});
+
 console.log('\nresend');
 
 await test('both a licence and an address are required', async () => {
@@ -172,7 +205,7 @@ await test('a revoked licence is refused rather than re-sent', async () => {
   // to tell that from the key being wrong.
   const db = makeDB();
   const licence = await seedAdmin(db);
-  db.licences.push({ licence_key: 'DAWN-DEAD', status: 'expired', plan: 'standard' });
+  seedLicence(db, 'DAWN-DEAD', 'expired');
   const res = await handleAdmin(
     post('/admin/resend', { licence_key: 'DAWN-DEAD', to: 'a@b.test' }, licence), { DB: db });
   assert.equal(res.status, 409);

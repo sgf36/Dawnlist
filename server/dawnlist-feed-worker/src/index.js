@@ -6,7 +6,10 @@
  *   - the managed-tier user never sees an API key;
  *   - usage is metered per licence in D1 and fair-use caps are enforced;
  *   - query results are cached ACROSS users, so two people searching
- *     "hotel general manager, Dubai" share one upstream call;
+ *     "hotel general manager, Dubai" share one upstream call — when both are
+ *     served by the same Cloudflare data centre. The Cache API is local to
+ *     each data centre, not global, so the saving grows with how concentrated
+ *     users are, not simply with how many there are;
  *   - the provider is a config value, swappable with no app release.
  *
  * That last point is the structural answer to the data-source fragility that
@@ -38,7 +41,9 @@
 import { newLicenceKey } from './paddle.js';
 import { handlePaddleWebhook } from './paddle.js';
 import { handleAdmin, handleRedeem } from './codes.js';
-import { PLANS, FALLBACK_PLAN, sellablePlans } from './plans.js';
+import { PLANS, FALLBACK_PLAN, hasExpired, sellablePlans } from './plans.js';
+import { parseJsonObject } from './body.js';
+import { purgeExpired } from './retention.js';
 
 const SEARCH_TTL_SECONDS = 6 * 60 * 60;   // 6h on search results
 // Place ids do not change, and the catalogue's cost per lookup is not
@@ -91,6 +96,85 @@ const json = (body, status = 200) =>
   });
 
 // ---------------------------------------------------------------------------
+// The search body — refused before anything is reserved or fetched
+// ---------------------------------------------------------------------------
+
+/**
+ * The most postings one search may ask for. Paging exists so that a request
+ * above one page is honoured rather than cut to a hundred; ten pages bounds how
+ * many provider calls one invocation can make. The daily cap, not this, decides
+ * what is billed.
+ */
+const MAX_RESULTS_PER_SEARCH = 1000;
+
+/**
+ * A wider window only widens what is fetched and billed; a posting a year old
+ * is not one anybody is still hiring for.
+ */
+const MAX_POSTED_WITHIN_DAYS = 365;
+
+/**
+ * Bounds on each list. Most sit far above anything the app builds from what a
+ * person states, so they refuse only a malformed or hostile body. Three are
+ * set by something specific:
+ */
+const SEARCH_LISTS = {
+  titles:            { items: 50,   chars: 200 },
+  // ISO 3166-1 has 249 codes, so a search of every country still fits.
+  countries:         { items: 250,  chars: 8 },
+  companies:         { items: 200,  chars: 200 },
+  // A name the place cache has not seen costs a catalogue lookup for each
+  // listed country, so this list multiplies provider calls.
+  cities:            { items: 20,   chars: 100 },
+  excludeTitleTerms: { items: 100,  chars: 200 },
+  excludeCompanies:  { items: 500,  chars: 200 },
+  // The app sends its 1,000 most recently held ids (RECENT_HELD_IDS). Twice
+  // that leaves room, and stops an unbounded list being forwarded to the feed
+  // with every page.
+  excludeJobIds:     { items: 2000, chars: 100 },
+};
+
+const invalidField = (field, rule) =>
+  new HttpError(400, 'invalid_field', `${field} ${rule}`);
+
+function checkWholeNumber(body, field, min, max) {
+  const value = body[field];
+  if (value === undefined || value === null) return;
+  if (!Number.isInteger(value) || value < min || value > max) {
+    throw invalidField(field, `must be a whole number from ${min} to ${max}`);
+  }
+}
+
+/** The search body, or a 400 naming the field — never a body the code cannot use. */
+async function readSearch(request) {
+  const parsed = await parseJsonObject(request);
+  if (!parsed.ok) throw new HttpError(400, parsed.error, parsed.message);
+  const body = parsed.body;
+
+  checkWholeNumber(body, 'maxResults', 1, MAX_RESULTS_PER_SEARCH);
+  checkWholeNumber(body, 'limit', 1, MAX_RESULTS_PER_SEARCH);
+  checkWholeNumber(body, 'postedWithinDays', 1, MAX_POSTED_WITHIN_DAYS);
+
+  for (const [field, cap] of Object.entries(SEARCH_LISTS)) {
+    const list = body[field];
+    if (list === undefined || list === null) continue;
+    const fits = Array.isArray(list) && list.length <= cap.items
+      && list.every((s) => typeof s === 'string' && s.trim() !== '' && s.length <= cap.chars);
+    if (!fits) {
+      throw invalidField(field, `must be a list of up to ${cap.items} non-blank strings `
+        + `of at most ${cap.chars} characters`);
+    }
+  }
+
+  const since = body.discoveredSince;
+  if (since !== undefined && since !== null
+      && (typeof since !== 'string' || since.length > 64 || Number.isNaN(Date.parse(since)))) {
+    throw invalidField('discoveredSince', 'must be a date and time');
+  }
+  return body;
+}
+
+// ---------------------------------------------------------------------------
 // Licence + metering
 // ---------------------------------------------------------------------------
 
@@ -100,7 +184,7 @@ async function authenticate(env, request) {
 
   const row = await env.DB.prepare(
     `SELECT licence_key, tier, status, plan,
-            max_postings_per_day, max_refreshes_per_day
+            max_postings_per_day, max_refreshes_per_day, expires_at
        FROM licences WHERE licence_key = ?1`
   ).bind(key).first();
 
@@ -108,56 +192,138 @@ async function authenticate(env, request) {
   if (row.status !== 'active') {
     throw new HttpError(403, 'licence_inactive', `Licence is ${row.status}`);
   }
+  // Checked here, on every request, rather than by a job that flips a status:
+  // a job that fails or runs late leaves an expired licence working, and this
+  // cannot. The same code the app already shows for an inactive licence, so it
+  // needs no new handling to say so.
+  if (hasExpired(row.expires_at)) {
+    const ends = Date.parse(row.expires_at);
+    throw new HttpError(403, 'licence_inactive', Number.isNaN(ends)
+      ? 'Licence expiry date cannot be read'
+      : `Licence expired on ${new Date(ends).toISOString().slice(0, 10)}`);
+  }
   return row;
 }
 
-function today() {
-  return new Date().toISOString().slice(0, 10);
+/**
+ * The UTC day a request is metered against, read from the clock ONCE per
+ * request and carried to every statement that meters it.
+ *
+ * The reservation is written before the upstream call and the refund after it.
+ * Reading the clock for each would, for a search that straddles midnight,
+ * reserve against one day and refund against the next — a row that does not
+ * exist, so the refund would match nothing and the unused postings would stay
+ * spent.
+ */
+function utcDay(now = new Date()) {
+  return now.toISOString().slice(0, 10);
 }
 
-async function usageToday(env, licenceKey) {
+async function usageOn(env, licenceKey, day) {
   const row = await env.DB.prepare(
     `SELECT refreshes, postings FROM usage_daily WHERE licence_key = ?1 AND day = ?2`
-  ).bind(licenceKey, today()).first();
+  ).bind(licenceKey, day).first();
   return row || { refreshes: 0, postings: 0 };
 }
 
-async function recordUsage(env, licenceKey, { refreshes = 0, postings = 0 }) {
-  await env.DB.prepare(
-    `INSERT INTO usage_daily (licence_key, day, refreshes, postings)
-     VALUES (?1, ?2, ?3, ?4)
-     ON CONFLICT(licence_key, day) DO UPDATE SET
-       refreshes = refreshes + excluded.refreshes,
-       postings  = postings  + excluded.postings`
-  ).bind(licenceKey, today(), refreshes, postings).run();
-}
+/**
+ * Check and spend in ONE statement: one refresh and `?3` postings, or nothing.
+ *
+ * The INSERT branch carries its own guard because a licence with no row yet
+ * today never reaches the DO UPDATE ... WHERE, and would otherwise be let
+ * through whatever its caps say.
+ */
+const RESERVE_SQL = `
+  INSERT INTO usage_daily (licence_key, day, refreshes, postings)
+  SELECT ?1, ?2, 1, ?3 WHERE ?4 >= 1 AND ?3 <= ?5
+  ON CONFLICT(licence_key, day) DO UPDATE SET
+    refreshes = usage_daily.refreshes + 1,
+    postings  = usage_daily.postings + excluded.postings
+  WHERE usage_daily.refreshes < ?4
+    AND usage_daily.postings + excluded.postings <= ?5
+  RETURNING refreshes, postings`;
 
 /**
- * Refuse what is already spent, and return the headroom that is left.
- *
- * Returning `headroom` is the point. The previous version only refused a
- * licence already AT the cap, which let a request at 699/700 fetch a further
- * 100 rows and bill for every one of them — the cap could be overshot by a
- * whole page on the request that crossed it. Callers must clamp their page
- * size to `headroom`.
+ * How many times a reservation is retried when another request on the same
+ * licence spends the headroom between the read and the write. Each retry
+ * re-reads, so a licence that has genuinely run out is refused on the next
+ * pass; only one whose allowance keeps moving exhausts these.
  */
-async function enforceCaps(env, licence) {
-  const used = await usageToday(env, licence.licence_key);
+const RESERVE_ATTEMPTS = 5;
+
+/**
+ * Reserve this search's share of today's allowance BEFORE anything upstream is
+ * asked, and report what was used before it.
+ *
+ * WHY A RESERVATION. This used to read usage, call the provider, and record
+ * what came back afterwards. Every request in flight read the same figure, so
+ * parallel searches at 0 of 700 each passed and each fetched a full page — the
+ * cap bounded any one request and not the requests together. The conditional
+ * upsert checks and spends in a single statement, which D1 runs one at a time,
+ * so the second request sees the first one's spend. What a fetch does not use
+ * is refunded afterwards by `refundAllowance`.
+ *
+ * The reservation is clamped to what is left rather than refused, because a
+ * request at 699/700 that fetched a further 100 rows once overshot the cap by
+ * a whole page. Clamping lands the request that crosses the cap exactly on it.
+ */
+async function reserveAllowance(env, licence, day, asked) {
   const maxRefresh = licence.max_refreshes_per_day ?? DEFAULTS.maxRefreshesPerDay;
   const maxPostings = licence.max_postings_per_day ?? DEFAULTS.maxPostingsPerDay;
 
-  if (used.refreshes >= maxRefresh) {
-    throw new HttpError(429, 'refresh_cap', `Daily refresh cap reached (${maxRefresh})`);
+  for (let attempt = 0; attempt < RESERVE_ATTEMPTS; attempt++) {
+    const used = await usageOn(env, licence.licence_key, day);
+    if (used.refreshes >= maxRefresh) {
+      throw new HttpError(429, 'refresh_cap', `Daily refresh cap reached (${maxRefresh})`);
+    }
+    if (used.postings >= maxPostings) {
+      // Named in postings, with the numbers, because the app has to be able to
+      // say "you are capped" in those words rather than showing an empty list
+      // (spec 6.2). No upstream call is made, so this costs nothing.
+      throw new HttpError(429, 'posting_cap',
+        `Daily posting cap reached — ${used.postings} of ${maxPostings} fetched today`);
+    }
+    const reserved = Math.max(1, Math.min(asked, maxPostings - used.postings));
+    const after = await env.DB.prepare(RESERVE_SQL)
+      .bind(licence.licence_key, day, reserved, maxRefresh, maxPostings).first();
+    if (after) {
+      // From the row this statement wrote, not from the read above, which
+      // another request may already have overtaken.
+      const before = { refreshes: after.refreshes - 1, postings: after.postings - reserved };
+      return {
+        day, reserved, maxRefresh, maxPostings,
+        used: before,
+        headroom: maxPostings - before.postings,
+      };
+    }
   }
-  const headroom = maxPostings - used.postings;
-  if (headroom <= 0) {
-    // Named in postings, with the numbers, because the app has to be able to
-    // say "you are capped" in those words rather than showing an empty list
-    // (spec 6.2). No upstream call is made, so this costs nothing.
-    throw new HttpError(429, 'posting_cap',
-      `Daily posting cap reached — ${used.postings} of ${maxPostings} fetched today`);
+  throw new HttpError(503, 'usage_contended',
+    'Too many searches are running on this licence at once; try again shortly');
+}
+
+/**
+ * Give back what a reservation did not use, against the reservation's own day
+ * and never below zero.
+ *
+ * A refund that fails is logged and swallowed rather than thrown. The licence
+ * is then charged for postings it did not receive, which errs towards the cap;
+ * throwing instead would turn a search whose rows were already paid for into a
+ * 500 and discard those rows as well.
+ */
+async function refundAllowance(env, licenceKey, caps, { refreshes = 0, postings = 0 }) {
+  const r = Math.max(0, refreshes);
+  const p = Math.max(0, postings);
+  if (r === 0 && p === 0) return;
+  try {
+    await env.DB.prepare(
+      `UPDATE usage_daily
+          SET refreshes = MAX(0, refreshes - ?3),
+              postings  = MAX(0, postings - ?4)
+        WHERE licence_key = ?1 AND day = ?2`
+    ).bind(licenceKey, caps.day, r, p).run();
+  } catch (err) {
+    console.error('usage refund failed', { refreshes: r, postings: p, error: err?.name });
   }
-  return { used, maxRefresh, maxPostings, headroom };
 }
 
 // ---------------------------------------------------------------------------
@@ -184,9 +350,9 @@ const ADAPTERS = {
    */
   theirstack: {
     /**
-     * @param {number} headroom  postings this licence may still be billed for
-     *                           today. The page size is clamped to it, so the
-     *                           cap can never be overshot by a partial page.
+     * @param {number} headroom  postings reserved for this search. The page
+     *                           size is clamped to it, so a fetch can never
+     *                           bill past what the cap let it reserve.
      * @returns {{jobs: object[], total: number|null}} `total` is how many the
      *          query actually matched, so the caller can report what it chose
      *          not to fetch instead of presenting a clamped page as the lot.
@@ -382,6 +548,10 @@ async function resolvePlaces(env, names, countries) {
 
 // ---------------------------------------------------------------------------
 // Cross-user cache
+//
+// Shared only between users served by the SAME Cloudflare data centre:
+// `caches.default` is local to each one, so a search cached in London is a
+// miss in Frankfurt and is fetched, and billed, again there.
 // ---------------------------------------------------------------------------
 
 function cacheKeyFor(query) {
@@ -409,28 +579,55 @@ function cacheKeyFor(query) {
 
 async function handleSearch(request, env, ctx) {
   const licence = await authenticate(env, request);
-  const caps = await enforceCaps(env, licence);
-  const query = await request.json();
+  const query = await readSearch(request);
+  const caps = await reserveAllowance(env, licence, utcDay(),
+    query.maxResults ?? query.limit ?? MAX_PAGE);
 
+  let delivered;
+  try {
+    delivered = await deliverSearch(env, ctx, query, caps);
+  } catch (err) {
+    // Nothing reached the user, so nothing is spent — not the postings and
+    // not the refresh. An unknown place or a provider outage must not cost one
+    // of the day's searches.
+    await refundAllowance(env, licence.licence_key, caps,
+      { refreshes: 1, postings: caps.reserved });
+    throw err;
+  }
+  await refundAllowance(env, licence.licence_key, caps,
+    { postings: caps.reserved - delivered.jobs.length });
+  return json(delivered.body);
+}
+
+async function deliverSearch(env, ctx, query, caps) {
   const cache = caches.default;
   const cacheKey = cacheKeyFor(query);
   const hit = await cache.match(cacheKey);
   if (hit) {
     const cached = await hit.json();
     // Meter on rows DELIVERED to this licence, not rows fetched upstream.
-    // Spencer pays once for a shared result; each user still spends their own
-    // allowance on receiving it. Metering the upstream fetch instead would let
-    // a licence draw unlimited postings through the cache, and would also make
-    // two users' caps depend on who happened to run the query first.
-    const jobs = cached.jobs.slice(0, caps.headroom);
-    await recordUsage(env, licence.licence_key,
-      { refreshes: 1, postings: jobs.length });
-    return json({
+    // Spencer pays once per data centre for a shared result (the Cache API is
+    // not global); each user still spends their own allowance on receiving
+    // it. Metering the upstream fetch instead would let a licence draw
+    // unlimited postings through the cache, and would also make two users'
+    // caps depend on who happened to run the query first.
+    //
+    // Rows this user already holds come out BEFORE the cut and the meter. A
+    // fetch sends those ids to the feed so they are never returned or billed,
+    // but a cached result was fetched for somebody else and still carries
+    // them — so without this a user is charged again for postings they have.
+    //
+    // Then cut to the reservation — what the request asked for, clamped to
+    // what the licence has left. Cutting to the headroom alone handed a
+    // request for five postings every cached row, and billed for all of them.
+    const held = new Set(query.excludeJobIds || []);
+    const jobs = cached.jobs
+      .filter((job) => !held.has(String(job.provider_job_id)))
+      .slice(0, caps.reserved);
+    return {
       jobs,
-      cached: true,
-      provider: 'cache',
-      counts: funnel(jobs, caps, cached.total),
-    });
+      body: { jobs, cached: true, provider: 'cache', counts: funnel(jobs, caps, cached.total) },
+    };
   }
 
   if (query.cities?.length) {
@@ -447,7 +644,7 @@ async function handleSearch(request, env, ctx) {
     const adapter = ADAPTERS[p.name];
     if (!adapter) continue;
     try {
-      result = await adapter.search(env, query, caps.headroom);
+      result = await adapter.search(env, query, caps.reserved);
       usedProvider = p.name;
       break;
     } catch (err) {
@@ -475,18 +672,18 @@ async function handleSearch(request, env, ctx) {
     })));
   }
 
-  await recordUsage(env, licence.licence_key,
-    { refreshes: 1, postings: jobs.length });
-
-  return json({
+  return {
     jobs,
-    cached: false,
-    provider: usedProvider,
-    // Reported even when empty, so the app can tell "nothing new" from
-    // "the fetch failed" (spec 6.2).
-    degraded: failures.length ? failures : undefined,
-    counts: funnel(jobs, caps, total),
-  });
+    body: {
+      jobs,
+      cached: false,
+      provider: usedProvider,
+      // Reported even when empty, so the app can tell "nothing new" from
+      // "the fetch failed" (spec 6.2).
+      degraded: failures.length ? failures : undefined,
+      counts: funnel(jobs, caps, total),
+    },
+  };
 }
 
 /**
@@ -577,7 +774,7 @@ async function handleLicence(env, request) {
  */
 async function handlePlan(request, env) {
   const licence = await authenticate(env, request);
-  const used = await usageToday(env, licence.licence_key);
+  const used = await usageOn(env, licence.licence_key, utcDay());
   const maxPostings = licence.max_postings_per_day ?? DEFAULTS.maxPostingsPerDay;
   const maxRefresh = licence.max_refreshes_per_day ?? DEFAULTS.maxRefreshesPerDay;
 
@@ -594,11 +791,10 @@ async function handlePlan(request, env) {
       postings: Math.max(0, maxPostings - used.postings),
       refreshes: Math.max(0, maxRefresh - used.refreshes),
     },
-    // SELLABLE plans only. This list is rendered as an upgrade ladder, and it
-    // used to be every plan — so a customer could be offered `trial`, and
-    // adding the developer's own `owner` plan would have advertised an
-    // allowance nobody can buy.
-    plans: sellablePlans().map((pl) => ({
+    // Plans with a price configured HERE only. This list is rendered as an
+    // upgrade ladder: it once offered `trial`, and then offered Global while no
+    // Global price existed, so the app advertised an upgrade no checkout sold.
+    plans: sellablePlans(env).map((pl) => ({
       key: pl.key,
       postings_per_day: pl.maxPostingsPerDay,
       refreshes_per_day: pl.maxRefreshesPerDay,
@@ -642,5 +838,14 @@ export default {
       console.error('unhandled', err?.name);
       return json({ error: 'internal', message: 'Unexpected error' }, 500);
     }
+  },
+
+  /**
+   * The cron trigger in wrangler.jsonc. A retention period is only real if
+   * something deletes on it; src/retention.js says what goes and what is
+   * deliberately kept.
+   */
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(purgeExpired(env));
   },
 };

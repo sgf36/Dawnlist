@@ -18,8 +18,12 @@
  * truth that drifts the first time an increment succeeds and the matching
  * insert does not.
  */
-import { PLANS, capsFor } from './plans.js';
+import { PLANS, capsFor, defaultCodeExpiry, hasExpired, licenceExpiry } from './plans.js';
 import { licenceEmail, localeFor, sendEmail } from './email.js';
+import { parseJsonObject } from './body.js';
+
+/** Generated codes are 19 characters; this admits hand-made ones with room. */
+const MAX_CODE_CHARS = 64;
 
 const ROLES = ['byo', 'managed', 'admin'];
 const MAX_FAILED_ATTEMPTS_PER_DAY = 20;
@@ -47,9 +51,22 @@ export function newCode(prefix = 'DL') {
   return `${prefix}-${body.match(/.{1,4}/g).slice(0, 4).join('-')}`;
 }
 
-function normalise(code) {
+export function normalise(code) {
   // People type them with spaces, lower case, or without hyphens.
   return (code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+/**
+ * A licence key as an admin listing shows it: the last four characters.
+ *
+ * A licence key is the whole credential — the feed and the admin console
+ * authorise on nothing else — so a listing that printed keys in full made
+ * every screenshot, pasted log and shared terminal of the console a leak.
+ * Four characters are enough to tell rows apart when talking to a customer.
+ */
+export function maskKey(key) {
+  const text = String(key || '');
+  return text.length <= 4 ? '…' : `…${text.slice(-4)}`;
 }
 
 /** Compare normalised, so formatting never decides whether a code works. */
@@ -61,18 +78,47 @@ function sameCode(a, b) {
 // Rate limiting
 // ---------------------------------------------------------------------------
 
-async function tooManyFailures(env, ip) {
+/**
+ * The salt for the unkeyed fallback below. It stops a hash table computed for
+ * some other system from matching these rows, and nothing more: anybody with
+ * this source can still hash candidate addresses. CLIENT_HASH_SECRET closes
+ * that, and wrangler.jsonc says so.
+ */
+const CLIENT_HASH_SALT = 'dawnlist:code-attempts:v1:';
+
+const hex = (buffer) =>
+  [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('');
+
+/**
+ * What failed attempts are counted against: a hash of the connecting address,
+ * never the address. The table only has to tell one connection from another
+ * within a day; storing the address kept a list of who had tried codes, and
+ * when, for as long as the rows lived.
+ */
+export async function clientHash(env, request) {
+  const address = request.headers.get('cf-connecting-ip') || 'unknown';
+  const encoder = new TextEncoder();
+  if (env.CLIENT_HASH_SECRET) {
+    const key = await crypto.subtle.importKey(
+      'raw', encoder.encode(env.CLIENT_HASH_SECRET),
+      { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    return hex(await crypto.subtle.sign('HMAC', key, encoder.encode(address)));
+  }
+  return hex(await crypto.subtle.digest('SHA-256', encoder.encode(CLIENT_HASH_SALT + address)));
+}
+
+async function tooManyFailures(env, client) {
   const row = await env.DB.prepare(
-    'SELECT failures FROM code_attempts WHERE ip = ?1 AND day = ?2'
-  ).bind(ip, today()).first();
+    'SELECT failures FROM code_attempts WHERE client_hash = ?1 AND day = ?2'
+  ).bind(client, today()).first();
   return (row?.failures || 0) >= MAX_FAILED_ATTEMPTS_PER_DAY;
 }
 
-async function recordFailure(env, ip) {
+async function recordFailure(env, client) {
   await env.DB.prepare(
-    `INSERT INTO code_attempts (ip, day, failures) VALUES (?1, ?2, 1)
-     ON CONFLICT(ip, day) DO UPDATE SET failures = failures + 1`
-  ).bind(ip, today()).run();
+    `INSERT INTO code_attempts (client_hash, day, failures) VALUES (?1, ?2, 1)
+     ON CONFLICT(client_hash, day) DO UPDATE SET failures = failures + 1`
+  ).bind(client, today()).run();
 }
 
 // ---------------------------------------------------------------------------
@@ -80,43 +126,39 @@ async function recordFailure(env, ip) {
 // ---------------------------------------------------------------------------
 
 export async function handleRedeem(request, env, newLicenceKey) {
-  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
-  if (await tooManyFailures(env, ip)) {
+  const client = await clientHash(env, request);
+  if (await tooManyFailures(env, client)) {
     return json({ error: 'too_many_attempts' }, 429);
   }
 
-  let body;
-  try { body = await request.json(); } catch { return json({ error: 'bad_json' }, 400); }
+  const parsed = await parseJsonObject(request);
+  if (!parsed.ok) return json({ error: parsed.error, message: parsed.message }, 400);
+  const body = parsed.body;
 
+  if (body.code !== undefined && body.code !== null
+      && (typeof body.code !== 'string' || body.code.length > MAX_CODE_CHARS)) {
+    return json({ error: 'invalid_field',
+                  message: `code must be a string of at most ${MAX_CODE_CHARS} characters` }, 400);
+  }
   const given = normalise(body.code);
   if (!given) return json({ error: 'no_code' }, 400);
 
-  // Fetch by normalised comparison rather than exact match, so a code typed
-  // without hyphens still works.
-  const { results } = await env.DB.prepare('SELECT * FROM codes').all();
-  const row = (results || []).find((r) => sameCode(r.code, given));
+  // One row, through the index on the normalised form, so a code typed without
+  // hyphens still works and a guess costs the same however many codes exist.
+  const row = await env.DB.prepare(
+    `SELECT code, role, plan, max_uses, revoked, expires_at
+       FROM codes WHERE code_normalised = ?1`
+  ).bind(given).first();
 
-  if (!row || row.revoked) {
-    await recordFailure(env, ip);
-    // "Unknown" and "revoked" answer the same, deliberately: distinguishing
-    // them tells someone probing that a code once existed.
+  // Unknown, revoked, expired and spent all answer the SAME, deliberately.
+  // Each distinct answer tells somebody probing a fact about a code they do
+  // not hold: that it once existed, that it was real until a date, that
+  // somebody else has already used it.
+  const refuse = async () => {
+    await recordFailure(env, client);
     return json({ error: 'invalid_code' }, 403);
-  }
-
-  if (row.expires_at && row.expires_at < new Date().toISOString()) {
-    await recordFailure(env, ip);
-    return json({ error: 'expired_code' }, 403);
-  }
-
-  // Counted from redemptions, which is the only place a redemption is written.
-  const used = await env.DB.prepare(
-    'SELECT COUNT(*) AS n FROM redemptions WHERE code = ?1'
-  ).bind(row.code).first();
-
-  if ((used?.n || 0) >= row.max_uses) {
-    await recordFailure(env, ip);
-    return json({ error: 'code_spent' }, 403);
-  }
+  };
+  if (!row || row.revoked || hasExpired(row.expires_at)) return refuse();
 
   const licenceKey = newLicenceKey();
   // The caps the CODE carries. Without this a redeemed code took the Worker's
@@ -124,23 +166,37 @@ export async function handleRedeem(request, env, newLicenceKey) {
   // from a paid subscription in the only place that decides what a licence can
   // actually do — and a card-free trial could not be offered at all.
   const caps = capsFor(row.plan || 'standard');
-  await env.DB.prepare(
-    `INSERT INTO licences (licence_key, tier, status, plan,
-                           max_postings_per_day, max_refreshes_per_day,
-                           max_saved_queries)
-     VALUES (?1, ?2, 'active', ?3, ?4, ?5, ?6)`
-  ).bind(licenceKey, row.role === 'admin' ? 'managed' : row.role,
-         caps.plan, caps.max_postings_per_day, caps.max_refreshes_per_day,
-         caps.max_saved_queries).run();
 
-  await env.DB.prepare(
-    `INSERT INTO licence_roles (licence_key, role, from_code) VALUES (?1, ?2, ?3)`
-  ).bind(licenceKey, row.role, row.code).run();
-
-  await env.DB.prepare(
-    `INSERT INTO redemptions (code, licence_key, redeemed_at)
-     VALUES (?1, ?2, datetime('now'))`
-  ).bind(row.code, licenceKey).run();
+  // The use limit is checked and spent in ONE transaction. It used to be a
+  // count, then three inserts, so parallel redemptions of a single-use code
+  // each counted zero and each got a licence. The redemption row is inserted
+  // only while the count is under max_uses and the code is still unrevoked,
+  // and the licence and role are inserted only if that row now exists — so a
+  // refused redemption leaves nothing behind. Usage is still counted from
+  // redemptions alone; there is no counter to drift from it.
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO redemptions (code, licence_key, redeemed_at)
+       SELECT ?1, ?2, datetime('now')
+        WHERE (SELECT COUNT(*) FROM redemptions WHERE code = ?1)
+              < (SELECT max_uses FROM codes WHERE code = ?1 AND revoked = 0)`
+    ).bind(row.code, licenceKey),
+    env.DB.prepare(
+      `INSERT INTO licences (licence_key, tier, status, plan,
+                             max_postings_per_day, max_refreshes_per_day,
+                             max_saved_queries, expires_at)
+       SELECT ?1, ?2, 'active', ?3, ?4, ?5, ?6, ?7
+        WHERE EXISTS (SELECT 1 FROM redemptions WHERE licence_key = ?1)`
+    ).bind(licenceKey, row.role === 'admin' ? 'managed' : row.role,
+           caps.plan, caps.max_postings_per_day, caps.max_refreshes_per_day,
+           caps.max_saved_queries, licenceExpiry(caps.plan, row.role)),
+    env.DB.prepare(
+      `INSERT INTO licence_roles (licence_key, role, from_code)
+       SELECT ?1, ?2, ?3
+        WHERE EXISTS (SELECT 1 FROM redemptions WHERE licence_key = ?1)`
+    ).bind(licenceKey, row.role, row.code),
+  ]);
+  if (results.some((r) => r.meta?.changes !== 1)) return refuse();
 
   return json({ ok: true, licence_key: licenceKey, role: row.role });
 }
@@ -148,6 +204,68 @@ export async function handleRedeem(request, env, newLicenceKey) {
 // ---------------------------------------------------------------------------
 // Admin console
 // ---------------------------------------------------------------------------
+
+/** A JSON error body's `name`, or null when there is no readable one. */
+async function errorNameOf(response) {
+  try {
+    const name = JSON.parse(await response.text())?.name;
+    return typeof name === 'string' ? name : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * What each admin route is recorded as. A request to anything not listed is
+ * refused before it is recorded or counted.
+ */
+const ADMIN_ACTIONS = {
+  'GET /admin/codes': 'codes.list',
+  'POST /admin/codes': 'codes.mint',
+  'POST /admin/revoke': 'codes.revoke',
+  'GET /admin/licences': 'licences.list',
+  'GET /admin/undelivered': 'undelivered.list',
+  'GET /admin/selftest': 'selftest',
+  'POST /admin/resend': 'licence.resend',
+};
+
+/**
+ * Requests one administrator may make in ten minutes. The console makes a few
+ * per screen, so this sits far above real use; what it bounds is a leaked
+ * administrator licence minting codes in a loop or paging through every
+ * licence before anybody notices.
+ */
+const ADMIN_REQUESTS_PER_WINDOW = 60;
+const ADMIN_WINDOW = '-10 minutes';
+
+/** Who made an admin request, as the audit stores it: a hash, never the key. */
+async function actorHash(licenceKey) {
+  return hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(licenceKey)));
+}
+
+async function adminBusy(env, actor) {
+  const row = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM admin_audit
+      WHERE actor_hash = ?1 AND at >= datetime('now', ?2)`
+  ).bind(actor, ADMIN_WINDOW).first();
+  return (row?.n || 0) >= ADMIN_REQUESTS_PER_WINDOW;
+}
+
+/**
+ * Written AFTER the request is handled, because the target of a mint does not
+ * exist until then. A failed write is logged and not turned into an error: the
+ * action has already been committed, and a failed response would have the
+ * administrator retry it — minting a second code.
+ */
+async function recordAudit(env, action, actor, target) {
+  try {
+    await env.DB.prepare(
+      'INSERT INTO admin_audit (action, actor_hash, target) VALUES (?1, ?2, ?3)'
+    ).bind(action, actor, target ?? null).run();
+  } catch (err) {
+    console.error('admin: audit write failed', { action, error: err?.name });
+  }
+}
 
 /**
  * Authorise an admin request by RE-READING the role from the table.
@@ -162,7 +280,7 @@ async function requireAdmin(request, env) {
   if (!key) return { ok: false, response: json({ error: 'no_licence' }, 401) };
 
   const licence = await env.DB.prepare(
-    'SELECT status FROM licences WHERE licence_key = ?1'
+    'SELECT status, expires_at FROM licences WHERE licence_key = ?1'
   ).bind(key).first();
   const role = await env.DB.prepare(
     'SELECT role FROM licence_roles WHERE licence_key = ?1'
@@ -170,18 +288,46 @@ async function requireAdmin(request, env) {
 
   // Withdrawn administrator and never-was-one answer identically. Telling them
   // apart tells a former administrator exactly what changed.
-  if (!licence || licence.status !== 'active' || role?.role !== 'admin') {
+  if (!licence || licence.status !== 'active' || hasExpired(licence.expires_at)
+      || role?.role !== 'admin') {
     return { ok: false, response: json({ error: 'not_permitted' }, 403) };
   }
   return { ok: true, licenceKey: key };
 }
 
 export async function handleAdmin(request, env) {
+  // Guessing at the console's credential is capped like guessing at a code, on
+  // the same counter: both are somebody trying keys they were not given.
+  const client = await clientHash(env, request);
+  if (await tooManyFailures(env, client)) {
+    return json({ error: 'too_many_attempts' }, 429);
+  }
   const auth = await requireAdmin(request, env);
-  if (!auth.ok) return auth.response;
+  if (!auth.ok) {
+    await recordFailure(env, client);
+    return auth.response;
+  }
 
-  const url = new URL(request.url);
-  const path = url.pathname;
+  const path = new URL(request.url).pathname;
+  const action = ADMIN_ACTIONS[`${request.method} ${path}`];
+  if (!action) return json({ error: 'not_found' }, 404);
+
+  const actor = await actorHash(auth.licenceKey);
+  if (await adminBusy(env, actor)) {
+    return json({ error: 'too_many_requests',
+                  message: `More than ${ADMIN_REQUESTS_PER_WINDOW} admin requests in ten minutes; `
+                    + 'wait a few minutes and try again' }, 429);
+  }
+
+  const audit = { target: null };
+  try {
+    return await routeAdmin(request, env, auth, path, audit);
+  } finally {
+    await recordAudit(env, action, actor, audit.target);
+  }
+}
+
+async function routeAdmin(request, env, auth, path, audit) {
 
   // --- list codes --------------------------------------------------------
   if (path === '/admin/codes' && request.method === 'GET') {
@@ -214,16 +360,35 @@ export async function handleAdmin(request, env) {
                     message: 'Say who this is for; an unlabelled code cannot be audited' }, 400);
     }
 
-    const code = newCode();
-    await env.DB.prepare(
-      `INSERT INTO codes (code, note, max_uses, revoked, created_at, expires_at, role, plan)
-       VALUES (?1, ?2, ?3, 0, datetime('now'), ?4, ?5, ?6)`
-    ).bind(code, note, maxUses, body.expires_at || null, role, plan).run();
+    // Stored as ISO 8601 UTC, whatever form it was given in, because the
+    // redemption check compares it with the current time: a date typed as
+    // "2026-12-01" or with an offset is otherwise compared as text and can
+    // expire a day early or never.
+    let expiresAt;
+    if (body.expires_at === undefined || body.expires_at === null || body.expires_at === '') {
+      expiresAt = defaultCodeExpiry(role, plan);
+    } else {
+      const ms = typeof body.expires_at === 'string' ? Date.parse(body.expires_at) : NaN;
+      if (Number.isNaN(ms)) {
+        return json({ error: 'invalid_expires_at',
+                      message: 'expires_at must be a date, such as 2026-12-01 or 2026-12-01T09:00:00Z' }, 400);
+      }
+      expiresAt = new Date(ms).toISOString();
+    }
 
-    // The plan is returned so whoever mints a code can see what they just
-    // handed out. A trial code and a comp code are otherwise identical to look
-    // at, and the difference between them is the entire allowance.
-    return json({ ok: true, code, role, plan, max_uses: maxUses, note });
+    const code = newCode();
+    audit.target = maskKey(code);
+    await env.DB.prepare(
+      `INSERT INTO codes (code, note, max_uses, revoked, created_at, expires_at, role, plan,
+                          code_normalised)
+       VALUES (?1, ?2, ?3, 0, datetime('now'), ?4, ?5, ?6, ?7)`
+    ).bind(code, note, maxUses, expiresAt, role, plan, normalise(code)).run();
+
+    // The plan and expiry are returned so whoever mints a code can see what
+    // they just handed out. A trial code and a comp code are otherwise
+    // identical to look at, and the difference between them is the entire
+    // allowance.
+    return json({ ok: true, code, role, plan, max_uses: maxUses, note, expires_at: expiresAt });
   }
 
   // --- withdraw a code ---------------------------------------------------
@@ -233,8 +398,9 @@ export async function handleAdmin(request, env) {
     const target = normalise(body.code);
     if (!target) return json({ error: 'no_code' }, 400);
 
-    const { results } = await env.DB.prepare('SELECT code FROM codes').all();
-    const row = (results || []).find((r) => sameCode(r.code, target));
+    const row = await env.DB.prepare(
+      'SELECT code FROM codes WHERE code_normalised = ?1'
+    ).bind(target).first();
     if (!row) return json({ error: 'unknown_code' }, 404);
 
     // Revoking the code this caller is using would sign them out of the
@@ -247,6 +413,7 @@ export async function handleAdmin(request, env) {
                     message: 'That is the code this session is using' }, 409);
     }
 
+    audit.target = maskKey(row.code);
     await env.DB.prepare('UPDATE codes SET revoked = 1 WHERE code = ?1')
       .bind(row.code).run();
     // Licences already redeemed from it are expired too — a withdrawn code
@@ -270,7 +437,30 @@ export async function handleAdmin(request, env) {
          LEFT JOIN licence_roles r ON r.licence_key = l.licence_key
         ORDER BY l.created_at DESC LIMIT 200`
     ).all();
-    return json({ licences: results || [] });
+    return json({
+      licences: (results || []).map(({ licence_key: key, ...row }) =>
+        ({ licence: maskKey(key), ...row })),
+    });
+  }
+
+  // --- licences a customer paid for and may not have received -------------
+  //
+  // 'failed' is a delivery that ended in an error code. 'pending' is listed as
+  // well because a delivery runs after the webhook has answered, and a Worker
+  // stopped part-way leaves the row pending for ever with no error at all.
+  // A row pending for more than a few minutes after `created_at` is that case.
+  if (path === '/admin/undelivered' && request.method === 'GET') {
+    const { results } = await env.DB.prepare(
+      `SELECT licence_key, plan, status, created_at, paddle_subscription_id,
+              delivery_status, delivery_error_code
+         FROM licences
+        WHERE delivery_status IN ('pending', 'failed')
+        ORDER BY created_at DESC LIMIT 200`
+    ).all();
+    return json({
+      licences: (results || []).map(({ licence_key: key, ...row }) =>
+        ({ licence: maskKey(key), ...row })),
+    });
   }
 
   // --- do the credentials actually WORK ----------------------------------
@@ -285,27 +475,44 @@ export async function handleAdmin(request, env) {
   // back. It sends nothing and spends nothing.
   if (path === '/admin/selftest' && request.method === 'GET') {
     const out = {};
+    // Each check is isolated. An upstream that threw — a DNS failure, a
+    // timeout — used to escape and turn the whole selftest into a 500, hiding
+    // the answer for every other credential at exactly the moment somebody
+    // was trying to find out which one was broken.
+    const check = async (name, run) => {
+      try {
+        out[name] = await run();
+      } catch (err) {
+        out[name] = { ok: false, reason: 'unreachable', error: err?.name || 'Error' };
+      }
+    };
 
-    if (!env.RESEND_API_KEY) {
-      out.resend = { ok: false, reason: 'not set' };
-    } else {
+    await check('resend', async () => {
+      if (!env.RESEND_API_KEY) return { ok: false, reason: 'not set' };
       const r = await fetch('https://api.resend.com/domains', {
         headers: { authorization: `Bearer ${env.RESEND_API_KEY}` },
       });
-      // 401 is a wrong key; 200 is a working one. Anything else is reported
-      // as itself rather than collapsed into "failed".
-      out.resend = { ok: r.ok, status: r.status };
-    }
+      if (r.ok) return { ok: true, status: r.status };
+      // A key restricted to SENDING may not list domains and is refused with
+      // restricted_api_key. That is the least-privileged key this Worker
+      // should hold — it only ever sends — so it is healthy, and flagged as
+      // restricted so nobody "fixes" it by issuing a full-access key.
+      if (await errorNameOf(r) === 'restricted_api_key') {
+        return { ok: true, status: r.status, restricted: true };
+      }
+      // 401 is a wrong key. Anything else is reported as itself rather than
+      // collapsed into "failed".
+      return { ok: false, status: r.status };
+    });
 
-    if (!env.PADDLE_API_KEY) {
-      out.paddle = { ok: false, reason: 'not set' };
-    } else {
+    await check('paddle', async () => {
+      if (!env.PADDLE_API_KEY) return { ok: false, reason: 'not set' };
       const base = env.PADDLE_API_BASE || 'https://api.paddle.com';
       const r = await fetch(`${base}/customers?per_page=1`, {
         headers: { authorization: `Bearer ${env.PADDLE_API_KEY}` },
       });
-      out.paddle = { ok: r.ok, status: r.status };
-    }
+      return { ok: r.ok, status: r.status };
+    });
 
     out.theirstack = { ok: Boolean(env.THEIRSTACK_API_KEY), checked: false,
                        note: 'not called — a feed request costs a credit' };
@@ -341,6 +548,7 @@ export async function handleAdmin(request, env) {
          FROM licences WHERE licence_key = ?1`
     ).bind(target).first();
     if (!row) return json({ error: 'unknown_licence' }, 404);
+    audit.target = maskKey(row.licence_key);
     if (row.status !== 'active') {
       // Re-sending a revoked key would have somebody paste it in and be
       // refused, with no way to tell that from the key being wrong.
@@ -355,9 +563,18 @@ export async function handleAdmin(request, env) {
     });
     const sent = await sendEmail(env, { to, ...mail });
     if (!sent.ok) {
-      return json({ error: 'send_failed', detail: sent.error,
-                    status: sent.status }, 502);
+      // Resend's own words go back to the administrator who asked, because
+      // they are what says how to fix it. They are not logged.
+      return json({ error: 'send_failed', code: sent.error,
+                    detail: sent.detail ?? sent.error, status: sent.status }, 502);
     }
+    // Recorded as delivered, so a licence resent by hand leaves
+    // /admin/undelivered instead of being chased a second time.
+    await env.DB.prepare(
+      `UPDATE licences SET delivery_status = 'sent', delivery_error_code = NULL
+        WHERE licence_key = ?1`
+    ).bind(row.licence_key).run();
+
     // The address is not logged or echoed. The id is enough to find it in
     // Resend if somebody says it never arrived.
     return json({ ok: true, id: sent.id, lang: mail.lang });

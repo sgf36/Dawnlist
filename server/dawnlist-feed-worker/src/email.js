@@ -185,35 +185,64 @@ ${BRAND.site}  ·  ${BRAND.support}`;
 }
 
 /**
+ * Resend's error name from a failure body, or the status when there is none.
+ *
+ * Only a plain identifier is accepted. The name is logged and stored, and a
+ * field that could carry free text would carry whatever Resend put in it.
+ */
+function resendErrorName(body, status) {
+  try {
+    const name = JSON.parse(body)?.name;
+    if (typeof name === 'string' && /^[a-z0-9_]{1,64}$/i.test(name)) return name;
+  } catch {
+    /* not JSON: fall through to the status */
+  }
+  return `http_${status}`;
+}
+
+/**
  * Send one message through Resend.
  *
- * Returns `{ ok, ... }` rather than throwing. The caller is a webhook: a thrown
- * error there becomes a non-2xx, and Paddle retries a non-2xx — which would
- * re-run the whole handler. A failed EMAIL must never cost a customer a
- * duplicate subscription.
+ * Returns `{ ok, ... }` rather than throwing, including when Resend cannot be
+ * reached. The caller is a webhook: a thrown error there becomes a non-2xx, and
+ * Paddle retries a non-2xx — which would re-run the whole handler. A failed
+ * EMAIL must never cost a customer a duplicate subscription.
+ *
+ * On failure `error` is a code safe to log and store, and `detail` is Resend's
+ * own message, for an administrator who asked for the send. The message is
+ * never logged: Resend echoes the recipient's address and domain back in it,
+ * and a log line is the one place this Worker promises holds no content.
  */
 export async function sendEmail(env, { to, subject, html, text }) {
   if (!env.RESEND_API_KEY) return { ok: false, error: 'no_resend_key' };
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${env.RESEND_API_KEY}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: env.LICENCE_FROM || 'Dawnlist <noreply@dawnlist.spencerfields.com>',
-      // Replies reach a person. A no-reply address on the one email a paying
-      // customer is most likely to answer is a support failure by design.
-      reply_to: env.LICENCE_REPLY_TO || 'Apps@spencerfields.com',
-      to: [to],
-      subject,
-      html,
-      text,
-    }),
-  });
+  let res;
+  try {
+    res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${env.RESEND_API_KEY}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: env.LICENCE_FROM || 'Dawnlist <noreply@dawnlist.spencerfields.com>',
+        // Replies reach a person. A no-reply address on the one email a paying
+        // customer is most likely to answer is a support failure by design.
+        reply_to: env.LICENCE_REPLY_TO || 'Apps@spencerfields.com',
+        to: [to],
+        subject,
+        html,
+        text,
+      }),
+    });
+  } catch {
+    return { ok: false, error: 'resend_unreachable' };
+  }
   const body = await res.text();
-  if (!res.ok) return { ok: false, status: res.status, error: body.slice(0, 300) };
+  if (!res.ok) {
+    return { ok: false, status: res.status, error: resendErrorName(body, res.status),
+             detail: body.slice(0, 300) };
+  }
   let id = null;
   try {
     id = JSON.parse(body).id;
@@ -224,38 +253,35 @@ export async function sendEmail(env, { to, subject, html, text }) {
 }
 
 /**
- * The buyer's email address and chosen language, from the event if they are
- * there and from Paddle's API if they are not.
+ * The buyer's email address and chosen language, from Paddle's customer record.
  *
- * `subscription.created` carries `customer_id` and no address, so a lookup is
- * usually required. It is attempted second rather than first because an event
- * that DOES carry the address should not cost a round trip, and because a
- * missing API key should degrade to "we could not find the address" rather
- * than to "we never looked".
+ * ONLY from the customer record, looked up by `customer_id`. The event's
+ * `custom_data` is whatever the page that opened the checkout put there, so an
+ * address in it is one the BUYER chose — anybody's — and the licence key would
+ * be sent wherever they pointed it. The event's other address fields are not
+ * read either: the customer record is where Paddle holds the address the
+ * payment was made under, and a single source cannot disagree with itself.
+ *
+ * `subscription.created` carries `customer_id` and no address, so this is the
+ * lookup most issues needed anyway. A missing key or a failed lookup degrades
+ * to "we could not find the address", reported by cause.
  */
 export async function customerDetails(env, event) {
-  const direct =
-    event?.data?.customer?.email ||
-    event?.data?.billing_details?.email ||
-    event?.data?.custom_data?.email;
-  if (direct) {
-    return {
-      email: direct,
-      lang: localeFor(event?.data?.customer?.locale || event?.data?.custom_data?.locale),
-      source: 'event',
-    };
-  }
-
   const id = event?.data?.customer_id;
   if (!id) return { email: null, lang: 'en', source: 'absent' };
   if (!env.PADDLE_API_KEY) return { email: null, lang: 'en', source: 'no_api_key' };
 
   const base = env.PADDLE_API_BASE || 'https://api.paddle.com';
-  const res = await fetch(`${base}/customers/${encodeURIComponent(id)}`, {
-    headers: { authorization: `Bearer ${env.PADDLE_API_KEY}` },
-  });
-  if (!res.ok) return { email: null, lang: 'en', source: `lookup_failed_${res.status}` };
-  const payload = await res.json();
+  let payload;
+  try {
+    const res = await fetch(`${base}/customers/${encodeURIComponent(id)}`, {
+      headers: { authorization: `Bearer ${env.PADDLE_API_KEY}` },
+    });
+    if (!res.ok) return { email: null, lang: 'en', source: `lookup_failed_${res.status}` };
+    payload = await res.json();
+  } catch {
+    return { email: null, lang: 'en', source: 'lookup_unreachable' };
+  }
   return {
     email: payload?.data?.email || null,
     lang: localeFor(payload?.data?.locale),

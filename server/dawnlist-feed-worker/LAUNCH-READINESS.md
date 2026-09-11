@@ -127,9 +127,13 @@ PADDLE_PRICE_STANDARD = pri_...,pri_...     # monthly, annual, per currency
 PADDLE_PRICE_GLOBAL   = pri_...
 ```
 
-Sandbox and production issue **different ids for the same product**. An id that
-matches nothing makes the webhook fall back to Standard and set
-`plan_unmatched = 1`, so a Global customer silently lands on Standard caps.
+Sandbox and production issue **different ids for the same product**. A purchase
+whose price id matches nothing issues **no licence**: the webhook answers 200
+with `action: unmatched_product` and logs the price id. The customer has paid and
+holds nothing until the id is configured and a code is minted for them in
+`/admin`. (Until 2026-09-11 it fell back to Standard and set
+`plan_unmatched = 1`; that handed a working key to anyone buying a price this
+Worker does not sell.)
 
 **Delete `ANTHROPIC_API_KEY` if it is still set.** Nothing reads it. It
 belonged to an inference proxy built and removed on 2026-09-06, because
@@ -157,7 +161,10 @@ value was stored, not that it was the right one:
   come **down**.
 - `GET /v1/plan` with that licence and confirm the numbers match D1.
 - `SELECT licence_key FROM licences WHERE plan_unmatched = 1;` should be empty.
-  Anything there is a customer on the wrong caps.
+  Nothing sets it any more; a row there predates 2026-09-11 and is a customer
+  who may be on the wrong caps.
+- Search the Worker logs for `price matched no plan`. Every line is a purchase
+  that issued nothing, with the price id that needs configuring.
 
 ---
 

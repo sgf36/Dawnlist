@@ -1,9 +1,12 @@
 # dawnlist-feed-worker
 
 The feed proxy. Holds the provider keys, meters per licence in D1, caches
-across users, and makes the provider a config value rather than a code path.
+across users within each Cloudflare data centre (the Cache API is not global),
+and makes the provider a config value rather than a code path.
 
 ## Deploy
+
+### A new database
 
 ```bash
 npx wrangler d1 create dawnlist
@@ -12,6 +15,31 @@ npx wrangler d1 execute dawnlist --remote --file=./schema.sql
 npx wrangler secret put THEIRSTACK_API_KEY
 npx wrangler deploy
 ```
+
+`schema.sql` is the whole schema as it stands after every migration, so a
+database created from it needs none of them — applying one would stop at
+"duplicate column name".
+
+### The existing database — migrations, never schema.sql
+
+Apply each file in `migrations/` that the database has not had, **in filename
+order, once each, before deploying the code that needs it**:
+
+```bash
+npx wrangler d1 execute dawnlist --remote --file=./migrations/<NNN-name>.sql
+```
+
+Two ways to get this wrong, both silent:
+
+- **Running `schema.sql` against it succeeds and changes nothing.** Every table
+  already exists, so `CREATE TABLE IF NOT EXISTS` skips it along with every
+  column added since. The code then fails at the first query that names one.
+- **`wrangler d1 migrations apply` would re-run 001 and 002.** It records what
+  it applied in its own table, and 001 and 002 were applied to the live
+  database by `d1 execute` on 2026-09-08, so that table has no record of them.
+
+`test/schema.test.mjs` rebuilds the schema the live database was created from,
+applies every migration, and fails if the result differs from `schema.sql`.
 
 ## Two things that have bitten this pattern before
 
@@ -52,7 +80,11 @@ Three properties the tests in `test/caps.test.mjs` hold in place:
 3. **A cache hit spends the receiving licence's allowance.** Metering the
    upstream fetch instead would make the cache an unmetered bypass, and would
    make two users' caps depend on who ran the query first. Spencer still pays
-   only once.
+   only once **per data centre**: the Cache API is local to each Cloudflare
+   location, so the same search from users served by two locations is fetched,
+   and billed, twice. Rows the user already holds (`excludeJobIds`) are removed
+   from a cache hit before it is cut and metered, so nobody pays twice for a
+   posting they have.
 
 The default of 700/day is an **anti-abuse ceiling, not a product tier**. A
 comprehensive UK user measures ~513 fetched/day, so the default sits above
@@ -60,6 +92,75 @@ normal use: it stops a runaway query, it does not decide coverage. If the cap
 is ever set low enough to shape what the user sees, that is a pricing decision
 and belongs in the licence row, not here. Full working:
 `Apps/Claude/dawnlist-credit-cap-assessment.md`.
+
+## Paddle notification destination — the events it must send
+
+The webhook acts only on what it is sent. A destination subscribed to
+`subscription.created` alone — the state read on 2026-09-11 — issues licences
+and does nothing else: cancellations, pauses, refunds and plan changes never
+arrive, and a customer who cancelled keeps a working key.
+
+Subscribe the Dawnlist destination
+(`https://dawnlist-feed-worker.sgf36.workers.dev/paddle/webhook`) to **all** of
+these. Anything else it sends is acknowledged and ignored.
+
+| Event | Needed for | What the Worker does |
+|---|---|---|
+| `subscription.created` | grant | Issues the licence and emails it — only if a price matches a configured plan |
+| `subscription.activated` | grant | Issues if none exists; restores access |
+| `transaction.completed` | grant, refund | Issues if none exists (a one-time purchase has no subscription events); records which subscription the payment was for, which is how a refund finds its licence |
+| `subscription.updated` | update | A plan change moves the caps; its `status` also carries pauses, cancellations and past-due renewals |
+| `subscription.canceled` | cancel | Access ends (`expired`) |
+| `subscription.paused` | pause | Access ends (`expired`) |
+| `subscription.resumed` | resume | Access restored (`active`) |
+| `subscription.past_due` | past_due | Access **continues** while Paddle retries the payment; `past_due` is recorded in `paddle_subscriptions.paddle_status` |
+| `subscription.trialing` | trial | Access continues |
+| `adjustment.created` | refund, chargeback | An approved **full** refund or any chargeback sets the licence `refunded`; a partial refund changes nothing |
+| `adjustment.updated` | refund approval | A refund created awaiting approval takes effect when it is approved |
+
+Why the overlap is deliberate: Paddle does not promise delivery or order. Every
+subscription event is applied by its `occurred_at` — an older one arriving late
+is recorded as `stale_ignored` and changes nothing — so receiving both
+`subscription.canceled` and a `subscription.updated` carrying `canceled` is
+harmless, and losing either one is not.
+
+Two statuses no webhook overrides: `suspended` (support's decision) and
+`refunded`.
+
+**Proves it:** open the destination and compare its event list with the table.
+Then, for each event, send a simulation and read what the Worker did:
+
+```bash
+npx wrangler d1 execute dawnlist --remote --command \
+  "SELECT event_type, action, received_at FROM webhook_events ORDER BY received_at DESC LIMIT 20"
+```
+
+An event type missing from those rows after its simulation was sent is an event
+the destination is not subscribed to.
+
+**Licences a customer paid for and may not have received:**
+`GET /admin/undelivered` lists every Paddle licence whose email is `failed`
+(with a code such as `no_address_lookup_failed_403`) or still `pending`. Send
+one again with `POST /admin/resend`, which marks it sent.
+
+## Admin console — what it shows, records and allows
+
+- **No listing prints a licence key.** `/admin/licences` and
+  `/admin/undelivered` show the last four characters. A key is the whole
+  credential, so a screenshot of the console must not be one. To resend a key,
+  read it from D1 and pass it to `POST /admin/resend`.
+- **Every handled request writes one row to `admin_audit`:** the action, a
+  SHA-256 of the administrator's licence key, the target masked to its last
+  four characters, and the time. Never a note, an address or a body.
+- **Sixty requests in ten minutes per administrator**, counted from those rows;
+  the sixty-first gets `429 too_many_requests`.
+- **Failed authentication is capped like failed codes**: twenty a day per
+  connection, on the same counter, then `429 too_many_attempts`.
+
+```bash
+npx wrangler d1 execute dawnlist --remote --command \
+  "SELECT at, action, target FROM admin_audit ORDER BY id DESC LIMIT 50"
+```
 
 ## Deployed
 

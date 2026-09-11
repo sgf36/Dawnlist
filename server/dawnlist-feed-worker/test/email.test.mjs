@@ -11,6 +11,8 @@
 import assert from 'node:assert';
 import { EMAIL_STRINGS, RTL, strings } from '../src/email-strings.js';
 import { customerDetails, escapeHtml, licenceEmail, localeFor, sendEmail } from '../src/email.js';
+import { makeD1 } from './d1.mjs';
+import { deliver } from './paddle-sign.mjs';
 
 let passed = 0, failed = 0;
 async function test(name, fn) {
@@ -18,7 +20,9 @@ async function test(name, fn) {
   catch (e) { console.log(`  FAIL ${name}\n       ${e.message}`); failed++; }
 }
 
-const KEY = 'DAWN-2C4R1U0F-355I014L-2B2R3813-5D17135I';
+// Obviously fake on purpose. A real licence key sat here, and a test file is
+// copied, pasted and published far more readily than a database is.
+const KEY = 'DAWN-TEST0000-TEST0000-TEST0000-TEST0000';
 
 console.log('the key itself');
 
@@ -130,18 +134,55 @@ await test('replies go to a person, not to a no-reply address', async () => {
 
 console.log('finding the customer');
 
-await test('an address on the event costs no round trip', async () => {
+await test('an address in the event is never used; the customer record is', async () => {
+  // custom_data is set by the page that opened the checkout, so an address in
+  // it is one the buyer chose — anybody's — and the key would go there.
   const realFetch = globalThis.fetch;
-  globalThis.fetch = async () => { throw new Error('must not look up'); };
+  const looked = [];
+  // A locale that is actually generated, chosen from the catalogue rather than
+  // hard-coded: this file must not fail merely because the translation run has
+  // not reached German yet.
+  const some = Object.keys(EMAIL_STRINGS).find((c) => c !== 'en') || 'en';
+  globalThis.fetch = async (url) => {
+    looked.push(String(url));
+    return new Response(JSON.stringify({ data: { email: 'buyer@example.test', locale: some } }));
+  };
   try {
-    // A locale that is actually generated, chosen from the catalogue rather
-    // than hard-coded: this file must not fail merely because the translation
-    // run has not reached German yet.
-    const some = Object.keys(EMAIL_STRINGS).find((c) => c !== 'en') || 'en';
-    const who = await customerDetails({}, { data: { customer: { email: 'a@b.test', locale: some } } });
-    assert.equal(who.email, 'a@b.test');
-    assert.equal(who.lang, some);
-    assert.equal(who.source, 'event');
+    const who = await customerDetails({ PADDLE_API_KEY: 'pdl_test' }, { data: {
+      customer_id: 'ctm_1',
+      custom_data: { email: 'someone-else@example.test', locale: 'en' },
+      customer: { email: 'also-not@example.test' },
+      billing_details: { email: 'nor-this@example.test' },
+    } });
+    assert.equal(who.email, 'buyer@example.test');
+    assert.equal(who.lang, some, 'the language comes from the same record');
+    assert.equal(who.source, 'api');
+    assert.deepEqual(looked, ['https://api.paddle.com/customers/ctm_1']);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+await test('with no customer id, an address in custom_data is still not used', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error('nothing to look up'); };
+  try {
+    const who = await customerDetails({ PADDLE_API_KEY: 'pdl_test' },
+      { data: { custom_data: { email: 'someone-else@example.test' } } });
+    assert.equal(who.email, null);
+    assert.equal(who.source, 'absent');
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+await test('a customer lookup that cannot connect is reported by cause, not thrown', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new TypeError('network down'); };
+  try {
+    const who = await customerDetails({ PADDLE_API_KEY: 'pdl_test' }, { data: { customer_id: 'ctm_1' } });
+    assert.equal(who.email, null);
+    assert.equal(who.source, 'lookup_unreachable');
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -156,6 +197,76 @@ await test('no address and no API key is reported by cause', async () => {
 await test('no customer at all is distinguishable from a failed lookup', async () => {
   const who = await customerDetails({}, { data: {} });
   assert.equal(who.source, 'absent');
+});
+
+console.log('failures, and what is logged about them');
+
+const RESEND_422 = JSON.stringify({ statusCode: 422, name: 'validation_error',
+  message: 'Invalid `to` field: buyer@example.test is not a valid address' });
+
+async function sendWith(response) {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => response;
+  try {
+    return await sendEmail({ RESEND_API_KEY: 're_test' },
+      { to: 'buyer@example.test', subject: 's', html: 'h', text: 't' });
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+}
+
+await test('a failed send gives Resend\'s error name as the code, and its words only as detail', async () => {
+  const r = await sendWith(new Response(RESEND_422, { status: 422 }));
+  assert.equal(r.ok, false);
+  assert.equal(r.error, 'validation_error');
+  assert.ok(!r.error.includes('@'));
+  assert.match(r.detail, /Invalid `to` field/, 'the administrator can still read what went wrong');
+});
+
+await test('a failure body that is not JSON gives the status as the code', async () => {
+  const r = await sendWith(new Response('domain not verified', { status: 403 }));
+  assert.equal(r.error, 'http_403');
+});
+
+await test('an error name that is not a plain identifier is not trusted as a code', async () => {
+  const r = await sendWith(new Response(JSON.stringify({ name: 'bad <b> buyer@example.test' }),
+    { status: 422 }));
+  assert.equal(r.error, 'http_422');
+});
+
+await test('Resend being unreachable is reported, not thrown', async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async () => { throw new TypeError('network down'); };
+  try {
+    const r = await sendEmail({ RESEND_API_KEY: 're_test' },
+      { to: 'a@b.test', subject: 's', html: 'h', text: 't' });
+    assert.deepEqual(r, { ok: false, error: 'resend_unreachable' });
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
+
+await test('a licence email that fails is logged by name and status, never by Resend\'s words', async () => {
+  const lines = [];
+  const real = { fetch: globalThis.fetch, log: console.log, warn: console.warn, error: console.error };
+  for (const level of ['log', 'warn', 'error']) console[level] = (...a) => lines.push(JSON.stringify(a));
+  globalThis.fetch = async (url) => (String(url).includes('/customers/')
+    ? new Response(JSON.stringify({ data: { email: 'buyer@example.test', locale: 'en' } }))
+    : new Response(RESEND_422, { status: 422 }));
+  try {
+    await deliver({ DB: makeD1(), PADDLE_PRICE_STANDARD: 'pri_s', PADDLE_API_KEY: 'pdl_test',
+                    RESEND_API_KEY: 're_test' },
+      { event_id: 'evt_mail', event_type: 'subscription.created',
+        data: { id: 'sub_mail', customer_id: 'ctm_1', items: [{ price: { id: 'pri_s' } }] } });
+  } finally {
+    Object.assign(console, { log: real.log, warn: real.warn, error: real.error });
+    globalThis.fetch = real.fetch;
+  }
+  const failure = lines.filter((l) => l.includes('email failed'));
+  assert.equal(failure.length, 1, 'positive control: the failure IS logged');
+  assert.ok(failure[0].includes('validation_error') && failure[0].includes('422'));
+  assert.ok(!lines.some((l) => l.includes('buyer@example.test')), 'no address in any log line');
+  assert.ok(!lines.some((l) => l.includes('Invalid')), 'no part of Resend\'s message either');
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

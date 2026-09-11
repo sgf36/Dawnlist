@@ -3,6 +3,9 @@
   "main": "src/index.js",
   "compatibility_date": "2026-09-06",
   "observability": { "enabled": true },
+  // The daily retention purge (src/retention.js). Once a day is enough: the
+  // shortest period it enforces is two days.
+  "triggers": { "crons": ["17 3 * * *"] },
   "d1_databases": [
     { "binding": "DB", "database_name": "dawnlist", "database_id": "8c272845-1e82-4660-ab71-01bef14c897e" }
   ],
@@ -27,6 +30,13 @@
   // never its value; the value goes at the interactive prompt only):
   //   THEIRSTACK_API_KEY      the feed credential. The ONLY place it lives.
   //   PADDLE_WEBHOOK_SECRET   separate signing key from EasyPost's
+  //   CLIENT_HASH_SECRET      keys the HMAC stored in code_attempts in place of
+  //                           the connecting address. Optional. Unset, a
+  //                           SHA-256 with a salt fixed in src/codes.js is
+  //                           stored instead: that still keeps addresses out
+  //                           of the table, but anybody holding the source and
+  //                           a copy of the table can hash candidate addresses
+  //                           and match them. Set it to close that.
   //
   // ANTHROPIC_API_KEY was listed here and IS NOT USED. Nothing in src/ reads
   // it. It belonged to an inference proxy that was built and REMOVED on
@@ -44,7 +54,12 @@
   // They are comma-separated because one plan legitimately has several price
   // ids — monthly and annual, and one per currency where Paddle issues
   // separate ids. Set them per environment: sandbox and production issue
-  // DIFFERENT ids for the same product, and an id that matches nothing makes
-  // the webhook fall back to Standard and flag `plan_unmatched` on the
-  // licence, so a Global customer silently lands on Standard caps.
+  // DIFFERENT ids for the same product, and a purchase whose price id matches
+  // nothing is acknowledged and issues NO licence (action `unmatched_product`,
+  // price id logged), so a missing id here means a customer who paid and
+  // received nothing until a code is minted for them in /admin.
+  //
+  // A plan is offered by /v1/plan only when its variable holds a price, so
+  // leaving PADDLE_PRICE_GLOBAL unset is also what keeps Global off the
+  // upgrade ladder.
 }

@@ -1,8 +1,22 @@
--- Dawnlist feed Worker — D1 schema.
+-- Dawnlist feed Worker — D1 schema, for a FRESH database only.
 --
 -- Metering only. This database holds counts, licences and provider flags; it
 -- never holds job descriptions, CVs, queries with personal text, or anything
 -- else that would make the store privacy labels a lie.
+--
+-- FRESH INSTALL vs EXISTING DATABASE. This file is the whole schema as it
+-- stands after every file in migrations/, and it is safe to run twice: every
+-- statement is IF NOT EXISTS or ON CONFLICT. That same property makes it USELESS
+-- on a database that already exists — `CREATE TABLE IF NOT EXISTS` skips a
+-- table that is there and silently adds none of its newer columns. An existing
+-- database moves forward by applying the migrations it has not had, in order,
+-- once each. test/schema.test.mjs rebuilds the schema the live database was
+-- created from, applies every migration, and fails if the result differs from
+-- this file.
+--
+-- It used to end in ALTER TABLE statements. Those failed with "duplicate column
+-- name" on any second run and stopped the file there, and two of them repeated
+-- migration 001, so the file could be run neither fresh-then-migrated nor twice.
 
 CREATE TABLE IF NOT EXISTS licences (
     licence_key          TEXT PRIMARY KEY,
@@ -16,8 +30,44 @@ CREATE TABLE IF NOT EXISTS licences (
     max_refreshes_per_day INTEGER,
     max_saved_queries     INTEGER,
     created_at           TEXT NOT NULL DEFAULT (datetime('now')),
-    expires_at           TEXT
+    expires_at           TEXT,
+    -- Which plan the licence is on. The CAPS are the enforced truth (the
+    -- columns above); this records WHICH plan set them, so support can answer
+    -- "what am I paying for?" without reverse-engineering it from three cap
+    -- numbers, and so a plan whose caps are later revised can be found and
+    -- re-applied.
+    --
+    -- Nullable deliberately: licences issued before plans existed have no
+    -- answer, and inventing 'standard' for them would assert something nobody
+    -- verified.
+    plan                 TEXT,
+    -- Set when a Paddle event's price id matched nothing configured, so the
+    -- licence took the fallback plan. A row with this set is a customer who may
+    -- be on the wrong caps, and it is the only way to find them later — the
+    -- webhook logs counts, not payloads, so the event itself is gone.
+    plan_unmatched       INTEGER NOT NULL DEFAULT 0,
+    -- Whether the licence email went out: 'pending' from issue until delivery
+    -- finishes, then 'sent', 'failed' or 'skipped'. NULL for licences that are
+    -- never emailed (code-issued) or that predate this. A 'pending' that stays
+    -- pending is a delivery the Worker was stopped part-way through, which is
+    -- why GET /admin/undelivered lists it alongside 'failed'.
+    delivery_status      TEXT,
+    -- Why it failed, as a code ('no_address_lookup_failed_404',
+    -- 'send_validation_error'). Never an address or a message.
+    delivery_error_code  TEXT
 );
+
+-- One licence per Paddle subscription. Two events for one purchase once each
+-- found no licence and each minted one; this makes the database refuse the
+-- second. NULLs are distinct, so code-minted licences are unaffected.
+CREATE UNIQUE INDEX IF NOT EXISTS licences_by_subscription
+    ON licences (paddle_subscription_id);
+
+-- Managed inference was metered in tokens here until the inference proxy was
+-- removed on 2026-09-06. Databases created before then still carry
+-- usage_daily.input_tokens, usage_daily.output_tokens and
+-- licences.max_tokens_per_day; nothing reads or writes them, and a fresh
+-- install does not create them.
 
 CREATE TABLE IF NOT EXISTS usage_daily (
     licence_key TEXT NOT NULL REFERENCES licences(licence_key) ON DELETE CASCADE,
@@ -37,6 +87,8 @@ CREATE TABLE IF NOT EXISTS usage_daily (
     postings    INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (licence_key, day)
 );
+-- Not deleted on a fixed age by the retention purge: the privacy policy keeps
+-- usage counts while a licence is active and for twelve months after it ends.
 
 -- The kill switch and failover order. Changing a row here swaps or disables a
 -- provider with no app release — this is the whole point of the abstraction.
@@ -60,6 +112,34 @@ CREATE TABLE IF NOT EXISTS webhook_events (
     event_type  TEXT NOT NULL,
     action      TEXT NOT NULL,
     received_at TEXT NOT NULL
+);
+
+-- The newest thing Paddle has said about each subscription, and when. Paddle
+-- does not deliver in order and retries reorder freely, so an older "canceled"
+-- could arrive after a newer "resumed" and switch off a paying customer. An
+-- event is applied only if it is at least as new as last_event_at, and a
+-- licence's status is copied from licence_status, so a grant that arrives
+-- after a newer cancellation still honours it.
+--
+-- paddle_status is Paddle's own word — 'past_due' is recorded here while access
+-- continues — and licence_status is what it means for access.
+CREATE TABLE IF NOT EXISTS paddle_subscriptions (
+    subscription_id TEXT PRIMARY KEY,
+    last_event_at   TEXT,
+    paddle_status   TEXT,
+    licence_status  TEXT,
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Which subscription each completed payment was for. A refund or chargeback
+-- names the transaction it reverses and only sometimes the subscription, so
+-- this is how the webhook finds the licence a refund has to end. A one-time
+-- purchase records its own transaction id, which is what its licence is keyed
+-- by.
+CREATE TABLE IF NOT EXISTS paddle_transactions (
+    transaction_id  TEXT PRIMARY KEY,
+    subscription_id TEXT NOT NULL,
+    recorded_at     TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- ---------------------------------------------------------------------------
@@ -94,8 +174,17 @@ CREATE TABLE IF NOT EXISTS codes (
     expires_at TEXT,                          -- NULL means never
     -- A ladder, not a set: 'admin' presumes 'managed', which presumes 'byo'.
     role       TEXT NOT NULL DEFAULT 'byo'
-               CHECK (role IN ('byo', 'managed', 'admin'))
+               CHECK (role IN ('byo', 'managed', 'admin')),
+    -- The plan a redeemed licence receives. Without it every redeemed code took
+    -- the Worker's full default, so a trial could not be told from a purchase.
+    plan       TEXT,
+    -- The code as normalise() in src/codes.js reduces it: upper case, letters
+    -- and digits only. Redemption reads by this, through the index below;
+    -- matching formatting in JavaScript meant reading every code on every
+    -- attempt, on a route anybody can call.
+    code_normalised TEXT
 );
+CREATE UNIQUE INDEX IF NOT EXISTS codes_by_normalised ON codes (code_normalised);
 
 CREATE TABLE IF NOT EXISTS redemptions (
     code        TEXT NOT NULL,
@@ -108,11 +197,15 @@ CREATE INDEX IF NOT EXISTS redemptions_by_code ON redemptions (code);
 -- Failed attempts, for rate limiting. Codes carry enough entropy that guessing
 -- is not a real threat, but an unbounded endpoint that answers yes or no is
 -- still worth a lid.
+--
+-- client_hash is a keyed hash of the connecting address, never the address,
+-- and rows are deleted after two days (src/retention.js): the table only has
+-- to tell one connection from another today.
 CREATE TABLE IF NOT EXISTS code_attempts (
-    ip       TEXT NOT NULL,
-    day      TEXT NOT NULL,
-    failures INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (ip, day)
+    client_hash TEXT NOT NULL,
+    day         TEXT NOT NULL,
+    failures    INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (client_hash, day)
 );
 
 -- Which licence, if any, came from an override code, and with what role. This
@@ -123,25 +216,17 @@ CREATE TABLE IF NOT EXISTS licence_roles (
     from_code   TEXT
 );
 
--- Managed inference is metered in TOKENS as well as postings, because the two
--- costs move independently: a day with few postings but long descriptions can
--- cost more than a day with many short ones. Added by ALTER below for databases
--- that predate this.
-ALTER TABLE usage_daily ADD COLUMN input_tokens INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE usage_daily ADD COLUMN output_tokens INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE licences ADD COLUMN max_tokens_per_day INTEGER;
-
--- Which plan the licence is on. The CAPS are the enforced truth (the columns
--- above); this records WHICH plan set them, so support can answer "what am I
--- paying for?" without reverse-engineering it from three cap numbers, and so a
--- plan whose caps are later revised can be found and re-applied.
---
--- Nullable deliberately: licences issued before plans existed have no answer,
--- and inventing 'standard' for them would assert something nobody verified.
-ALTER TABLE licences ADD COLUMN plan TEXT;
-
--- Set when a Paddle event's price id matched nothing configured, so the
--- licence took the fallback plan. A row with this set is a customer who may be
--- on the wrong caps, and it is the only way to find them later — the webhook
--- logs counts, not payloads, so the event itself is gone.
-ALTER TABLE licences ADD COLUMN plan_unmatched INTEGER NOT NULL DEFAULT 0;
+-- What the admin console was used to do. The console can mint and revoke codes
+-- and resend licence keys, and a leaked administrator licence used to leave no
+-- trace. One row per handled request: the action, a SHA-256 of the
+-- administrator's licence key (never the key), the target masked to its last
+-- four characters, and the time — no notes, addresses or bodies. The same rows
+-- bound how many requests one administrator may make in ten minutes.
+CREATE TABLE IF NOT EXISTS admin_audit (
+    id         INTEGER PRIMARY KEY,
+    at         TEXT NOT NULL DEFAULT (datetime('now')),
+    action     TEXT NOT NULL,
+    actor_hash TEXT NOT NULL,
+    target     TEXT
+);
+CREATE INDEX IF NOT EXISTS admin_audit_by_actor ON admin_audit (actor_hash, at);
