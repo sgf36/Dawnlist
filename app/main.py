@@ -99,8 +99,28 @@ def load_queries(conn) -> list[SearchQuery]:
     # row we hold is re-bought whenever it comes back. Ordered by id DESC
     # because that is insertion order, and insertion order is recency here —
     # `jobs` carries no discovered-at column of its own.
+    #
+    # Only the FEED's own ids, and only numeric ones. The list is forwarded to
+    # TheirStack's `job_id_not`, which is typed as integers, and `jobs` also
+    # holds postings the feed never issued: a pasted advert's id is a hash of
+    # what the user pasted, and an alert email's is LinkedIn's number. Sent,
+    # the first is at best ignored and at worst fails validation for the whole
+    # search, and the second silently excludes whichever TheirStack posting
+    # happens to share that number. Neither was ever billed, so neither can be
+    # re-bought.
+    #
+    # REJECTED ones first. The list is capped at the newest ids, so a posting
+    # the user rejected fell off it once newer rows arrived and was bought
+    # again every time the feed returned it — the one posting they have said
+    # they will never want.
     held = tuple(str(r["provider_job_id"]) for r in conn.execute(
-        "SELECT provider_job_id FROM jobs ORDER BY id DESC LIMIT ?",
+        "SELECT j.provider_job_id FROM jobs j "
+        " WHERE j.provider = 'theirstack' AND j.provider_job_id <> '' "
+        "   AND j.provider_job_id NOT GLOB '*[^0-9]*' "
+        " ORDER BY EXISTS (SELECT 1 FROM decisions d "
+        "                   WHERE d.job_id = j.id AND d.kind = 'reject') DESC, "
+        "          j.id DESC "
+        " LIMIT ?",
         (RECENT_HELD_IDS,)))
 
     out: list[SearchQuery] = []
@@ -256,7 +276,9 @@ def refresh_kill_family_proposals(conn) -> int:
     SQLite by hand.
 
     Re-proposing is safe: a family already present keeps its `adopted` flag, so
-    a running of this never quietly re-arms one the user turned down.
+    a running of this never quietly re-arms one the user turned down — and an
+    adopted family that the evidence would now make kill MORE is put back to
+    proposed, so the user is asked again rather than having it widened.
     """
     from app.core.rules import propose_families
 
@@ -269,6 +291,19 @@ def refresh_kill_family_proposals(conn) -> int:
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     added = 0
     for fam in families:
+        # Refreshing rewrote an adopted family's KILL and SAVES in place and
+        # left it armed, so a couple of rejections later it killed titles the
+        # user had never been asked about. A new KILL term, or a SAVES term
+        # gone, widens what it removes: that is a different rule, and adopting
+        # rules is the user's decision (rule 8). More precedents, or a
+        # narrower family, is still the rule they agreed to.
+        stored = conn.execute(
+            "SELECT kill_json, saves_json, adopted FROM kill_families "
+            "WHERE name=?", (fam.name,)).fetchone()
+        widened = bool(
+            stored is not None and stored["adopted"]
+            and (set(fam.kill_titles) - set(json.loads(stored["kill_json"]))
+                 or set(json.loads(stored["saves_json"])) - set(fam.saves_titles)))
         cur = conn.execute(
             """INSERT INTO kill_families(name, employers_json, kill_json,
                    saves_json, precedents_json, adopted, created_at)
@@ -276,10 +311,11 @@ def refresh_kill_family_proposals(conn) -> int:
                ON CONFLICT(name) DO UPDATE SET
                    kill_json = excluded.kill_json,
                    saves_json = excluded.saves_json,
-                   precedents_json = excluded.precedents_json""",
+                   precedents_json = excluded.precedents_json,
+                   adopted = CASE WHEN ? THEN 0 ELSE kill_families.adopted END""",
             (fam.name, json.dumps(list(fam.employers)),
              json.dumps(list(fam.kill_titles)), json.dumps(list(fam.saves_titles)),
-             json.dumps([list(p) for p in fam.precedents]), now))
+             json.dumps([list(p) for p in fam.precedents]), now, int(widened)))
         added += cur.rowcount
     conn.commit()
     return added
@@ -633,16 +669,16 @@ def titles_from_aim(aim: str) -> list[str]:
             seeds.append(phrase)
     return seeds[:5]
 
-def mark_queries_run(conn, when: datetime | None = None) -> None:
-    """Advance each query's delta high-water mark.
+def mark_queries_run(conn, marks: dict[str, datetime]) -> None:
+    """Advance the delta high-water mark of each query that fetched.
 
     handoff 2.1a: billing is per job RETURNED, so re-fetching yesterday's
-    postings is re-buying them. This is written only after a run completes.
+    postings is re-buying them. `marks` is `RunOutcome.marks`: label -> when
+    that query's own fetch began. Every enabled query used to be stamped with
+    the end of the run, and only when no query had any problem, so one broken
+    search held every search's window where it was.
     """
-    when = when or datetime.now(timezone.utc)
-    conn.execute("UPDATE queries SET last_discovered_at=? WHERE enabled=1",
-                 (when.isoformat(timespec="seconds"),))
-    conn.commit()
+    db.advance_query_marks(conn, marks)
 
 
 def build_provider(conn):
@@ -751,11 +787,20 @@ def build_provider(conn):
         from app.feed.managed import ManagedProvider
         return ManagedProvider(licence)
 
+    import os
+
     from app.feed.theirstack import TheirStackProvider
 
-    key = keyring.get_password("dawnlist-feed", "api-key")
-    if key:
-        return TheirStackProvider(key)
+    # A raw TheirStack key is Spencer's developer credential, and the keyring
+    # belongs to the Windows or macOS USER, not to one application. Any build
+    # — store and direct included — that found no licence read it and fetched
+    # on his credits, off the meter, for whoever was signed in on a machine
+    # where a key had once been stored for testing. The keyring is not even
+    # read unless a developer asks for this route by name.
+    if os.environ.get(DEVELOPER_FEED_ENV) == "1":
+        key = keyring.get_password("dawnlist-feed", "api-key")
+        if key:
+            return TheirStackProvider(key)
 
     # No licence and no developer key. WHAT TO SAY DEPENDS ON THE BUILD, and
     # getting it wrong is worse than saying nothing.
@@ -782,8 +827,15 @@ def build_provider(conn):
 
     raise NotConfigured(
         "No licence key found. Enter the key from your purchase email in "
-        "Settings. (Development builds may instead store a provider key under "
-        "the keyring service 'dawnlist-feed', account 'api-key'.)")
+        "Settings. (Development builds may instead set "
+        f"{DEVELOPER_FEED_ENV}=1 and store a provider key under the keyring "
+        "service 'dawnlist-feed', account 'api-key'.)")
+
+
+#: The only switch that lets `build_provider` read a developer TheirStack key.
+#: An environment variable, because no customer sets one by accident and no
+#: build can ship with it on.
+DEVELOPER_FEED_ENV = "DAWNLIST_DEVELOPER_FEED"
 
 
 def save_locale(conn, code: str) -> str:
@@ -1045,6 +1097,15 @@ CALIBRATION_SAMPLE = 10
 #: every one of those rows was paid for, by every new user.
 CALIBRATION_FETCH = 15
 
+#: The search label the stored calibration run is filed under. It is not the
+#: name of a saved search, so the run moves no search's delta mark: a few
+#: postings drawn across all the searches is not a reading of any one
+#: search's window.
+CALIBRATION_LABEL = "(calibration sample)"
+
+#: What the user is shown for a screened-in posting nothing judged.
+NOT_ASSESSED = "not-assessed"
+
 
 def calibration_sample(conn, *, provider=None, send=None):
     """Live postings for the calibration gate, screened and assessed.
@@ -1059,7 +1120,7 @@ def calibration_sample(conn, *, provider=None, send=None):
     asking the user for decisions they cannot make.
     """
     from app.core.screen import screen_all
-    from app.intelligence.assess import assess
+    from app.intelligence.assess import job_ref
     from app.onboarding.calibration import CalibrationItem
 
     jobs = []
@@ -1100,30 +1161,67 @@ def calibration_sample(conn, *, provider=None, send=None):
 
     brief = load_document(conn, "fit_brief")
     factsheet = load_document(conn, "factsheet")
-    report = screen_all(jobs, load_rules(conn))
+    rules = load_rules(conn)
 
-    # Assess the survivors so the user is correcting a real verdict. The
-    # screened-out ones still appear, marked as such: an over-reaching rule is
-    # exactly the thing calibration should catch, and hiding those rows would
-    # hide the failure the gate exists to surface.
-    verdicts = {}
-    likely = [r.job for r in report.likely]
-    if likely:
-        judged = assess(likely, brief, factsheet, send=send or build_send(conn))
-        verdicts = {v.job.provider_job_id: v for v in judged.verdicts}
+    # The key is asked for only if something will be assessed: screening is
+    # free, and a user with no key must still see a sample the screen removed
+    # entirely.
+    if send is None and screen_all(jobs, rules).likely:
+        from app.core import api_key
+        from app.intelligence.assess import anthropic_transport
+        send = anthropic_transport(api_key.require())
 
+    # Stored as a run of its own, down the same path as a morning sweep. The
+    # sample was fetched, assessed and kept nowhere, so the first morning run
+    # asked the feed for the same postings and paid for them again. Dedup and
+    # the scope gates are not applied a second time: these postings were
+    # already chosen, and the user should see exactly them.
+    outcome = run_morning(
+        conn, AlertProvider(jobs), [SearchQuery(label=CALIBRATION_LABEL)],
+        rules, fit_brief=brief, factsheet=factsheet, send=send,
+        kind="calibration")
+
+    class NotAssessed(CalibrationItem):
+        """A screened-in posting the model never judged. Its "verdict" is an
+        absence, so the user's answer disagrees with nothing, and demanding a
+        sentence for the brief would teach the brief to correct a failure of
+        the transport."""
+
+        @property
+        def disagreed(self) -> bool:
+            return False
+
+    assessment = outcome.assessment
+    errors = assessment.errors if assessment else []
+    for error in errors:
+        print(f"calibration: {error}", file=sys.stderr)
+    verdicts = {job_ref(v.job): v
+                for v in (assessment.verdicts if assessment else [])}
+
+    # The screened-out ones still appear, marked as such: an over-reaching rule
+    # is exactly the thing calibration should catch, and hiding those rows
+    # would hide the failure the gate exists to surface.
     items = []
-    for result in report.results:
+    for result in outcome.screen.results:
         job = result.job
-        verdict = verdicts.get(job.provider_job_id)
-        items.append(CalibrationItem(
-            job_key=f"{job.provider}:{job.provider_job_id}",
-            title=job.title,
-            company=job.company,
-            description=job.description_text,
-            app_verdict=verdict.bucket if verdict else "rejected",
-            app_reason=(verdict.reason if verdict
-                        else result.reason or "screened out before reading")))
+        shown = dict(job_key=f"{job.provider}:{job.provider_job_id}",
+                     title=job.title, company=job.company,
+                     description=job.description_text)
+        verdict = verdicts.get(job_ref(job))
+        if verdict is not None:
+            items.append(CalibrationItem(**shown, app_verdict=verdict.bucket,
+                                         app_reason=verdict.reason))
+        elif result.is_likely:
+            # Never "rejected". It was shown as one, so the user was asked to
+            # correct a rejection nobody made, and why it went unjudged was
+            # never shown at all.
+            items.append(NotAssessed(
+                **shown, app_verdict=NOT_ASSESSED,
+                app_reason=errors[0] if errors else tr("onboarding.app_no_verdict")))
+        else:
+            items.append(CalibrationItem(
+                **shown, app_verdict="rejected",
+                app_reason=result.reason or "screened out before reading"))
     return items
 
 
@@ -1172,8 +1270,13 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
     if not queries:
         raise NotConfigured("No saved queries. Add at least one before running.")
 
-    seen = {(r["provider"], r["provider_job_id"])
-            for r in conn.execute("SELECT provider, provider_job_id FROM seen_jobs")}
+    # Every posting already STORED, not only the rolling seen window. That
+    # window rolls off after 45 days, and a posting the feed still returned
+    # after that was taken for new: screened and paid for again at the model
+    # although its verdict was on disk, and filed as seen for the first time.
+    seen = {(r["provider"], r["provider_job_id"]) for r in conn.execute(
+        "SELECT provider, provider_job_id FROM seen_jobs "
+        "UNION SELECT provider, provider_job_id FROM jobs")}
 
     gates: list[Gate] = [
         permanent_reject_gate(rejected_keys(conn)),
@@ -1181,23 +1284,38 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
         *scope_gates(enabled_scopes(conn)),
     ]
 
+    from app.core import api_key
+    from app.core.pipeline import judged_refs, unassessed_likely
+    from app.intelligence.assess import anthropic_transport
+
+    # `run_morning` stores what it fetched and screened before any model call,
+    # stores verdicts batch by batch, and advances each search's mark once its
+    # postings are stored — so an interrupted run has lost nothing it paid
+    # for. Postings already judged are skipped, rather than paying the model
+    # to read them twice, and postings an earlier run screened in but never
+    # judged are queued again before anything new is fetched.
+    #
+    # The transport is the one that reports WHY a reply ended. `build_send`
+    # returns bare text, so a reply cut off at max_tokens or refused reached
+    # the assessment looking like a malformed payload.
     outcome = run_morning(
         conn, provider or build_provider(conn), queries, load_rules(conn),
         fit_brief=brief, factsheet=factsheet,
-        send=send or build_send(conn), gates=gates, already_seen=seen,
+        send=send or anthropic_transport(api_key.require()), gates=gates,
+        already_seen=seen,
+        already_judged=judged_refs(conn),
+        requeued=unassessed_likely(conn),
     )
-    persist(conn, outcome)
 
     # `seen_jobs` is a rolling window, not a permanent record — rejections live
     # in `decisions`, which never expires. Nothing pruned it, so the table grew
     # for the life of the install and every run rebuilt a larger and larger
     # already-seen set to compare against.
     db.prune_seen(conn)
-
-    if not outcome.fetch_errors:
-        # Only advance the delta mark on a clean fetch. Advancing it after a
-        # failure would skip the window the failed run never actually read.
-        mark_queries_run(conn)
+    # Every swept posting's full text was likewise kept for ever, although
+    # only one the user decides on is read again. The rows stay; the text of
+    # old undecided ones goes.
+    db.prune_descriptions(conn)
     return outcome
 
 

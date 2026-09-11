@@ -289,6 +289,70 @@ def test_one_earned_term_switches_the_screen_back_on():
     assert [r.job.title for r in report.unlikely] == ["Night Auditor"]
 
 
+def test_a_pursued_employer_never_gates_the_rest_of_the_market_out():
+    """The auditor's case. Known employers are derived from pursue decisions,
+    and counting them as a positive signal turned the first pursue into a
+    one-employer allowlist: every posting anywhere else became "no matching
+    term" and was never read."""
+    jobs = [Job(provider="t", provider_job_id="fs", title="Director of Rooms",
+                company="Four Seasons", description_text="A role."),
+            Job(provider="t", provider_job_id="rw", title="General Manager",
+                company="Rosewood Hotels", description_text="A role."),
+            Job(provider="t", provider_job_id="mo", title="Hotel Manager",
+                company="Mandarin Oriental", description_text="A role.")]
+    report = screen_all(jobs, RuleTable(known_employers=["Four Seasons"]))
+    by_id = {r.job.provider_job_id: r for r in report.results}
+
+    assert by_id["rw"].is_likely and by_id["mo"].is_likely
+    # The employer still upgrades its own postings; it just gates nothing.
+    assert by_id["fs"].tier is Tier.KNOWN_EMPLOYER
+
+    # Positive control: a term the user TYPED still switches the allowlist on,
+    # so the fall-through above is the fix and not a screen that stopped
+    # rejecting anything.
+    typed = screen_all(jobs, RuleTable(known_employers=["Four Seasons"],
+                                       strong_terms=["general manager"]))
+    kept = {r.job.provider_job_id for r in typed.likely}
+    assert kept == {"fs", "rw"}
+    assert [r.job.provider_job_id for r in typed.unlikely] == ["mo"]
+
+
+def test_employers_match_by_whole_name_never_by_substring():
+    """"EY" is inside "The Walt Disney Company" and "Bentley". Matched as a
+    substring, one pursued EY role made every posting at either a known
+    employer, and a kill family against EY fired on their postings too."""
+    rules = RuleTable(known_employers=["EY"]).compiled()
+    assert rules.known_employer("The Walt Disney Company") is None
+    assert rules.known_employer("Bentley") is None
+
+    family = KillFamily(name="EY", employers=("EY",), kill_titles=("auditor",),
+                        saves_titles=("strategy",),
+                        precedents=(("EY", "Auditor"), ("EY", "Senior Auditor")),
+                        adopted=True)
+    assert family.verdict("Bentley", "Auditor") is None
+    assert family.verdict("The Walt Disney Company", "Auditor") is None
+
+    # Positive controls: the employer itself, however a source spells it.
+    assert rules.known_employer("EY") == "EY"
+    assert rules.known_employer("EY Limited") == "EY"
+    assert family.verdict("E.Y", "Auditor") is None, "different letters, not EY"
+    assert family.verdict("EY LIMITED", "Auditor")
+
+
+def test_one_employer_spelt_two_ways_is_one_shape():
+    """Rejections were grouped on the exact casefolded name, so "Kier Ltd" and
+    "Kier Limited" were two employers with one rejection each and no family
+    was ever proposed."""
+    from app.core.rules import propose_families
+
+    families = propose_families(
+        rejected=[("Kier Ltd", "Site Engineer"),
+                  ("Kier Limited", "Senior Site Engineer")],
+        pursued=[], saves_terms=["strategy"])
+    assert len(families) == 1
+    assert len(families[0].precedents) == 2
+
+
 def test_a_kill_term_alone_is_not_a_positive_signal():
     """`unsupported_titles` can only say NO. A table holding nothing but kill
     terms still cannot say yes to anything, so it must not start rejecting

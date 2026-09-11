@@ -122,6 +122,195 @@ def test_the_delta_mark_is_passed_back_on_the_next_run(conn):
         "re-fetching yesterday's postings is re-buying them")
 
 
+def test_only_the_query_that_fetched_advances(conn):
+    """Every enabled query was stamped together, and only when no query had
+    any problem — so one failing search froze every other search's window."""
+    seed(conn)
+    conn.execute(
+        "INSERT INTO queries(label, params_json, created_at) VALUES(?,?,?)",
+        ("revenue", json.dumps({"titles": ["revenue"], "countries": ["GB"]}), "x"))
+    conn.commit()
+
+    class ByLabel(Stub):
+        def search(self, query):
+            self.seen.append(query)
+            if query.label == "revenue":
+                return FetchResult(jobs=[], error="HTTP 502")
+            return ok([job("a")])
+
+    morning_run(conn, provider=ByLabel(None), send=strong_send)
+    marks = {r["label"]: r["last_discovered_at"]
+             for r in conn.execute("SELECT label, last_discovered_at FROM queries")}
+    assert marks["strategy"], "the search that fetched moves on"
+    assert marks["revenue"] is None, "the one that failed keeps its window"
+
+
+def test_a_posting_left_unjudged_is_read_on_the_next_run(conn):
+    """A likely posting whose batch failed or was never sent stayed unread for
+    good: it was held, so every later fetch deduped it, and nothing queued it
+    again."""
+    seed(conn)
+
+    def skips(_request):
+        return {"verdicts": []}
+
+    first = morning_run(conn, provider=Stub(ok([job("7")])), send=skips)
+    assert [j.provider_job_id for j in first.assessment.unread] == ["7"], (
+        "positive control: the first run really did leave it unjudged")
+
+    second = morning_run(conn, provider=Stub(ok([])), send=strong_send)
+    assert [v.job.provider_job_id for v in second.assessment.verdicts] == ["7"]
+    assert second.funnel()["requeued"] == 1
+
+    # Judged now, so it is not queued (or paid for) a third time.
+    third = morning_run(conn, provider=Stub(ok([])), send=strong_send)
+    assert third.assessment.verdicts == [] and not third.requeued
+
+
+def test_a_morning_run_clears_old_undecided_descriptions(conn):
+    """Nothing ever removed a swept posting's text, so the table grew for the
+    life of the install. The run now clears the old undecided ones."""
+    seed(conn)
+    old = conn.execute("INSERT INTO runs(started_at) "
+                       "VALUES('2020-01-01T00:00:00+00:00')").lastrowid
+    conn.execute("INSERT INTO jobs(provider, provider_job_id, title, company, "
+                 "description_text, first_seen_run, screen_verdict) "
+                 "VALUES('theirstack', 'old', 'Old role', 'Acme', 'Long ago.', "
+                 "?, 'unlikely')", (old,))
+    conn.commit()
+
+    morning_run(conn, provider=Stub(ok([job("new")])), send=strong_send)
+    text = {r["provider_job_id"]: r["description_text"] for r in conn.execute(
+        "SELECT provider_job_id, description_text FROM jobs")}
+    assert text["old"] == ""
+    assert text["new"] == "A strategy role.", (
+        "positive control: today's posting keeps its text")
+
+
+def test_the_morning_run_uses_the_transport_that_reports_stop_reasons(
+        conn, monkeypatch):
+    """`build_send` returns bare text, so a reply cut off at max_tokens or
+    refused reached the assessment looking like a malformed payload."""
+    import app.intelligence.assess as assess_mod
+    import app.main as main_mod
+
+    seed(conn)
+    used = []
+
+    def transport(key=None, **_kw):
+        used.append(key)
+        return lambda request: assess_mod.ModelReply(
+            text=json.dumps(strong_send(request)), stop_reason="end_turn")
+
+    def text_only(_conn):
+        raise AssertionError("the text-only transport was used for assessment")
+
+    monkeypatch.setattr("app.core.api_key.require", lambda: "sk-user")
+    monkeypatch.setattr(assess_mod, "anthropic_transport", transport)
+    monkeypatch.setattr(main_mod, "build_send", text_only)
+
+    outcome = morning_run(conn, provider=Stub(ok([job("a")])))
+    assert used == ["sk-user"], "the user's own key reaches the transport"
+    assert [v.bucket for v in outcome.assessment.verdicts] == ["strong"]
+
+
+def test_a_stored_posting_is_not_judged_again_after_the_seen_window(conn):
+    """Exact duplicates were checked only against `seen_jobs`, which rolls off
+    after 45 days. A posting the feed still returned after that was taken for
+    new: counted as new in the funnel, run through the gates and the screen
+    again, and filed as seen for the first time. Only its stored verdict kept
+    the model from being paid to read it twice."""
+    seed(conn)
+    morning_run(conn, provider=Stub(ok([job("a")])), send=strong_send)
+    conn.execute("UPDATE seen_jobs SET seen_at = '2020-01-01T00:00:00+00:00'")
+    conn.commit()
+    assert db.prune_seen(conn) == 1, "positive control: the window has gone"
+
+    outcome = morning_run(conn, provider=Stub(ok([job("a"), job("b")])),
+                          send=strong_send)
+    funnel = outcome.funnel()
+    assert funnel["swept"] == 2
+    assert funnel["deduped"] == 1, "the stored posting is an exact duplicate"
+    assert funnel["screened_likely"] == 1, "only the new one is screened"
+    assert [v.job.provider_job_id for v in outcome.assessment.verdicts] == ["b"], (
+        "positive control: the new posting is still read")
+
+
+def _calibration_setup(conn, monkeypatch, tmp_path):
+    import app.main as main_mod
+    from app.main import save_query
+
+    # The real alerts folder is the developer's own mail; never read it here.
+    monkeypatch.setattr(main_mod, "alerts_dir", lambda: tmp_path / "no-alerts")
+    seed(conn, queries=False)
+    save_query(conn, "strategy", ["strategy"], countries=["GB"])
+
+
+def test_the_calibration_sample_is_kept_so_the_first_run_does_not_buy_it_again(
+        conn, monkeypatch, tmp_path):
+    """Calibration fetched and assessed ten live postings and kept none of
+    them: no row, no verdict, no exclusion. The first morning run then asked
+    the feed for the same postings and paid for them a second time."""
+    from app.main import calibration_sample
+
+    _calibration_setup(conn, monkeypatch, tmp_path)
+    sample = [job(str(100 + i)) for i in range(10)]
+    items = calibration_sample(conn, provider=Stub(ok(sample)), send=strong_send)
+    assert len(items) == 10
+
+    run = conn.execute("SELECT kind, swept FROM runs").fetchone()
+    assert run["kind"] == "calibration" and run["swept"] == 10
+    assert conn.execute("SELECT COUNT(*) FROM assessments").fetchone()[0] == 10
+
+    feed = Stub(ok(sample + [job("200")]))
+    outcome = morning_run(conn, provider=feed, send=strong_send)
+    assert {str(100 + i) for i in range(10)} <= set(feed.seen[0].exclude_job_ids), (
+        "the feed is told not to return what calibration already bought")
+    assert [v.job.provider_job_id for v in outcome.assessment.verdicts] == ["200"], (
+        "positive control: a posting calibration never saw is still read")
+
+
+def test_a_calibration_posting_nobody_judged_is_not_called_rejected(
+        conn, monkeypatch, tmp_path, capsys):
+    """A screened-in posting with no verdict was shown as "rejected", so the
+    user was asked to correct a rejection nobody had made, and every "strong"
+    they gave it demanded a brief sentence for a failure of the transport.
+    The assessment's errors were never shown at all."""
+    from app.main import calibration_sample
+
+    _calibration_setup(conn, monkeypatch, tmp_path)
+    sample = [job(str(300 + i)) for i in range(10)]
+
+    def judges_half(request):
+        payload = strong_send(request)
+        payload["verdicts"] = payload["verdicts"][:5]
+        return payload
+
+    items = calibration_sample(conn, provider=Stub(ok(sample)), send=judges_half)
+    judged = [i for i in items if i.app_verdict == "strong"]
+    unjudged = [i for i in items if i.app_verdict != "strong"]
+    assert len(judged) == 5 and len(unjudged) == 5
+    assert all(i.app_verdict == "not-assessed" for i in unjudged)
+
+    for item in unjudged:
+        item.user_verdict = "strong"
+    assert not any(i.disagreed for i in unjudged), "there is nothing to disagree with"
+    judged[0].user_verdict = "rejected"
+    assert judged[0].disagreed, "positive control: a real verdict still counts"
+
+    # When the assessment itself failed, the reason says why, and so does the
+    # error stream.
+    def broken(_request):
+        raise RuntimeError("upstream 503")
+
+    failed = calibration_sample(conn, provider=Stub(ok([job(str(400 + i))
+                                                         for i in range(10)])),
+                                send=broken)
+    assert all(i.app_verdict == "not-assessed" for i in failed)
+    assert "upstream 503" in failed[0].app_reason
+    assert "upstream 503" in capsys.readouterr().err
+
+
 def test_a_seen_posting_is_deduped_on_the_next_run(conn):
     """The short-term layer: seen_jobs stops a recurring alert re-listing."""
     seed(conn)
@@ -151,9 +340,54 @@ def test_a_rejection_still_gates_after_the_seen_window_expires(conn):
     assert db.prune_seen(conn) == 1
 
     outcome = morning_run(conn, provider=Stub(ok([job("a")])), send=strong_send)
-    assert outcome.funnel()["gated_out"] == 1
+    # Caught one step earlier than it used to be: a posting already stored is
+    # an exact duplicate however long ago it was last seen, so it never
+    # reaches the permanent-reject gate at all. That gate is still tested
+    # directly in test_pipeline.py. What this test is for stands unchanged.
+    assert outcome.funnel()["deduped"] == 0 and outcome.funnel()["gated_out"] == 0
     assert outcome.funnel()["assessed"] == 0, (
         "a rejection is a posting never assessed again")
+
+
+def test_the_first_pursue_does_not_hide_every_other_employer(conn):
+    """End to end, on the route every user takes: run, pursue one role, run
+    again. Known employers are derived from that pursue, and counting them as
+    the screen's positive signal made every later posting at any other
+    employer "no matching term" — never assessed."""
+    from app.ui.adapter import record_decision
+
+    seed(conn)
+    conn.execute("DELETE FROM rule_terms")          # a user who typed no terms
+    conn.commit()
+
+    class Sequence(Stub):
+        def __init__(self, *results):
+            super().__init__(None)
+            self.results = list(results)
+
+        def search(self, query):
+            self.seen.append(query)
+            return self.results.pop(0)
+
+    fs = Job(provider="theirstack", provider_job_id="1", title="Director of Rooms",
+             company="Four Seasons", description_text="A hotel role.")
+    rosewood = Job(provider="theirstack", provider_job_id="2",
+                   title="General Manager", company="Rosewood Hotels",
+                   description_text="A hotel role.")
+    mandarin = Job(provider="theirstack", provider_job_id="3",
+                   title="Hotel Manager", company="Mandarin Oriental",
+                   description_text="A hotel role.")
+
+    feed = Sequence(ok([fs]), ok([rosewood, mandarin]))
+    morning_run(conn, provider=feed, send=strong_send)
+    record_decision(conn, "theirstack:1", "pursue")
+    assert load_rules(conn).known_employers == ["Four Seasons"], (
+        "positive control: the pursue really did make an employer known")
+
+    outcome = morning_run(conn, provider=feed, send=strong_send)
+    assessed = {v.job.company for v in outcome.assessment.verdicts}
+    assert assessed == {"Rosewood Hotels", "Mandarin Oriental"}
+    assert outcome.funnel()["screened_out"] == 0
 
 
 # -- rules loading ----------------------------------------------------------
@@ -300,14 +534,71 @@ def test_held_job_ids_are_sent_so_they_are_not_re_bought(tmp_path):
     conn.execute(
         "INSERT INTO queries(label, params_json, enabled, created_at) "
         "VALUES('q','{\"countries\":[\"GB\"]}',1,datetime('now'))")
+    # Numeric, because TheirStack issues integer ids. These tests used strings
+    # like "held-0" that no feed ever issues, which is how a list full of ids
+    # the feed could not use went unnoticed.
     for i in range(3):
         conn.execute(
             "INSERT INTO jobs(provider, provider_job_id, title, company) "
-            "VALUES('theirstack', ?, 't', 'c')", (f"held-{i}",))
+            "VALUES('theirstack', ?, 't', 'c')", (str(101 + i),))
     conn.commit()
 
     q = load_queries(conn)[0]
-    assert set(q.exclude_job_ids) == {"held-0", "held-1", "held-2"}
+    assert set(q.exclude_job_ids) == {"101", "102", "103"}
+
+
+def test_only_the_feeds_own_numeric_ids_are_excluded():
+    """`job_id_not` is typed as integers, and `jobs` also holds postings the
+    feed never issued. A pasted advert's id is a hash, and an alert email's is
+    LinkedIn's number — which would quietly exclude whichever TheirStack
+    posting shares it."""
+    from app.core import db
+    from app.main import load_queries
+
+    conn = db.connect(":memory:")
+    db.migrate(conn)
+    conn.execute(
+        "INSERT INTO queries(label, params_json, enabled, created_at) "
+        "VALUES('q','{\"countries\":[\"GB\"]}',1,datetime('now'))")
+    conn.executemany(
+        "INSERT INTO jobs(provider, provider_job_id, title, company) "
+        "VALUES(?, ?, 't', 'c')",
+        [("theirstack", "4711"),                          # the feed's own
+         ("pasted", "p3f9a0c1d2e4b5a6978c1"),             # a hash of a paste
+         ("alert-email", "4200"),                         # LinkedIn's number
+         ("theirstack", "https://example.com/jobs/9")])   # url fallback id
+    conn.commit()
+
+    q = load_queries(conn)[0]
+    # Positive control and the fix in one: the feed's id survives, nothing
+    # else does.
+    assert q.exclude_job_ids == ("4711",)
+
+
+def test_rejected_feed_ids_are_the_last_to_fall_off_the_exclusion_list():
+    """The list keeps only the newest ids, so a rejected posting older than
+    that was bought again every time the feed returned it — the one posting
+    the user has said they will never want."""
+    from app.core import db
+    from app.main import RECENT_HELD_IDS, load_queries
+
+    conn = db.connect(":memory:")
+    db.migrate(conn)
+    conn.execute(
+        "INSERT INTO queries(label, params_json, enabled, created_at) "
+        "VALUES('q','{\"countries\":[\"GB\"]}',1,datetime('now'))")
+    conn.executemany(
+        "INSERT INTO jobs(provider, provider_job_id, title, company) "
+        "VALUES('theirstack', ?, 't', 'c')",
+        [(str(10_000 + i),) for i in range(RECENT_HELD_IDS + 5)])
+    conn.execute("INSERT INTO decisions(job_id, kind, decided_at) "
+                 "SELECT id, 'reject', 'x' FROM jobs WHERE provider_job_id='10000'")
+    conn.commit()
+
+    held = load_queries(conn)[0].exclude_job_ids
+    assert len(held) == RECENT_HELD_IDS
+    assert "10000" in held, "the oldest id, rejected, is still excluded"
+    assert "10001" not in held, "positive control: the oldest undecided id is not"
 
 
 def test_the_exclusion_list_is_bounded(tmp_path):
@@ -323,12 +614,12 @@ def test_the_exclusion_list_is_bounded(tmp_path):
     conn.executemany(
         "INSERT INTO jobs(provider, provider_job_id, title, company) "
         "VALUES('theirstack', ?, 't', 'c')",
-        [(f"j{i}",) for i in range(RECENT_HELD_IDS + 250)])
+        [(str(10_000 + i),) for i in range(RECENT_HELD_IDS + 250)])
     conn.commit()
 
     q = load_queries(conn)[0]
     assert len(q.exclude_job_ids) == RECENT_HELD_IDS
     # Newest first: the most recently inserted ids are the ones most likely to
     # come back, so those are the ones worth excluding.
-    assert f"j{RECENT_HELD_IDS + 249}" in q.exclude_job_ids
-    assert "j0" not in q.exclude_job_ids
+    assert str(10_000 + RECENT_HELD_IDS + 249) in q.exclude_job_ids
+    assert "10000" not in q.exclude_job_ids

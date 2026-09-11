@@ -52,10 +52,42 @@ def test_the_licence_wins_when_both_credentials_exist(no_keyring, monkeypatch):
     assert prov.name == "managed"
 
 
-def test_a_raw_feed_key_is_the_developer_fallback(no_keyring):
+def test_a_raw_feed_key_is_the_developer_fallback(no_keyring, monkeypatch):
+    # The developer asks for this route by name. This test used to pass with
+    # no switch at all, which is the silent fallback that let a customer build
+    # fetch on a developer key it happened to find in the keyring.
+    monkeypatch.setenv("DAWNLIST_DEVELOPER_FEED", "1")
     no_keyring[("dawnlist-feed", "api-key")] = "ts-developer-key"
     prov = build_provider(conn=None)
     assert prov.name != "managed"
+
+
+@pytest.mark.parametrize("build", ["store", "direct", "none"])
+def test_a_developer_feed_key_is_never_read_by_default(build, monkeypatch):
+    """The keyring belongs to the user, not to one application. With no
+    licence, every build found a developer TheirStack key stored there and
+    fetched on it — off the meter, on credits nobody was paying for."""
+    asked = []
+
+    class Keyring:
+        @staticmethod
+        def get_password(service, account):
+            asked.append((service, account))
+            return "ts-developer-key"
+
+    monkeypatch.setitem(__import__("sys").modules, "keyring", Keyring)
+    monkeypatch.setattr("app.core.entitlement.stored_licence", lambda: None)
+    monkeypatch.setattr("app.core.build_variant.variant", lambda: build)
+    monkeypatch.delenv("DAWNLIST_DEVELOPER_FEED", raising=False)
+
+    with pytest.raises(NotConfigured):
+        build_provider(conn=None)
+    assert ("dawnlist-feed", "api-key") not in asked, (
+        "the credential store must not even be read")
+
+    # Positive control: a developer who names the switch gets the route.
+    monkeypatch.setenv("DAWNLIST_DEVELOPER_FEED", "1")
+    assert build_provider(conn=None).name == "theirstack"
 
 
 def test_neither_credential_raises_and_names_the_licence_first(no_keyring, monkeypatch):

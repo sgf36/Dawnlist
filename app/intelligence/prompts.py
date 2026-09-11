@@ -30,27 +30,40 @@ Rules, in order of force:
    labelled "London Area" whose description places it two hours away. If the
    description contradicts a tag, the description wins.
 
-3. QUOTE THE DISQUALIFYING LINE. If you reject on a STATED requirement — a
-   years floor, a credential, a hard skill — you must quote that line verbatim
-   from the description, exactly as written. If you cannot quote it, you may not
-   reject on it.
+3. QUOTE THE LINE EVERY REJECTION RESTS ON. A rejection must quote, verbatim
+   from the posting block and exactly as written, the line it rests on: a
+   stated requirement (a years floor, a credential, a hard skill), a line
+   showing the role is a different function, or a whole field line such as
+   "salary: ...". Quote a clause, not a word or two — at least about twenty
+   characters, or the whole field line. If you cannot quote it, you may not
+   reject.
 
 4. NEVER INFER A BAR THE POSTING DOES NOT STATE. Do not assume a requirement is
    implied by seniority or sector. One senior posting explicitly said the
    obvious prerequisite was not required.
 
-5. AN UNFETCHABLE OR ABSENT REQUIREMENT IS "NOT CHECKED", NEVER A FAILURE. If
-   the description is truncated or silent on something material, set
-   requirement_checked to false and bucket it as possible, not rejected. An
-   unread posting is an unknown; hiding it is the same failure as presenting an
-   unqualified one.
+5. AN ABSENT REQUIREMENT IS "NOT CHECKED", NEVER A FAILURE. If the posting is
+   silent on something the brief treats as material, set requirement_checked to
+   false and do not reject on it. A truncated description is not by itself a
+   reason to choose possible: judge what you can read, and set
+   requirement_checked to false only when what is missing could change the
+   verdict. An unread posting is an unknown; hiding it is the same failure as
+   presenting an unqualified one.
 
 6. GENUINELY AMBIGUOUS CALLS GO TO judgement-call, not to a silent decision.
+
+7. A HARD CONSTRAINT IN THE BRIEF IS A REJECTION WHEN THE POSTING BREAKS IT. If
+   the brief states a hard constraint — where the person will work, the contract
+   type, a salary floor, how recent a posting must be — and the posting plainly
+   breaks it, reject it. Quote the posting line that breaks it, and name the
+   brief's line in your reason. A field that says "not stated" breaks nothing
+   (rule 5), and where the description contradicts a field, the description
+   wins (rule 2).
 
 Buckets:
   strong          — clearly fits the brief; the reader should look at this today
   possible        — a real stretch or a partial fit, worth their attention
-  rejected        — does not fit, with a stated reason (and a quote if rule 3 applies)
+  rejected        — does not fit, with a stated reason and the quoted line it rests on (rule 3)
   judgement-call  — you could argue it either way; the human decides
 
 Return one entry per posting. Be terse: one sentence of reason, no preamble."""
@@ -79,18 +92,19 @@ VERDICT_SCHEMA = {
                     "disqualifying_quote": {
                         "type": ["string", "null"],
                         "description": (
-                            "REQUIRED when rejecting on a stated requirement: the "
-                            "line from the description, verbatim and unedited. "
-                            "Null when the rejection is not based on a stated "
-                            "requirement."
+                            "REQUIRED for every rejection: the line of the posting "
+                            "block the rejection rests on, verbatim and unedited — "
+                            "at least a clause (about twenty characters) or a "
+                            "whole field line. Null when not rejecting."
                         ),
                     },
                     "requirement_checked": {
                         "type": "boolean",
                         "description": (
-                            "False when the description was truncated or silent on "
-                            "something material. False forces the verdict out of "
-                            "'rejected'."
+                            "False when the posting is silent, or cut off, on "
+                            "something that could change the verdict. A "
+                            "truncation alone is not a reason. False forces the "
+                            "verdict out of 'rejected'."
                         ),
                     },
                 },
@@ -116,6 +130,19 @@ def system_prefix(fit_brief: str, factsheet: str) -> list[dict]:
     worked. It travels to the user's OWN Anthropic account, on their own key,
     because Dawnlist is bring-your-own-key and no career data crosses Spencer's
     infrastructure at all.
+
+    WHETHER IT CACHES IS NOT UP TO THIS FUNCTION. The assessment model
+    (claude-haiku-4-5) caches a prefix only from 4,096 tokens, and below that
+    the marker is ignored without any error. The rules alone are well under
+    that, so a short brief and factsheet are sent at full price on every
+    request. Nothing is restructured to reach the minimum: the breakpoint
+    already follows the two documents, so the prefix caches as soon as they
+    are long enough, and padding it would only pay to write tokens that decide
+    nothing. Once it does cache, the first request of a run pays a premium to
+    write it and every later one within the cache's lifetime reads it cheaply,
+    so a run of one batch gains nothing. Whether it cached is read from each
+    request's recorded usage (`model_calls`,
+    `AssessmentReport.cached_prefix_tokens`), never assumed from the marker.
     """
     return [
         {"type": "text", "text": ASSESSMENT_RULES},
@@ -128,17 +155,39 @@ def system_prefix(fit_brief: str, factsheet: str) -> list[dict]:
     ]
 
 
-FIRST_PASS_CHARS = 1200
+#: The first pass reads a description whole up to here.
+#:
+#: It was 1,200. Descriptions average about 7,400 characters, so every first
+#: verdict was formed on roughly a sixth of the posting, and the old rule 5
+#: told the model to bucket what it could not see as `possible` — so the pile
+#: filled with possibles nobody could act on, while rejections were formed on
+#: the same sixth. The assessment model is the cheap one: a whole average
+#: posting is about 1,900 input tokens. Several times the average, so only an
+#: outlier is cut, and a cut verdict is re-read alone in full before it is
+#: trusted (`assess._second_pass`).
+FIRST_PASS_CHARS = 20_000
+
+#: Written out rather than leaving the line off. An omitted line reads as an
+#: oversight in the prompt; "not stated" reads as the absence it is, which is
+#: what rule 5 needs the model to see before it rejects on a missing field.
+NOT_STATED = "not stated"
 
 
 def render_posting(ref: str, title: str, company: str, locations: str,
-                   description: str, *, full: bool = False) -> str:
+                   description: str, *, full: bool = False,
+                   salary: str | None = None, employment: str = "",
+                   posted: str = "", country: str = "") -> str:
     """One posting block.
 
-    First pass truncates to ~1,200 characters; a posting heading for a strong
-    verdict is re-read in full before the verdict is trusted. The truncation is
-    ANNOUNCED, so the model can set requirement_checked=false rather than
-    treating a cut-off description as a complete one.
+    The first pass sends the description whole up to FIRST_PASS_CHARS; beyond
+    that it is cut, and the cut is ANNOUNCED so the model can tell a cut-off
+    description from a complete one. `full=True` sends everything.
+
+    Salary, contract type, posting date and country are here because a brief's
+    hard constraints are stated in exactly those terms — full-time only, a pay
+    floor, a country — and the model was never shown them. It could only guess
+    from the description or reject on an assumption rule 4 forbids, so a
+    constraint the user wrote down was one nothing could apply.
     """
     body = description or ""
     if not full and len(body) > FIRST_PASS_CHARS:
@@ -148,6 +197,10 @@ def render_posting(ref: str, title: str, company: str, locations: str,
         f"title: {title}\n"
         f"company: {company}\n"
         f"location: {locations}\n"
+        f"country: {country or NOT_STATED}\n"
+        f"employment type: {employment or NOT_STATED}\n"
+        f"salary: {salary or NOT_STATED}\n"
+        f"posted: {posted or NOT_STATED}\n"
         f"description:\n{body}\n"
         f"</posting>"
     )

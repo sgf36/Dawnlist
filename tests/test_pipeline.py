@@ -146,7 +146,7 @@ def test_an_unread_posting_makes_the_run_incomplete(conn):
     provider = StubProvider({"strategy": ok([job("a"), job("b")])})
 
     def skips_one(_request):
-        return {"verdicts": [{"job_ref": "a", "bucket": "strong", "reason": "x",
+        return {"verdicts": [{"job_ref": "theirstack:a", "bucket": "strong", "reason": "x",
                               "disqualifying_quote": None,
                               "requirement_checked": True}]}
 
@@ -181,7 +181,7 @@ def test_persist_writes_verdicts_and_marks_downgrades(conn):
     provider = StubProvider({"strategy": ok([job("a", desc=desc + " Strategy role.")])})
 
     def hallucinating(_r):
-        return {"verdicts": [{"job_ref": "a", "bucket": "rejected",
+        return {"verdicts": [{"job_ref": "theirstack:a", "bucket": "rejected",
                               "reason": "needs an MBA",
                               "disqualifying_quote": "must hold an MBA",
                               "requirement_checked": True}]}
@@ -240,3 +240,307 @@ def test_a_failed_query_gets_no_yield_rate(conn):
     assert "revenue" not in out.loose_queries(), (
         "a rate-limited query must never be reported as a loose query")
     assert "strategy" in out.per_query_yield
+
+
+# ---------------------------------------------------------------------------
+# Delta marks: per query, from the start of that query's own fetch
+# ---------------------------------------------------------------------------
+
+REVENUE = SearchQuery(label="revenue", titles=["revenue"])
+
+
+def test_a_failing_query_does_not_freeze_the_others(conn):
+    """One run-wide mark, advanced only when nothing went wrong, meant a
+    single broken search re-requested every search's window every morning."""
+    provider = StubProvider({"strategy": ok([job("a")]),
+                             "revenue": FetchResult(jobs=[], error="HTTP 502")})
+    out = run_morning(conn, provider, [Q, REVENUE], RULES, fit_brief="b",
+                      factsheet="f", send=strong_send)
+    assert "strategy" in out.marks, "the search that fetched moves on"
+    assert "revenue" not in out.marks, "the one that failed keeps its window"
+
+
+def test_an_oversize_query_advances_and_is_named_to_narrow(conn):
+    """A search matching more than a page held its mark forever: every run
+    asked for the same window again and never read past it."""
+    wide = FetchResult(jobs=[job("a")], pages_fetched=1, exhausted=False,
+                       matched=250, not_fetched=249)
+    out = run_morning(conn, StubProvider({"strategy": wide}), [Q], RULES,
+                      fit_brief="b", factsheet="f", send=strong_send)
+    assert "strategy" in out.marks
+    assert out.unfetched == {"strategy": 249}
+    assert out.funnel()["not_fetched"] == 249
+    assert any("strategy" in e and "narrow" in e for e in out.fetch_errors)
+    assert not out.complete, "a search read only in part is still said to be"
+
+
+def test_a_capped_query_keeps_its_mark(conn):
+    """The plan's ceiling stopped it, not the search. Tomorrow's allowance
+    reads the rest; advancing would have skipped it for good."""
+    capped = FetchResult(jobs=[job("a")], pages_fetched=1, exhausted=False,
+                         matched=80, not_fetched=79, capped=True)
+    out = run_morning(conn, StubProvider({"strategy": capped}), [Q], RULES,
+                      fit_brief="b", factsheet="f", send=strong_send)
+    assert "strategy" not in out.marks
+    assert out.unfetched == {}, "a cap is not a search to narrow"
+
+
+def test_the_mark_is_when_that_querys_fetch_began(conn):
+    """Stamped at the end of the run, the mark skipped every posting indexed
+    while the run was still fetching other searches and assessing."""
+    from datetime import datetime, timezone
+
+    t = [datetime(2026, 9, 11, 7, 0, tzinfo=timezone.utc)]
+
+    def later(minutes):
+        t[0] = t[0].replace(minute=t[0].minute + minutes)
+
+    class Slow(FeedProvider):
+        name = "theirstack"
+
+        def search(self, query):
+            later(5)                   # each fetch takes a while
+            return ok([job(query.label)])
+
+        def credits_used(self):
+            return 0
+
+    def slow_send(request):
+        later(20)                      # and so does the assessment
+        return strong_send(request)
+
+    out = run_morning(conn, Slow(), [Q, REVENUE], RULES, fit_brief="b",
+                      factsheet="f", send=slow_send, clock=lambda: t[0])
+    assert out.marks["strategy"] == datetime(2026, 9, 11, 7, 0, tzinfo=timezone.utc)
+    assert out.marks["revenue"] == datetime(2026, 9, 11, 7, 5, tzinfo=timezone.utc)
+    assert t[0] > out.marks["revenue"], (
+        "positive control: the run really did go on after the fetch began")
+
+
+# ---------------------------------------------------------------------------
+# A stored posting keeps the fields its assessment and gates read
+# ---------------------------------------------------------------------------
+
+def test_fed_postings_keep_their_salary_date_place_and_tags(conn):
+    """Only a pasted posting ever had these columns written. A fed posting read
+    back from its row had no salary, date, place or contract type, so anything
+    rebuilt from the database showed the model "not stated" for fields the
+    feed did state."""
+    import json
+    from dataclasses import replace
+
+    rich = Job(provider="theirstack", provider_job_id="r1",
+               title="Head of Strategy", company="Acme",
+               description_text="A strategy role.",
+               locations=("London", "Greater London"),
+               posted_at=date(2026, 9, 1), salary="£90,000",
+               raw_criteria={"employment_statuses": ["full_time"],
+                             "country_codes": ["GB"]})
+
+    def stored():
+        return conn.execute(
+            "SELECT * FROM jobs WHERE provider_job_id='r1'").fetchone()
+
+    persist(conn, run_morning(conn, StubProvider({"strategy": ok([rich])}), [Q],
+                              RULES, fit_brief="b", factsheet="f",
+                              send=strong_send))
+    row = stored()
+    assert row["title"] == "Head of Strategy", "positive control: the row exists"
+    assert row["salary"] == "£90,000"
+    assert row["posted_at"] == "2026-09-01"
+    assert json.loads(row["locations_json"]) == ["London", "Greater London"]
+    assert json.loads(row["raw_criteria_json"]) == {
+        "employment_statuses": ["full_time"], "country_codes": ["GB"]}
+
+    # Written again, emptier: what changed is updated and nothing is blanked.
+    thinner = replace(rich, salary="£95,000", posted_at=None, locations=(),
+                      raw_criteria={})
+    persist(conn, run_morning(conn, StubProvider({"strategy": ok([thinner])}),
+                              [Q], RULES, fit_brief="b", factsheet="f",
+                              send=strong_send))
+    row = stored()
+    assert row["salary"] == "£95,000"
+    assert row["posted_at"] == "2026-09-01"
+    assert json.loads(row["locations_json"]) == ["London", "Greater London"]
+    assert json.loads(row["raw_criteria_json"])["country_codes"] == ["GB"]
+
+
+# ---------------------------------------------------------------------------
+# An interrupted run keeps what it paid for, and resumes without paying again
+# ---------------------------------------------------------------------------
+
+def _thirty():
+    """Two batches' worth, so a run can be stopped between them."""
+    return [job(f"s{i}") for i in range(30)]
+
+
+def _interrupted_on_the_second_batch(conn):
+    calls = []
+
+    def send(request):
+        calls.append(request)
+        if len(calls) == 2:
+            raise KeyboardInterrupt            # the user closed the app
+        return strong_send(request)
+
+    with pytest.raises(KeyboardInterrupt):
+        run_morning(conn, StubProvider({"strategy": ok(_thirty())}), [Q], RULES,
+                    fit_brief="b", factsheet="f", send=send)
+
+
+def test_an_interrupted_run_has_already_stored_what_it_paid_for(conn):
+    """Nothing was written until `persist` ran after the whole run returned, so
+    a run stopped during assessment kept no posting it had bought and no
+    verdict the model had been paid for."""
+    _interrupted_on_the_second_batch(conn)
+
+    def count(sql):
+        return conn.execute(sql).fetchone()[0]
+
+    assert count("SELECT COUNT(*) FROM jobs") == 30
+    assert count("SELECT COUNT(*) FROM assessments") == 25
+    # Positive control: the batch that never came back has nothing invented.
+    assert count("SELECT COUNT(*) FROM assessments a JOIN jobs j ON j.id = a.job_id"
+                 " WHERE j.provider_job_id IN ('s25','s26','s27','s28','s29')") == 0
+
+
+def test_a_resumed_run_does_not_pay_the_model_twice(conn):
+    import re
+
+    from app.core.pipeline import judged_refs
+
+    _interrupted_on_the_second_batch(conn)
+
+    sent = []
+
+    def records(request):
+        sent.append(request)
+        return strong_send(request)
+
+    run_morning(conn, StubProvider({"strategy": ok(_thirty())}), [Q], RULES,
+                fit_brief="b", factsheet="f", send=records,
+                already_judged=judged_refs(conn))
+    refs = re.findall(r'ref="([^"]+)"',
+                      "".join(r["messages"][0]["content"] for r in sent))
+    assert sorted(refs) == [f"theirstack:s{i}" for i in range(25, 30)]
+
+
+def test_a_re_read_that_changes_the_verdict_replaces_the_stored_one(conn):
+    """Verdicts are now stored as each batch arrives, so the full re-read's
+    answer has to overwrite the first one, not be dropped as a duplicate."""
+    from app.intelligence.prompts import FIRST_PASS_CHARS
+
+    long_desc = "A strategy role. " + "x" * (FIRST_PASS_CHARS + 500)
+    calls = []
+
+    def send(request):
+        calls.append(request)
+        import re
+        ref = re.findall(r'ref="([^"]+)"', request["messages"][0]["content"])[0]
+        return {"verdicts": [{"job_ref": ref,
+                              "bucket": "strong" if len(calls) == 1 else "possible",
+                              "reason": "read", "disqualifying_quote": None,
+                              "requirement_checked": True}]}
+
+    run_morning(conn, StubProvider({"strategy": ok([job("long", desc=long_desc)])}),
+                [Q], RULES, fit_brief="b", factsheet="f", send=send)
+    row = conn.execute("SELECT bucket, full_read FROM assessments").fetchone()
+    assert len(calls) == 2, "positive control: the re-read happened"
+    assert row["bucket"] == "possible" and row["full_read"] == 1
+
+
+def test_a_run_with_assessment_errors_is_stored_as_incomplete(conn):
+    """`finish` counted only postings left unread, so a run whose model call
+    returned a verdict for a posting it was never sent was filed complete."""
+    def adds_a_stranger(request):
+        payload = strong_send(request)
+        payload["verdicts"].append({"job_ref": "ghost", "bucket": "strong",
+                                    "reason": "?", "disqualifying_quote": None,
+                                    "requirement_checked": True})
+        return payload
+
+    out = run_morning(conn, StubProvider({"strategy": ok([job("a")])}), [Q],
+                      RULES, fit_brief="b", factsheet="f", send=adds_a_stranger)
+    assert out.assessment.errors and not out.assessment.unread
+    row = conn.execute("SELECT status, incomplete_note FROM runs WHERE id=?",
+                       (out.run_id,)).fetchone()
+    assert row["status"] == "incomplete"
+    assert "ghost" in row["incomplete_note"]
+
+    # Positive control: the same run without the stray verdict is complete.
+    clean = run_morning(conn, StubProvider({"strategy": ok([job("b")])}), [Q],
+                        RULES, fit_brief="b", factsheet="f", send=strong_send)
+    assert conn.execute("SELECT status FROM runs WHERE id=?",
+                        (clean.run_id,)).fetchone()["status"] == "complete"
+
+
+def test_only_unjudged_undecided_likely_postings_are_queued_again(conn):
+    """Re-queueing costs a model call, so it takes exactly the postings that
+    still need one — never a decided, judged, screened-out or emptied one."""
+    from app.core.pipeline import unassessed_likely
+
+    left = Job(provider="theirstack", provider_job_id="left",
+               title="Head of Strategy", company="Acme",
+               description_text="A strategy role.", salary="£90,000",
+               posted_at=date(2026, 9, 1), locations=("London",),
+               raw_criteria={"country_codes": ["GB"]})
+    jobs = [left, job("judged"), job("decided"), job("emptied"),
+            job("porter", title="Kitchen Porter", desc="washing up")]
+
+    def judges_one(request):
+        payload = strong_send(request)
+        payload["verdicts"] = [v for v in payload["verdicts"]
+                               if v["job_ref"] == "theirstack:judged"]
+        return payload
+
+    run_morning(conn, StubProvider({"strategy": ok(jobs)}), [Q], RULES,
+                fit_brief="b", factsheet="f", send=judges_one)
+    conn.execute("INSERT INTO decisions(job_id, kind, decided_at) "
+                 "SELECT id, 'reject', 'x' FROM jobs WHERE provider_job_id='decided'")
+    conn.execute("UPDATE jobs SET description_text='' "
+                 "WHERE provider_job_id='emptied'")
+    conn.commit()
+
+    queued = unassessed_likely(conn)
+    assert [j.provider_job_id for j in queued] == ["left"]
+    # Rebuilt with what the assessment renders and the gates read.
+    assert queued[0] == left
+
+
+def test_each_stored_verdict_names_the_model_that_gave_it(conn):
+    """`model` was written as an empty string, so no stored verdict could be
+    traced to the model that formed it."""
+    from app.core.pipeline import persist_verdicts
+    from app.intelligence.assess import ASSESSMENT_MODEL, assess
+
+    out = run_morning(conn, StubProvider({"strategy": ok([job("a")])}), [Q],
+                      RULES, fit_brief="b", factsheet="f", send=strong_send)
+    assert conn.execute("SELECT model FROM assessments").fetchone()["model"] \
+        == ASSESSMENT_MODEL
+
+    # Whichever model is named is the one recorded, not a constant.
+    report = assess([job("a")], "b", "f", send=strong_send, model="claude-other")
+    persist_verdicts(conn, out.run_id, report.verdicts)
+    assert conn.execute("SELECT model FROM assessments").fetchone()["model"] \
+        == "claude-other"
+
+
+def test_a_runs_model_calls_are_stored_with_their_usage(conn):
+    """The tokens a run spent on the user's key were never written anywhere."""
+    import json
+
+    from app.intelligence.assess import ModelReply
+
+    def send(request):
+        return ModelReply(text=json.dumps(strong_send(request)),
+                          stop_reason="end_turn", model="claude-haiku-4-5",
+                          input_tokens=3000, output_tokens=120,
+                          cache_read_tokens=0, cache_write_tokens=4100)
+
+    out = run_morning(conn, StubProvider({"strategy": ok(_thirty())}), [Q],
+                      RULES, fit_brief="b", factsheet="f", send=send)
+    rows = conn.execute("SELECT run_id, model, input_tokens, output_tokens, "
+                        "cache_write_tokens FROM model_calls").fetchall()
+    assert len(rows) == 2, "one row per request: thirty postings, two batches"
+    assert all(r["run_id"] == out.run_id and r["input_tokens"] == 3000
+               and r["cache_write_tokens"] == 4100 for r in rows)

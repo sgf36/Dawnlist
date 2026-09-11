@@ -22,7 +22,7 @@ import re
 from dataclasses import dataclass, field
 
 from app.core.pipeline import Gate
-from app.feed.models import Job, name_key
+from app.feed.models import Job, company_key
 from app.i18n import tr
 
 #: The feed's own vocabulary, so a stored value compares directly with a
@@ -194,11 +194,11 @@ def excluded_company_gate(companies) -> Gate:
     "GIC" exclusion there. Compared here on the normalised company name, which
     drops the corporate suffixes that vary between sources. Never a substring
     match: "GIC" is inside "Logic" and "Magic"."""
-    banned = {name_key(c, "").split(" :: ")[0] for c in companies}
+    banned = {company_key(c) for c in companies}
     banned.discard("")
 
     def allowed(job: Job) -> bool:
-        return name_key(job.company, "").split(" :: ")[0] not in banned
+        return company_key(job.company) not in banned
 
     return Gate("excluded-employer", allowed, "an employer you ruled out")
 

@@ -94,7 +94,7 @@ def test_a_downgrade_reaches_the_user(conn):
     desc = "Must have a minimum of 10 years' experience. Strategy role."
 
     def hallucinating(_r):
-        return {"verdicts": [{"job_ref": "a", "bucket": "rejected",
+        return {"verdicts": [{"job_ref": "theirstack:a", "bucket": "rejected",
                               "reason": "needs an MBA",
                               "disqualifying_quote": "must hold an MBA",
                               "requirement_checked": True}]}

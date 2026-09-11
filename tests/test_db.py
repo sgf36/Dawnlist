@@ -254,3 +254,113 @@ def test_record_bounce_clears_and_flags_together(conn):
     row = conn.execute("SELECT email, email_bounced FROM contacts WHERE id=?",
                        (cid,)).fetchone()
     assert row["email"] is None and row["email_bounced"] == 1
+
+
+# -- numbered migrations ----------------------------------------------------
+def _version_one(path):
+    """An install from before migrations existed: the shipped schema and the
+    version number it wrote, and nothing else."""
+    c = db.connect(path)
+    c.executescript(db.SCHEMA)
+    c.execute("INSERT INTO settings(key, value) VALUES('schema_version', '1')")
+    c.commit()
+    return c
+
+
+def _columns(conn, table):
+    return {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+
+
+def test_an_installed_version_one_database_is_brought_up_to_date(tmp_path):
+    """`SCHEMA` is CREATE IF NOT EXISTS, which cannot add a column to a table
+    someone already has, and `schema_version` was written and never read — so
+    no installed database could ever change shape."""
+    c = _version_one(tmp_path / "old.sqlite3")
+    assert "description_pruned_at" not in _columns(c, "jobs"), "positive control"
+
+    db.migrate(c)
+    assert "description_pruned_at" in _columns(c, "jobs")
+    assert db.schema_version(c) == db.SCHEMA_VERSION
+
+    db.migrate(c)                       # a second start changes nothing
+    assert db.schema_version(c) == db.SCHEMA_VERSION
+    c.close()
+
+
+def test_a_database_newer_than_the_build_is_not_lowered(conn):
+    """The old migrate wrote its own version on every start, so an older build
+    opening a newer database quietly claimed the newer steps had not run."""
+    conn.execute("UPDATE settings SET value='999' WHERE key='schema_version'")
+    conn.commit()
+    db.migrate(conn)
+    assert db.schema_version(conn) == 999
+
+
+def test_a_failed_step_leaves_neither_a_half_change_nor_a_new_version(tmp_path,
+                                                                    monkeypatch):
+    c = _version_one(tmp_path / "old.sqlite3")
+    monkeypatch.setattr(db, "MIGRATIONS", ((2, (
+        "ALTER TABLE jobs ADD COLUMN half_done TEXT",
+        "ALTER TABLE no_such_table ADD COLUMN x TEXT",
+    )),))
+    with pytest.raises(sqlite3.OperationalError):
+        db.migrate(c)
+    assert "half_done" not in _columns(c, "jobs")
+    assert db.schema_version(c) == 1, "the next start must retry the step"
+    c.close()
+
+
+# -- old descriptions nobody decided on are cleared, the rows kept ----------
+def test_old_undecided_descriptions_are_cleared_and_everything_else_kept(conn):
+    """Every swept posting's full description was kept for the life of the
+    install, although only one the user decides on is read again."""
+    old = conn.execute("INSERT INTO runs(started_at) "
+                       "VALUES('2020-01-01T00:00:00+00:00')").lastrowid
+    recent = conn.execute("INSERT INTO runs(started_at) VALUES(?)",
+                          (db._now(),)).lastrowid
+
+    def posting(jid, run, verdict="likely"):
+        return conn.execute(
+            "INSERT INTO jobs(provider, provider_job_id, title, company, "
+            "description_text, first_seen_run, screen_verdict) "
+            "VALUES('theirstack', ?, 't', 'c', 'The full text.', ?, ?)",
+            (jid, run, verdict)).lastrowid
+
+    posting("old-out", old, "unlikely")
+    posting("old-undecided", old)
+    posting("recent", recent)
+    decided = posting("old-decided", old)
+    on_board = posting("old-on-board", old)
+    posting("pasted", None)
+    conn.execute("INSERT INTO decisions(job_id, kind, decided_at) "
+                 "VALUES(?, 'reject', 'x')", (decided,))
+    conn.execute("INSERT INTO opportunities(company, job_id, created_at) "
+                 "VALUES('c', ?, 'x')", (on_board,))
+    conn.commit()
+
+    assert db.prune_descriptions(conn) == 2
+    rows = {r["provider_job_id"]: r for r in conn.execute(
+        "SELECT provider_job_id, description_text, description_pruned_at "
+        "FROM jobs")}
+    assert len(rows) == 6, "rows are never erased"
+    for cleared in ("old-out", "old-undecided"):
+        assert rows[cleared]["description_text"] == ""
+        assert rows[cleared]["description_pruned_at"]
+    # Positive controls: everything the user may still need keeps its text.
+    for kept in ("recent", "old-decided", "old-on-board", "pasted"):
+        assert rows[kept]["description_text"] == "The full text."
+        assert rows[kept]["description_pruned_at"] is None
+
+
+def test_an_installed_database_gains_the_model_calls_table(tmp_path):
+    """Usage has somewhere to go on an install that predates it."""
+    c = _version_one(tmp_path / "old.sqlite3")
+
+    def tables():
+        return {r[0] for r in c.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
+
+    assert "model_calls" not in tables(), "positive control"
+    db.migrate(c)
+    assert "model_calls" in tables()
+    c.close()

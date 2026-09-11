@@ -28,7 +28,15 @@ from typing import Any, Iterator
 
 SEEN_RETENTION_DAYS = 45
 
-SCHEMA_VERSION = 1
+#: How long a posting nobody decided on keeps its description text.
+#:
+#: Screened out: a run only reads postings posted within 45 days, so one first
+#: seen that long ago is past any window it would be read in again.
+#: Screened in but undecided: longer, because the review pile carries those
+#: forward and someone working through a backlog still needs the text to
+#: decide.
+SCREENED_OUT_DESCRIPTION_DAYS = 45
+UNDECIDED_DESCRIPTION_DAYS = 90
 
 SCHEMA = """
 PRAGMA journal_mode = WAL;
@@ -304,13 +312,85 @@ def connect(path: Path | str | None = None) -> sqlite3.Connection:
     return conn
 
 
+#: Numbered schema changes, applied in order to any database older than them.
+#:
+#: `SCHEMA` is version 1 and stays exactly as it shipped. It is all
+#: `CREATE ... IF NOT EXISTS`, which builds a fresh database but can never add
+#: a column to a table someone already has — so before this there was no way
+#: to change the shape of an installed database at all, and `schema_version`
+#: was written on every start and read by nothing.
+#:
+#: Append only. A step that has shipped is never edited: the installs that ran
+#: it will not run it again.
+MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
+    (2, (
+        # When a description was cleared, so an empty one reads as removed on
+        # purpose rather than as a posting that never had one.
+        "ALTER TABLE jobs ADD COLUMN description_pruned_at TEXT",
+    )),
+    (3, (
+        # One row per model request, so what a run cost on the user's key —
+        # and whether the cached prefix ever cached — can be read back.
+        """CREATE TABLE model_calls (
+               id                 INTEGER PRIMARY KEY,
+               run_id             INTEGER NOT NULL
+                                  REFERENCES runs(id) ON DELETE CASCADE,
+               model              TEXT NOT NULL,
+               stop_reason        TEXT,
+               full_read          INTEGER NOT NULL DEFAULT 0,
+               input_tokens       INTEGER NOT NULL DEFAULT 0,
+               output_tokens      INTEGER NOT NULL DEFAULT 0,
+               cache_read_tokens  INTEGER NOT NULL DEFAULT 0,
+               cache_write_tokens INTEGER NOT NULL DEFAULT 0,
+               created_at         TEXT NOT NULL
+           )""",
+    )),
+    (4, (
+        # What a run was for. The calibration sample is now stored as a run of
+        # its own, and without this it could not be told from a morning sweep.
+        "ALTER TABLE runs ADD COLUMN kind TEXT NOT NULL DEFAULT 'sweep'",
+    )),
+)
+
+SCHEMA_VERSION = max(number for number, _ in MIGRATIONS)
+
+
+def schema_version(conn: sqlite3.Connection) -> int:
+    row = conn.execute(
+        "SELECT value FROM settings WHERE key='schema_version'").fetchone()
+    try:
+        return int(row[0]) if row else 1
+    except (TypeError, ValueError):
+        return 1
+
+
 def migrate(conn: sqlite3.Connection) -> None:
+    """Bring the database up to SCHEMA_VERSION, one numbered step at a time.
+
+    A step and its version number commit together or not at all: one that
+    fails part-way leaves neither a half-altered table nor a version claiming
+    it finished, so the next start retries it cleanly. A database already
+    NEWER than this build is left as it is; the one-line version this replaced
+    overwrote it with an older number.
+    """
     conn.executescript(SCHEMA)
-    conn.execute(
-        "INSERT INTO settings(key, value) VALUES('schema_version', ?) "
-        "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-        (str(SCHEMA_VERSION),))
-    conn.commit()
+    current = schema_version(conn)
+    for number, statements in MIGRATIONS:
+        if number <= current:
+            continue
+        conn.execute("BEGIN")
+        try:
+            for statement in statements:
+                conn.execute(statement)
+            conn.execute(
+                "INSERT INTO settings(key, value) VALUES('schema_version', ?) "
+                "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (str(number),))
+            conn.execute("COMMIT")
+        except Exception:
+            conn.execute("ROLLBACK")
+            raise
+        current = number
 
 
 def _now() -> str:
@@ -326,14 +406,15 @@ class RunIncomplete(RuntimeError):
 
 
 @contextmanager
-def run(conn: sqlite3.Connection) -> Iterator["Run"]:
+def run(conn: sqlite3.Connection, kind: str = "sweep") -> Iterator["Run"]:
     """Open a run. On any exception the run is recorded as failed, never lost.
 
     spec 6.2/6.4: a crash, a context exhaustion or an empty fetch is named as
     such. The one thing that must never happen is a bad run filed as a normal
     one.
     """
-    cur = conn.execute("INSERT INTO runs(started_at) VALUES(?)", (_now(),))
+    cur = conn.execute("INSERT INTO runs(started_at, kind) VALUES(?, ?)",
+                       (_now(), kind))
     conn.commit()
     r = Run(conn, cur.lastrowid)
     try:
@@ -409,9 +490,55 @@ def orphan_outputs(conn: sqlite3.Connection, output_dir: Path) -> list[Path]:
                   if p.is_file() and str(p) not in known)
 
 
+def advance_query_marks(conn: sqlite3.Connection, marks: dict) -> None:
+    """Move each named query's delta mark to its own fetch time.
+
+    By label, never across the table: a query that failed or did not run this
+    time keeps the mark for the window it has not read.
+    """
+    for label, when in marks.items():
+        conn.execute("UPDATE queries SET last_discovered_at=? WHERE label=?",
+                     (when.isoformat(timespec="seconds"), label))
+    conn.commit()
+
+
 def prune_seen(conn: sqlite3.Connection, days: int = SEEN_RETENTION_DAYS) -> int:
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
     cur = conn.execute("DELETE FROM seen_jobs WHERE seen_at < ?", (cutoff,))
+    conn.commit()
+    return cur.rowcount
+
+
+def prune_descriptions(conn: sqlite3.Connection, *,
+                       screened_out_days: int = SCREENED_OUT_DESCRIPTION_DAYS,
+                       undecided_days: int = UNDECIDED_DESCRIPTION_DAYS) -> int:
+    """Clear the description of old postings nobody decided on. Rows stay.
+
+    A description averages about 7,400 characters and a morning sweep stores
+    hundreds, and every one was kept for the life of the install — while only
+    the text of a posting the user decided on, or put on the board, is ever
+    read again. The row, its title, its screen verdict and its assessment all
+    stay (spec 5.4: never erased). A pasted posting has no run and is kept:
+    the user chose it by hand.
+    """
+    now = datetime.now(timezone.utc)
+
+    def before(days: int) -> str:
+        return (now - timedelta(days=days)).isoformat(timespec="seconds")
+
+    cur = conn.execute(
+        """UPDATE jobs SET description_text = '', description_pruned_at = ?
+            WHERE description_text <> ''
+              AND NOT EXISTS (SELECT 1 FROM decisions d WHERE d.job_id = jobs.id)
+              AND NOT EXISTS (SELECT 1 FROM opportunities o
+                               WHERE o.job_id = jobs.id)
+              AND EXISTS (SELECT 1 FROM runs r
+                           WHERE r.id = jobs.first_seen_run
+                             AND r.started_at < CASE
+                                 WHEN jobs.screen_verdict = 'unlikely' THEN ?
+                                 ELSE ? END)""",
+        (now.isoformat(timespec="seconds"), before(screened_out_days),
+         before(undecided_days)))
     conn.commit()
     return cur.rowcount
 

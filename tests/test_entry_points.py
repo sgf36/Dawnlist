@@ -60,13 +60,13 @@ class Stub(FeedProvider):
         return 0
 
 
-def verdicts(bucket):
+def verdicts(bucket, quote=None):
     import re
 
     def send(request):
         refs = re.findall(r'ref="([^"]+)"', request["messages"][0]["content"])
         return {"verdicts": [{"job_ref": r, "bucket": bucket,
-                              "reason": "fits", "disqualifying_quote": None,
+                              "reason": "fits", "disqualifying_quote": quote,
                               "requirement_checked": True} for r in refs]}
     return send
 
@@ -131,11 +131,11 @@ def test_a_screened_out_posting_is_still_a_row(conn):
 # used to disappear, and from the user's chair the app had lost it. Detection
 # existed (`orphan_outputs`, printed by `--doctor`); recovery was written,
 # tested and never called by anything.
-def a_run_with(conn, jobs, bucket="strong"):
+def a_run_with(conn, jobs, bucket="strong", quote=None):
     outcome = run_morning(
         conn, Stub(jobs), [SearchQuery(label="q", titles=["strategy"])],
         RuleTable(strong_terms=["strategy"]), fit_brief="b", factsheet=FACTS,
-        send=verdicts(bucket))
+        send=verdicts(bucket, quote))
     persist(conn, outcome)
     return outcome
 
@@ -175,10 +175,13 @@ def test_a_decided_posting_is_not_carried_forward(conn):
 
 def test_a_rejected_posting_is_not_carried_forward(conn):
     """Restoring rejections re-surfaces judgements nobody asked to revisit."""
+    # A rejection must now quote the line it rests on. One that quotes nothing
+    # is unverified, becomes a judgement call, and IS carried forward — which
+    # is right, and is not what this test is about.
     a_run_with(conn, [Job(provider="theirstack", provider_job_id="old",
                           title="Head of Strategy", company="Acme",
                           description_text="Strategy.")],
-               bucket="rejected")
+               bucket="rejected", quote="title: Head of Strategy")
     a_run_with(conn, [Job(provider="theirstack", provider_job_id="new",
                           title="Strategy Lead", company="Beta",
                           description_text="Strategy.")])
@@ -646,6 +649,34 @@ def test_re_proposing_does_not_re_arm_a_stood_down_family(conn):
 
     refresh_kill_family_proposals(conn)
     assert not load_rules(conn).kill_families[0].adopted
+
+
+def test_a_refresh_never_widens_a_family_the_user_adopted(conn):
+    """Refreshing rewrote an adopted family's KILL and SAVES in place and kept
+    it armed, so a couple of rejections later it killed titles the user had
+    never been asked about."""
+    from app.main import (adopt_kill_family, load_rules,
+                          refresh_kill_family_proposals, save_rule_term)
+
+    save_rule_term(conn, "strong_terms", "strategy")
+    reject_all(conn, [kier("a", "Site Engineer"), kier("b", "Senior Site Engineer")])
+    refresh_kill_family_proposals(conn)
+    adopt_kill_family(conn, "Kier")
+
+    # Positive control: another rejection of the same shape adds nothing the
+    # user did not agree to, so the family stays armed.
+    reject_all(conn, [kier("c", "Lead Site Engineer")])
+    refresh_kill_family_proposals(conn)
+    assert load_rules(conn).kill_families[0].adopted
+
+    # Two surveyor rejections widen what it would kill: it is offered again
+    # rather than left armed with terms nobody accepted.
+    reject_all(conn, [kier("d", "Quantity Surveyor"),
+                      kier("e", "Senior Quantity Surveyor")])
+    refresh_kill_family_proposals(conn)
+    family = load_rules(conn).kill_families[0]
+    assert "surveyor" in family.kill_titles
+    assert not family.adopted
 
 
 def test_a_term_that_both_kills_and_saves_is_not_proposed(conn):

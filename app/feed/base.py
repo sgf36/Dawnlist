@@ -63,6 +63,20 @@ class SearchQuery:
     exclude_companies: list[str] = field(default_factory=list)
 
 
+def feed_job_ids(ids) -> list[int]:
+    """The exclusion list as the feed types it: integers, and nothing else.
+
+    Both transports end at TheirStack's `job_id_not`, directly or through the
+    Worker, which forwards the list untouched. It is typed as integers, so an
+    id that is not one excludes nothing at best and fails the whole search's
+    validation at worst — and the search is what the user pays for. One
+    function, so neither transport can remember the rule and the other forget
+    it. Choosing WHICH postings are the feed's is `load_queries`' job; this is
+    only the shape.
+    """
+    return [int(i) for i in (str(x).strip() for x in ids or ()) if i.isdigit()]
+
+
 @dataclass
 class FetchResult:
     """Always carries the funnel numbers with the rows (spec 6.3)."""

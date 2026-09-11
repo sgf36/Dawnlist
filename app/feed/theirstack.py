@@ -35,7 +35,7 @@ from datetime import datetime, timezone
 
 from app.core.http import build_request
 from app.feed.base import (USER_AGENT, FeedProvider, FetchResult, RateLimiter,
-                           SearchQuery,
+                           SearchQuery, feed_job_ids,
                            parse_date)
 from app.feed.models import Job, name_key
 
@@ -170,10 +170,11 @@ class TheirStackProvider(FeedProvider):
         # the whole of each country.
         if q.posted_within_days:
             body["posted_at_max_age_days"] = q.posted_within_days
-        if q.exclude_job_ids:
+        held = feed_job_ids(q.exclude_job_ids)
+        if held:
             # Billing control: a row we already hold is re-bought when it comes
             # back, because the provider does not cache.
-            body["job_id_not"] = list(q.exclude_job_ids)
+            body["job_id_not"] = held
         if q.discovered_since:
             # The delta pull. Only postings first indexed since the last run.
             body["discovered_at_gte"] = q.discovered_since.astimezone(
@@ -216,6 +217,17 @@ class TheirStackProvider(FeedProvider):
         locations = [x for x in (row.get("location"),
                                  row.get("short_location"),
                                  row.get("long_location")) if x]
+        raw = {k: row.get(k) for k in
+               ("seniority", "industry", "remote", "employment_statuses")
+               if row.get(k) is not None}
+        # Under the key the Worker normalises to, because the location gate and
+        # the assessment both read it. This adapter never recorded one, so on
+        # the developer path the gate kept every posting and the model was
+        # shown no country to hold a "based in" constraint against.
+        codes = row.get("country_codes") or (
+            [row["country_code"]] if row.get("country_code") else [])
+        if codes:
+            raw["country_codes"] = list(codes)
         return Job(
             provider=self.name,
             provider_job_id=str(row.get("id") or row.get("job_id") or row.get("url") or ""),
@@ -228,9 +240,7 @@ class TheirStackProvider(FeedProvider):
             # ATS-canonical where the provider gives one: that is the link the
             # user should actually apply through.
             url=row.get("final_url") or row.get("url") or row.get("source_url") or "",
-            raw_criteria={k: row.get(k) for k in
-                          ("seniority", "industry", "remote", "employment_statuses")
-                          if row.get(k) is not None},
+            raw_criteria=raw,
         )
 
     # -- metering ----------------------------------------------------------
