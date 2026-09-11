@@ -66,12 +66,21 @@ export async function verifySignature(rawBody, header, secret) {
   if (!header) return { ok: false, reason: 'no Paddle-Signature header' };
   if (!secret) return { ok: false, reason: 'PADDLE_WEBHOOK_SECRET is not set' };
 
-  const parts = Object.fromEntries(
-    header.split(';').map((p) => p.split('=').map((s) => s.trim()))
-  );
-  const ts = parts.ts;
-  const h1 = parts.h1;
-  if (!ts || !h1) return { ok: false, reason: 'malformed Paddle-Signature' };
+  // Every h1 is kept, not just one. While a secret is being rotated Paddle
+  // signs with the old and the new secret and sends an h1 for each; reading
+  // the header into an object kept only the last, so a delivery signed with
+  // the secret this Worker holds was refused whenever that h1 came first.
+  let ts = null;
+  const candidates = [];
+  for (const part of header.split(';')) {
+    const eq = part.indexOf('=');
+    if (eq === -1) continue;
+    const name = part.slice(0, eq).trim();
+    const value = part.slice(eq + 1).trim();
+    if (name === 'ts') ts = value;
+    else if (name === 'h1' && value) candidates.push(value);
+  }
+  if (!ts || candidates.length === 0) return { ok: false, reason: 'malformed Paddle-Signature' };
 
   const age = Math.abs(Math.floor(Date.now() / 1000) - Number(ts));
   if (!Number.isFinite(age) || age > SIGNATURE_TOLERANCE_SECONDS) {
@@ -90,7 +99,11 @@ export async function verifySignature(rawBody, header, secret) {
   const computed = [...new Uint8Array(mac)]
     .map((b) => b.toString(16).padStart(2, '0')).join('');
 
-  return timingSafeEqual(computed, h1)
+  // Compared against every candidate even after a match, so the time taken
+  // does not reveal which position matched.
+  let matched = false;
+  for (const h1 of candidates) matched = timingSafeEqual(computed, h1) || matched;
+  return matched
     ? { ok: true }
     : { ok: false, reason: 'signature mismatch — wrong secret for this destination' };
 }
@@ -120,8 +133,13 @@ export async function handlePaddleWebhook(request, env, ctx) {
     raw, request.headers.get('Paddle-Signature'), env.PADDLE_WEBHOOK_SECRET
   );
   if (!check.ok) {
-    // 401 so Paddle retries and the delivery log shows the real reason.
-    return new Response(JSON.stringify({ error: 'bad_signature', reason: check.reason }),
+    // 401 so Paddle retries. The REASON goes to the Worker's log, not the
+    // response: anybody can post to this URL, and telling them whether it was
+    // the timestamp or the signature that failed tells a forger which one to
+    // work on. Whoever diagnoses a failed delivery reads it in the Worker's
+    // observability logs, where "timestamp" still points away from the secret.
+    console.warn('paddle: signature refused', { reason: check.reason });
+    return new Response(JSON.stringify({ error: 'bad_signature' }),
       { status: 401, headers: { 'content-type': 'application/json' } });
   }
 
