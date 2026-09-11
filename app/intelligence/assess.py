@@ -48,6 +48,71 @@ BATCH_CHARS = 200_000
 BUCKETS = ("strong", "possible", "rejected", "judgement-call")
 
 
+@dataclass(frozen=True)
+class ModelReply:
+    """What the live transport returns: the text, and why the reply ended.
+
+    The text alone cannot say it was cut off or refused, and once parsed both
+    look like a malformed payload with the cause lost.
+    """
+    text: str
+    stop_reason: str | None = None
+    model: str = ""
+
+
+class ModelStopped(RuntimeError):
+    """A reply that ended before it could be a verdict payload."""
+
+
+class ReplyTruncated(ModelStopped):
+    """stop_reason max_tokens: the verdicts did not fit in the reply."""
+
+
+class ReplyRefused(ModelStopped):
+    """stop_reason refusal: the model declined to answer this batch."""
+
+
+#: The account cannot be used — a bad key, a missing permission, no balance —
+#: as opposed to a request that may work if sent again.
+ACCOUNT_FAULT_STATUSES = frozenset({401, 402, 403})
+ACCOUNT_FAULT_TYPES = frozenset({"authentication_error", "permission_error",
+                                 "billing_error"})
+
+
+def is_account_fault(exc: BaseException) -> bool:
+    """Would every later request fail the same way?
+
+    Judged on the status and the API's error type rather than the SDK's class
+    names, so a stub and the real client are read alike. An empty balance can
+    arrive as a 400 whose message names the credit balance, so that counts.
+    """
+    if getattr(exc, "status_code", None) in ACCOUNT_FAULT_STATUSES:
+        return True
+    body = getattr(exc, "body", None)
+    error = body.get("error") if isinstance(body, dict) else None
+    if isinstance(error, dict) and error.get("type") in ACCOUNT_FAULT_TYPES:
+        return True
+    return "credit balance" in str(exc).lower()
+
+
+def _reply_payload(reply: Any) -> Any:
+    """What `parse_verdicts` reads, from whatever the transport returned.
+
+    A `ModelReply` is checked before it is parsed. A reply cut off at
+    max_tokens went to the JSON parser and was reported as an "unparseable
+    verdict payload", and a refusal as whatever its text happened to be — the
+    run recorded a symptom and never the cause.
+    """
+    if isinstance(reply, ModelReply):
+        if reply.stop_reason == "max_tokens":
+            raise ReplyTruncated(
+                "the reply reached max_tokens before the verdicts were complete")
+        if reply.stop_reason == "refusal":
+            raise ReplyRefused("the model refused to assess this batch")
+        return reply.text
+    return reply
+
+
 def _normalise(text: str) -> str:
     """Collapse whitespace and unify quote characters for quote matching.
 
@@ -339,12 +404,26 @@ def assess(jobs: list[Job], fit_brief: str, factsheet: str, *,
     todo = [j for j in jobs if job_ref(j) not in already_judged]
     report = AssessmentReport()
 
-    for chunk in batches(todo):
+    chunks = list(batches(todo))
+    for index, chunk in enumerate(chunks):
         by_ref = {job_ref(j): j for j in chunk}
         rendered = {ref: render_job(j) for ref, j in by_ref.items()}
         try:
-            payload = send(build_request(chunk, fit_brief, factsheet, model=model))
+            payload = _reply_payload(
+                send(build_request(chunk, fit_brief, factsheet, model=model)))
         except Exception as exc:  # noqa: BLE001
+            if is_account_fault(exc):
+                # Every later batch would be refused the same way. Sending them
+                # recorded one identical error per batch, and on a billing
+                # fault kept knocking on an account with nothing in it.
+                left = chunks[index:]
+                report.errors.append(
+                    f"assessment stopped: {type(exc).__name__}: {exc} — "
+                    f"{sum(len(c) for c in left)} posting(s) left unread "
+                    f"rather than sent again on the same account")
+                for rest in left:
+                    report.unread.extend(rest)
+                return report
             # The batch is unread, not rejected. Never silently dropped.
             report.errors.append(f"batch failed: {type(exc).__name__}: {exc}")
             report.unread.extend(chunk)
@@ -398,11 +477,18 @@ def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
 
     by_ref = {job_ref(v.job): v for v in pending}
 
-    for chunk in batches([v.job for v in pending], full=True):
+    chunks = list(batches([v.job for v in pending], full=True))
+    for index, chunk in enumerate(chunks):
         try:
-            payload = send(build_request(chunk, fit_brief, factsheet,
-                                         model=model, full=True))
+            payload = _reply_payload(send(build_request(
+                chunk, fit_brief, factsheet, model=model, full=True)))
         except Exception as exc:  # noqa: BLE001
+            if is_account_fault(exc):
+                left = sum(len(c) for c in chunks[index:])
+                report.errors.append(
+                    f"full re-read stopped: {type(exc).__name__}: {exc} — "
+                    f"{left} verdict(s) were judged on a truncated description")
+                return
             report.errors.append(
                 f"full re-read failed for {len(chunk)} verdict(s) "
                 f"({type(exc).__name__}: {exc}) — they were judged on a "
@@ -488,3 +574,27 @@ def merge_batch_results(results: Iterable[Any],
         verdicts.extend(parsed)
         errors.extend(errs)
     return verdicts, errors
+
+
+def anthropic_transport(api_key: str | None = None, *, client=None):
+    """The live assessment transport: straight to Anthropic on the user's key.
+
+    `main.build_send` returns only text, which suits the app's other model
+    calls. The assessment has to know why a reply ended — max_tokens and
+    refusal are not verdict payloads — so this returns a `ModelReply`. The
+    data route is the same one: the user's machine to Anthropic, nothing in
+    between. `client` is injectable so a test never reaches the network.
+    """
+    if client is None:
+        import anthropic
+        client = anthropic.Anthropic(api_key=api_key)
+
+    def send(request: dict) -> ModelReply:
+        response = client.messages.create(**request)
+        return ModelReply(
+            text="".join(getattr(b, "text", "") for b in response.content
+                         if getattr(b, "type", None) == "text"),
+            stop_reason=getattr(response, "stop_reason", None),
+            model=getattr(response, "model", "") or request.get("model", ""))
+
+    return send

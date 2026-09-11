@@ -542,3 +542,97 @@ def test_a_fragment_too_short_to_prove_anything_is_not_a_quote():
                                      "disqualifying_quote": "country: US",
                                      "requirement_checked": True}, abroad)
     assert field_line.bucket == "rejected"
+
+
+# -- a reply that stopped short is named, and a dead account stops the run ---
+from app.intelligence.assess import (ModelReply,  # noqa: E402
+                                     anthropic_transport)
+
+
+def _reply_for(request, stop_reason="end_turn"):
+    import re
+    refs = re.findall(r'ref="([^"]+)"', request["messages"][0]["content"])
+    return ModelReply(text=json.dumps({"verdicts": [
+        {"job_ref": r, "bucket": "possible", "reason": "stretch",
+         "disqualifying_quote": None, "requirement_checked": True}
+        for r in refs]}), stop_reason=stop_reason, model="claude-haiku-4-5")
+
+
+def test_a_reply_cut_off_at_max_tokens_is_named_not_parsed():
+    """A reply that stopped at max_tokens went to the JSON parser, so the run
+    said "unparseable verdict payload" and never that the verdicts ran out of
+    room."""
+    report = assess([job("a")], "b", "f",
+                    send=lambda r: _reply_for(r, "max_tokens"))
+    assert report.verdicts == [] and len(report.unread) == 1
+    assert any("ReplyTruncated" in e for e in report.errors)
+
+    # Positive control: the same reply with a normal stop is read as verdicts.
+    fine = assess([job("a")], "b", "f", send=_reply_for)
+    assert [v.bucket for v in fine.verdicts] == ["possible"]
+    assert fine.errors == []
+
+
+def test_a_refused_reply_is_named_not_parsed():
+    report = assess([job("a")], "b", "f", send=lambda r: _reply_for(r, "refusal"))
+    assert report.verdicts == [] and len(report.unread) == 1
+    assert any("ReplyRefused" in e for e in report.errors)
+
+
+class _ApiFault(Exception):
+    def __init__(self, status_code, message):
+        super().__init__(message)
+        self.status_code = status_code
+
+
+def test_an_account_fault_stops_the_run_instead_of_repeating_it():
+    """A bad key, a revoked permission or an empty balance failed every batch
+    the same way: each batch was sent, each was refused, and the run recorded
+    the same error once per batch."""
+    thirty = [job(str(i)) for i in range(30)]
+
+    for fault in (_ApiFault(401, "invalid x-api-key"),
+                  _ApiFault(403, "permission denied"),
+                  _ApiFault(400, "Your credit balance is too low")):
+        calls = []
+
+        def refused(request, fault=fault):
+            calls.append(request)
+            raise fault
+
+        report = assess(thirty, "b", "f", send=refused)
+        assert len(calls) == 1, f"{fault}: the second batch must not be sent"
+        assert len(report.unread) == 30
+        assert len(report.errors) == 1 and str(fault) in report.errors[0]
+
+    # Positive control: an overloaded API may answer next time, so every batch
+    # is still tried.
+    calls = []
+
+    def overloaded(request):
+        calls.append(request)
+        raise _ApiFault(529, "overloaded")
+
+    report = assess(thirty, "b", "f", send=overloaded)
+    assert len(calls) == 2 and len(report.errors) == 2
+
+
+def test_the_live_transport_reports_why_a_reply_ended():
+    from types import SimpleNamespace
+
+    seen = {}
+
+    class Messages:
+        def create(self, **request):
+            seen.update(request)
+            return SimpleNamespace(
+                content=[SimpleNamespace(type="text", text='{"verdicts": []}')],
+                stop_reason="max_tokens", model="claude-haiku-4-5-20251001")
+
+    send = anthropic_transport(client=SimpleNamespace(messages=Messages()))
+    reply = send(build_request([job()], "b", "f"))
+    assert isinstance(reply, ModelReply)
+    assert reply.text == '{"verdicts": []}'
+    assert reply.stop_reason == "max_tokens"
+    assert reply.model == "claude-haiku-4-5-20251001"
+    assert seen["model"] == "claude-haiku-4-5", "the request went through as built"

@@ -187,6 +187,33 @@ def test_a_morning_run_clears_old_undecided_descriptions(conn):
         "positive control: today's posting keeps its text")
 
 
+def test_the_morning_run_uses_the_transport_that_reports_stop_reasons(
+        conn, monkeypatch):
+    """`build_send` returns bare text, so a reply cut off at max_tokens or
+    refused reached the assessment looking like a malformed payload."""
+    import app.intelligence.assess as assess_mod
+    import app.main as main_mod
+
+    seed(conn)
+    used = []
+
+    def transport(key=None, **_kw):
+        used.append(key)
+        return lambda request: assess_mod.ModelReply(
+            text=json.dumps(strong_send(request)), stop_reason="end_turn")
+
+    def text_only(_conn):
+        raise AssertionError("the text-only transport was used for assessment")
+
+    monkeypatch.setattr("app.core.api_key.require", lambda: "sk-user")
+    monkeypatch.setattr(assess_mod, "anthropic_transport", transport)
+    monkeypatch.setattr(main_mod, "build_send", text_only)
+
+    outcome = morning_run(conn, provider=Stub(ok([job("a")])))
+    assert used == ["sk-user"], "the user's own key reaches the transport"
+    assert [v.bucket for v in outcome.assessment.verdicts] == ["strong"]
+
+
 def test_a_seen_posting_is_deduped_on_the_next_run(conn):
     """The short-term layer: seen_jobs stops a recurring alert re-listing."""
     seed(conn)

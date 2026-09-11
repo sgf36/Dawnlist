@@ -1193,7 +1193,9 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
         *scope_gates(enabled_scopes(conn)),
     ]
 
+    from app.core import api_key
     from app.core.pipeline import judged_refs, unassessed_likely
+    from app.intelligence.assess import anthropic_transport
 
     # `run_morning` stores what it fetched and screened before any model call,
     # stores verdicts batch by batch, and advances each search's mark once its
@@ -1201,10 +1203,15 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
     # for. Postings already judged are skipped, rather than paying the model
     # to read them twice, and postings an earlier run screened in but never
     # judged are queued again before anything new is fetched.
+    #
+    # The transport is the one that reports WHY a reply ended. `build_send`
+    # returns bare text, so a reply cut off at max_tokens or refused reached
+    # the assessment looking like a malformed payload.
     outcome = run_morning(
         conn, provider or build_provider(conn), queries, load_rules(conn),
         fit_brief=brief, factsheet=factsheet,
-        send=send or build_send(conn), gates=gates, already_seen=seen,
+        send=send or anthropic_transport(api_key.require()), gates=gates,
+        already_seen=seen,
         already_judged=judged_refs(conn),
         requeued=unassessed_likely(conn),
     )
