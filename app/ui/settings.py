@@ -29,8 +29,8 @@ from PySide6.QtWidgets import (QComboBox, QFrame, QGridLayout, QHBoxLayout,
                                QLabel,
                                QLineEdit, QListWidget, QListWidgetItem,
                                QPushButton,
-                               QScrollArea, QSizePolicy, QSpinBox, QVBoxLayout,
-                               QWidget)
+                               QScrollArea, QSizePolicy, QSpinBox, QStyle,
+                               QVBoxLayout, QWidget)
 
 from app.core import api_key
 from app.i18n import tr
@@ -342,7 +342,7 @@ class SettingsWindow(QWidget):
     """
 
     def __init__(self, parent=None, *, variant=None, rules=None,
-                 families=None, searches=None, is_admin=None):
+                 families=None, searches=None, is_admin=None, home=None):
         super().__init__(parent)
         from app.core.build_variant import variant as read_variant
 
@@ -350,16 +350,42 @@ class SettingsWindow(QWidget):
         #: nothing reaches the live Worker merely because a window was built.
         self._is_admin = is_admin
         self._admin_checked = False
+        #: The window Settings was opened from. Not the Qt parent: parenting
+        #: would embed this screen inside that window instead of opening it.
+        self._home = home
 
         self.setWindowTitle(tr("settings.title"))
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+
+        # THE WAY BACK. This window opens at almost the size of the one beneath
+        # and covers it, so to the person using it Settings is a page they have
+        # gone to, and a page needs a visible way back. The title-bar close
+        # button is not one: nothing about it says the shortlist is still there.
+        # Above the scroll area, so it cannot scroll out of reach.
+        #
+        # `onboarding.back` rather than a new key: it is the same word, already
+        # translated in every locale, and a new key would ship in English only
+        # until the next translation run.
+        bar = QHBoxLayout()
+        bar.setContentsMargins(16, 10, 16, 6)
+        self.btn_back = QPushButton(tr("onboarding.back"))
+        self.btn_back.setObjectName("secondary")
+        # SP_ArrowBack follows the layout direction, so it points the right
+        # way in the right-to-left locales too.
+        self.btn_back.setIcon(self.style().standardIcon(QStyle.SP_ArrowBack))
+        self.btn_back.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.btn_back.clicked.connect(self.go_home)
+        bar.addWidget(self.btn_back)
+        bar.addStretch(1)
+        outer.addLayout(bar)
 
         # Scrolled, because three stacked panels want ~916px and a 768-tall
         # laptop screen is ordinary. Without this the licence box sits below
         # the bottom of the display on the one build that needs it, with no
         # way to reach it — and a user who cannot enter their licence key has
         # bought something inert.
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.NoFrame)
@@ -465,6 +491,20 @@ class SettingsWindow(QWidget):
         # lets the scroll cover the rest.
         self.setMinimumSize(760, 440)
         self.resize(1120, 700)
+
+    def go_home(self) -> None:
+        """Leave Settings for the window it was opened from.
+
+        No Escape shortcut on purpose: Escape pressed in the key or licence
+        field would close the screen and discard what was just pasted.
+        """
+        self.close()
+        home = self._home
+        if home is not None:
+            if home.isMinimized():
+                home.showNormal()
+            home.raise_()
+            home.activateWindow()
 
     def showEvent(self, event):
         # ASKED WHEN THE SCREEN OPENS, not when it is built. Constructing a

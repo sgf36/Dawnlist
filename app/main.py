@@ -1820,6 +1820,15 @@ def open_settings(parent=None, conn=None):
     from app.ui.settings import (FamiliesPanel, RulesPanel, SearchesPanel,
                                  SettingsWindow)
 
+    # One Settings window per opener. Every press used to build another, and
+    # they stacked exactly over the window beneath, so closing one revealed
+    # the next and the way back looked as if it did not exist.
+    existing = getattr(parent, "_settings_window", None)
+    if existing is not None and existing.isVisible():
+        existing.raise_()
+        existing.activateWindow()
+        return existing
+
     # The key and licence panels already default to the real keyring and the
     # real redeemer; the injection points exist so the tests can spend nothing.
     # The rules panel cannot default, because the rules are per-user and live
@@ -1841,7 +1850,7 @@ def open_settings(parent=None, conn=None):
             forgetter=lambda field, term: forget_rule_term(conn, field, term))
 
     window = SettingsWindow(rules=rules, families=families,
-                            searches=searches)
+                            searches=searches, home=parent)
     if parent is not None:
         parent._settings_window = window
     window.show()
