@@ -108,11 +108,19 @@ def load_queries(conn) -> list[SearchQuery]:
     # search, and the second silently excludes whichever TheirStack posting
     # happens to share that number. Neither was ever billed, so neither can be
     # re-bought.
+    #
+    # REJECTED ones first. The list is capped at the newest ids, so a posting
+    # the user rejected fell off it once newer rows arrived and was bought
+    # again every time the feed returned it — the one posting they have said
+    # they will never want.
     held = tuple(str(r["provider_job_id"]) for r in conn.execute(
-        "SELECT provider_job_id FROM jobs "
-        " WHERE provider = 'theirstack' AND provider_job_id <> '' "
-        "   AND provider_job_id NOT GLOB '*[^0-9]*' "
-        " ORDER BY id DESC LIMIT ?",
+        "SELECT j.provider_job_id FROM jobs j "
+        " WHERE j.provider = 'theirstack' AND j.provider_job_id <> '' "
+        "   AND j.provider_job_id NOT GLOB '*[^0-9]*' "
+        " ORDER BY EXISTS (SELECT 1 FROM decisions d "
+        "                   WHERE d.job_id = j.id AND d.kind = 'reject') DESC, "
+        "          j.id DESC "
+        " LIMIT ?",
         (RECENT_HELD_IDS,)))
 
     out: list[SearchQuery] = []
@@ -1200,8 +1208,13 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
     if not queries:
         raise NotConfigured("No saved queries. Add at least one before running.")
 
-    seen = {(r["provider"], r["provider_job_id"])
-            for r in conn.execute("SELECT provider, provider_job_id FROM seen_jobs")}
+    # Every posting already STORED, not only the rolling seen window. That
+    # window rolls off after 45 days, and a posting the feed still returned
+    # after that was taken for new: screened and paid for again at the model
+    # although its verdict was on disk, and filed as seen for the first time.
+    seen = {(r["provider"], r["provider_job_id"]) for r in conn.execute(
+        "SELECT provider, provider_job_id FROM seen_jobs "
+        "UNION SELECT provider, provider_job_id FROM jobs")}
 
     gates: list[Gate] = [
         permanent_reject_gate(rejected_keys(conn)),

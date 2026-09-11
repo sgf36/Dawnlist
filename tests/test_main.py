@@ -214,6 +214,28 @@ def test_the_morning_run_uses_the_transport_that_reports_stop_reasons(
     assert [v.bucket for v in outcome.assessment.verdicts] == ["strong"]
 
 
+def test_a_stored_posting_is_not_judged_again_after_the_seen_window(conn):
+    """Exact duplicates were checked only against `seen_jobs`, which rolls off
+    after 45 days. A posting the feed still returned after that was taken for
+    new: counted as new in the funnel, run through the gates and the screen
+    again, and filed as seen for the first time. Only its stored verdict kept
+    the model from being paid to read it twice."""
+    seed(conn)
+    morning_run(conn, provider=Stub(ok([job("a")])), send=strong_send)
+    conn.execute("UPDATE seen_jobs SET seen_at = '2020-01-01T00:00:00+00:00'")
+    conn.commit()
+    assert db.prune_seen(conn) == 1, "positive control: the window has gone"
+
+    outcome = morning_run(conn, provider=Stub(ok([job("a"), job("b")])),
+                          send=strong_send)
+    funnel = outcome.funnel()
+    assert funnel["swept"] == 2
+    assert funnel["deduped"] == 1, "the stored posting is an exact duplicate"
+    assert funnel["screened_likely"] == 1, "only the new one is screened"
+    assert [v.job.provider_job_id for v in outcome.assessment.verdicts] == ["b"], (
+        "positive control: the new posting is still read")
+
+
 def test_a_seen_posting_is_deduped_on_the_next_run(conn):
     """The short-term layer: seen_jobs stops a recurring alert re-listing."""
     seed(conn)
@@ -243,7 +265,11 @@ def test_a_rejection_still_gates_after_the_seen_window_expires(conn):
     assert db.prune_seen(conn) == 1
 
     outcome = morning_run(conn, provider=Stub(ok([job("a")])), send=strong_send)
-    assert outcome.funnel()["gated_out"] == 1
+    # Caught one step earlier than it used to be: a posting already stored is
+    # an exact duplicate however long ago it was last seen, so it never
+    # reaches the permanent-reject gate at all. That gate is still tested
+    # directly in test_pipeline.py. What this test is for stands unchanged.
+    assert outcome.funnel()["deduped"] == 0 and outcome.funnel()["gated_out"] == 0
     assert outcome.funnel()["assessed"] == 0, (
         "a rejection is a posting never assessed again")
 
@@ -472,6 +498,32 @@ def test_only_the_feeds_own_numeric_ids_are_excluded():
     # Positive control and the fix in one: the feed's id survives, nothing
     # else does.
     assert q.exclude_job_ids == ("4711",)
+
+
+def test_rejected_feed_ids_are_the_last_to_fall_off_the_exclusion_list():
+    """The list keeps only the newest ids, so a rejected posting older than
+    that was bought again every time the feed returned it — the one posting
+    the user has said they will never want."""
+    from app.core import db
+    from app.main import RECENT_HELD_IDS, load_queries
+
+    conn = db.connect(":memory:")
+    db.migrate(conn)
+    conn.execute(
+        "INSERT INTO queries(label, params_json, enabled, created_at) "
+        "VALUES('q','{\"countries\":[\"GB\"]}',1,datetime('now'))")
+    conn.executemany(
+        "INSERT INTO jobs(provider, provider_job_id, title, company) "
+        "VALUES('theirstack', ?, 't', 'c')",
+        [(str(10_000 + i),) for i in range(RECENT_HELD_IDS + 5)])
+    conn.execute("INSERT INTO decisions(job_id, kind, decided_at) "
+                 "SELECT id, 'reject', 'x' FROM jobs WHERE provider_job_id='10000'")
+    conn.commit()
+
+    held = load_queries(conn)[0].exclude_job_ids
+    assert len(held) == RECENT_HELD_IDS
+    assert "10000" in held, "the oldest id, rejected, is still excluded"
+    assert "10001" not in held, "positive control: the oldest undecided id is not"
 
 
 def test_the_exclusion_list_is_bounded(tmp_path):
