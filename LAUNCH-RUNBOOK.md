@@ -644,6 +644,15 @@ fails a catalogue that is behind, and a half-translated file looks finished.
    because editing a version in review pulls it from the queue.
 4. **The app half of "purchasing is not open yet"**, in the exact words you
    settle, identical to the Store listing's.
+5. **Terms acceptance in the application, before first use, in every edition.**
+   The data licence's §4.11 needs every subscriber bound by written terms, and
+   neither store checkout shows Dawnlist's. The step links the terms and cannot
+   be skipped; it records the terms' "Last updated" date and the acceptance
+   time, and asks again when that date changes, as terms §12 promises. Its
+   strings need all fifty locales, so it ships in this pass and never in English
+   alone. Agreed with the site session on 2026-09-11; chosen over Apple's custom
+   EULA because Apple's minimum EULA terms require a telephone number, and
+   because editing the Mac submission would pull it from review.
 
 ---
 

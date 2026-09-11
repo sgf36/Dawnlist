@@ -516,9 +516,14 @@ RULE_TIERS = (
 
 #: Where the end-user terms live. They must be PUBLISHED and ACCEPTED, not
 #: merely linked: the data licence requires every downstream recipient to be
-#: "bound by written terms", and a page nobody agreed to binds nobody. This
-#: link is the app's part of that, not the whole of it — acceptance happens at
-#: purchase.
+#: "bound by written terms", and a page nobody agreed to binds nobody.
+#:
+#: ACCEPTANCE IS NOT BUILT YET, ON ANY ROUTE. This comment used to say that
+#: acceptance "happens at purchase". It never did: Apple's and Microsoft's
+#: checkouts never show these terms, and no Paddle checkout exists. The fix is
+#: an acceptance step in the application before first use, in every edition,
+#: recording the terms' date — listed in LAUNCH-RUNBOOK.md. Until that ships,
+#: this link makes the terms findable, which is not the same as agreed.
 TERMS_URL = "https://dawnlist.spencerfields.com/terms.html"
 
 #: Where a person reports what the model wrote. Microsoft Store Policy 11.16
@@ -555,10 +560,11 @@ class DataTermsPanel(QWidget):
 
     FLOW-THROUGH. Their §4.11 requires every downstream recipient — which is
     every subscriber — to be bound by written terms at least as restrictive as
-    their own §4. A link is not binding on its own; acceptance at purchase is
-    what binds. This panel exists so the terms are FINDABLE afterwards by
-    someone who has already agreed to them, which is the part a purchase flow
-    cannot do.
+    their own §4. A link is not binding on its own. Because no store checkout
+    shows these terms, acceptance has to be recorded in the application before
+    first use — a step that is not built yet (LAUNCH-RUNBOOK.md, "Waiting on a
+    working Anthropic key"). This panel exists so the terms stay FINDABLE
+    afterwards by someone who has agreed to them.
     """
 
     def __init__(self, parent=None):
