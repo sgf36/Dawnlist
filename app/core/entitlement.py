@@ -14,9 +14,9 @@ that stood here until that date.
   MAC APP STORE SELLS THE SUBSCRIPTION ITSELF, AND THERE IS NO MAC DIRECT
   DOWNLOAD.
   Apple's guideline 3.1.1 forbids licence keys outright, so a MAS build must
-  never accept one. Entitlement comes from the App Store receipt, exchanged
-  for a session token by the Worker in `build_provider` — see
-  `app/core/mac_receipt.py` for why that is the right side of 3.1.1.
+  never accept one. Entitlement comes from the StoreKit transaction, which
+  the Worker confirms with Apple and exchanges for a licence the user never
+  sees or types — so it originates with Apple throughout.
 
 WHAT CHANGED, AND WHY IT MATTERS
 --------------------------------
@@ -432,48 +432,188 @@ def _forget_verification(conn: sqlite3.Connection | None) -> None:
         pass
 
 
-def exchange_mac_receipt(receipt: bytes, *, base: str | None = None,
-                         opener=None) -> str | None:
-    """Trade a Mac App Store receipt for a licence the Worker will honour.
+# ---------------------------------------------------------------------------
+# The Mac App Store subscription
+# ---------------------------------------------------------------------------
 
-    Returns the licence key, or None when Apple does not recognise an active
-    subscription — which is a legitimate answer (lapsed, refunded, or a
-    sandbox receipt against production) and not an error to hide.
+#: Where a Mac build keeps what the Worker last said about the subscription:
+#: in the credential store beside the licence slot, because the licence it
+#: holds is a bearer credential for the feed.
+APPLE_ACCOUNT = "apple"
 
-    THE RECEIPT IS SENT AS OPAQUE BYTES. The app forms no view about what is
-    inside it; the Worker validates against Apple and decides. A client-side
-    check is one a determined user patches out, and one that is subtly wrong
-    fails open while looking fine.
+#: How long one exchange stands in for another. Long enough to cover the door
+#: into a run and the feed built straight after it; far shorter than anything
+#: that could outlive a refund.
+APPLE_FRESH = timedelta(minutes=10)
 
-    The licence this returns is NOT a key the user could have typed. It is a
-    session token derived from an Apple-issued receipt, and a MAS build has no
-    route to obtain one any other way — which is what keeps this the right side
-    of guideline 3.1.1.
+#: The Worker's words for APPLE having refused. Everything else — the Worker's
+#: own misconfiguration, Apple being down, a Cloudflare block — means the
+#: subscription could not be asked about, which is what grace absorbs.
+APPLE_REFUSALS = frozenset({"not_subscribed", "unknown_transaction",
+                            "wrong_bundle", "wrong_product"})
 
-    `opener` exists so this can be TESTED. It is the whole Mac purchase path
-    on the client side and nothing had ever executed a line of it: there was
-    no seam to inject, so the suite could not reach it and `audit_seams.py`
-    reported it as a network path no test names. Every other Worker call in
-    this module already takes one; this was the omission, and it was the one
-    function where the first real execution would be a customer paying money.
+
+@dataclass(frozen=True)
+class AppleExchange:
+    """What `/v1/apple` said: `licence`, `refused` or `unreachable`, or
+    `none` when there was nothing to ask with."""
+
+    outcome: str
+    licence_key: str | None = None
+    expires_at: str | None = None
+    status: str = ""
+    error: str = ""
+    original_transaction_id: str | None = None
+    #: False when the answer could not be written to the credential store.
+    saved: bool = True
+
+
+def exchange_apple(*, original_transaction_id: str | None = None,
+                   receipt: bytes | None = None, base: str | None = None,
+                   opener=None) -> AppleExchange:
+    """Ask the Worker whether Apple holds an active subscription.
+
+    THE TRANSACTION ID IS THE CONTRACT. It comes from StoreKit and the Worker
+    looks it up with the App Store Server API. The client used to post the
+    receipt to this route, which did not exist, and read the 404 as "not
+    subscribed". A receipt is still accepted, for one case: a customer who
+    subscribed through a build that never kept the id.
+
+    Three outcomes, never two. A refusal is Apple's; anything else is a fact
+    about the network or the Worker, and must not tell a subscriber they have
+    not paid.
+
+    The licence this returns is NOT a key the user could have typed, which is
+    what keeps it the right side of guideline 3.1.1.
     """
     import base64
     import json
     import urllib.error
     import urllib.request
 
-    url = (base or WORKER_BASE).rstrip("/") + "/v1/apple"
-    body = json.dumps({"receipt": base64.b64encode(receipt).decode()}).encode()
     from app.core.http import build_request
 
-    req = build_request(url, data=body, method="POST",
-                        headers={"Content-Type": "application/json"})
+    if original_transaction_id:
+        payload = {"originalTransactionId": str(original_transaction_id)}
+    else:
+        payload = {"receipt": base64.b64encode(receipt or b"").decode()}
+    request = build_request((base or WORKER_BASE).rstrip("/") + "/v1/apple",
+                            data=json.dumps(payload).encode(), method="POST",
+                            headers={"Content-Type": "application/json"})
     try:
-        with (opener or urllib.request.urlopen)(req, timeout=30) as r:
-            payload = json.loads(r.read().decode())
+        with (opener or urllib.request.urlopen)(request, timeout=30) as response:
+            body = json.loads(response.read().decode())
+    except urllib.error.HTTPError as exc:
+        body = _json_body(exc)
+        if exc.code == 403 and body.get("error") in APPLE_REFUSALS:
+            return AppleExchange(
+                "refused", status=str(body.get("status") or ""),
+                error=str(body["error"]), expires_at=body.get("expires_at"),
+                original_transaction_id=body.get("original_transaction_id"))
+        return AppleExchange("unreachable",
+                             error=str(body.get("error") or f"http_{exc.code}"))
     except Exception:  # noqa: BLE001 - an outage is not a refusal
-        return None
-    return payload.get("licence_key") or None
+        return AppleExchange("unreachable")
+
+    if not isinstance(body, dict) or not body.get("licence_key"):
+        return AppleExchange("unreachable", error="no_licence_in_reply")
+    return AppleExchange(
+        "licence", licence_key=body["licence_key"],
+        expires_at=body.get("expires_at"), status=str(body.get("status") or ""),
+        original_transaction_id=body.get("original_transaction_id"))
+
+
+def apple_cache() -> dict:
+    """What was last learned about the subscription. Raises `KeyringUnavailable`."""
+    import json
+
+    from app.core import credentials
+
+    raw = credentials.read(LICENCE_SERVICE, APPLE_ACCOUNT)
+    try:
+        loaded = json.loads(raw) if raw else {}
+    except ValueError:
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
+def write_apple_cache(cache: dict) -> None:
+    import json
+
+    from app.core import credentials
+
+    credentials.write(LICENCE_SERVICE, APPLE_ACCOUNT,
+                      json.dumps(cache, sort_keys=True))
+
+
+def _save_apple_cache(cache: dict) -> bool:
+    try:
+        write_apple_cache(cache)
+    except KeyringUnavailable:
+        return False
+    return True
+
+
+def exchange_and_cache(original_transaction_id: str | None = None, *,
+                       opener=None, now: datetime | None = None) -> AppleExchange:
+    """Exchange, and remember what came back.
+
+    THE ID IS WRITTEN BEFORE ASKING. StoreKit hands it over only while it is
+    delivering a transaction, so a purchase made during an outage has to be
+    exchangeable tomorrow from what was kept today.
+
+    A REFUSAL DROPS THE LICENCE and keeps the id, so a lapsed subscription is
+    never run on from the cache, and a renewal can still be asked about.
+    """
+    from dataclasses import replace
+
+    now = now or _now()
+    try:
+        cache, saved = apple_cache(), True
+    except KeyringUnavailable:
+        cache, saved = {}, False
+    before = dict(cache)
+
+    oid = original_transaction_id or cache.get("original_transaction_id")
+    if oid and cache.get("original_transaction_id") != str(oid):
+        # A different purchase — another Apple ID on this Mac — and the old
+        # licence is no evidence about it.
+        cache = {"original_transaction_id": str(oid)}
+        saved = _save_apple_cache(cache) and saved
+        before = dict(cache)
+
+    if oid:
+        result = exchange_apple(original_transaction_id=oid, opener=opener)
+    else:
+        from app.core.mac_receipt import read_receipt
+
+        receipt = read_receipt()
+        if receipt is None:
+            return AppleExchange("none", saved=saved)
+        result = exchange_apple(receipt=receipt, opener=opener)
+
+    if result.original_transaction_id:
+        cache["original_transaction_id"] = str(result.original_transaction_id)
+    if result.outcome == "licence":
+        cache.update(licence_key=result.licence_key,
+                     expires_at=result.expires_at,
+                     checked_at=now.isoformat(timespec="seconds"))
+    elif result.outcome == "refused":
+        for field in ("licence_key", "expires_at", "checked_at"):
+            cache.pop(field, None)
+    if cache != before:
+        saved = _save_apple_cache(cache) and saved
+    return replace(result, saved=saved)
+
+
+def fresh_apple_licence(cache: dict, now: datetime | None = None) -> str | None:
+    """The cached licence, if Apple confirmed it within `APPLE_FRESH`."""
+    now = now or _now()
+    checked = _parse(cache.get("checked_at"))
+    key = cache.get("licence_key")
+    if key and checked and timedelta(0) <= now - checked < APPLE_FRESH:
+        return key
+    return None
 
 
 def redeem_override_code(code: str, *, opener=None) -> str:

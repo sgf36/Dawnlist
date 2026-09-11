@@ -80,6 +80,13 @@ def _variant_is_not_ambient(monkeypatch):
     # gate to the developer's real Credential Manager.
     monkeypatch.setattr("app.core.entitlement.read_licence",
                         lambda: "DAWN-TEST-LICENCE", raising=False)
+    # The Mac subscription cache lives in the credential store too. Empty and
+    # unwritable-by-accident here, so a test that reaches a `mas` path never
+    # reads or overwrites the developer's own entry.
+    monkeypatch.setattr("app.core.entitlement.apple_cache", lambda: {},
+                        raising=False)
+    monkeypatch.setattr("app.core.entitlement.write_apple_cache",
+                        lambda cache: None, raising=False)
     monkeypatch.setattr("app.core.entitlement.verify_against_worker",
                         lambda _key: True, raising=False)
 

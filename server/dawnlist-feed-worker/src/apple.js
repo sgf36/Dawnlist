@@ -204,7 +204,8 @@ async function settle(env, { originalTransactionId, entitled, status, expiresAt,
         'UPDATE licences SET status = ?1, expires_at = ?2 WHERE licence_key = ?3'
       ).bind(LICENCE_STATUS[status] || 'expired', expiresAt, mapped.licence_key).run();
     }
-    return json({ error: 'not_subscribed', status, expires_at: expiresAt }, 403);
+    return json({ error: 'not_subscribed', status, expires_at: expiresAt,
+                  original_transaction_id: id }, 403);
   }
 
   await env.DB.prepare(
@@ -234,7 +235,10 @@ async function settle(env, { originalTransactionId, entitled, status, expiresAt,
   ).bind(licenceKey, caps.plan, caps.max_postings_per_day,
          caps.max_refreshes_per_day, caps.max_saved_queries, expiresAt).run();
 
-  return json({ ok: true, licence_key: licenceKey, expires_at: expiresAt, status });
+  // The id goes back so a build that asked with a receipt can ask with the
+  // id from then on, and stop depending on the deprecated receipt endpoint.
+  return json({ ok: true, licence_key: licenceKey, expires_at: expiresAt, status,
+                original_transaction_id: id });
 }
 
 // ---------------------------------------------------------------------------

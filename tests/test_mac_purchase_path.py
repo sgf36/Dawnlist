@@ -176,14 +176,17 @@ def _opener(payload, capture=None):
     return open_it
 
 
+# The receipt is now the FALLBACK shape: sent only when no transaction id was
+# ever kept, for a customer who subscribed through the build in review. The
+# transaction-id contract is pinned in tests/test_mac_entitlement.py.
+
 def test_a_valid_receipt_becomes_a_licence():
-    from app.core.entitlement import exchange_mac_receipt
+    from app.core.entitlement import exchange_apple
 
     seen = []
-    got = exchange_mac_receipt(b"receipt-bytes",
-                               opener=_opener({"licence_key": "DAWN-MAC"},
-                                              seen))
-    assert got == "DAWN-MAC"
+    got = exchange_apple(receipt=b"receipt-bytes",
+                         opener=_opener({"licence_key": "DAWN-MAC"}, seen))
+    assert got.outcome == "licence" and got.licence_key == "DAWN-MAC"
     sent = json.loads(seen[0].data.decode())
     assert base64.b64decode(sent["receipt"]) == b"receipt-bytes", (
         "the receipt goes as opaque bytes — the app forms no view of what is "
@@ -194,29 +197,37 @@ def test_the_receipt_request_identifies_the_client():
     """The same Cloudflare 1010 that refused every other Worker call. This one
     is the Mac purchase path, so a 403 here means a paid subscription that
     reaches no feed."""
-    from app.core.entitlement import exchange_mac_receipt
+    from app.core.entitlement import exchange_apple
     from app.core.http import USER_AGENT
 
     seen = []
-    exchange_mac_receipt(b"x", opener=_opener({"licence_key": "k"}, seen))
+    exchange_apple(receipt=b"x", opener=_opener({"licence_key": "k"}, seen))
     assert seen[0].get_header("User-agent") == USER_AGENT
 
 
 def test_no_active_subscription_is_an_answer_not_an_error():
     """Lapsed, refunded, or a sandbox receipt against production. All
-    legitimate, none of them a failure to hide."""
-    from app.core.entitlement import exchange_mac_receipt
+    legitimate, none of them a failure to hide — and since the route exists,
+    Apple's answer arrives as the Worker's refusal, not as an empty reply."""
+    from app.core.entitlement import exchange_apple
 
-    assert exchange_mac_receipt(b"x", opener=_opener({})) is None
+    def refused(request, timeout=None):
+        raise urllib.error.HTTPError(
+            request.full_url, 403, "no", {},
+            io.BytesIO(json.dumps({"error": "not_subscribed",
+                                   "status": "expired"}).encode()))
+
+    got = exchange_apple(receipt=b"x", opener=refused)
+    assert got.outcome == "refused" and got.status == "expired"
 
 
 def test_an_outage_is_not_a_refusal():
-    from app.core.entitlement import exchange_mac_receipt
+    from app.core.entitlement import exchange_apple
 
     def boom(_request, timeout=None):
         raise urllib.error.URLError("no network")
 
-    assert exchange_mac_receipt(b"x", opener=boom) is None
+    assert exchange_apple(receipt=b"x", opener=boom).outcome == "unreachable"
 
 
 # -- the purchase screen must never become a dead end -----------------------

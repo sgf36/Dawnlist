@@ -193,45 +193,65 @@ def test_a_mac_app_store_build_ignores_a_stored_licence(no_keyring, monkeypatch)
     That is not a hypothetical. It is what happens to the people most likely to
     buy from the store — the ones who tried the direct build first.
     """
+    from app.core.entitlement import AppleExchange
+
     monkeypatch.setattr("app.core.build_variant.variant", lambda: "mas")
     monkeypatch.setattr("app.core.entitlement.stored_licence",
                         lambda: "DAWN-BOUGHT-ELSEWHERE")
-    monkeypatch.setattr("app.core.mac_receipt.read_receipt", lambda: None)
+    monkeypatch.setattr("app.core.entitlement.licence_details",
+                        lambda key, **kw: {"ok": True, "purchased": True})
+    monkeypatch.setattr("app.core.entitlement.exchange_and_cache",
+                        lambda *a, **k: AppleExchange("none"))
     # Refuses outright. It must NOT fall through to the stored key.
     with pytest.raises(NotConfigured) as e:
         build_provider(conn=None)
-    assert "receipt" in str(e.value).lower()
+    assert "subscription" in str(e.value).lower()
 
 
-def test_a_mac_build_uses_the_receipt_and_never_the_stored_key(monkeypatch, no_keyring):
-    """Even with BOTH present, the Apple receipt is the only route taken."""
+def test_a_mac_build_uses_apple_and_never_the_stored_key(monkeypatch, no_keyring):
+    """Even with BOTH present, Apple's confirmation is the only route taken.
+
+    This exchanged a receipt until the route it posted to turned out not to
+    exist; the contract is now the StoreKit transaction id the Worker confirms
+    with Apple, so that is what the fake exchange records."""
+    from app.core.entitlement import AppleExchange
+
     monkeypatch.setattr("app.core.build_variant.variant", lambda: "mas")
     monkeypatch.setattr("app.core.entitlement.stored_licence",
                         lambda: "DAWN-BOUGHT-ELSEWHERE")
-    monkeypatch.setattr("app.core.mac_receipt.read_receipt", lambda: b"opaque")
+    monkeypatch.setattr("app.core.entitlement.licence_details",
+                        lambda key, **kw: {"ok": True, "purchased": True})
+    monkeypatch.setattr("app.core.entitlement.apple_cache",
+                        lambda: {"original_transaction_id": "2000000111"})
     seen = {}
 
-    def fake_exchange(receipt, **kw):
-        seen["receipt"] = receipt
-        return "DAWN-FROM-APPLE"
+    def fake_exchange(original_transaction_id=None, **kw):
+        seen["id"] = original_transaction_id
+        return AppleExchange("licence", licence_key="DAWN-FROM-APPLE")
 
-    monkeypatch.setattr("app.core.entitlement.exchange_mac_receipt", fake_exchange)
+    monkeypatch.setattr("app.core.entitlement.exchange_and_cache", fake_exchange)
     prov = build_provider(conn=None)
     assert prov.name == "managed"
-    assert seen["receipt"] == b"opaque"
+    assert seen["id"] == "2000000111"
     # The licence in play came from Apple, not from the credential store.
     assert prov._licence == "DAWN-FROM-APPLE"
 
 
 def test_a_lapsed_mac_subscription_is_refused_not_guessed(monkeypatch, no_keyring):
-    """Apple declining is a legitimate answer — lapsed, refunded, or a sandbox
-    receipt against production — and must not fall back to anything."""
+    """Apple declining is a legitimate answer — lapsed, refunded, or revoked —
+    and must not fall back to anything."""
+    from app.core.entitlement import AppleExchange
+
     monkeypatch.setattr("app.core.build_variant.variant", lambda: "mas")
     monkeypatch.setattr("app.core.entitlement.stored_licence",
                         lambda: "DAWN-BOUGHT-ELSEWHERE")
-    monkeypatch.setattr("app.core.mac_receipt.read_receipt", lambda: b"opaque")
-    monkeypatch.setattr("app.core.entitlement.exchange_mac_receipt",
-                        lambda r, **kw: None)
+    monkeypatch.setattr("app.core.entitlement.licence_details",
+                        lambda key, **kw: {"ok": True, "purchased": True})
+    monkeypatch.setattr("app.core.entitlement.apple_cache",
+                        lambda: {"original_transaction_id": "2000000111"})
+    monkeypatch.setattr("app.core.entitlement.exchange_and_cache",
+                        lambda *a, **k: AppleExchange("refused",
+                                                      error="not_subscribed"))
     with pytest.raises(NotConfigured) as e:
         build_provider(conn=None)
     assert "subscription" in str(e.value).lower()

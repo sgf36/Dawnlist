@@ -727,10 +727,10 @@ def build_provider(conn):
     # Windows is different and deliberately not covered here: Microsoft permits
     # third-party commerce, subject to declaring it in Partner Center.
     if build == "mas":
-        # The ONLY entitlement route Apple permits here. The receipt is written
-        # into the bundle by the App Store, is never seen or typed by the user,
-        # and cannot be obtained any other way — so the entitlement originates
-        # with Apple throughout, which is what a stored key would not.
+        # The ONLY purchase route Apple permits here. The transaction id comes
+        # from StoreKit and the Worker confirms it with Apple, so the
+        # entitlement originates with Apple throughout, which is what a stored
+        # key would not.
         #
         # A stored licence is deliberately NOT consulted, even if one exists:
         # the keyring is per user, so somebody who ran the direct build first
@@ -751,8 +751,10 @@ def build_provider(conn):
         # licence in the keyring is still refused here, which is the case the
         # guard above was written for: whoever ran the direct build first still
         # has one.
-        from app.core.entitlement import exchange_mac_receipt, licence_details
-        from app.core.mac_receipt import read_receipt
+        from app.core.credentials import KeyringUnavailable
+        from app.core.entitlement import (apple_cache, exchange_and_cache,
+                                          fresh_apple_licence, licence_details)
+        from app.i18n import tr
 
         granted = stored_licence()
         if granted:
@@ -766,21 +768,33 @@ def build_provider(conn):
                 from app.feed.managed import ManagedProvider
                 return ManagedProvider(granted)
 
-        receipt = read_receipt()
-        if receipt is None:
-            raise NotConfigured(
-                "This copy has no App Store receipt yet, so there is no job "
-                "feed to read. Your board, your brief and everything already "
-                "on this machine stay open.")
-        mac_licence = exchange_mac_receipt(receipt)
-        if not mac_licence:
-            raise NotConfigured(
-                "The App Store could not confirm an active subscription, so "
-                "there is no job feed to read. If you have just subscribed it "
-                "can take a moment. Everything already on this machine stays "
-                "open.")
         from app.feed.managed import ManagedProvider
-        return ManagedProvider(mac_licence)
+
+        try:
+            cache = apple_cache()
+        except KeyringUnavailable:
+            raise NotConfigured(tr("entitlement.keyring_unavailable")) from None
+
+        fresh = fresh_apple_licence(cache)
+        if fresh:
+            # `check()` confirmed it with Apple minutes ago, at the door into
+            # this same run. Asking again doubles every Mac run's calls to
+            # Apple and learns nothing new.
+            return ManagedProvider(fresh)
+
+        result = exchange_and_cache(cache.get("original_transaction_id"))
+        if result.outcome == "licence":
+            return ManagedProvider(result.licence_key)
+        if result.outcome == "refused":
+            raise NotConfigured(tr("entitlement.mac_lapsed"))
+        if result.outcome == "none":
+            raise NotConfigured(tr("entitlement.mac_not_subscribed"))
+        if cache.get("licence_key"):
+            # Apple, or the Worker, could not be asked. The licence issued last
+            # time is still the Worker's to honour or refuse at the feed, so
+            # nothing is granted here that the server has not granted.
+            return ManagedProvider(cache["licence_key"])
+        raise NotConfigured(tr("entitlement.mac_unreachable"))
 
     licence = stored_licence()
     if licence:

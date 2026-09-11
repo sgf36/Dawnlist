@@ -351,6 +351,8 @@ await test('an active receipt becomes a licence, in the reply shape the old bina
   assert.match(body.licence_key, /^DAWN-/, 'the binary in review reads only licence_key');
   assert.strictEqual(body.status, 'active');
   assert.ok(body.expires_at);
+  assert.strictEqual(body.original_transaction_id, '2000000111',
+    'a new build that asked with a receipt learns the id to ask with next time');
   assert.strictEqual(db.apple.get('2000000111').licence_key, body.licence_key);
 
   assert.ok(IS_PROD_RECEIPT(calls[0].url));
