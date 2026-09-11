@@ -543,34 +543,43 @@ exist. The reasoning is in `store/microsoft-store-listing.md`.
 
 ## Step 6a — Getting the artefacts to the website
 
-The repository is **private**, so GitHub release assets are not publicly
-downloadable and the website session cannot fetch them. Making a public mirror
-repository just to host two files is a moving part nobody needs.
+**Corrected 2026-09-11.** This step used to say the repository was private, that
+fetching needed your GitHub login, and that four files ship — a Windows ZIP and
+a macOS disk image, both 1.0.0, under `/download/`. All four were wrong by the
+time anyone needed them: `gh repo view` reads `visibility: PUBLIC`, the signed
+1.1.0 ZIP was fetched without your login, and macOS is Mac App Store only by
+your decision of 2026-09-08, so no `.dmg` is ever published.
 
-So the files travel by hand, once per release:
+Artefacts come from a **push to `master`** and never from a pull request —
+signing is bound to the default branch, so a PR build is green and unsigned:
 
 ```bash
-gh run download <run-id> -R sgf36/Dawnlist -D dist-release
+gh run download <master-run-id> -R sgf36/Dawnlist -n dawnlist-windows-latest-direct -D dist-release
 ```
 
-That needs your GitHub login, which is why it is here rather than automated.
-It writes three directories; the four files the site needs are:
+Two files, and only two:
 
-| From | Publish as |
+| From | Publish |
 |---|---|
-| `dawnlist-windows-latest-direct/Dawnlist-windows-1.0.0.zip` | `/download/Dawnlist-windows-1.0.0.zip` |
-| `dawnlist-windows-latest-direct/Dawnlist-windows-1.0.0.zip.sha256` | beside it |
-| `dawnlist-macos-latest-direct/Dawnlist-1.0.0.dmg` | `/download/Dawnlist-1.0.0.dmg` |
-| `dawnlist-macos-latest-direct/Dawnlist-1.0.0.dmg.sha256` | beside it |
+| `Dawnlist-windows-<version>.zip` | under the site's download folder |
+| `Dawnlist-windows-<version>.zip.sha256` | beside it |
 
-**If any filename begins `UNSIGNED-DO-NOT-PUBLISH-`, stop.** It means signing
-did not run, and the file must not reach the site. There will be no checksum
-beside it either — that is deliberate, not an omission.
+The folder name is **not settled as at 2026-09-11** — the held page links
+`/download/`, the agreed layout said `/downloads/`, and neither exists on the
+host. Whatever the site settles, the page link and the `url` in
+`/updates/windows.json` must name the same path.
 
-Before uploading, confirm Bluehost will serve files of this size: the ZIP is
-about 70 MB and the disk image larger. Test with the real file rather than a
-placeholder — the deploy tooling on that host has failure modes that report
-success.
+**Before handing any filename over, observe three things on the file itself,
+not the CI tick:** `Get-AuthenticodeSignature` reads `Valid`; a SHA-256 you
+compute matches the `.sha256`; and `_internal/app/resources/` holds
+`license_required.flag` with NO `store_build.flag` and NO `mas_build.flag`.
+
+**If any filename begins `UNSIGNED-DO-NOT-PUBLISH-`, stop.** Signing did not
+run. There is no checksum beside it, deliberately.
+
+`/updates/windows.json` names the version actually hosted and nothing higher.
+A manifest ahead of the hosted build sends every direct-download user to a 404,
+silently, because the update check is quiet on failure by design.
 
 ---
 
@@ -590,6 +599,18 @@ The application links to `https://dawnlist.spencerfields.com/terms.html` from
 Settings on every build, in all fifty languages, and the URL is compiled in. If
 it has to move, that is a code change and it has to happen before release.
 
+**A MAC APP STORE SUBSCRIBER IS NOT BOUND BY THESE TERMS, AS IT STANDS
+(found 2026-09-11).** The Mac listing's description cites Apple's *standard*
+EULA (`apple.com/legal/internet-services/itunes/dev/stdeula/`), and a
+subscriber on the Mac is bound by that and nothing else — a Settings link to
+`terms.html` is not acceptance. Against the clause above, that is a subscriber
+the data licence says must be bound and is not. The Mac version is
+`WAITING_FOR_REVIEW`, so approval can create such subscribers without anyone
+acting. **Your decision, and it wants making before approval rather than
+after.** The usual route is a custom licence agreement in App Store Connect
+carrying the section 4 restrictions. Resolved only when the Mac app's licence
+agreement in App Store Connect can be read and shows them.
+
 ---
 
 ## Step 8 — After submission
@@ -608,6 +629,36 @@ it has to move, that is a code change and it has to happen before release.
 - **Do not name the data provider publicly.** Still holds. It was tied to the
   ticket; it now stands on its own, because naming them invites the question
   the terms leave open.
+
+---
+
+## Waiting on a working Anthropic key
+
+**The key in this machine's Credential Manager (`dawnlist-anthropic`) is
+rejected: 401 "API key is invalid", well-formed, so rotated or revoked since
+2026-09-10 morning.** Enter a working one in Dawnlist's Settings — the
+sessions will not store a credential for you. Resolved when a one-token call on
+the stored key returns text rather than 401.
+
+Everything below is blocked on it, and goes in ONE pass, because each is
+fifty languages and a partial pass is worse than none — `tests/test_i18n.py`
+fails a catalogue that is behind, and a half-translated file looks finished.
+
+1. **Licence email, `to_use_body`.** It told buyers a key works "on both the
+   Windows and macOS editions"; a Mac App Store build carries no licence field.
+   English is corrected in `tools/gen_email_strings.py`; then
+   `python tools/gen_email_strings.py --keys to_use_body`.
+2. **Nine entitlement refusals** in `app/core/entitlement.py` are raw English
+   shown under a translated title (`app/main.py`). Move them into the catalogue
+   and translate all fifty in the same commit.
+3. **Anthropic cost in both store listings.** The measured figure is "usually a
+   pound or two a month". The Microsoft listing contradicts itself — "typically
+   a few pounds" before-you-buy, "a pound or two" further down — and is live in
+   47 languages, so this is a new Partner Center submission. The Mac listing says
+   "typically a few pounds"; change it only once Apple's review has finished,
+   because editing a version in review pulls it from the queue.
+4. **The app half of "purchasing is not open yet"**, in the exact words you
+   settle, identical to the Store listing's.
 
 ---
 

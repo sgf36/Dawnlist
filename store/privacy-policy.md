@@ -39,11 +39,11 @@ build a profile of you for anyone else's benefit.
 
 ## Who is responsible
 
-Spencer Fields Software, Lytchett House, 13 Freeland Park, Wareham Road, Poole,
-Dorset, BH16 6FA, United Kingdom. Registered with the Information
+Spencer Fields Software, Lytchett House, 13 Freeland Park, Wareham Road,
+Lytchett Matravers, Poole, BH16 6FA, United Kingdom. Registered with the Information
 Commissioner's Office as a data controller.
 
-Contact: **privacy@spencerfields.com**
+Contact: **Apps@spencerfields.com**
 
 ---
 
@@ -150,7 +150,7 @@ Most of this you can do yourself, immediately, from inside the app, because
 almost everything is on your own machine.
 
 For what our servers hold — your licence and usage counts — write to
-**privacy@spencerfields.com**. We will respond within one month.
+**Apps@spencerfields.com**. We will respond within one month.
 
 You may complain to the Information Commissioner's Office at ico.org.uk.
 
