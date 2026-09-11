@@ -146,7 +146,7 @@ def test_an_unread_posting_makes_the_run_incomplete(conn):
     provider = StubProvider({"strategy": ok([job("a"), job("b")])})
 
     def skips_one(_request):
-        return {"verdicts": [{"job_ref": "a", "bucket": "strong", "reason": "x",
+        return {"verdicts": [{"job_ref": "theirstack:a", "bucket": "strong", "reason": "x",
                               "disqualifying_quote": None,
                               "requirement_checked": True}]}
 
@@ -181,7 +181,7 @@ def test_persist_writes_verdicts_and_marks_downgrades(conn):
     provider = StubProvider({"strategy": ok([job("a", desc=desc + " Strategy role.")])})
 
     def hallucinating(_r):
-        return {"verdicts": [{"job_ref": "a", "bucket": "rejected",
+        return {"verdicts": [{"job_ref": "theirstack:a", "bucket": "rejected",
                               "reason": "needs an MBA",
                               "disqualifying_quote": "must hold an MBA",
                               "requirement_checked": True}]}
@@ -422,7 +422,7 @@ def test_a_resumed_run_does_not_pay_the_model_twice(conn):
                 already_judged=judged_refs(conn))
     refs = re.findall(r'ref="([^"]+)"',
                       "".join(r["messages"][0]["content"] for r in sent))
-    assert sorted(refs) == ["s25", "s26", "s27", "s28", "s29"]
+    assert sorted(refs) == [f"theirstack:s{i}" for i in range(25, 30)]
 
 
 def test_a_re_read_that_changes_the_verdict_replaces_the_stored_one(conn):
@@ -490,7 +490,7 @@ def test_only_unjudged_undecided_likely_postings_are_queued_again(conn):
     def judges_one(request):
         payload = strong_send(request)
         payload["verdicts"] = [v for v in payload["verdicts"]
-                               if v["job_ref"] == "judged"]
+                               if v["job_ref"] == "theirstack:judged"]
         return payload
 
     run_morning(conn, StubProvider({"strategy": ok(jobs)}), [Q], RULES,

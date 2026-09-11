@@ -106,7 +106,7 @@ def test_a_rejection_quoting_a_field_line_is_verified_against_the_block():
 
     def rejects(quote):
         def send(request):
-            return {"verdicts": [{"job_ref": "hc", "bucket": "rejected",
+            return {"verdicts": [{"job_ref": "theirstack:hc", "bucket": "rejected",
                                   "reason": "brief: full-time only",
                                   "disqualifying_quote": quote,
                                   "requirement_checked": True}]}
@@ -169,7 +169,7 @@ def test_a_posting_the_model_skipped_is_reported_unread():
     jobs = [job("a"), job("b")]
 
     def partial(_request):
-        return {"verdicts": [{"job_ref": "a", "bucket": "strong", "reason": "fits",
+        return {"verdicts": [{"job_ref": "theirstack:a", "bucket": "strong", "reason": "fits",
                               "disqualifying_quote": None,
                               "requirement_checked": True}]}
 
@@ -184,20 +184,21 @@ def test_resume_skips_already_judged_ids():
 
     def send(request):
         seen.append(request)
-        return {"verdicts": [{"job_ref": "b", "bucket": "strong", "reason": "x",
-                              "disqualifying_quote": None,
+        return {"verdicts": [{"job_ref": "theirstack:b", "bucket": "strong",
+                              "reason": "x", "disqualifying_quote": None,
                               "requirement_checked": True}]}
 
-    report = assess(jobs, "brief", "facts", send=send, already_judged={"a"})
+    report = assess(jobs, "brief", "facts", send=send,
+                    already_judged={"theirstack:a"})
     assert report.complete
-    assert "ref=\"a\"" not in seen[0]["messages"][0]["content"]
+    assert "ref=\"theirstack:a\"" not in seen[0]["messages"][0]["content"]
 
 
 def test_downgrades_are_counted_every_run():
     jobs = [job("a")]
 
     def send(_r):
-        return {"verdicts": [{"job_ref": "a", "bucket": "rejected",
+        return {"verdicts": [{"job_ref": "theirstack:a", "bucket": "rejected",
                               "reason": "invented", "requirement_checked": True,
                               "disqualifying_quote": "must hold an MBA"}]}
 
@@ -239,11 +240,11 @@ def test_batch_results_are_keyed_by_custom_id():
     results = [
         {"custom_id": "b", "result": {"type": "succeeded", "message": {"content": [
             {"type": "text", "text": json.dumps({"verdicts": [
-                {"job_ref": "b", "bucket": "strong", "reason": "fits",
+                {"job_ref": "theirstack:b", "bucket": "strong", "reason": "fits",
                  "disqualifying_quote": None, "requirement_checked": True}]})}]}}},
         {"custom_id": "a", "result": {"type": "succeeded", "message": {"content": [
             {"type": "text", "text": json.dumps({"verdicts": [
-                {"job_ref": "a", "bucket": "possible", "reason": "stretch",
+                {"job_ref": "theirstack:a", "bucket": "possible", "reason": "stretch",
                  "disqualifying_quote": None, "requirement_checked": True}]})}]}}},
     ]
     verdicts, errors = merge_batch_results(results, {"a": a, "b": b})
@@ -287,8 +288,10 @@ LONG = "A" * (FIRST_PASS_CHARS + 100) + " unique-marker-deep-in-the-text " + "B"
 
 
 def _payload(ref, bucket, reason="because"):
-    return {"verdicts": [{"job_ref": ref, "bucket": bucket, "reason": reason,
-                          "requirement_checked": True}]}
+    # The ref the model is shown carries the provider, because provider ids
+    # are only unique within a provider. `_job` always builds a TheirStack one.
+    return {"verdicts": [{"job_ref": f"theirstack:{ref}", "bucket": bucket,
+                          "reason": reason, "requirement_checked": True}]}
 
 
 def test_a_strong_verdict_triggers_a_second_request_with_the_full_text():
@@ -385,7 +388,7 @@ def test_a_possible_formed_on_a_cut_off_read_is_re_read_in_full():
 
     def send(request):
         sent.append(request)
-        return {"verdicts": [{"job_ref": "j1", "bucket": "possible",
+        return {"verdicts": [{"job_ref": "theirstack:j1", "bucket": "possible",
                               "reason": "the rest is cut off",
                               "disqualifying_quote": None,
                               "requirement_checked": False}]}
@@ -399,7 +402,7 @@ def test_a_possible_formed_on_a_cut_off_read_is_re_read_in_full():
     sent.clear()
     assess([_job("j2", AVERAGE)], "brief", "facts",
            send=lambda r: sent.append(r) or {"verdicts": [
-               {"job_ref": "j2", "bucket": "possible", "reason": "stretch",
+               {"job_ref": "theirstack:j2", "bucket": "possible", "reason": "stretch",
                 "disqualifying_quote": None, "requirement_checked": True}]})
     assert len(sent) == 1
 
@@ -458,3 +461,35 @@ def test_a_re_read_that_never_comes_back_is_an_error():
                    send=lambda r: calls.append(r) or _payload("j1", "strong"))
     assert len(calls) == 2
     assert clean.errors == [] and clean.complete
+
+
+def test_two_sources_sharing_an_id_are_never_confused():
+    """Refs were bare provider ids, and ids are only unique within a provider:
+    an alert email's LinkedIn number and a TheirStack id can be the same
+    digits. In one batch the second overwrote the first in the ref map, so one
+    posting took the other's verdict and the other was never judged."""
+    import re
+
+    fed = Job(provider="theirstack", provider_job_id="42", title="General Manager",
+              company="Rosewood", description_text="A hotel role.")
+    alert = Job(provider="alert-email", provider_job_id="42", title="Porter",
+                company="Elsewhere", description_text="A portering role.")
+    buckets = {"theirstack:42": "strong", "alert-email:42": "possible"}
+
+    def send(request):
+        refs = re.findall(r'ref="([^"]+)"', request["messages"][0]["content"])
+        return {"verdicts": [{"job_ref": r, "bucket": buckets[r], "reason": "x",
+                              "disqualifying_quote": None,
+                              "requirement_checked": True} for r in refs]}
+
+    report = assess([fed, alert], "brief", "facts", send=send)
+    assert {v.job.provider: v.bucket for v in report.verdicts} == {
+        "theirstack": "strong", "alert-email": "possible"}
+    assert report.unread == [] and report.errors == []
+
+    # Resuming skips exactly the posting already judged, not both.
+    sent = []
+    assess([fed, alert], "brief", "facts", already_judged={"theirstack:42"},
+           send=lambda r: sent.append(r) or send(r))
+    assert re.findall(r'ref="([^"]+)"', sent[0]["messages"][0]["content"]) \
+        == ["alert-email:42"]

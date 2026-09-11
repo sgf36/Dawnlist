@@ -410,8 +410,8 @@ def judged_refs(conn: sqlite3.Connection) -> set[str]:
     the run that produced them: a run resumed after an interruption skips what
     the interrupted one had already paid the model to read.
     """
-    return {r["provider_job_id"] for r in conn.execute(
-        "SELECT DISTINCT j.provider_job_id FROM assessments a "
+    return {f"{r['provider']}:{r['provider_job_id']}" for r in conn.execute(
+        "SELECT DISTINCT j.provider, j.provider_job_id FROM assessments a "
         "JOIN jobs j ON j.id = a.job_id")}
 
 

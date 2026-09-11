@@ -148,7 +148,7 @@ def test_a_user_goes_from_documents_to_a_draft(conn, tmp_path):
         conn, provider, [SearchQuery(label="strategy", titles=["strategy"])],
         RuleTable(strong_terms=["strategy"]),
         fit_brief=brief, factsheet=FACTSHEET,
-        send=assessor({"m-1": "strong"}),
+        send=assessor({"theirstack:m-1": "strong"}),
         gates=[permanent_reject_gate(rejected_keys(conn))])
 
     assert outcome.complete, outcome.fetch_errors

@@ -67,6 +67,18 @@ def quote_is_verbatim(quote: str, description: str) -> bool:
     return _normalise(quote) in _normalise(description)
 
 
+def job_ref(job: Job) -> str:
+    """The ref a posting is shown to the model under, and matched back by.
+
+    Qualified by provider, because a provider's ids are unique only within
+    that provider. An alert email's LinkedIn number and a TheirStack id can be
+    the same digits, and keyed by the bare id the second posting in a batch
+    replaced the first: one took the other's verdict, and the other was never
+    judged and never reported unread.
+    """
+    return f"{job.provider}:{job.provider_job_id}"
+
+
 def render_job(job: Job, *, full: bool = False) -> str:
     """The posting block exactly as the model is shown it.
 
@@ -78,7 +90,7 @@ def render_job(job: Job, *, full: bool = False) -> str:
     """
     raw = job.raw_criteria or {}
     return render_posting(
-        job.provider_job_id, job.title, job.company, ", ".join(job.locations),
+        job_ref(job), job.title, job.company, ", ".join(job.locations),
         job.description_text, full=full, salary=job.salary,
         employment=", ".join(str(s) for s in raw.get("employment_statuses") or ()),
         posted=job.posted_at.isoformat() if job.posted_at else "",
@@ -276,8 +288,9 @@ def assess(jobs: list[Job], fit_brief: str, factsheet: str, *,
     Anthropic client, the Batch API, or a stub in tests. Nothing here spends
     money by itself.
 
-    `already_judged` carries provider_job_ids already assessed; those are
-    skipped, which is what halves the cost of a bad day (spec 7.7).
+    `already_judged` carries the refs (`job_ref`) of postings already
+    assessed; those are skipped, which is what halves the cost of a bad day
+    (spec 7.7).
 
     `on_batch(verdicts)` is called as each batch's verdicts arrive, and again
     with any verdict the full re-read replaced. The report exists only in
@@ -285,11 +298,11 @@ def assess(jobs: list[Job], fit_brief: str, factsheet: str, *,
     verdict it had already paid for.
     """
     already_judged = already_judged or set()
-    todo = [j for j in jobs if j.provider_job_id not in already_judged]
+    todo = [j for j in jobs if job_ref(j) not in already_judged]
     report = AssessmentReport()
 
     for chunk in batches(todo):
-        by_ref = {j.provider_job_id: j for j in chunk}
+        by_ref = {job_ref(j): j for j in chunk}
         rendered = {ref: render_job(j) for ref, j in by_ref.items()}
         try:
             payload = send(build_request(chunk, fit_brief, factsheet, model=model))
@@ -308,8 +321,8 @@ def assess(jobs: list[Job], fit_brief: str, factsheet: str, *,
         if on_batch and verdicts:
             on_batch(verdicts)
 
-        judged = {v.job.provider_job_id for v in verdicts}
-        missing = [j for j in chunk if j.provider_job_id not in judged]
+        judged = {job_ref(v.job) for v in verdicts}
+        missing = [j for j in chunk if job_ref(j) not in judged]
         report.unread.extend(missing)
 
     _second_pass(report, fit_brief, factsheet, send=send, model=model,
@@ -345,7 +358,7 @@ def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
     if not pending:
         return
 
-    by_ref = {v.job.provider_job_id: v for v in pending}
+    by_ref = {job_ref(v.job): v for v in pending}
 
     for chunk in batches([v.job for v in pending], full=True):
         try:
@@ -358,7 +371,7 @@ def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
                 f"truncated description")
             continue
 
-        chunk_refs = {j.provider_job_id: j for j in chunk}
+        chunk_refs = {job_ref(j): j for j in chunk}
         rereads, errs = parse_verdicts(
             payload, chunk_refs,
             {ref: render_job(j, full=True) for ref, j in chunk_refs.items()})
@@ -367,7 +380,7 @@ def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
         # A re-read that does not come back is not a re-read. The verdict
         # still stands on the cut-off text, and with nothing recorded the run
         # was reported clean while `needs_full_read` stayed true unseen.
-        returned = {v.job.provider_job_id for v in rereads}
+        returned = {job_ref(v.job) for v in rereads}
         for ref in chunk_refs:
             if ref not in returned:
                 report.errors.append(
@@ -376,8 +389,7 @@ def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
 
         replaced: list[Verdict] = []
         for fresh in rereads:
-            ref = fresh.job.provider_job_id
-            original = by_ref.get(ref)
+            original = by_ref.get(job_ref(fresh.job))
             if original is None:
                 continue
             replaced.append(fresh)
@@ -434,7 +446,7 @@ def merge_batch_results(results: Iterable[Any],
             if btype == "text":
                 text += getattr(block, "text", None) or block.get("text", "")
 
-        parsed, errs = parse_verdicts(text, {job.provider_job_id: job})
+        parsed, errs = parse_verdicts(text, {job_ref(job): job})
         verdicts.extend(parsed)
         errors.extend(errs)
     return verdicts, errors
