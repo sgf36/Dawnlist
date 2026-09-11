@@ -45,7 +45,11 @@ DEFAULT_RUN_TIME = time(7, 0)
 
 RUN_TIME_KEY = "run_time"
 KEEP_RUNNING_KEY = "keep_running"
-START_AT_SIGN_IN_KEY = "start_at_sign_in"
+#: There is deliberately no stored flag for starting at sign-in. Windows and
+#: macOS own that state, the user can change it in Task Manager or System
+#: Settings without opening Dawnlist, and a copy kept here would be wrong from
+#: the moment they did — see `app.core.sign_in.is_enabled`.
+#:
 #: Set once the "still running in the background" notice has been shown. Said
 #: once, because a notice repeated on every close is one people learn to
 #: dismiss unread.
