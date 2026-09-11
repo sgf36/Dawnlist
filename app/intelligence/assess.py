@@ -100,6 +100,11 @@ class Verdict:
     #: Set when a guard changed the model's verdict. Always surfaced.
     downgraded_from: str | None = None
     downgrade_reason: str | None = None
+    #: The model that formed this verdict. Stored with it, because a verdict
+    #: whose model is unknown cannot be compared with one given later, and
+    #: the assessment model is the one setting that changes what every
+    #: verdict means.
+    model: str = ""
 
     @property
     def is_positive(self) -> bool:
@@ -297,6 +302,7 @@ def assess(jobs: list[Job], fit_brief: str, factsheet: str, *,
         verdicts, errs = parse_verdicts(payload, by_ref, rendered)
         for v in verdicts:
             v.full_read = read_whole_on_first_pass(v.job)
+            v.model = model
         report.verdicts.extend(verdicts)
         report.errors.extend(errs)
         if on_batch and verdicts:
@@ -376,6 +382,7 @@ def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
                 continue
             replaced.append(fresh)
             fresh.full_read = True
+            fresh.model = model
             # A re-read that CHANGES the verdict is the whole point, and the
             # change is surfaced rather than quietly applied: the first answer
             # was formed on a cut-off description, and the user is entitled to

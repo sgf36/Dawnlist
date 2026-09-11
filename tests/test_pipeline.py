@@ -505,3 +505,21 @@ def test_only_unjudged_undecided_likely_postings_are_queued_again(conn):
     assert [j.provider_job_id for j in queued] == ["left"]
     # Rebuilt with what the assessment renders and the gates read.
     assert queued[0] == left
+
+
+def test_each_stored_verdict_names_the_model_that_gave_it(conn):
+    """`model` was written as an empty string, so no stored verdict could be
+    traced to the model that formed it."""
+    from app.core.pipeline import persist_verdicts
+    from app.intelligence.assess import ASSESSMENT_MODEL, assess
+
+    out = run_morning(conn, StubProvider({"strategy": ok([job("a")])}), [Q],
+                      RULES, fit_brief="b", factsheet="f", send=strong_send)
+    assert conn.execute("SELECT model FROM assessments").fetchone()["model"] \
+        == ASSESSMENT_MODEL
+
+    # Whichever model is named is the one recorded, not a constant.
+    report = assess([job("a")], "b", "f", send=strong_send, model="claude-other")
+    persist_verdicts(conn, out.run_id, report.verdicts)
+    assert conn.execute("SELECT model FROM assessments").fetchone()["model"] \
+        == "claude-other"

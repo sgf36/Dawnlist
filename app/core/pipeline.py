@@ -377,7 +377,7 @@ def persist_verdicts(conn: sqlite3.Connection, run_id: int, verdicts) -> None:
                    model=excluded.model""",
             (row["id"], run_id, v.bucket, reason,
              v.disqualifying_quote, int(v.requirement_checked),
-             int(v.full_read), "", now))
+             int(v.full_read), v.model, now))
     conn.commit()
 
 def persist_near_duplicates(conn: sqlite3.Connection,
