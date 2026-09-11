@@ -127,13 +127,56 @@ await test('the standard plan writes the standard caps, not the default', async 
   assert.equal(licences(db)[0].max_postings_per_day, PLANS.standard.maxPostingsPerDay);
 });
 
-await test('an unmatched price takes the fallback AND is flagged', async () => {
-  // Flagged, because a customer on the wrong caps is otherwise unfindable:
-  // the webhook logs counts, never payloads, so the event itself is gone.
+/** Delivers an event with lookups and sending possible, recording what was attempted. */
+async function postWatching(db, event) {
+  const calls = [], warnings = [];
+  const realFetch = globalThis.fetch, realWarn = console.warn, realError = console.error;
+  globalThis.fetch = async (url) => { calls.push(String(url)); return new Response('{}'); };
+  console.warn = (...args) => warnings.push(JSON.stringify(args));
+  console.error = () => {};
+  try {
+    const out = await post({ ...ENV, RESEND_API_KEY: 're_test', PADDLE_API_KEY: 'pdl_test' },
+      db, event);
+    return { out, calls, warnings };
+  } finally {
+    globalThis.fetch = realFetch; console.warn = realWarn; console.error = realError;
+  }
+}
+
+const withCustomer = (event) => ({ ...event, data: { ...event.data, customer_id: 'ctm_1' } });
+
+await test('an unrecognised price issues NOTHING and sends nothing', async () => {
+  // A licence issued on the fallback was a working key, and a welcome email,
+  // for something this Worker does not sell.
   const db = makeD1();
-  await post(ENV, db, subEvent('subscription.created', 'pri_unconfigured'));
-  assert.equal(licences(db)[0].plan, 'standard');
-  assert.equal(licences(db)[0].plan_unmatched, 1);
+  const { out, calls, warnings } = await postWatching(db,
+    withCustomer(subEvent('subscription.created', 'pri_unconfigured')));
+  assert.equal(out.action, 'unmatched_product');
+  assert.equal(out.ok, true, 'acknowledged, so Paddle does not redeliver it forever');
+  assert.equal(licences(db).length, 0);
+  assert.deepEqual(calls, [], 'no customer lookup and no email were attempted');
+  assert.ok(warnings.some((w) => w.includes('pri_unconfigured')),
+    'the price id is logged, so the missing configuration can be found');
+});
+
+await test('positive control: the same event with a configured price issues and delivers', async () => {
+  const db = makeD1();
+  const { out, calls } = await postWatching(db,
+    withCustomer(subEvent('subscription.created', 'pri_standard_monthly')));
+  assert.equal(out.action, 'issued');
+  assert.equal(licences(db).length, 1);
+  assert.ok(calls.length > 0, 'delivery was attempted');
+});
+
+await test('an existing licence is still reactivated by an event with an unrecognised price', async () => {
+  const db = makeD1();
+  db.sqlite.exec(`INSERT INTO licences (licence_key, tier, status, paddle_subscription_id, plan)
+                  VALUES ('DAWN-BYHAND', 'managed', 'expired', 'sub_hand', 'standard')`);
+  const { out } = await postWatching(db,
+    subEvent('subscription.activated', 'pri_unconfigured', 'sub_hand'));
+  assert.equal(out.action, 'reactivated');
+  assert.equal(licences(db)[0].status, 'active');
+  assert.equal(licences(db).length, 1);
 });
 
 console.log('upgrading and downgrading');
@@ -171,9 +214,8 @@ await test('an update that is NOT a plan change writes nothing', async () => {
 });
 
 await test('an update with an unmatched price does NOT downgrade a paying customer', async () => {
-  // The fallback is right when issuing (a licence must exist) and wrong here,
-  // where it would move a Global customer onto Standard caps because someone
-  // forgot to configure a price id.
+  // A fallback here would move a Global customer onto Standard caps because
+  // someone forgot to configure a price id.
   const db = makeD1();
   await post(ENV, db, subEvent('subscription.created', 'pri_global_monthly'));
   const out = await post(ENV, db, subEvent('subscription.updated', 'pri_not_configured'));

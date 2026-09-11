@@ -127,6 +127,14 @@ function tierFor(event) {
   return 'managed';
 }
 
+/** The price ids an event names. Identifiers only, so safe to log. */
+function priceIdsIn(event) {
+  return (event.data?.items || [])
+    .map((item) => item?.price?.id || item?.price_id)
+    .filter((id) => typeof id === 'string')
+    .slice(0, 10);
+}
+
 export async function handlePaddleWebhook(request, env, ctx) {
   const raw = await request.text();
   const check = await verifySignature(
@@ -176,35 +184,40 @@ export async function handlePaddleWebhook(request, env, ctx) {
         ).bind(subscriptionId).first()
       : null;
 
+    const chosen = planForEvent(env, event);
     if (existing) {
-      // Reactivating an existing subscriber must not mint a second key.
+      // Reactivating an existing subscriber must not mint a second key. Not
+      // gated on the price: the licence already exists, however it came to.
       await env.DB.prepare(
         "UPDATE licences SET status = 'active' WHERE licence_key = ?1"
       ).bind(existing.licence_key).run();
       result = { ok: true, action: 'reactivated' };
+    } else if (!chosen.matched) {
+      // An unrecognised price issues NOTHING. The fallback used to issue a
+      // Standard licence and flag it, which handed a working key and a welcome
+      // email to whoever bought something this Worker does not sell — another
+      // product's price on the shared Paddle account, a test price, an id
+      // missing from configuration. A licence wrongly withheld can be granted
+      // by hand with a code minted in /admin; one wrongly issued is a live
+      // credential already sitting in somebody's inbox.
+      console.warn('paddle: price matched no plan; nothing issued',
+                   { prices: priceIdsIn(event) });
+      result = { ok: true, action: 'unmatched_product' };
     } else {
       const key = newLicenceKey();
       // The caps the customer actually paid for. Before this, every licence
       // fell back to the Worker's anti-abuse default and paying more bought
       // nothing at all.
-      const chosen = planForEvent(env, event);
       const caps = capsFor(chosen.plan);
       await env.DB.prepare(
         `INSERT INTO licences (licence_key, tier, status, paddle_subscription_id,
                                plan, plan_unmatched,
                                max_postings_per_day, max_refreshes_per_day,
                                max_saved_queries)
-         VALUES (?1, ?2, 'active', ?3, ?4, ?5, ?6, ?7, ?8)`
+         VALUES (?1, ?2, 'active', ?3, ?4, 0, ?5, ?6, ?7)`
       ).bind(key, tierFor(event), subscriptionId, caps.plan,
-             chosen.matched ? 0 : 1,
              caps.max_postings_per_day, caps.max_refreshes_per_day,
              caps.max_saved_queries).run();
-      if (!chosen.matched) {
-        // Counts and ids only, never the payload. A customer on the fallback
-        // may be on the wrong caps and this is the only trace left.
-        console.warn('paddle: no price id matched a plan; used fallback',
-                     { plan: caps.plan, subscription: subscriptionId ? 'yes' : 'no' });
-      }
       // The key is NOT returned in the response: the webhook response goes to
       // Paddle, not to the customer. Delivery is the separate step below.
       //
@@ -267,10 +280,9 @@ export async function handlePaddleWebhook(request, env, ctx) {
     } else {
       const chosen = planForEvent(env, event);
       if (!chosen.matched) {
-        // Do NOT fall back here. On the issue path the fallback is the least
-        // bad option because a licence must exist; on an update it would
-        // DOWNGRADE a paying customer to Standard because a price id was not
-        // configured. Leave the caps alone and say so.
+        // Do NOT fall back here. It would DOWNGRADE a paying customer to
+        // Standard because a price id was not configured. Leave the caps alone
+        // and say so.
         console.warn('paddle: subscription.updated matched no plan; caps unchanged',
                      { had: row.plan || 'unset' });
         result = { ok: true, action: 'update_unmatched_ignored' };

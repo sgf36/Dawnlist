@@ -249,11 +249,12 @@ list it. It is a D1 column, so correcting it is an `UPDATE`, not a release.
 Copy the price id — and every currency and billing-period variant of it, comma
 separated — into `PADDLE_PRICE_STANDARD`.
 
-**Sandbox and production issue different ids for the same product.** An id that
-matches nothing makes the webhook fall back to Standard and set
-`plan_unmatched = 1`. Today that fallback is harmless because Standard is the
-only plan; the moment Global exists it means a customer paid for one thing and
-received another.
+**Sandbox and production issue different ids for the same product.** A purchase
+whose price id matches nothing issues **no licence** — the webhook acknowledges
+it with `unmatched_product` and logs the price id — so a missing id means a
+customer who paid and holds nothing until it is configured and a code is minted
+for them in `/admin`. (It used to fall back to Standard and set
+`plan_unmatched = 1`, which issued a working key for any price on the account.)
 
 > **MEASURED 2026-09-11 — CORRECTS THE 2026-09-10 BLOCK THAT STOOD HERE.
 > THE LIVE DAWNLIST DESTINATION IS ACTIVE. NOTHING NEEDS SWITCHING ON.**
