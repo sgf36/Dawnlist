@@ -99,6 +99,17 @@ def test_the_switch_shows_what_the_system_says(qapp, settle):
     p.close()
 
 
+def test_a_slow_first_read_cannot_undo_what_the_user_just_did(qapp, settle):
+    """The opening read runs on a worker thread. Landing after the box was
+    ticked, it would untick it and look like the switch had failed."""
+    p = panel(qapp, sign_in_state=False)
+    p.sign_in.setChecked(True)
+    settle(lambda: p._saved["asked"], what="the switch")
+    p._show_sign_in(False, asked=0)         # the stale answer, arriving late
+    assert p.sign_in.isChecked()
+    p.close()
+
+
 def test_switching_on_asks_the_system_and_confirms(qapp, settle):
     p = panel(qapp, sign_in_state=False)
     settle(lambda: p.sign_in.isEnabled(), what="the first read")

@@ -1799,6 +1799,11 @@ class SchedulePanel(QWidget):
         self._set_sign_in = sign_in_setter or (lambda on: None)
         self._open_page = page_opener or (lambda page: False)
         self._task = None
+        #: Counts what the user has asked for. The opening read of the system's
+        #: state runs on a worker thread, and a slow one landing after the box
+        #: was ticked would untick it — showing the state from before the
+        #: change as though the change had failed.
+        self._asked = 0
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -1865,11 +1870,15 @@ class SchedulePanel(QWidget):
              else widget.setChecked)(value)
             widget.blockSignals(False)
         if self._read_sign_in is not None:
+            asked = self._asked
             self._task = run_in_background(
-                self._read_sign_in, on_done=self._show_sign_in,
-                on_error=lambda exc: self._show_sign_in(False))
+                self._read_sign_in,
+                on_done=lambda on: self._show_sign_in(on, asked=asked),
+                on_error=lambda exc: self._show_sign_in(False, asked=asked))
 
-    def _show_sign_in(self, on: bool) -> None:
+    def _show_sign_in(self, on: bool, *, asked: int | None = None) -> None:
+        if asked is not None and asked != self._asked:
+            return          # answered about a state the user has since changed
         self.sign_in.blockSignals(True)
         self.sign_in.setChecked(bool(on))
         self.sign_in.blockSignals(False)
@@ -1896,6 +1905,7 @@ class SchedulePanel(QWidget):
         self.changed.emit()
 
     def _sign_in_changed(self, on: bool) -> None:
+        self._asked += 1
         self.sign_in.setEnabled(False)
         self._say(tr("schedule.working"))
         self._task = run_in_background(
