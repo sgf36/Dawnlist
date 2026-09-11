@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFrame, QHBoxLayout,
 from app.i18n import tr
 from app.ui.background import run_in_background
 from app.onboarding.calibration import CalibrationItem, CalibrationResult
-from app.onboarding.interview import INGEST_GUIDANCE
+from app.onboarding.interview import ingest_guidance
 from app.ui.review import CREAM, GOLD, GOLD_DEEP, INK, TEAL, TEAL_LIFTED
 
 def VERDICT_CHOICES() -> list[tuple[str, str]]:
@@ -234,7 +234,7 @@ class IngestPage(QWidget):
         # The guidance is shown VERBATIM. Both sentences are load-bearing:
         # users hand over a single tidied CV and lose exactly the history the
         # screen needs.
-        body = QLabel(reflow(INGEST_GUIDANCE))
+        body = QLabel(reflow(ingest_guidance()))
         body.setObjectName("stepBody")
         body.setWordWrap(True)
         layout.addWidget(body)
@@ -292,6 +292,9 @@ class CalibrationPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._widgets: list[_ItemWidgets] = []
+        #: Why the feed could not be reached, when that is why the sample is
+        #: short. Set from the sample in `load`.
+        self._no_feed: str | None = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -341,6 +344,10 @@ class CalibrationPage(QWidget):
 
     # -- population --------------------------------------------------------
     def load(self, items: list[CalibrationItem]) -> None:
+        # `no_feed` rides on the sample itself (see CalibrationSample), so a
+        # caller that hands over a plain list — every test, and the render
+        # tools — behaves exactly as before.
+        self._no_feed = getattr(items, "no_feed", None)
         while self._holder_layout.count():
             entry = self._holder_layout.takeAt(0)
             if entry.widget():
@@ -441,7 +448,8 @@ class CalibrationPage(QWidget):
             self._refresh()
 
     def result(self) -> CalibrationResult:
-        return CalibrationResult(items=[w.item for w in self._widgets])
+        return CalibrationResult(items=[w.item for w in self._widgets],
+                                 no_feed=self._no_feed)
 
     def _refresh(self) -> None:
         result = self.result()
@@ -450,8 +458,14 @@ class CalibrationPage(QWidget):
             # Say what happened and let them through. Calibration runs on a
             # later morning once a search is switched on; being unable to
             # finish setup at all is the worse failure by a wide margin.
+            #
+            # WHICH "what happened" matters: blaming a quiet market for an
+            # unpaid subscription sends the user to check searches that were
+            # never the problem.
             self.blockers.setObjectName("blockers")
-            self.blockers_label.setText(tr("onboarding.calibration_skipped"))
+            self.blockers_label.setText(
+                tr("onboarding.calibration_no_feed") if result.no_feed
+                else tr("onboarding.calibration_skipped"))
         elif reasons:
             self.blockers.setObjectName("blockers")
             # Every reason at once. Revealing them one at a time makes a

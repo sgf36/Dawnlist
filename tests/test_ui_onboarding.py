@@ -168,9 +168,9 @@ def test_reflow_undoes_source_line_breaks_but_keeps_paragraphs():
 
 
 def test_reflow_preserves_the_wording(qapp):
-    from app.onboarding.interview import INGEST_GUIDANCE
+    from app.onboarding.interview import ingest_guidance
     from app.ui.onboarding import reflow
-    out = reflow(INGEST_GUIDANCE)
+    out = reflow(ingest_guidance())
     assert "Do not tidy them up first" in out
     assert "Early roles are often cut from a senior CV" in out
     assert "\n" not in out.split("\n\n")[0], "no hard breaks inside a paragraph"
@@ -512,6 +512,23 @@ def test_an_unreachable_feed_does_not_trap_the_user_on_the_last_screen(qapp):
     page.load([])
     assert page.btn_finish.isEnabled(), "nothing here for the user to act on"
     assert not page.result().passed, "but it is still not a calibration"
+    page.close()
+
+
+def test_the_gate_names_an_unpaid_subscription_rather_than_a_quiet_market(qapp):
+    """The screen said the same thing whether the market was quiet or nothing
+    had been bought, and on a fresh install the second is far commoner."""
+    from app.onboarding.calibration import CalibrationSample
+    from app.ui.onboarding import CalibrationPage
+
+    page = CalibrationPage()
+    page.load(CalibrationSample([], no_feed="No licence key found."))
+    assert "no subscription or access code" in page.blockers_label.text()
+    assert page.btn_finish.isEnabled(), "and it still must not trap anyone"
+
+    # POSITIVE CONTROL: a sample that is simply short still reads as one.
+    page.load(CalibrationSample([]))
+    assert "no subscription" not in page.blockers_label.text()
     page.close()
 
 

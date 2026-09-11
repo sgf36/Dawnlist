@@ -25,6 +25,8 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
+from app.i18n import tr
+
 #: How many live postings the gate shows. Enough to disagree with, few enough
 #: to finish in one sitting — the product's promise is 30-45 minutes to first
 #: shortlist, and this is the largest single step inside it.
@@ -70,9 +72,31 @@ class CalibrationItem:
         return self.disagreed and not self.brief_sentence.strip()
 
 
+class CalibrationSample(list):
+    """The postings the gate will show, and why there were not enough of them.
+
+    A list, so every existing caller and test keeps working. The extra field is
+    what the screen could not previously say: "not enough live postings" was
+    reported identically whether the market was quiet or whether nothing had
+    been paid for, and the second is by far the commoner cause on a fresh
+    install. `no_feed` carries the provider's own refusal through instead of
+    swallowing it at the `except`.
+    """
+
+    def __init__(self, items=(), *, no_feed: str | None = None):
+        super().__init__(items)
+        #: The reason the feed could not be built, verbatim, or None.
+        self.no_feed = no_feed
+
+
 @dataclass
 class CalibrationResult:
     items: list[CalibrationItem] = field(default_factory=list)
+    #: Why there was no feed to fetch from, when that is what went wrong.
+    #: Kept beside the items because the blocking reason has to name the cause
+    #: the user can act on, and "switch a search on" is the wrong instruction
+    #: for someone who has not subscribed.
+    no_feed: str | None = None
 
     @property
     def decided(self) -> list[CalibrationItem]:
@@ -128,21 +152,21 @@ class CalibrationResult:
             #
             # What changed is who is trapped by that. Finishing onboarding is a
             # separate question from recording a pass — see `can_finish`.
-            return [
-                f"Dawnlist could not fetch enough live postings to calibrate "
-                f"against — {len(self.items)} of the {MIN_DECIDED} it needs. "
-                f"That is a setup problem rather than anything you have done: "
-                f"check a search is switched on and the feed is reachable, "
-                f"then try again."]
+            #
+            # WHICH SENTENCE DEPENDS ON WHY. Telling somebody with no
+            # subscription to "check a search is switched on" describes a quiet
+            # market and sends them to fix the one thing that was never wrong.
+            if self.no_feed:
+                return [tr("onboarding.calibration_no_feed")]
+            return [tr("onboarding.blocker_short_sample",
+                       count=len(self.items), needed=MIN_DECIDED)]
         if len(self.decided) < MIN_DECIDED:
-            reasons.append(
-                f"decide at least {MIN_DECIDED} of the {len(self.items)} "
-                f"postings ({len(self.decided)} so far)")
+            reasons.append(tr("onboarding.blocker_decide", needed=MIN_DECIDED,
+                              total=len(self.items),
+                              decided=len(self.decided)))
         for item in self.missing_sentences:
-            reasons.append(
-                f"{item.title} at {item.company}: you disagreed, so say what "
-                f"sentence, added to the brief, would have got this right — "
-                f"a correction without one will not persist")
+            reasons.append(tr("onboarding.blocker_sentence", title=item.title,
+                              company=item.company))
         return reasons
 
     @property

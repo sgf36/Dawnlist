@@ -1164,18 +1164,24 @@ def calibration_sample(conn, *, provider=None, send=None):
     Returns fewer than `CALIBRATION_SAMPLE` when the feed is short or
     unreachable, and the gate reports that as a setup failure rather than
     asking the user for decisions they cannot make.
+
+    WHY the feed was unreachable travels back with the sample. Swallowed here,
+    it reached the user as "not enough live postings to calibrate against" —
+    a true sentence describing a quiet market, shown to somebody whose actual
+    problem was that nothing had been subscribed to.
     """
     from app.core.screen import screen_all
     from app.intelligence.assess import job_ref
-    from app.onboarding.calibration import CalibrationItem
+    from app.onboarding.calibration import CalibrationItem, CalibrationSample
 
     jobs = []
+    no_feed = None
     queries = load_queries(conn)
     if queries:
         try:
             feed = provider or build_provider(conn)
-        except NotConfigured:
-            feed = None
+        except NotConfigured as exc:
+            feed, no_feed = None, str(exc)
         if feed is not None:
             gates = scope_gates(enabled_scopes(conn))
             per_search = max(3, -(-CALIBRATION_FETCH // len(queries)))
@@ -1203,7 +1209,7 @@ def calibration_sample(conn, *, provider=None, send=None):
 
     jobs = jobs[:CALIBRATION_SAMPLE]
     if not jobs:
-        return []
+        return CalibrationSample([], no_feed=no_feed)
 
     brief = load_document(conn, "fit_brief")
     factsheet = load_document(conn, "factsheet")
@@ -1267,8 +1273,9 @@ def calibration_sample(conn, *, provider=None, send=None):
         else:
             items.append(CalibrationItem(
                 **shown, app_verdict="rejected",
-                app_reason=result.reason or "screened out before reading"))
-    return items
+                app_reason=(result.reason
+                            or tr("onboarding.screened_out_before_reading"))))
+    return CalibrationSample(items, no_feed=no_feed)
 
 
 def morning_run(conn, *, provider=None, send=None, today: date | None = None):

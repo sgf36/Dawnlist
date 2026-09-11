@@ -6,9 +6,9 @@ from app.onboarding.calibration import (MIN_DECIDED, CalibrationItem,
                                         CalibrationResult, apply_corrections,
                                         complete_calibration, is_calibrated,
                                         mark_calibrated, save_brief)
-from app.onboarding.interview import (INGEST_GUIDANCE, Corpus, CVDocument,
-                                      build_brief_request,
-                                      build_factsheet_request, verb_is_upgrade)
+from app.onboarding.interview import (Corpus, CVDocument, build_brief_request,
+                                      build_factsheet_request,
+                                      ingest_guidance, verb_is_upgrade)
 
 
 @pytest.fixture()
@@ -37,8 +37,31 @@ def full_result():
 
 # -- the corpus -------------------------------------------------------------
 def test_the_ingest_copy_keeps_both_load_bearing_sentences():
-    assert "Do not tidy them up first" in INGEST_GUIDANCE
-    assert "Early roles" in INGEST_GUIDANCE
+    assert "Do not tidy them up first" in ingest_guidance()
+    assert "Early roles" in ingest_guidance()
+
+
+def test_the_setup_copy_follows_the_language_the_user_chose():
+    """Every one of these sentences was compiled into the source, so the whole
+    of setup — the first thing a new user sees — stayed English in all fifty
+    languages. Read through `tr` at CALL time, never at import: a module-level
+    constant is bound before `main` applies the stored locale."""
+    from app import i18n
+
+    catalogue = {"onboarding.ingest_guidance": "GUIDANCE IN OTHER WORDS",
+                 "onboarding.corpus_one_version": "ONE VERSION ONLY",
+                 "onboarding.blocker_decide": "DECIDE {decided}/{needed}"}
+    real = i18n._load_catalog
+    try:
+        i18n._load_catalog = lambda locale: catalogue
+        assert ingest_guidance() == "GUIDANCE IN OTHER WORDS"
+        assert Corpus([CVDocument("cv.docx", "x" * 300)]).warnings == [
+            "ONE VERSION ONLY"]
+        reasons = CalibrationResult(
+            items=[item(str(i)) for i in range(10)]).blocking_reasons()
+        assert reasons[0] == "DECIDE 0/8"
+    finally:
+        i18n._load_catalog = real
 
 
 def test_a_single_cv_version_is_flagged():
@@ -160,6 +183,22 @@ def test_a_short_sample_does_not_ask_for_decisions():
 def test_an_empty_sample_says_the_same_thing():
     reasons = CalibrationResult(items=[]).blocking_reasons()
     assert reasons and "0 of the 8" in reasons[0]
+
+
+def test_an_unpaid_copy_is_told_that_and_not_that_the_market_was_quiet():
+    """"Check a search is switched on and the feed is reachable" describes a
+    quiet market. Shown to somebody who has not subscribed it is an instruction
+    to fix the one thing that was never wrong."""
+    reasons = CalibrationResult(
+        items=[], no_feed="No licence key found.").blocking_reasons()
+    assert len(reasons) == 1
+    assert "no subscription or access code" in reasons[0]
+    assert "check a search is switched on" not in reasons[0]
+
+    # POSITIVE CONTROL: with nothing wrong at the feed, the old sentence is
+    # still the right one — a short sample really can be a quiet morning.
+    assert "check a search is switched on" in (
+        CalibrationResult(items=[]).blocking_reasons()[0])
 
 
 def test_a_complete_calibration_passes():
