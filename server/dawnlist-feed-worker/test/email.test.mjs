@@ -18,7 +18,9 @@ async function test(name, fn) {
   catch (e) { console.log(`  FAIL ${name}\n       ${e.message}`); failed++; }
 }
 
-const KEY = 'DAWN-2C4R1U0F-355I014L-2B2R3813-5D17135I';
+// Obviously fake on purpose. A real licence key sat here, and a test file is
+// copied, pasted and published far more readily than a database is.
+const KEY = 'DAWN-TEST0000-TEST0000-TEST0000-TEST0000';
 
 console.log('the key itself');
 
