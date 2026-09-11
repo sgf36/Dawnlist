@@ -24,10 +24,18 @@ from app.core import db
 from app.core.pipeline import (Gate, permanent_reject_gate, persist,
                                posted_within_gate, run_morning)
 from app.core.rules import RuleTable
+from app.core.search_scope import (SearchPlan, SearchScope, load_scope,
+                                   parse_where, save_scope, scope_gates)
 from app.feed.base import SearchQuery
-from app.i18n import set_locale
+from app.i18n import set_locale, tr
 
 DEFAULT_POSTED_WITHIN_DAYS = 45
+
+#: One page per search per run. A search matching more than this is too broad
+#: to be read, and paging on would spend the day's allowance on postings nobody
+#: reaches. The run reports the shortfall so the user narrows the search; the
+#: app never quietly buys more.
+MAX_RESULTS_PER_SEARCH = 100
 
 
 def _force_utf8_console() -> None:
@@ -98,6 +106,12 @@ def load_queries(conn) -> list[SearchQuery]:
     out: list[SearchQuery] = []
     for row in conn.execute("SELECT * FROM queries WHERE enabled=1 ORDER BY id"):
         params = json.loads(row["params_json"])
+        scope = SearchScope.from_params(params)
+        if not scope.is_set:
+            # Switched on before a location was required. Never swept, because
+            # it would look across the whole world; `morning_run` names it
+            # instead, so the user can say where they want to work.
+            continue
         since = None
         if row["last_discovered_at"]:
             try:
@@ -107,15 +121,33 @@ def load_queries(conn) -> list[SearchQuery]:
         out.append(SearchQuery(
             label=row["label"],
             titles=params.get("titles", []),
-            countries=params.get("countries", []),
+            countries=list(scope.countries),
+            cities=list(scope.cities),
+            exclude_title_terms=list(scope.exclude_title_terms),
+            exclude_companies=list(scope.exclude_companies),
             companies=params.get("companies", []),
             posted_within_days=params.get("posted_within_days",
                                           DEFAULT_POSTED_WITHIN_DAYS),
             discovered_since=since,
             exclude_job_ids=held,
-            max_results=params.get("max_results", 500),
+            max_results=params.get("max_results", MAX_RESULTS_PER_SEARCH),
         ))
     return out
+
+
+def enabled_scopes(conn) -> list[SearchScope]:
+    """The scope of every search a run will sweep, for the post-fetch gates."""
+    scopes = [SearchScope.from_params(json.loads(r["params_json"]))
+              for r in conn.execute(
+                  "SELECT params_json FROM queries WHERE enabled=1")]
+    return [s for s in scopes if s.is_set]
+
+
+def unscoped_enabled_labels(conn) -> list[str]:
+    return [r["label"] for r in conn.execute(
+                "SELECT label, params_json FROM queries WHERE enabled=1 "
+                "ORDER BY id")
+            if not SearchScope.from_params(json.loads(r["params_json"])).is_set]
 
 
 def load_rules(conn) -> RuleTable:
@@ -284,6 +316,7 @@ def adopt_kill_family(conn, name: str, *, adopted: bool = True) -> None:
 
 def save_query(conn, label: str, titles: list[str], *,
                countries: list[str] | None = None,
+               scope: SearchScope | None = None,
                enabled: bool = True,
                posted_within_days: int = DEFAULT_POSTED_WITHIN_DAYS) -> None:
     """Store one saved search.
@@ -297,7 +330,8 @@ def save_query(conn, label: str, titles: list[str], *,
     """
     label = label.strip()
     titles = [t.strip() for t in titles if t.strip()]
-    countries = [c.strip().upper() for c in (countries or []) if c.strip()]
+    scope = scope or SearchScope.from_parts(countries=countries)
+    countries = list(scope.countries)
     if not label:
         raise ValueError("a search needs a name")
     if not titles:
@@ -330,7 +364,7 @@ def save_query(conn, label: str, titles: list[str], *,
            VALUES(?,?,?,?)
            ON CONFLICT(label) DO UPDATE SET params_json = excluded.params_json""",
         (label, json.dumps({"titles": titles,
-                            "countries": countries,
+                            **scope.as_params(),
                             "posted_within_days": posted_within_days}),
          int(enabled),
          datetime.now(timezone.utc).isoformat(timespec="seconds")))
@@ -343,9 +377,50 @@ def forget_query(conn, label: str) -> None:
 
 
 def enable_query(conn, label: str, *, enabled: bool = True) -> None:
+    label = label.strip()
+    if enabled:
+        # THE CHECK HAS TO LIVE AT THE SWITCH TOO. `save_query` refuses an
+        # unscoped search that is switched on, but seeds are saved switched OFF
+        # and this UPDATE was the only way to turn one on — so every search
+        # switched on during setup looked across the whole world, and every
+        # posting it returned was paid for.
+        row = conn.execute("SELECT params_json FROM queries WHERE label=?",
+                           (label,)).fetchone()
+        if row is not None and not SearchScope.from_params(
+                json.loads(row["params_json"])).is_set:
+            raise ValueError(tr("searches.needs_where", label=label))
     conn.execute("UPDATE queries SET enabled=? WHERE label=?",
-                 (int(enabled), label.strip()))
+                 (int(enabled), label))
     conn.commit()
+
+
+def apply_scope(conn, scope: SearchScope) -> int:
+    """Give every saved search this scope, and keep it for searches added later.
+
+    The repair for installs set up before a location was required: one entry in
+    Settings rescopes every search at once, rather than a refused run per search.
+
+    The delta mark is cleared because it records how far the OLD area was read.
+    Kept, it would skip every posting in a newly added area that was indexed
+    before today; cleared, the next run reads the posted-within window once.
+    """
+    save_scope(conn, scope)
+    rows = conn.execute("SELECT label, params_json FROM queries").fetchall()
+    for row in rows:
+        params = json.loads(row["params_json"])
+        params.update(scope.as_params())
+        conn.execute("UPDATE queries SET params_json=?, last_discovered_at=NULL "
+                     "WHERE label=?", (json.dumps(params), row["label"]))
+    conn.commit()
+    return len(rows)
+
+
+def save_new_search(conn, label: str, titles: list[str]) -> None:
+    """A search added in Settings, on the install's own scope."""
+    scope = load_scope(conn)
+    if not scope.is_set:
+        raise ValueError(tr("searches.needs_where_first"))
+    save_query(conn, label, titles, scope=scope)
 
 
 def all_queries(conn) -> list[tuple[str, list[str], bool]]:
@@ -363,7 +438,9 @@ def all_queries(conn) -> list[tuple[str, list[str], bool]]:
     return out
 
 
-def seed_queries_from_aim(conn, aim: str, *, send=None, titles=None) -> int:
+def seed_queries_from_aim(conn, aim: str, *, send=None, titles=None,
+                          scope: SearchScope | None = None,
+                          brief: str = "") -> int:
     """Give a new user somewhere to start — turned OFF.
 
     Billing is per job returned, so a seed nobody read is a seed nobody should
@@ -393,37 +470,58 @@ def seed_queries_from_aim(conn, aim: str, *, send=None, titles=None) -> int:
     moment Next is pressed, and the window would stop answering for the length
     of a network round trip.
     """
+    if titles is None:
+        plan = search_plan(aim, brief=brief, send=send)
+        titles, scope = plan.titles, scope or plan.scope
+    scope = scope or SearchScope()
+    if scope.is_set:
+        save_scope(conn, scope)
+    else:
+        # Setup run again, or a plan that named no location: the scope already
+        # kept for this install still applies, so a re-run does not produce a
+        # fresh set of searches that look across the whole world.
+        stored = load_scope(conn)
+        if stored.is_set:
+            scope = scope.with_location(stored)
+
     existing = {label for label, _titles, _on in all_queries(conn)}
     added = 0
-    for phrase in (titles if titles is not None else search_titles(aim, send=send)):
+    for phrase in titles:
         if phrase.lower() in {e.lower() for e in existing}:
             continue
-        save_query(conn, phrase, [phrase], enabled=False)
+        save_query(conn, phrase, [phrase], scope=scope, enabled=False)
         existing.add(phrase)
         added += 1
     return added
 
 
-def search_titles(aim: str, *, send=None) -> list[str]:
-    """Job titles to seed searches with. Model first, rules as the fallback."""
-    if send is not None and (aim or "").strip():
-        try:
-            from app.onboarding.interview import (build_search_titles_request,
-                                                  text_of)
-            import json as _json
+def search_plan(aim: str, *, brief: str = "", send=None) -> SearchPlan:
+    """The search to seed setup with. The model when there is one; rules only
+    when there is not.
 
-            reply = send(build_search_titles_request(aim))
-            titles = _json.loads(text_of(reply)).get("titles") or []
-            cleaned = [t.strip() for t in titles
-                       if isinstance(t, str) and looks_like_a_title(t.strip())]
-            if cleaned:
-                return cleaned[:8]
-        except Exception:  # noqa: BLE001
-            # A failed extraction is not a failed setup. Fall through to the
-            # rules rather than stopping a user from finishing onboarding
-            # because a side errand did not work.
-            pass
-    return titles_from_aim(aim)
+    `send` returns the reply TEXT (see `build_send`). This used to hand that
+    text to `text_of`, which reads `.content`, so every call raised, the
+    `except` swallowed it, and every user was offered the rule-based split —
+    "full-time roles based", cut out of "full-time roles based in London".
+    Nothing reported it, and no test ever reached the model path.
+    """
+    if send is None:
+        return SearchPlan(titles=titles_from_aim(aim))
+    if not (aim or "").strip() and not (brief or "").strip():
+        return SearchPlan()
+    try:
+        from app.onboarding.interview import build_search_plan_request, text_of
+
+        reply = send(build_search_plan_request(aim, brief))
+        data = json.loads(reply if isinstance(reply, str) else text_of(reply))
+    except Exception:  # noqa: BLE001
+        # NOTHING, rather than the rule-based split. The split is what put
+        # sentence fragments on the searches screen; an empty list is honest,
+        # and that screen says how to add a search.
+        return SearchPlan()
+    titles = [t.strip() for t in data.get("titles") or []
+              if isinstance(t, str) and looks_like_a_title(t.strip())]
+    return SearchPlan(titles=titles[:8], scope=SearchScope.from_params(data))
 
 
 #: Splitting on punctuation and on the words that join clauses. Written
@@ -941,6 +1039,12 @@ def alert_postings(conn, folder: Path | None = None):
 
 CALIBRATION_SAMPLE = 10
 
+#: Postings fetched to fill that sample, spread across the searches. A few
+#: over ten, because the scope gates can remove some. This used to ask the
+#: first search alone for 500 (clamped to a 100-row page) to show ten, and
+#: every one of those rows was paid for, by every new user.
+CALIBRATION_FETCH = 15
+
 
 def calibration_sample(conn, *, provider=None, send=None):
     """Live postings for the calibration gate, screened and assessed.
@@ -966,10 +1070,13 @@ def calibration_sample(conn, *, provider=None, send=None):
         except NotConfigured:
             feed = None
         if feed is not None:
+            gates = scope_gates(enabled_scopes(conn))
+            per_search = max(3, -(-CALIBRATION_FETCH // len(queries)))
             for query in queries:
-                result = feed.search(query)
+                result = feed.search(replace(query, max_results=per_search))
                 if result.ok:
-                    jobs.extend(result.jobs)
+                    jobs.extend(j for j in result.jobs
+                                if all(g.predicate(j) for g in gates))
                 if len(jobs) >= CALIBRATION_SAMPLE:
                     break
 
@@ -1050,6 +1157,17 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
     from app.core.entitlement import require as require_entitlement
     require_entitlement(conn)
 
+    unscoped = unscoped_enabled_labels(conn)
+    if unscoped:
+        # Refused by name rather than skipped, because a skipped search is a
+        # quiet morning nobody can explain. One entry in Settings fixes every
+        # search at once.
+        raise NotConfigured(
+            "These searches are switched on but say nowhere to look, so they "
+            "would search the whole world: " + ", ".join(unscoped) + ". Open "
+            "Settings and set where you want to work; it applies to every "
+            "search at once.")
+
     queries = load_queries(conn)
     if not queries:
         raise NotConfigured("No saved queries. Add at least one before running.")
@@ -1060,6 +1178,7 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
     gates: list[Gate] = [
         permanent_reject_gate(rejected_keys(conn)),
         posted_within_gate(DEFAULT_POSTED_WITHIN_DAYS, today=today),
+        *scope_gates(enabled_scopes(conn)),
     ]
 
     outcome = run_morning(
@@ -1704,9 +1823,11 @@ def _launch_onboarding(app, conn) -> int:
 
     wizard = OnboardingWizard(
         extract=extract, sample=sample, drafter=drafter,
-        titler=lambda text: search_titles(text, send=send_if_configured(conn)),
+        titler=lambda text, brief="": search_plan(
+            text, brief=brief, send=send_if_configured(conn)),
         entitlement_panel=onboarding_entitlement_panel(),
         searches=lambda: all_queries(conn),
+        where=lambda: load_scope(conn).describe(),
         set_search=lambda label, enabled: enable_query(
             conn, label, enabled=enabled))
 
@@ -1729,13 +1850,18 @@ def _launch_onboarding(app, conn) -> int:
         # new install has something to sweep rather than a run that refuses for
         # want of a query. They arrive switched OFF — see
         # `seed_queries_from_aim` for why that matters to the bill.
-        seed_queries_from_aim(
-            conn, wizard.interview.aim.toPlainText(),
-            # Already computed off the UI thread while the draft was being
-            # read. `titles=None` only when that never ran or found nothing,
-            # and then the rules answer without a network call.
-            titles=wizard.interview.suggested_titles or None,
-            send=None)
+        plan = wizard.interview.suggested_plan
+        if plan is not None:
+            # Already worked out off the UI thread while the draft was read.
+            seed_queries_from_aim(conn, wizard.interview.aim.toPlainText(),
+                                  titles=plan.titles, scope=plan.scope)
+        else:
+            # Next was pressed before that finished. Asking now makes this
+            # click wait for a round trip. The alternative was the rule-based
+            # split, which is what offered sentence fragments as searches, and
+            # a short wait is the lesser cost.
+            seed_queries_from_aim(conn, wizard.interview.aim.toPlainText(),
+                                  brief=brief, send=send_if_configured(conn))
 
     def finished(result):
         brief = load_document(conn, "fit_brief") or "# Fit brief"
@@ -1837,9 +1963,12 @@ def open_settings(parent=None, conn=None):
     if conn is not None:
         searches = SearchesPanel(
             loader=lambda: all_queries(conn),
-            saver=lambda label, titles: save_query(conn, label, titles),
+            saver=lambda label, titles: save_new_search(conn, label, titles),
             forgetter=lambda label: forget_query(conn, label),
-            enabler=lambda label, on: enable_query(conn, label, enabled=on))
+            enabler=lambda label, on: enable_query(conn, label, enabled=on),
+            where_loader=lambda: load_scope(conn).describe(),
+            where_saver=lambda text: apply_scope(
+                conn, parse_where(text, keep=load_scope(conn))))
         families = FamiliesPanel(
             loader=lambda: load_rules(conn).kill_families,
             adopter=lambda name, on: adopt_kill_family(conn, name, adopted=on),

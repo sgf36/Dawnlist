@@ -445,6 +445,39 @@ def test_the_searches_step_switches_a_seed_on(qapp):
     page.close()
 
 
+def test_no_location_means_no_search_can_be_switched_on(qapp):
+    """A search with no location looks across the whole world, and every
+    posting it returns is paid for."""
+    from app.ui.onboarding import SearchesPage
+
+    page = SearchesPage()
+    page.load([("hotel asset manager", ["hotel asset manager"], False)], where="")
+    assert not page._rows[0][1].isEnabled()
+    assert "whole world" in page.note.text()
+
+    page.load([("hotel asset manager", ["hotel asset manager"], False)],
+              where="London, GB")
+    assert page._rows[0][1].isEnabled(), "positive control"
+    page._rows[0][1].setChecked(True)
+    assert "London, GB" in page.note.text()
+    page.close()
+
+
+def test_searches_sit_at_the_top_rather_than_spreading_down_the_window(qapp):
+    """Five searches were spread down the whole height of the setup window."""
+    from app.ui.onboarding import SearchesPage
+
+    page = SearchesPage()
+    page.load([("a", ["a"], False), ("b", ["b"], False)], where="London, GB")
+    page.resize(900, 780)
+    page.show()
+    qapp.processEvents()
+    first, second = page._rows[0][1], page._rows[1][1]
+    assert second.y() - first.y() < 3 * first.height(), (
+        f"rows {second.y() - first.y()}px apart")
+    page.close()
+
+
 def test_leaving_the_searches_step_saves_what_was_switched_on(qapp, monkeypatch):
     """A tick that is not written back is the same bug wearing a hat."""
     from app.core import api_key

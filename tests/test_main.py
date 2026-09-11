@@ -299,7 +299,7 @@ def test_held_job_ids_are_sent_so_they_are_not_re_bought(tmp_path):
     db.migrate(conn)
     conn.execute(
         "INSERT INTO queries(label, params_json, enabled, created_at) "
-        "VALUES('q','{}',1,datetime('now'))")
+        "VALUES('q','{\"countries\":[\"GB\"]}',1,datetime('now'))")
     for i in range(3):
         conn.execute(
             "INSERT INTO jobs(provider, provider_job_id, title, company) "
@@ -319,7 +319,7 @@ def test_the_exclusion_list_is_bounded(tmp_path):
     db.migrate(conn)
     conn.execute(
         "INSERT INTO queries(label, params_json, enabled, created_at) "
-        "VALUES('q','{}',1,datetime('now'))")
+        "VALUES('q','{\"countries\":[\"GB\"]}',1,datetime('now'))")
     conn.executemany(
         "INSERT INTO jobs(provider, provider_job_id, title, company) "
         "VALUES('theirstack', ?, 't', 'c')",

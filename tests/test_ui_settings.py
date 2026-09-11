@@ -603,6 +603,49 @@ def test_a_search_can_be_removed(qapp):
     panel.close()
 
 
+def test_where_you_want_to_work_is_applied_to_every_search(qapp):
+    from app.ui.settings import SearchesPanel
+
+    saved = []
+    panel = SearchesPanel(where_loader=lambda: saved[-1] if saved else "",
+                          where_saver=saved.append)
+    panel.where_field.setText("London, GB")
+    panel.apply_where()
+    assert saved == ["London, GB"]
+    assert "London, GB" in panel.result.text()
+    panel.close()
+
+
+def test_a_location_that_cannot_be_used_says_why(qapp):
+    from app.ui.settings import SearchesPanel
+
+    def refuse(text):
+        raise ValueError("Add the two-letter country code, for example: London, GB")
+
+    panel = SearchesPanel(where_saver=refuse)
+    panel.where_field.setText("London")
+    panel.apply_where()
+    assert "country code" in panel.result.text()
+    panel.close()
+
+
+def test_switching_on_a_search_with_no_location_says_why(qapp):
+    """A refusal that raised out of a button handler looked like a dead button."""
+    from app.ui.settings import SearchesPanel
+
+    def refuse(label, on):
+        raise ValueError(f"{label} cannot be switched on until you set where")
+
+    panel = SearchesPanel(
+        loader=lambda: [("asset management", ["asset manager"], False)],
+        enabler=refuse)
+    panel.listing.setCurrentRow(0)
+    panel.toggle()
+    assert "cannot be switched on" in panel.result.text()
+    assert "off" in panel.listing.item(0).text(), "and it stays off"
+    panel.close()
+
+
 def test_the_window_omits_searches_without_a_database(qapp):
     w = SettingsWindow(variant="direct")
     assert w.searches is None

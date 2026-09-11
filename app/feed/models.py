@@ -23,9 +23,12 @@ class Job:
     posted_at: date | None = None
     salary: str | None = None
     url: str = ""
-    # The provider's own structured tags (seniority, industry, …). Kept so the
-    # UI can show them, NEVER consulted by the screen or the assessment: spec
-    # 6.8, metadata never outranks the description.
+    # The provider's own structured tags (seniority, country, contract type…).
+    # NEVER consulted by the screen or the assessment: spec 6.8, metadata never
+    # outranks the description. The one exception is the scope gates in
+    # `app/core/search_scope.py`, which may only REMOVE a posting whose own tag
+    # contradicts what the user stated, and keep every posting whose tag is
+    # blank.
     raw_criteria: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -46,7 +49,7 @@ _PUNCT = re.compile(r"[^a-z0-9 ]")
 
 #: Corporate suffixes that vary between sources for the same employer.
 _COMPANY_NOISE = re.compile(
-    r"\b(ltd|limited|llc|inc|incorporated|plc|gmbh|bv|nv|sa|ag|srl|pty|"
+    r"\b(ltd|limited|llc|inc|incorporated|plc|gmbh|bv|nv|sa|ag|srl|pty|pte|"
     r"holdings|group|international)\b")
 
 #: Words carrying no distinguishing weight in a job title.

@@ -1371,12 +1371,15 @@ class SearchesPanel(QWidget):
     changed = Signal()
 
     def __init__(self, *, loader=None, saver=None, forgetter=None,
-                 enabler=None, parent=None):
+                 enabler=None, where_loader=None, where_saver=None,
+                 parent=None):
         super().__init__(parent)
         self._load = loader or (lambda: [])
         self._save = saver or (lambda label, titles: None)
         self._forget = forgetter or (lambda label: None)
         self._enable = enabler or (lambda label, on: None)
+        self._where_load = where_loader or (lambda: "")
+        self._where_save = where_saver or (lambda text: None)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -1390,6 +1393,25 @@ class SearchesPanel(QWidget):
         body.setObjectName("stepBody")
         body.setWordWrap(True)
         layout.addWidget(body)
+
+        # ONE PLACE FOR EVERY SEARCH, above the list. It is also the repair for
+        # installs whose searches were switched on with no location: those are
+        # refused at the run, and this is the single entry that fixes them all.
+        where_row = QHBoxLayout()
+        where_row.setSpacing(6)
+        where_row.addWidget(QLabel(tr("searches.where_label")))
+        self.where_field = QLineEdit()
+        self.where_field.setObjectName("sentence")
+        self.where_field.setPlaceholderText(tr("searches.where_placeholder"))
+        self.where_field.setText(self._where_load() or "")
+        self.where_field.returnPressed.connect(self.apply_where)
+        self.btn_where = QPushButton(tr("searches.where_apply"))
+        self.btn_where.setObjectName("secondary")
+        self.btn_where.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.btn_where.clicked.connect(self.apply_where)
+        where_row.addWidget(self.where_field, 1)
+        where_row.addWidget(self.btn_where)
+        layout.addLayout(where_row)
 
         self.result = QLabel()
         self.result.setWordWrap(True)
@@ -1457,11 +1479,30 @@ class SearchesPanel(QWidget):
         item = self.listing.currentItem()
         return item.data(Qt.UserRole) if item else (None, None)
 
+    def apply_where(self) -> None:
+        text = self.where_field.text().strip()
+        try:
+            self._where_save(text)
+        except ValueError as exc:
+            self._say(str(exc), ok=False)
+            return
+        shown = self._where_load() or text
+        self.where_field.setText(shown)
+        self._say(tr("searches.where_applied", where=shown), ok=True)
+        self.refresh()
+        self.changed.emit()
+
     def toggle(self) -> None:
         label, on = self._selected()
         if label is None:
             return
-        self._enable(label, not on)
+        try:
+            self._enable(label, not on)
+        except ValueError as exc:
+            # Switching on a search with no location is refused; saying why is
+            # the difference between a fix and a button that seems broken.
+            self._say(str(exc), ok=False)
+            return
         self._say(tr("searches.switched_off", label=label) if on
                   else tr("searches.switched_on", label=label), ok=True)
         self.refresh()

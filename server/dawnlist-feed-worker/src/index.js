@@ -41,6 +41,10 @@ import { handleAdmin, handleRedeem } from './codes.js';
 import { PLANS, FALLBACK_PLAN, sellablePlans } from './plans.js';
 
 const SEARCH_TTL_SECONDS = 6 * 60 * 60;   // 6h on search results
+// Place ids do not change, and the catalogue's cost per lookup is not
+// documented, so each place name is looked up once a month rather than once
+// per search.
+const PLACE_TTL_SECONDS = 30 * 24 * 60 * 60;
 const DETAIL_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 /**
@@ -201,50 +205,75 @@ const ADAPTERS = {
       //
       // `limit` is still accepted so a hand-made request against the Worker
       // keeps working, but it is now the fallback rather than the only name.
-      const asked = q.maxResults ?? q.limit ?? MAX_PAGE;
-      const limit = Math.max(1, Math.min(asked, MAX_PAGE, headroom));
-      const body = {
-        limit,
-        page: q.page || 0,
-        // Free here, and it is what makes an honest cap possible: asking for
-        // the total on the page we were fetching anyway costs no extra credit,
-        // whereas a separate `limit=1` sizing call costs one (the docs are
-        // explicit — "a count costs one record"). Never add that second call.
-        include_total_results: true,
+      const asked = Math.max(1, Math.min(q.maxResults ?? q.limit ?? MAX_PAGE,
+                                         headroom));
+      const base = {
+        // A closed posting cannot be applied for and is still billed.
+        // Measured 2026-09-11: 504 of 1,756 UK registered-nurse postings in a
+        // 30-day window (28.7%) had already closed.
+        is_closed: false,
       };
-      if (q.titles?.length) body.job_title_or = q.titles;
-      if (q.countries?.length) body.job_country_code_or = q.countries;
-      if (q.companies?.length) body.company_name_or = q.companies;
-      if (q.postedWithinDays) body.posted_at_max_age_days = q.postedWithinDays;
-      if (q.discoveredSince) body.discovered_at_gte = q.discoveredSince;
+      if (q.titles?.length) base.job_title_or = q.titles;
+      if (q.countries?.length) base.job_country_code_or = q.countries;
+      if (q.locationIds?.length) base.job_location_or = q.locationIds.map((id) => ({ id }));
+      if (q.companies?.length) base.company_name_or = q.companies;
+      // Exclusions the USER stated, applied here because a row that never
+      // returns is never billed. The feed matches company names exactly, so
+      // the app checks employers again on normalised names after the fetch.
+      if (q.excludeTitleTerms?.length) base.job_title_not = q.excludeTitleTerms;
+      if (q.excludeCompanies?.length) base.company_name_not = q.excludeCompanies;
+      if (q.postedWithinDays) base.posted_at_max_age_days = q.postedWithinDays;
+      if (q.discoveredSince) base.discovered_at_gte = q.discoveredSince;
       // Excluding what we have already been billed for is a BILLING control,
       // not a nicety: TheirStack does not cache, so re-fetching a row we hold
       // re-buys it. It does NOT deduplicate the ATS and LinkedIn copies of one
       // job — those carry different ids and are billed twice regardless
       // (~7% of a UK hospitality pull, ~1.7% of a global one).
-      if (q.excludeJobIds?.length) body.job_id_not = q.excludeJobIds;
+      if (q.excludeJobIds?.length) base.job_id_not = q.excludeJobIds;
 
-      const res = await fetch('https://api.theirstack.com/v1/jobs/search', {
-        method: 'POST',
-        headers: {
-          authorization: `Bearer ${env.THEIRSTACK_API_KEY}`,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      });
+      // PAGED BY OFFSET, and only up to what was asked. The app asks for one
+      // page per search; paging exists so that a larger request is honoured
+      // rather than silently cut to a hundred, not so a run buys more by
+      // default. Offset rather than page, because pages of different sizes do
+      // not line up with each other.
+      const jobs = [];
+      let total = null;
+      while (jobs.length < asked) {
+        const limit = Math.min(MAX_PAGE, asked - jobs.length);
+        const res = await fetch('https://api.theirstack.com/v1/jobs/search', {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${env.THEIRSTACK_API_KEY}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...base,
+            limit,
+            offset: jobs.length,
+            // First page only. It is free on a page being fetched anyway, and
+            // the docs warn it slows a response. Never add a separate sizing
+            // call: "a count costs one record".
+            include_total_results: jobs.length === 0,
+          }),
+        });
 
-      if (!res.ok) {
-        // Surfaced, never swallowed into "no new jobs".
-        throw new HttpError(502, 'provider_error',
-          `theirstack returned ${res.status}`);
+        if (!res.ok) {
+          // Surfaced, never swallowed into "no new jobs".
+          throw new HttpError(502, 'provider_error',
+            `theirstack returned ${res.status}`);
+        }
+        const payload = await res.json();
+        const rows = payload.data || [];
+        if (jobs.length === 0) {
+          // Lives under `metadata`, not at the top level — reading it from the
+          // top returns undefined silently and every page then looks unsized.
+          total = payload.metadata?.total_results ?? null;
+        }
+        jobs.push(...rows.map(normaliseTheirStack));
+        if (rows.length < limit) break;
+        if (typeof total === 'number' && jobs.length >= total) break;
       }
-      const payload = await res.json();
-      return {
-        jobs: (payload.data || []).map(normaliseTheirStack),
-        // Lives under `metadata`, not at the top level — reading it from the
-        // top returns undefined silently and every page then looks unsized.
-        total: payload.metadata?.total_results ?? null,
-      };
+      return { jobs, total };
     },
   },
 };
@@ -264,8 +293,91 @@ function normaliseTheirStack(row) {
       seniority: row.seniority ?? null,
       industry: row.industry ?? null,
       remote: row.remote ?? null,
+      hybrid: row.hybrid ?? null,
+      // Read by the app's scope gates, which may only remove a posting whose
+      // own tag contradicts what the user stated, and keep it when blank.
+      country_codes: row.country_codes ?? (row.country_code ? [row.country_code] : []),
+      employment_statuses: row.employment_statuses ?? [],
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Places — a place name from the app, as the feed's own place ids
+// ---------------------------------------------------------------------------
+
+/**
+ * Which catalogue entry to take when several share the exact name, best first.
+ *
+ * The first result is often not the place meant: for "Berlin" the city came
+ * third, behind two regions, and for "Chicago" every leading result was a
+ * region. Metro-area ids (RGNE) are never taken, because filtering by one
+ * matched nothing at all (Chicago metro: 0 postings, Chicago city: 775).
+ */
+const PLACE_PREFERENCE = ['PPLC', 'PPLA', 'PPLA2', 'PPLA3', 'PPLA4', 'ADM2',
+  'PPL', 'ADM1', 'ADM3', 'PPLX'];
+
+function pickPlace(rows, name) {
+  const wanted = name.trim().toLowerCase();
+  const rank = (code) => {
+    const i = PLACE_PREFERENCE.indexOf(code);
+    return i === -1 ? PLACE_PREFERENCE.length : i;
+  };
+  return rows
+    .filter((r) => String(r.name || '').toLowerCase() === wanted
+      && r.feature_code !== 'RGNE')
+    .sort((a, b) => rank(a.feature_code) - rank(b.feature_code))[0] || null;
+}
+
+async function resolvePlace(env, name, countries) {
+  const cache = caches.default;
+  const key = new Request('https://cache.dawnlist.internal/place?n='
+    + encodeURIComponent(name.trim().toLowerCase())
+    + '&c=' + encodeURIComponent([...countries].sort().join(',')));
+  const hit = await cache.match(key);
+  if (hit) return (await hit.json()).id;
+
+  for (const country of countries.length ? countries : [null]) {
+    const url = new URL('https://api.theirstack.com/v0/catalog/locations');
+    url.searchParams.set('name', name.trim());
+    url.searchParams.set('limit', '25');
+    if (country) url.searchParams.set('country_code', country);
+    const res = await fetch(url, {
+      headers: { authorization: `Bearer ${env.THEIRSTACK_API_KEY}` },
+    });
+    if (!res.ok) {
+      throw new HttpError(502, 'provider_error', `place lookup returned ${res.status}`);
+    }
+    const payload = await res.json();
+    const rows = Array.isArray(payload) ? payload : (payload.data || payload.result || []);
+    const place = pickPlace(rows, name);
+    if (place) {
+      // Found places only. A miss is not cached, because a transient empty
+      // answer would otherwise refuse that place for a month.
+      await cache.put(key, new Response(JSON.stringify({ id: place.id }), {
+        headers: { 'cache-control': `max-age=${PLACE_TTL_SECONDS}`,
+                   'content-type': 'application/json' },
+      }));
+      return place.id;
+    }
+  }
+  return null;
+}
+
+async function resolvePlaces(env, names, countries) {
+  const ids = [];
+  for (const name of names) {
+    const id = await resolvePlace(env, name, countries);
+    if (id === null) {
+      // Refused, never widened. Dropping the place would search the whole
+      // country, and the user would pay for postings they had ruled out.
+      throw new HttpError(400, 'unknown_location',
+        `No place called "${name}" was found`
+        + (countries.length ? ` in ${countries.join(', ')}` : ''));
+    }
+    if (!ids.includes(id)) ids.push(id);
+  }
+  return ids;
 }
 
 // ---------------------------------------------------------------------------
@@ -280,6 +392,13 @@ function cacheKeyFor(query) {
     d: query.postedWithinDays || null,
     s: query.discoveredSince || null,
     p: query.page || 0,
+    // Everything that narrows a result is in the key. Without these, one
+    // user's search for London, or with an employer excluded, would be served
+    // to another user who asked for the whole country or that employer.
+    ci: [...(query.cities || [])].map((c) => c.trim().toLowerCase()).sort(),
+    xt: [...(query.excludeTitleTerms || [])].map((t) => t.trim().toLowerCase()).sort(),
+    xc: [...(query.excludeCompanies || [])].sort(),
+    m: query.maxResults ?? query.limit ?? null,
   });
   return new Request(`https://cache.dawnlist.internal/search?q=${encodeURIComponent(canonical)}`);
 }
@@ -314,6 +433,11 @@ async function handleSearch(request, env, ctx) {
     });
   }
 
+  if (query.cities?.length) {
+    // Before any provider is asked, so an unknown place costs nothing.
+    query.locationIds = await resolvePlaces(env, query.cities, query.countries || []);
+  }
+
   const providers = await activeProviders(env);
   let result = null;
   let usedProvider = null;
@@ -339,10 +463,17 @@ async function handleSearch(request, env, ctx) {
 
   const { jobs, total } = result;
 
-  ctx.waitUntil(cache.put(cacheKey, new Response(JSON.stringify({ jobs, total }), {
-    headers: { 'cache-control': `max-age=${SEARCH_TTL_SECONDS}`,
-               'content-type': 'application/json' },
-  })));
+  // Not cached when THIS licence's allowance cut the fetch short: the next
+  // user asking the same search with allowance to spare would otherwise be
+  // served the short list as if it were everything.
+  const cutByCap = jobs.length >= caps.headroom
+    && !(typeof total === 'number' && total <= jobs.length);
+  if (!cutByCap) {
+    ctx.waitUntil(cache.put(cacheKey, new Response(JSON.stringify({ jobs, total }), {
+      headers: { 'cache-control': `max-age=${SEARCH_TTL_SECONDS}`,
+                 'content-type': 'application/json' },
+    })));
+  }
 
   await recordUsage(env, licence.licence_key,
     { refreshes: 1, postings: jobs.length });

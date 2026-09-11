@@ -158,6 +158,16 @@ class TheirStackProvider(FeedProvider):
             body["job_country_code_or"] = q.countries
         if q.companies:
             body["company_name_or"] = q.companies
+        # A closed posting cannot be applied for and is still billed. Measured
+        # 2026-09-11: three of five sampled rows had already closed.
+        body["is_closed"] = False
+        if q.exclude_title_terms:
+            body["job_title_not"] = q.exclude_title_terms
+        if q.exclude_companies:
+            body["company_name_not"] = q.exclude_companies
+        # `cities` is NOT applied on this developer path: turning a city into
+        # the feed's place ids lives in the Worker, so this adapter searches
+        # the whole of each country.
         if q.posted_within_days:
             body["posted_at_max_age_days"] = q.posted_within_days
         if q.exclude_job_ids:

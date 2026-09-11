@@ -52,7 +52,15 @@ class SearchQuery:
     #: because the next run then re-requests the same window and, without
     #: this, re-buys every row in it.
     exclude_job_ids: tuple[str, ...] = ()
-    max_results: int = 500
+    max_results: int = 100
+    #: Resolved by the Worker to the feed's own place ids. Sent as names so the
+    #: app never has to carry a copy of the feed's location catalogue.
+    cities: list[str] = field(default_factory=list)
+    #: Applied at the feed, where a row that never returns is never paid for.
+    #: Only what the user explicitly ruled out: an exclusion hides a posting
+    #: before anything has read it, so a doubtful one costs a real role.
+    exclude_title_terms: list[str] = field(default_factory=list)
+    exclude_companies: list[str] = field(default_factory=list)
 
 
 @dataclass

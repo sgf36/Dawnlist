@@ -679,7 +679,7 @@ def test_a_run_prunes_the_rolling_seen_window(conn, monkeypatch):
     conn.execute("INSERT INTO settings(key, value) VALUES(?, 'done')",
                  (CALIBRATION_KEY,))
     conn.execute("INSERT INTO queries(label, params_json, enabled, created_at) "
-                 "VALUES('q','{\"titles\":[\"strategy\"]}',1,'x')")
+                 "VALUES('q','{\"titles\":[\"strategy\"],\"countries\":[\"GB\"]}',1,'x')")
     conn.commit()
     monkeypatch.setattr("app.core.entitlement.require", lambda c: None)
 
@@ -922,8 +922,13 @@ def test_seeded_searches_arrive_switched_off(conn):
 
 
 def test_switching_a_search_on_makes_a_run_sweep_it(conn):
+    """With a location. Without one the switch is refused — see
+    tests/test_search_scope.py — because this exact path used to switch on
+    searches that looked across the whole world."""
+    from app.core.search_scope import SearchScope
     from app.main import all_queries, enable_query, load_queries, seed_queries_from_aim
-    seed_queries_from_aim(conn, "Hotel asset management in London.")
+    seed_queries_from_aim(conn, "Hotel asset management in London.",
+                          scope=SearchScope.from_parts(countries=["GB"]))
     label = all_queries(conn)[0][0]
     enable_query(conn, label)
     assert [q.label for q in load_queries(conn)] == [label]

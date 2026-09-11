@@ -20,9 +20,11 @@ function test(name, fn) {
 // The clamp, lifted verbatim from src/index.js. Kept as a copy deliberately:
 // the real one is inside a fetch-making adapter, and a test that had to stub
 // the network to check an arithmetic expression would prove less, not more.
+// The per-request total; pages of at most MAX_PAGE are fetched up to it. The
+// paging itself is exercised on the wire in location.test.mjs.
 const MAX_PAGE = 100;
 const chosen = (q, headroom) =>
-  Math.max(1, Math.min(q.maxResults ?? q.limit ?? MAX_PAGE, MAX_PAGE, headroom));
+  Math.max(1, Math.min(q.maxResults ?? q.limit ?? MAX_PAGE, headroom));
 
 console.log('page size');
 
