@@ -205,6 +205,16 @@ export async function handleRedeem(request, env, newLicenceKey) {
 // Admin console
 // ---------------------------------------------------------------------------
 
+/** A JSON error body's `name`, or null when there is no readable one. */
+async function errorNameOf(response) {
+  try {
+    const name = JSON.parse(await response.text())?.name;
+    return typeof name === 'string' ? name : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * What each admin route is recorded as. A request to anything not listed is
  * refused before it is recorded or counted.
@@ -465,27 +475,44 @@ async function routeAdmin(request, env, auth, path, audit) {
   // back. It sends nothing and spends nothing.
   if (path === '/admin/selftest' && request.method === 'GET') {
     const out = {};
+    // Each check is isolated. An upstream that threw — a DNS failure, a
+    // timeout — used to escape and turn the whole selftest into a 500, hiding
+    // the answer for every other credential at exactly the moment somebody
+    // was trying to find out which one was broken.
+    const check = async (name, run) => {
+      try {
+        out[name] = await run();
+      } catch (err) {
+        out[name] = { ok: false, reason: 'unreachable', error: err?.name || 'Error' };
+      }
+    };
 
-    if (!env.RESEND_API_KEY) {
-      out.resend = { ok: false, reason: 'not set' };
-    } else {
+    await check('resend', async () => {
+      if (!env.RESEND_API_KEY) return { ok: false, reason: 'not set' };
       const r = await fetch('https://api.resend.com/domains', {
         headers: { authorization: `Bearer ${env.RESEND_API_KEY}` },
       });
-      // 401 is a wrong key; 200 is a working one. Anything else is reported
-      // as itself rather than collapsed into "failed".
-      out.resend = { ok: r.ok, status: r.status };
-    }
+      if (r.ok) return { ok: true, status: r.status };
+      // A key restricted to SENDING may not list domains and is refused with
+      // restricted_api_key. That is the least-privileged key this Worker
+      // should hold — it only ever sends — so it is healthy, and flagged as
+      // restricted so nobody "fixes" it by issuing a full-access key.
+      if (await errorNameOf(r) === 'restricted_api_key') {
+        return { ok: true, status: r.status, restricted: true };
+      }
+      // 401 is a wrong key. Anything else is reported as itself rather than
+      // collapsed into "failed".
+      return { ok: false, status: r.status };
+    });
 
-    if (!env.PADDLE_API_KEY) {
-      out.paddle = { ok: false, reason: 'not set' };
-    } else {
+    await check('paddle', async () => {
+      if (!env.PADDLE_API_KEY) return { ok: false, reason: 'not set' };
       const base = env.PADDLE_API_BASE || 'https://api.paddle.com';
       const r = await fetch(`${base}/customers?per_page=1`, {
         headers: { authorization: `Bearer ${env.PADDLE_API_KEY}` },
       });
-      out.paddle = { ok: r.ok, status: r.status };
-    }
+      return { ok: r.ok, status: r.status };
+    });
 
     out.theirstack = { ok: Boolean(env.THEIRSTACK_API_KEY), checked: false,
                        note: 'not called — a feed request costs a credit' };

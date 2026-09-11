@@ -122,6 +122,67 @@ await test('the feed key is never CALLED, because a feed request costs a credit'
   assert.equal(body.checks.theirstack.checked, false);
 });
 
+await test('a Resend key restricted to sending is reported healthy, and as restricted', async () => {
+  // A send-only key is the right key for a Worker that only sends. It cannot
+  // list domains, so the check used to call it broken.
+  const db = makeDB();
+  const licence = await seedAdmin(db);
+  const body = await withFetch(
+    async () => (await handleAdmin(get('/admin/selftest', licence),
+      { DB: db, RESEND_API_KEY: 're_send_only', PADDLE_API_KEY: 'p' })).json(),
+    async (url) => (String(url).includes('resend')
+      ? { ok: false, status: 401, text: async () => JSON.stringify({
+          name: 'restricted_api_key', message: 'This API key is restricted to only send emails' }) }
+      : { ok: true, status: 200 }));
+  assert.equal(body.checks.resend.ok, true);
+  assert.equal(body.checks.resend.restricted, true);
+  assert.equal(body.ok, true);
+});
+
+await test('negative control: a Resend key refused for any other reason still fails', async () => {
+  const db = makeDB();
+  const licence = await seedAdmin(db);
+  const body = await withFetch(
+    async () => (await handleAdmin(get('/admin/selftest', licence),
+      { DB: db, RESEND_API_KEY: 're_wrong', PADDLE_API_KEY: 'p' })).json(),
+    async (url) => (String(url).includes('resend')
+      ? { ok: false, status: 401, text: async () => '{"name":"invalid_api_key"}' }
+      : { ok: true, status: 200 }));
+  assert.equal(body.checks.resend.ok, false);
+  assert.equal(body.checks.resend.status, 401);
+  assert.equal(body.ok, false);
+});
+
+await test('one check that throws cannot take the others down with it', async () => {
+  const db = makeDB();
+  const licence = await seedAdmin(db);
+  const res = await withFetch(
+    async () => handleAdmin(get('/admin/selftest', licence),
+      { DB: db, RESEND_API_KEY: 'r', PADDLE_API_KEY: 'p' }),
+    async (url) => {
+      if (String(url).includes('paddle')) throw new TypeError('fetch failed');
+      return { ok: true, status: 200 };
+    });
+  assert.equal(res.status, 200, 'a broken upstream is a finding, not a 500');
+  const body = await res.json();
+  assert.equal(body.checks.paddle.ok, false);
+  assert.equal(body.checks.paddle.reason, 'unreachable');
+  assert.equal(body.checks.resend.ok, true, 'the other answer is still there');
+  assert.equal(body.ok, false);
+});
+
+await test('a failure body that cannot be read is reported by status, not thrown', async () => {
+  const db = makeDB();
+  const licence = await seedAdmin(db);
+  const body = await withFetch(
+    async () => (await handleAdmin(get('/admin/selftest', licence),
+      { DB: db, RESEND_API_KEY: 'r', PADDLE_API_KEY: 'p' })).json(),
+    async (url) => (String(url).includes('resend')
+      ? { ok: false, status: 500, text: async () => '<html>gateway</html>' }
+      : { ok: true, status: 200 }));
+  assert.deepEqual(body.checks.resend, { ok: false, status: 500 });
+});
+
 console.log('\nresend');
 
 await test('both a licence and an address are required', async () => {
