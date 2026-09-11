@@ -120,5 +120,10 @@
   "settings.subscribe_length": "The length of ONE subscription period, shown on an App Store purchase screen because Apple requires the term to be stated. A duration ('1 month'), never a date and never a deadline.",
   "settings.subscribe_terms": "Shown before an App Store purchase. {title} is the product name Dawnlist and is never translated; {length} is a duration such as '1 month'. It must say what is bought, for how long, and that it renews until the person cancels. 'System Settings' is the macOS app of that name - use the name Apple uses for it in this language.",
   "settings.eula_link": "Link text to Apple's standard End User Licence Agreement, shown on a subscription screen. Apple's own storefront calls this document 'Terms of Use' - where this language has Apple's wording for it, use that rather than a fresh translation.",
-  "settings.privacy_link": "Link text to the product's privacy policy, shown on a subscription screen. The name of a document, not an instruction."
+  "settings.privacy_link": "Link text to the product's privacy policy, shown on a subscription screen. The name of a document, not an instruction.",
+  "run.now": "A button that starts today's job search straight away. 'Run' as in carry out the search - not jogging, and not launching a program.",
+  "run.last_not_today": "{when} is a date and time already written in the user's own format. 'Run' means the once-a-day job search. The part after the dash says that search has not happened yet on the current day.",
+  "run.limit_reached": "{count} is a whole number. {reset} is a clock time already in the user's own format. 'Refreshes' are fetches from the job feed, and the allowance resets at midnight UTC: keep 'UTC' as written, because the reset is NOT at local midnight.",
+  "run.offer": "{time} is a clock time already in the user's own format. 'Run now' is the name of the button beside this text - use the same words you used for run.now.",
+  "tray.still_running": "A notification from the app's icon in the Windows notification area or the macOS menu bar. 'This icon' is the icon the notification comes from. 'Daily run' is the once-a-day job search."
 }

@@ -106,7 +106,8 @@ binaries = []
 # app/core/store_entitlement.py (when added) imports them lazily inside
 # try/except, so the static graph never sees them and the shipped Store build
 # would be unable to read its entitlement — production would stay locked for
-# every customer.
+# every customer. The same collection carries Windows.ApplicationModel, which
+# start at sign-in uses to switch the manifest's startup task.
 if sys.platform.startswith("win"):
     try:
         from PyInstaller.utils.hooks import collect_all
@@ -120,7 +121,10 @@ if sys.platform.startswith("win"):
 # The Mac App Store build reads its StoreKit entitlement through PyObjC, also
 # lazily. Absent on a notarised-.dmg build, which is a harmless no-op.
 if sys.platform == "darwin":
-    for _mod in ("StoreKit", "Foundation", "CoreFoundation", "objc"):
+    # ServiceManagement is start at sign-in (app/core/sign_in.py), imported
+    # just as lazily; without it the Settings switch reports "unavailable".
+    for _mod in ("StoreKit", "Foundation", "CoreFoundation", "objc",
+                 "ServiceManagement"):
         hiddenimports.append(_mod)
     # The module holding the four Objective-C classes. Imported lazily and by
     # name from inside functions, so it is exactly the shape the static graph

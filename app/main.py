@@ -1789,6 +1789,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="open settings alone, without the rest of the app")
     parser.add_argument("--onboard", action="store_true",
                         help="open the setup flow, even if already calibrated")
+    parser.add_argument("--background", action="store_true",
+                        help="start in the tray without opening the window, "
+                             "as a launch at sign-in does")
     parser.add_argument("--db", type=Path, default=None,
                         help="database path (defaults to the app data dir)")
     parser.add_argument("--locale", default=None, help="UI locale, e.g. fr")
@@ -1949,7 +1952,14 @@ def main(argv: list[str] | None = None) -> int:
         apply_icon(app)
         return _launch_onboarding(app, conn)
 
-    return _launch_ui(conn, open_board=args.board)
+    from app.core.build_variant import variant
+    from app.core.sign_in import launched_at_sign_in
+
+    # The Store's startup task passes no arguments, so it is recognised from
+    # how Windows activated the package; the direct build's Run command
+    # carries --background itself.
+    background = args.background or launched_at_sign_in(variant(), [])
+    return _launch_ui(conn, open_board=args.board, background=background)
 
 
 def _doctor(conn) -> int:
@@ -2418,21 +2428,25 @@ def _added_alerts(window, conn, paths) -> None:
                 incomplete_note=note)
 
 
-def _wire_daily_run(window, conn, reload, *, notify=None):
-    """Keep the run's time for as long as this window's process is open.
+def _wire_daily_run(window, conn, reload, *, tray_available=None):
+    """Keep the run's time for as long as this process is open.
 
-    Returned so the caller holds it: the controller's timer is what keeps the
-    promise of a daily run, and a collected controller keeps nothing.
+    Returns (controller, binding, tray) so the caller holds them: the
+    controller's timer is what keeps the promise of a daily run, and a
+    collected controller keeps nothing.
     """
     from app.ui.scheduler import RunBinding, RunController
+    from app.ui.tray import TrayPresence
 
     path = database_path(conn)
     controller = RunController(
         conn, work=lambda: run_daily_search_on_worker(path), parent=window)
-    binding = RunBinding(window, conn, controller, reload=reload, notify=notify)
+    tray = TrayPresence(window, conn, controller, available=tray_available)
+    binding = RunBinding(window, conn, controller, reload=reload,
+                         notify=tray.notify)
     binding.show_latest()
     controller.start()
-    return controller, binding
+    return controller, binding, tray
 
 
 def _main_window(conn, *, open_board: bool):
@@ -2524,7 +2538,7 @@ def _launch_terms(app, conn, *, open_board: bool) -> int:
     return app.exec()
 
 
-def _launch_ui(conn, *, open_board: bool) -> int:
+def _launch_ui(conn, *, open_board: bool, background: bool = False) -> int:
     from PySide6.QtWidgets import QApplication
 
     from app.onboarding import terms
@@ -2552,6 +2566,11 @@ def _launch_ui(conn, *, open_board: bool) -> int:
         return _launch_terms(app, conn, open_board=open_board)
 
     window = _main_window(conn, open_board=open_board)
+    daily = getattr(window, "_daily_run", None)
+    if background and daily is not None and daily[2].start_hidden():
+        # Into the tray, and no update prompt: a dialog with no window behind
+        # it, at sign-in, is the worst moment to ask anyone anything.
+        return app.exec()
     window.show()
     _offer_update(window)
     return app.exec()

@@ -362,7 +362,7 @@ def test_the_launched_window_offers_run_now_after_the_run_time(tmp_path, monkeyp
 
     # Positive control: a search started now takes the offer away.
     add_run(c, datetime.now(UTC).isoformat(timespec="seconds"))
-    controller, _binding = window._daily_run
+    controller, _binding, _tray = window._daily_run
     controller.tick()
     assert window.btn_run_now.isHidden()
     controller.timer.stop()
