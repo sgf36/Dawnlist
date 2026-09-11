@@ -11,6 +11,7 @@ postings that reach the assessment are the ones the rules already believe in.
 """
 from __future__ import annotations
 
+import json
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
@@ -267,19 +268,37 @@ def persist(conn: sqlite3.Connection, outcome: RunOutcome) -> None:
     if outcome.screen:
         for result in outcome.screen.results:
             j = result.job
+            # Salary, posted date, place and the feed's tags were written for
+            # a PASTED posting only. A fed one read back from its row had none
+            # of them, so anything rebuilt from the database showed the model
+            # "not stated" for fields the feed did state — and those are the
+            # fields a brief's hard constraints are written in.
+            #
+            # On a later write of the same posting a value is updated, never
+            # blanked: an emptier copy (a cached row, an alert email) must not
+            # erase what an earlier, fuller one recorded.
             conn.execute(
                 """INSERT INTO jobs(provider, provider_job_id, title, company,
-                       description_text, url, name_key, first_seen_run,
+                       locations_json, description_text, posted_at, salary, url,
+                       raw_criteria_json, name_key, first_seen_run,
                        funnel_status, screen_verdict, screen_tier, screen_reason)
-                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                    ON CONFLICT(provider, provider_job_id) DO UPDATE SET
+                       locations_json=CASE WHEN excluded.locations_json <> '[]'
+                           THEN excluded.locations_json ELSE jobs.locations_json END,
+                       posted_at=COALESCE(excluded.posted_at, jobs.posted_at),
+                       salary=COALESCE(excluded.salary, jobs.salary),
+                       raw_criteria_json=CASE WHEN excluded.raw_criteria_json <> '{}'
+                           THEN excluded.raw_criteria_json ELSE jobs.raw_criteria_json END,
                        screen_verdict=excluded.screen_verdict,
                        screen_tier=excluded.screen_tier,
                        screen_reason=excluded.screen_reason""",
                 (j.provider, j.provider_job_id, j.title, j.company,
-                 j.description_text, j.url, name_key(j.company, j.title),
-                 outcome.run_id, "screened", result.verdict.value,
-                 result.tier.value, result.reason))
+                 json.dumps(list(j.locations)), j.description_text,
+                 j.posted_at.isoformat() if j.posted_at else None, j.salary,
+                 j.url, json.dumps(j.raw_criteria or {}, default=str),
+                 name_key(j.company, j.title), outcome.run_id, "screened",
+                 result.verdict.value, result.tier.value, result.reason))
             conn.execute(
                 "INSERT INTO seen_jobs(provider, provider_job_id, seen_at) "
                 "VALUES(?,?,?) ON CONFLICT DO NOTHING",

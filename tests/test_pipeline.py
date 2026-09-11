@@ -315,3 +315,51 @@ def test_the_mark_is_when_that_querys_fetch_began(conn):
     assert out.marks["revenue"] == datetime(2026, 9, 11, 7, 5, tzinfo=timezone.utc)
     assert t[0] > out.marks["revenue"], (
         "positive control: the run really did go on after the fetch began")
+
+
+# ---------------------------------------------------------------------------
+# A stored posting keeps the fields its assessment and gates read
+# ---------------------------------------------------------------------------
+
+def test_fed_postings_keep_their_salary_date_place_and_tags(conn):
+    """Only a pasted posting ever had these columns written. A fed posting read
+    back from its row had no salary, date, place or contract type, so anything
+    rebuilt from the database showed the model "not stated" for fields the
+    feed did state."""
+    import json
+    from dataclasses import replace
+
+    rich = Job(provider="theirstack", provider_job_id="r1",
+               title="Head of Strategy", company="Acme",
+               description_text="A strategy role.",
+               locations=("London", "Greater London"),
+               posted_at=date(2026, 9, 1), salary="£90,000",
+               raw_criteria={"employment_statuses": ["full_time"],
+                             "country_codes": ["GB"]})
+
+    def stored():
+        return conn.execute(
+            "SELECT * FROM jobs WHERE provider_job_id='r1'").fetchone()
+
+    persist(conn, run_morning(conn, StubProvider({"strategy": ok([rich])}), [Q],
+                              RULES, fit_brief="b", factsheet="f",
+                              send=strong_send))
+    row = stored()
+    assert row["title"] == "Head of Strategy", "positive control: the row exists"
+    assert row["salary"] == "£90,000"
+    assert row["posted_at"] == "2026-09-01"
+    assert json.loads(row["locations_json"]) == ["London", "Greater London"]
+    assert json.loads(row["raw_criteria_json"]) == {
+        "employment_statuses": ["full_time"], "country_codes": ["GB"]}
+
+    # Written again, emptier: what changed is updated and nothing is blanked.
+    thinner = replace(rich, salary="£95,000", posted_at=None, locations=(),
+                      raw_criteria={})
+    persist(conn, run_morning(conn, StubProvider({"strategy": ok([thinner])}),
+                              [Q], RULES, fit_brief="b", factsheet="f",
+                              send=strong_send))
+    row = stored()
+    assert row["salary"] == "£95,000"
+    assert row["posted_at"] == "2026-09-01"
+    assert json.loads(row["locations_json"]) == ["London", "Greater London"]
+    assert json.loads(row["raw_criteria_json"])["country_codes"] == ["GB"]
