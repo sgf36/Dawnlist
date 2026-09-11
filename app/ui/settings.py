@@ -1190,6 +1190,15 @@ class SubscribePanel(QWidget):
         if started is not None:
             self._finished(started)
 
+    def restore_purchases(self) -> None:
+        """Start a restore, exactly as the Restore button does.
+
+        Public because the setup wizard's menu restores through this panel,
+        where the answer is shown, rather than firing StoreKit from somewhere
+        with nothing to display it.
+        """
+        self._restore()
+
     def _restore(self) -> None:
         self._busy(True)
         started = self._sk.restore()
