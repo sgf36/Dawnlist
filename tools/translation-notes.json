@@ -96,5 +96,6 @@
   "searches.where_empty": "Shown when the box is empty. Keep 'London, GB' EXACTLY as written.",
   "searches.where_apply": "A button that sets the same city and country on EVERY saved job search at once. Not 'apply for a job'.",
   "searches.needs_where": "{label} is the name of a saved job search. 'Switched on' means the search runs each morning. Not an error in the app: the user must first say where they want to work.",
+  "entitlement.no_variant": "An error for a wrongly packaged copy of the app. {variant} is an internal build code such as 'none' or 'ambiguous' - leave it exactly as it is. 'Edition marker' means the flag saying which store the copy was built for (Microsoft Store, Mac App Store or the website), NOT a version number and not a watermark.",
   "update.body":"Explains where the update comes from. 'checksum' is the published SHA-256 hash beside the download, used to verify the file. Keep it as the technical term your market uses; do not soften it to 'code' or 'signature'."
 }

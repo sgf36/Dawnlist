@@ -434,7 +434,12 @@ class SettingsWindow(QWidget):
         # MAY accept a licence bought on the website — and hiding the box there
         # was the reason a Store customer could pay and then reach no feed at
         # all. The restriction was Apple's, applied to both by assumption.
-        self.shows_licence = build != "mas"
+        #
+        # NAMED, not "anything but mas". A build with no variant flag, or two,
+        # was made wrong and may well be a Mac build; offering it a key box is
+        # the shape guideline 3.1.1 forbids, and guessing is worse than
+        # showing nothing.
+        self.shows_licence = build in ("store", "direct")
         if self.shows_licence:
             layout.addWidget(_divider())
             layout.addWidget(self.licence)

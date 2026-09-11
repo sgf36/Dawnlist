@@ -268,6 +268,14 @@ def check(conn: sqlite3.Connection, *, verifier=None,
     now = now or _now()
     build = variant()
 
+    # A build with no variant flag, or two, was packaged wrong. Treating it as
+    # Windows would unlock what may be a Mac build with a key, which guideline
+    # 3.1.1 forbids; treating it as a Mac would ask a Windows customer for an
+    # Apple subscription. So it refuses, and says the COPY is broken rather
+    # than that nobody paid.
+    if build not in ("store", "direct", "mas"):
+        return Entitlement(False, "", tr("entitlement.no_variant", variant=build))
+
     # --- Mac App Store: Apple's commerce, enforced one layer down ---------
     #
     # A MAS build carries no pasted key at all (guideline 3.1.1), so there is

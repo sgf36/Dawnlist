@@ -246,6 +246,17 @@ def test_the_mac_app_store_build_shows_NO_licence_box(qapp):
     w.close()
 
 
+@pytest.mark.parametrize("build", ["none", "ambiguous"])
+def test_a_badly_packaged_build_shows_no_licence_box(qapp, build):
+    """It was "anything but mas", so a copy with no flag — which may well be a
+    Mac build — offered the key box guideline 3.1.1 forbids. The store and
+    direct tests above are the positive controls."""
+    w = SettingsWindow(variant=build)
+    assert not w.shows_licence
+    assert not w.shows_subscribe
+    w.close()
+
+
 # -- the rules panel --------------------------------------------------------
 def rules_panel(qapp, table=None, *, saver=None):
     from app.core.rules import RuleTable

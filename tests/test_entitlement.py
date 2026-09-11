@@ -86,6 +86,29 @@ def test_a_mac_store_build_never_calls_the_network(conn, monkeypatch):
     assert check(conn, verifier=explode, now=NOW).entitled
 
 
+# -- a build that does not know what it is -----------------------------------
+@pytest.mark.parametrize("build", ["none", "ambiguous"])
+def test_a_build_without_one_variant_is_refused_without_asking(conn, monkeypatch, build):
+    """Guessing the store would either unlock a Mac build with a key or ask a
+    Windows customer for Apple's subscription. It says the copy is broken."""
+    as_variant(monkeypatch, build)
+    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+
+    def explode(_key):
+        raise AssertionError("a broken build must not verify anything")
+
+    e = check(conn, verifier=explode, now=NOW)
+    assert not e.entitled and not e.unverifiable
+    assert build in e.reason and "edition marker" in e.reason
+
+
+def test_the_same_licence_runs_on_a_named_build(conn, monkeypatch):
+    """Positive control for the refusal above: identical key and verifier."""
+    as_variant(monkeypatch, "direct")
+    monkeypatch.setattr(ent, "stored_licence", lambda: "DAWN-XXXX")
+    assert check(conn, verifier=lambda _k: True, now=NOW).entitled
+
+
 # -- direct download --------------------------------------------------------
 def test_no_licence_means_no_run(conn, monkeypatch):
     as_variant(monkeypatch, "direct")
