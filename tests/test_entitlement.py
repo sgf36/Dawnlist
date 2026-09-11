@@ -13,6 +13,14 @@ NOW = datetime(2026, 9, 6, 12, 0, tzinfo=timezone.utc)
 #: pass, so a test can run the real verifier over a stubbed transport.
 REAL_VERIFY = ent.verify_against_worker
 REAL_STORED = ent.stored_licence
+REAL_LICENCE_CHECK = ent.licence_check
+
+
+@pytest.fixture(autouse=True)
+def real_licence_transport(monkeypatch):
+    """conftest pins `licence_check` so no screen reaches the live Worker; the
+    tests here drive the real one over stubbed openers."""
+    monkeypatch.setattr(ent, "licence_check", REAL_LICENCE_CHECK)
 
 
 @pytest.fixture()
@@ -68,23 +76,128 @@ def test_a_microsoft_store_build_does_verify_remotely(conn, monkeypatch):
     assert asked == ["DAWN-XXXX"]
 
 
-# -- the Mac App Store build IS, because Apple forbids keys ------------------
-def test_a_mac_store_build_is_entitled_without_a_key(conn, monkeypatch):
-    """Guideline 3.1.1 leaves nothing for this gate to check. The real gate is
-    `build_provider`, which trades the App Store receipt for a licence and
-    refuses when Apple reports no active subscription."""
+# -- the Mac App Store build: Apple's answer, with the same grace ------------
+#
+# A `mas` build used to be entitled WITHOUT ASKING, leaving the feed to refuse
+# later — so a lapsed subscriber passed the door, got an empty morning, and was
+# told nothing. Two tests pinned that shortcut ("entitled without a key",
+# "never calls the network"); they are replaced by these, which still refuse
+# to let a pasted or purchased key unlock the build.
+
+def _mas_setup(monkeypatch, *, cache=None, granted=None):
+    as_variant(monkeypatch, "mas")
+    monkeypatch.setattr(ent, "read_licence", lambda: granted)
+    monkeypatch.setattr(ent, "apple_cache", lambda: dict(cache or {}))
+
+
+def _apple(outcome, **kw):
+    from app.core.entitlement import AppleExchange
+    return lambda _oid: AppleExchange(outcome, **kw)
+
+
+def _apple_must_not_be_asked(_oid):
+    raise AssertionError("Apple must not be asked here")
+
+
+def test_a_mac_build_with_nothing_bought_is_told_to_subscribe_or_restore(conn, monkeypatch):
+    _mas_setup(monkeypatch)
+    e = check(conn, apple_exchanger=_apple("none"), now=NOW)
+    assert not e.entitled and not e.unverifiable
+    assert "Restore purchase" in e.reason
+
+
+def test_a_confirmed_mac_subscription_runs_and_is_stamped(conn, monkeypatch):
+    from app.core.entitlement import AppleExchange
+
+    _mas_setup(monkeypatch, cache={"original_transaction_id": "2000"})
+    asked = []
+
+    def exchanger(oid):
+        asked.append(oid)
+        return AppleExchange("licence", licence_key="DAWN-MAC")
+
+    e = check(conn, apple_exchanger=exchanger, now=NOW)
+    assert e.entitled and e.source == "mas"
+    assert asked == ["2000"]
+    assert ent._get(conn, ent.VERIFIED_KEY) == ent._fingerprint("DAWN-MAC")
+
+
+def test_a_lapsed_mac_subscription_is_refused_in_its_own_words(conn, monkeypatch):
+    _mas_setup(monkeypatch, cache={"original_transaction_id": "2000",
+                                   "licence_key": "DAWN-MAC"})
+    check(conn, apple_exchanger=_apple("licence", licence_key="DAWN-MAC"), now=NOW)
+
+    e = check(conn, apple_exchanger=_apple("refused", error="not_subscribed"),
+              now=NOW + timedelta(days=1))
+    assert not e.entitled and not e.unverifiable, "grace never covers Apple saying no"
+    assert "not active" in e.reason
+
+
+def test_an_unreachable_apple_runs_on_grace_as_windows_does(conn, monkeypatch):
+    _mas_setup(monkeypatch, cache={"original_transaction_id": "2000",
+                                   "licence_key": "DAWN-MAC"})
+    check(conn, apple_exchanger=_apple("licence", licence_key="DAWN-MAC"), now=NOW)
+
+    recent = check(conn, apple_exchanger=_apple("unreachable"),
+                   now=NOW + timedelta(days=3))
+    assert recent.entitled and recent.source == "grace"
+
+    late = check(conn, apple_exchanger=_apple("unreachable"),
+                 now=NOW + timedelta(days=ent.GRACE_DAYS + 1))
+    assert not late.entitled and late.unverifiable
+    assert "could not reach" in late.reason.lower()
+    assert "not active" not in late.reason
+
+
+def test_unreachable_with_no_recent_confirmation_is_worded_as_unreachable(conn, monkeypatch):
+    _mas_setup(monkeypatch, cache={"original_transaction_id": "2000"})
+    e = check(conn, apple_exchanger=_apple("unreachable"), now=NOW)
+    assert not e.entitled and e.unverifiable
+    assert "nothing has been cancelled" in e.reason
+
+
+def test_mac_grace_belongs_to_the_licence_apple_issued(conn, monkeypatch):
+    """The kept licence is what grace is measured against, so a stamp earned
+    by one licence does not carry a different one through an outage."""
+    _mas_setup(monkeypatch, cache={"original_transaction_id": "2000",
+                                   "licence_key": "DAWN-OTHER"})
+    check(conn, apple_exchanger=_apple("licence", licence_key="DAWN-MAC"), now=NOW)
+    e = check(conn, apple_exchanger=_apple("unreachable"), now=NOW + timedelta(days=1))
+    assert not e.entitled
+
+
+def test_a_mac_build_with_an_unreadable_store_is_unverifiable(conn, monkeypatch):
+    from app.core.credentials import KeyringUnavailable
+
     as_variant(monkeypatch, "mas")
     monkeypatch.setattr(ent, "read_licence", lambda: None)
-    assert check(conn, now=NOW).entitled
+
+    def locked():
+        raise KeyringUnavailable("locked")
+
+    monkeypatch.setattr(ent, "apple_cache", locked)
+    e = check(conn, apple_exchanger=_apple_must_not_be_asked, now=NOW)
+    assert not e.entitled and e.unverifiable
+    assert "credential store" in e.reason
 
 
-def test_a_mac_store_build_never_calls_the_network(conn, monkeypatch):
-    as_variant(monkeypatch, "mas")
+def test_an_access_code_grant_runs_on_a_mac_without_asking_apple(conn, monkeypatch):
+    """Guideline 3.1.1 forbids a purchase outside Apple's commerce, not a free
+    grant — which is how App Review and friends get in."""
+    _mas_setup(monkeypatch, granted="DAWN-GRANT")
+    monkeypatch.setattr(ent, "licence_check", lambda key, **kw: (
+        "ok", {"ok": True, "granted_by_code": True, "purchased": False}))
+    e = check(conn, apple_exchanger=_apple_must_not_be_asked, now=NOW)
+    assert e.entitled
 
-    def explode(_key):
-        raise AssertionError("a MAS build must not verify a key remotely")
 
-    assert check(conn, verifier=explode, now=NOW).entitled
+def test_a_purchased_licence_in_the_keyring_does_not_unlock_a_mac(conn, monkeypatch):
+    """The positive control's opposite: the same route with a Paddle purchase."""
+    _mas_setup(monkeypatch, granted="DAWN-BOUGHT")
+    monkeypatch.setattr(ent, "licence_check", lambda key, **kw: (
+        "ok", {"ok": True, "granted_by_code": False, "purchased": True}))
+    e = check(conn, apple_exchanger=_apple("none"), now=NOW)
+    assert not e.entitled
 
 
 # -- a build that does not know what it is -----------------------------------
@@ -323,9 +436,18 @@ def test_require_refuses_a_store_build_with_no_licence(conn, monkeypatch):
         require(conn, now=NOW)
 
 
-def test_require_passes_on_a_mac_store_build(conn, monkeypatch):
-    as_variant(monkeypatch, "mas")
-    assert require(conn, now=NOW).entitled
+def test_require_refuses_a_mac_build_apple_has_not_confirmed(conn, monkeypatch):
+    """Was "require passes on a Mac build", unconditionally — the shortcut
+    the Mac tests above replace."""
+    _mas_setup(monkeypatch)
+    with pytest.raises(NotEntitled, match="Restore purchase"):
+        require(conn, apple_exchanger=_apple("none"), now=NOW)
+
+
+def test_require_passes_on_a_confirmed_mac_build(conn, monkeypatch):
+    _mas_setup(monkeypatch, cache={"original_transaction_id": "2000"})
+    assert require(conn, apple_exchanger=_apple("licence", licence_key="DAWN-MAC"),
+                   now=NOW).entitled
 
 
 def test_the_gate_is_enforced_in_one_file_only(conn, monkeypatch):

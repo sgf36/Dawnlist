@@ -280,7 +280,7 @@ def verify_against_worker(key: str) -> bool | Refused | None:
 
 
 def check(conn: sqlite3.Connection, *, verifier=None,
-          now: datetime | None = None) -> Entitlement:
+          now: datetime | None = None, apple_exchanger=None) -> Entitlement:
     now = now or _now()
     build = variant()
 
@@ -292,18 +292,14 @@ def check(conn: sqlite3.Connection, *, verifier=None,
     if build not in ("store", "direct", "mas"):
         return Entitlement(False, "", tr("entitlement.no_variant", variant=build))
 
-    # --- Mac App Store: Apple's commerce, enforced one layer down ---------
+    # --- Mac App Store: Apple's commerce, with the same three outcomes -----
     #
-    # A MAS build carries no pasted key at all (guideline 3.1.1), so there is
-    # nothing here for this gate to check. The real gate is `build_provider`,
-    # which trades the App Store receipt for a licence and refuses when Apple
-    # reports no active subscription — so a copy without one reaches no feed.
-    #
-    # Possession is NOT proof of payment here either: the Mac App Store listing
-    # is free to download and the subscription is bought inside it. This says
-    # entitled only because the paying check lives at the feed.
+    # This said "entitled" without asking anything, leaving the feed to refuse
+    # later — so a lapsed subscriber passed the door, got an empty morning and
+    # no reason. Possession is not payment here either: the listing is free and
+    # the subscription is bought inside it.
     if build == "mas":
-        return Entitlement(True, "mas", "subscribed through the Mac App Store")
+        return _check_mac(conn, now, apple_exchanger or exchange_and_cache)
 
     # --- Windows, BOTH the Store and direct download: a Paddle licence ----
     #
@@ -380,10 +376,76 @@ def check(conn: sqlite3.Connection, *, verifier=None,
         unverifiable=True)
 
 
+def _check_mac(conn: sqlite3.Connection, now: datetime,
+               exchanger) -> Entitlement:
+    """Apple's answer, and the same grace a Windows licence gets.
+
+    Licence, refused or unreachable — each with its own words, because "your
+    subscription lapsed" and "the network is down" need opposite actions.
+    """
+    # AN ACCESS-CODE GRANT FIRST: the one route besides a purchase that 3.1.1
+    # allows, because nothing is bought. A PURCHASED licence in the keyring —
+    # left by a Windows or direct build under the same user — is never
+    # honoured, and falls through to Apple.
+    try:
+        granted = read_licence()
+    except KeyringUnavailable:
+        granted = None
+    if granted:
+        outcome, body = licence_check(granted)
+        if (outcome == "ok" and body.get("ok") and body.get("granted_by_code")
+                and not body.get("purchased")):
+            _stamp(conn, granted, "grant", now)
+            return Entitlement(True, "licence", "access code verified")
+        if outcome == "unreachable" and _get(conn, VERIFIED_SOURCE) == "grant":
+            elapsed = _grace_elapsed(conn, granted, now)
+            if elapsed is not None:
+                return Entitlement(
+                    True, "grace",
+                    f"access code last verified {elapsed} day(s) ago; running "
+                    f"on grace for up to {GRACE_DAYS - elapsed} more")
+
+    try:
+        cache = apple_cache()
+    except KeyringUnavailable:
+        elapsed = _grace_elapsed(conn, None, now)
+        if elapsed is not None:
+            return Entitlement(
+                True, "grace",
+                f"the credential store could not be read; subscription last "
+                f"confirmed {elapsed} day(s) ago")
+        return Entitlement(False, "", tr("entitlement.keyring_unavailable"),
+                           unverifiable=True)
+
+    result = exchanger(cache.get("original_transaction_id"))
+    if result.outcome == "licence":
+        _stamp(conn, result.licence_key, "mas", now)
+        return Entitlement(True, "mas", "App Store subscription confirmed")
+    # Checked BEFORE grace, exactly as on Windows: grace absorbs an outage,
+    # never Apple saying the subscription lapsed or was refunded.
+    if result.outcome == "refused":
+        return Entitlement(False, "", tr("entitlement.mac_lapsed"))
+    if result.outcome == "none":
+        return Entitlement(False, "", tr("entitlement.mac_not_subscribed"))
+
+    # Measured against the licence Apple last issued, so the stamp cannot
+    # carry any other key through the outage.
+    kept = cache.get("licence_key")
+    elapsed = _grace_elapsed(conn, kept, now) if kept else None
+    if elapsed is not None:
+        return Entitlement(
+            True, "grace",
+            f"subscription last confirmed {elapsed} day(s) ago; running on a "
+            f"cached licence for up to {GRACE_DAYS - elapsed} more")
+    return Entitlement(False, "", tr("entitlement.mac_unreachable"),
+                       unverifiable=True)
+
+
 def require(conn: sqlite3.Connection, *, verifier=None,
-            now: datetime | None = None) -> Entitlement:
+            now: datetime | None = None, apple_exchanger=None) -> Entitlement:
     """Raise unless entitled. Called at the door into a run."""
-    result = check(conn, verifier=verifier, now=now)
+    result = check(conn, verifier=verifier, now=now,
+                   apple_exchanger=apple_exchanger)
     if not result.entitled:
         raise NotEntitled(result.reason)
     return result

@@ -87,6 +87,12 @@ def _variant_is_not_ambient(monkeypatch):
                         raising=False)
     monkeypatch.setattr("app.core.entitlement.write_apple_cache",
                         lambda cache: None, raising=False)
+    # The one transport every licence question goes through. Unpinned, merely
+    # showing Settings asked the live Worker whether the test licence was an
+    # administrator, and a `mas` gate asked whether it was an access code.
+    # "Could not ask" is the answer that grants nothing.
+    monkeypatch.setattr("app.core.entitlement.licence_check",
+                        lambda key, **kw: ("unreachable", {}), raising=False)
     monkeypatch.setattr("app.core.entitlement.verify_against_worker",
                         lambda _key: True, raising=False)
 
