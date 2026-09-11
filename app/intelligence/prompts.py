@@ -40,11 +40,13 @@ Rules, in order of force:
    implied by seniority or sector. One senior posting explicitly said the
    obvious prerequisite was not required.
 
-5. AN UNFETCHABLE OR ABSENT REQUIREMENT IS "NOT CHECKED", NEVER A FAILURE. If
-   the description is truncated or silent on something material, set
-   requirement_checked to false and bucket it as possible, not rejected. An
-   unread posting is an unknown; hiding it is the same failure as presenting an
-   unqualified one.
+5. AN ABSENT REQUIREMENT IS "NOT CHECKED", NEVER A FAILURE. If the posting is
+   silent on something the brief treats as material, set requirement_checked to
+   false and do not reject on it. A truncated description is not by itself a
+   reason to choose possible: judge what you can read, and set
+   requirement_checked to false only when what is missing could change the
+   verdict. An unread posting is an unknown; hiding it is the same failure as
+   presenting an unqualified one.
 
 6. GENUINELY AMBIGUOUS CALLS GO TO judgement-call, not to a silent decision.
 
@@ -97,9 +99,10 @@ VERDICT_SCHEMA = {
                     "requirement_checked": {
                         "type": "boolean",
                         "description": (
-                            "False when the description was truncated or silent on "
-                            "something material. False forces the verdict out of "
-                            "'rejected'."
+                            "False when the posting is silent, or cut off, on "
+                            "something that could change the verdict. A "
+                            "truncation alone is not a reason. False forces the "
+                            "verdict out of 'rejected'."
                         ),
                     },
                 },
@@ -137,7 +140,17 @@ def system_prefix(fit_brief: str, factsheet: str) -> list[dict]:
     ]
 
 
-FIRST_PASS_CHARS = 1200
+#: The first pass reads a description whole up to here.
+#:
+#: It was 1,200. Descriptions average about 7,400 characters, so every first
+#: verdict was formed on roughly a sixth of the posting, and the old rule 5
+#: told the model to bucket what it could not see as `possible` — so the pile
+#: filled with possibles nobody could act on, while rejections were formed on
+#: the same sixth. The assessment model is the cheap one: a whole average
+#: posting is about 1,900 input tokens. Several times the average, so only an
+#: outlier is cut, and a cut verdict is re-read alone in full before it is
+#: trusted (`assess._second_pass`).
+FIRST_PASS_CHARS = 20_000
 
 #: Written out rather than leaving the line off. An omitted line reads as an
 #: oversight in the prompt; "not stated" reads as the absence it is, which is
@@ -151,10 +164,9 @@ def render_posting(ref: str, title: str, company: str, locations: str,
                    posted: str = "", country: str = "") -> str:
     """One posting block.
 
-    First pass truncates to ~1,200 characters; a posting heading for a strong
-    verdict is re-read in full before the verdict is trusted. The truncation is
-    ANNOUNCED, so the model can set requirement_checked=false rather than
-    treating a cut-off description as a complete one.
+    The first pass sends the description whole up to FIRST_PASS_CHARS; beyond
+    that it is cut, and the cut is ANNOUNCED so the model can tell a cut-off
+    description from a complete one. `full=True` sends everything.
 
     Salary, contract type, posting date and country are here because a brief's
     hard constraints are stated in exactly those terms — full-time only, a pay

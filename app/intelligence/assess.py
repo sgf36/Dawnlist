@@ -25,8 +25,8 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable, Sequence
 
 from app.feed.models import Job
-from app.intelligence.prompts import (VERDICT_SCHEMA, render_posting,
-                                      system_prefix)
+from app.intelligence.prompts import (FIRST_PASS_CHARS, VERDICT_SCHEMA,
+                                      render_posting, system_prefix)
 
 # handoff Part 3.3. Assessment runs on the cheap model by design; the strong
 # model is spent where a mistake is unrecoverable, which is outreach drafting.
@@ -35,6 +35,15 @@ DRAFTING_MODEL = "claude-sonnet-5"
 
 #: spec 7: ~25 postings per batch.
 BATCH_SIZE = 25
+
+#: Description characters per request, as well as a count.
+#:
+#: Twenty-five postings cut at 1,200 characters were small whatever they said.
+#: Read whole, twenty-five long ones can approach the assessment model's
+#: 200,000-token context, and a request that overflows it fails outright and
+#: leaves the whole batch unread. Roughly 50,000 tokens keeps a request well
+#: inside the window and quick to come back.
+BATCH_CHARS = 200_000
 
 BUCKETS = ("strong", "possible", "rejected", "judgement-call")
 
@@ -76,6 +85,10 @@ def render_job(job: Job, *, full: bool = False) -> str:
         country=", ".join(str(c) for c in raw.get("country_codes") or ()))
 
 
+def read_whole_on_first_pass(job: Job) -> bool:
+    return len(job.description_text or "") <= FIRST_PASS_CHARS
+
+
 @dataclass
 class Verdict:
     job: Job
@@ -94,8 +107,15 @@ class Verdict:
 
     @property
     def needs_full_read(self) -> bool:
-        """spec 7.6: re-read the full description before any STRONG verdict."""
-        return self.bucket == "strong" and not self.full_read
+        """spec 7.6: nothing reaches the user on a cut-off read.
+
+        Not only strong. A `possible` or a `judgement-call` also puts a posting
+        in front of the user and asks them to act on it, and a verdict formed
+        on a cut-off description is exactly the one the old rule 5 pushed into
+        `possible` for want of the rest. A rejection is not re-read: it stands
+        on what was read, which at this ceiling is several postings' worth.
+        """
+        return self.bucket != "rejected" and not self.full_read
 
 
 def enforce_quote_rule(raw: dict, job: Job, rendered: str | None = None) -> Verdict:
@@ -167,9 +187,25 @@ class AssessmentReport:
         return out
 
 
-def batches(seq: Sequence[Job], size: int = BATCH_SIZE) -> Iterable[list[Job]]:
-    for i in range(0, len(seq), size):
-        yield list(seq[i:i + size])
+def batches(seq: Sequence[Job], size: int = BATCH_SIZE, *,
+            max_chars: int = BATCH_CHARS, full: bool = False,
+            ) -> Iterable[list[Job]]:
+    """Consecutive batches of at most `size` postings and `max_chars` of
+    description as sent. A single posting larger than that goes alone rather
+    than being refused, because an unread posting is the failure."""
+    chunk: list[Job] = []
+    used = 0
+    for job in seq:
+        n = len(job.description_text or "")
+        if not full:
+            n = min(n, FIRST_PASS_CHARS)
+        if chunk and (len(chunk) >= size or used + n > max_chars):
+            yield chunk
+            chunk, used = [], 0
+        chunk.append(job)
+        used += n
+    if chunk:
+        yield chunk
 
 
 def build_request(jobs: list[Job], fit_brief: str, factsheet: str, *,
@@ -196,7 +232,7 @@ def parse_verdicts(payload: Any, jobs_by_ref: dict[str, Job],
     """Map a structured response back onto jobs BY REF, never by position.
 
     `rendered_by_ref` holds the blocks as sent, so a quote is checked against
-    what the model actually read — a first-pass block is truncated.
+    what the model actually read — a first-pass block may be cut.
     """
     errors: list[str] = []
     if isinstance(payload, str):
@@ -253,6 +289,8 @@ def assess(jobs: list[Job], fit_brief: str, factsheet: str, *,
             continue
 
         verdicts, errs = parse_verdicts(payload, by_ref, rendered)
+        for v in verdicts:
+            v.full_read = read_whole_on_first_pass(v.job)
         report.verdicts.extend(verdicts)
         report.errors.extend(errs)
 
@@ -266,13 +304,12 @@ def assess(jobs: list[Job], fit_brief: str, factsheet: str, *,
 
 def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
                  send, model: str) -> None:
-    """spec 7.6 — re-read the FULL description before trusting a strong verdict.
+    """spec 7.6 — re-read in full any verdict formed on a cut-off description.
 
-    The first pass truncates to FIRST_PASS_CHARS (1,200) and says so in the
-    prompt. Descriptions average about 7,400 characters, so a first-pass
-    verdict is formed on roughly a sixth of the posting. That is fine for
-    setting most of them aside; it is not enough to put one at the top of
-    someone's shortlist, which is exactly what a STRONG verdict does.
+    The first pass reads a description whole up to FIRST_PASS_CHARS, which is
+    several times the average posting, so this runs for outliers rather than
+    for most of the pile. It covers every verdict that would reach the user —
+    strong, possible, judgement-call — because each asks them to act on it.
 
     This existed only as an unasked question until 2026-09-08: `needs_full_read`
     computed the answer, `render_posting` honoured `full=True`, and nothing
@@ -280,9 +317,8 @@ def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
     the product's stated differentiator was that it reads every posting in
     full.
 
-    Cost note: this is CHEAPER than sending full text on the first pass, not
-    more expensive. Only strong candidates are re-read, and they are a small
-    fraction of what is assessed.
+    Batched by character count with no ceiling on the description, so an
+    outlier long enough to have been cut is read alone rather than cut again.
 
     A failed re-read does NOT silently promote or demote anything. The verdict
     stands as the model gave it, `full_read` stays False so `needs_full_read`
@@ -295,13 +331,13 @@ def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
 
     by_ref = {v.job.provider_job_id: v for v in pending}
 
-    for chunk in batches([v.job for v in pending]):
+    for chunk in batches([v.job for v in pending], full=True):
         try:
             payload = send(build_request(chunk, fit_brief, factsheet,
                                          model=model, full=True))
         except Exception as exc:  # noqa: BLE001
             report.errors.append(
-                f"full re-read failed for {len(chunk)} strong verdict(s) "
+                f"full re-read failed for {len(chunk)} verdict(s) "
                 f"({type(exc).__name__}: {exc}) — they were judged on a "
                 f"truncated description")
             continue
@@ -320,7 +356,7 @@ def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
             fresh.full_read = True
             # A re-read that CHANGES the verdict is the whole point, and the
             # change is surfaced rather than quietly applied: the first answer
-            # was formed on a sixth of the text, and the user is entitled to
+            # was formed on a cut-off description, and the user is entitled to
             # know the fuller read disagreed.
             if fresh.bucket != original.bucket:
                 fresh.downgraded_from = original.bucket

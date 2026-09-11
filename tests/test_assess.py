@@ -269,11 +269,11 @@ def test_a_strong_verdict_from_a_truncated_pass_is_flagged_for_re_read():
 # spec 7.6 — the full re-read before a strong verdict
 # ---------------------------------------------------------------------------
 #
-# The first pass truncates to 1,200 characters and descriptions average ~7,400,
-# so a strong verdict formed on the first pass has seen roughly a sixth of the
-# posting. These assert that the SECOND request actually happens and actually
-# carries the full text — the mechanism existed for weeks with nothing calling
-# it, and every test passed throughout.
+# The first pass reads a description whole up to FIRST_PASS_CHARS and cuts
+# beyond it, so a verdict on an outlier has seen only part of the posting.
+# These assert that the SECOND request actually happens and actually carries
+# the full text — the mechanism existed for weeks with nothing calling it, and
+# every test passed throughout.
 
 def _job(ref, description):
     return Job(provider="theirstack", provider_job_id=ref, title="GM",
@@ -311,8 +311,8 @@ def test_a_strong_verdict_triggers_a_second_request_with_the_full_text():
 
 
 def test_a_rejection_is_not_re_read():
-    """Only STRONG verdicts earn a second look. Re-reading everything would
-    cost more than sending full text once and defeat the point."""
+    """A rejection stands on what was read. Re-reading those too would repeat
+    the whole first pass for the postings that are least likely to matter."""
     sent = []
 
     def send(request):
@@ -352,3 +352,84 @@ def test_a_failed_re_read_is_recorded_and_never_hidden():
     assert report.verdicts[0].full_read is False
     assert report.verdicts[0].needs_full_read is True
     assert any("truncated" in e.lower() for e in report.errors)
+
+
+# ---------------------------------------------------------------------------
+# The first pass reads the posting, not a sixth of it
+# ---------------------------------------------------------------------------
+
+# An average description, with the marker where a 1,200-character cut lost it.
+AVERAGE = "A" * 7000 + " marker-in-the-last-part " + "B" * 400
+
+
+def test_an_average_posting_is_read_whole_in_one_request():
+    """Descriptions average ~7,400 characters and the first pass cut them at
+    1,200, so every first verdict was formed on about a sixth of the posting."""
+    sent = []
+
+    def send(request):
+        sent.append(request)
+        return _payload("j1", "strong")
+
+    report = assess([_job("j1", AVERAGE)], "brief", "facts", send=send)
+    assert len(sent) == 1, "a posting read whole needs no second request"
+    assert "marker-in-the-last-part" in str(sent[0])
+    assert "TRUNCATED" not in str(sent[0])
+    assert report.verdicts[0].full_read is True
+
+
+def test_a_possible_formed_on_a_cut_off_read_is_re_read_in_full():
+    """Only strong verdicts were re-read, so a `possible` given for want of
+    the rest of the text went to the user as it was."""
+    sent = []
+
+    def send(request):
+        sent.append(request)
+        return {"verdicts": [{"job_ref": "j1", "bucket": "possible",
+                              "reason": "the rest is cut off",
+                              "disqualifying_quote": None,
+                              "requirement_checked": False}]}
+
+    report = assess([_job("j1", LONG)], "brief", "facts", send=send)
+    assert len(sent) == 2
+    assert "unique-marker-deep-in-the-text" in str(sent[1])
+    assert report.verdicts[0].full_read is True
+
+    # Positive control: the same verdict on a posting read whole is final.
+    sent.clear()
+    assess([_job("j2", AVERAGE)], "brief", "facts",
+           send=lambda r: sent.append(r) or {"verdicts": [
+               {"job_ref": "j2", "bucket": "possible", "reason": "stretch",
+                "disqualifying_quote": None, "requirement_checked": True}]})
+    assert len(sent) == 1
+
+
+def test_truncation_alone_no_longer_forces_possible():
+    """Rule 5 said a truncated description must be bucketed `possible`, which
+    flooded the pile with verdicts formed on a sixth of each posting."""
+    from app.intelligence.prompts import ASSESSMENT_RULES
+
+    rules = " ".join(ASSESSMENT_RULES.split())
+    assert "truncated or silent on something material, set requirement_checked " \
+           "to false and bucket it as possible" not in rules
+    assert "A truncated description is not by itself a reason to choose " \
+           "possible" in rules
+    # Positive control: an absent requirement is still never a failure.
+    assert 'AN ABSENT REQUIREMENT IS "NOT CHECKED", NEVER A FAILURE' in rules
+
+
+def test_long_postings_are_split_so_a_request_stays_inside_the_context():
+    """Read whole, twenty-five long postings can approach the model's context
+    window, and a request that overflows it leaves the whole batch unread."""
+    from app.intelligence.assess import BATCH_CHARS, batches
+
+    long_ones = [_job(str(i), "x" * 15_000) for i in range(25)]
+    chunks = list(batches(long_ones))
+    assert len(chunks) > 1
+    assert all(sum(min(len(j.description_text), FIRST_PASS_CHARS) for j in c)
+               <= BATCH_CHARS for c in chunks)
+    assert sum(len(c) for c in chunks) == 25, "nothing is dropped by splitting"
+
+    # Positive control: short postings still travel twenty-five at a time.
+    assert [len(c) for c in batches([_job(str(i), "x" * 500)
+                                     for i in range(25)])] == [25]
