@@ -136,7 +136,12 @@ def test_the_real_sdk_errors_are_classified_too():
     """Named fakes prove the mapping; this proves the SDK's own classes carry
     the names and statuses it relies on."""
     anthropic = pytest.importorskip("anthropic")
-    import httpx
+    # The SDK's own transport module: httpx2 in the pinned release, httpx in
+    # older ones. Taken from whichever the installed SDK was built on.
+    try:
+        import httpx2 as httpx
+    except ImportError:
+        httpx = pytest.importorskip("httpx")
 
     def status_error(cls, code, body_message):
         request = httpx.Request("GET", "https://api.anthropic.com/v1/models")
