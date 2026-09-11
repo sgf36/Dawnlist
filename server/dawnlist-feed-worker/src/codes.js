@@ -383,8 +383,10 @@ export async function handleAdmin(request, env) {
     });
     const sent = await sendEmail(env, { to, ...mail });
     if (!sent.ok) {
-      return json({ error: 'send_failed', detail: sent.error,
-                    status: sent.status }, 502);
+      // Resend's own words go back to the administrator who asked, because
+      // they are what says how to fix it. They are not logged.
+      return json({ error: 'send_failed', code: sent.error,
+                    detail: sent.detail ?? sent.error, status: sent.status }, 502);
     }
     // The address is not logged or echoed. The id is enough to find it in
     // Resend if somebody says it never arrived.
