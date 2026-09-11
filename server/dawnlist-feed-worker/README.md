@@ -138,6 +138,11 @@ npx wrangler d1 execute dawnlist --remote --command \
 An event type missing from those rows after its simulation was sent is an event
 the destination is not subscribed to.
 
+**Licences a customer paid for and may not have received:**
+`GET /admin/undelivered` lists every Paddle licence whose email is `failed`
+(with a code such as `no_address_lookup_failed_403`) or still `pending`. Send
+one again with `POST /admin/resend`, which marks it sent.
+
 ## Deployed
 
 Live at **https://dawnlist-feed-worker.sgf36.workers.dev** (deployed 2026-09-06,

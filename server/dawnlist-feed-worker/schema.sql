@@ -45,7 +45,16 @@ CREATE TABLE IF NOT EXISTS licences (
     -- licence took the fallback plan. A row with this set is a customer who may
     -- be on the wrong caps, and it is the only way to find them later — the
     -- webhook logs counts, not payloads, so the event itself is gone.
-    plan_unmatched       INTEGER NOT NULL DEFAULT 0
+    plan_unmatched       INTEGER NOT NULL DEFAULT 0,
+    -- Whether the licence email went out: 'pending' from issue until delivery
+    -- finishes, then 'sent', 'failed' or 'skipped'. NULL for licences that are
+    -- never emailed (code-issued) or that predate this. A 'pending' that stays
+    -- pending is a delivery the Worker was stopped part-way through, which is
+    -- why GET /admin/undelivered lists it alongside 'failed'.
+    delivery_status      TEXT,
+    -- Why it failed, as a code ('no_address_lookup_failed_404',
+    -- 'send_validation_error'). Never an address or a message.
+    delivery_error_code  TEXT
 );
 
 -- One licence per Paddle subscription. Two events for one purchase once each

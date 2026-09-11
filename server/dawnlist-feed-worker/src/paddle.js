@@ -279,8 +279,9 @@ const RECORD_TRANSACTION = `
 const INSERT_LICENCE = `
   INSERT INTO licences (licence_key, tier, status, paddle_subscription_id,
                         plan, plan_unmatched,
-                        max_postings_per_day, max_refreshes_per_day, max_saved_queries)
-  SELECT ?1, ?2, 'active', ?3, ?4, 0, ?5, ?6, ?7 WHERE true
+                        max_postings_per_day, max_refreshes_per_day, max_saved_queries,
+                        delivery_status)
+  SELECT ?1, ?2, 'active', ?3, ?4, 0, ?5, ?6, ?7, 'pending' WHERE true
   ON CONFLICT DO NOTHING
   RETURNING licence_key`;
 
@@ -497,6 +498,7 @@ async function grant(env, ctx, event) {
     if (licence?.status !== 'active') {
       // A newer event had already ended this subscription. The row exists so
       // support can see it; a key emailed now would not work.
+      await recordDelivery(env, key, 'skipped', 'inactive_at_issue');
       return { ok: true, action: 'issued_inactive' };
     }
     await deliverLicence(env, ctx, event, key, caps, subscriptionId);
@@ -531,30 +533,66 @@ async function grant(env, ctx, event) {
  */
 async function deliverLicence(env, ctx, event, key, caps, subscriptionId) {
   const work = (async () => {
-    const who = await customerDetails(env, event);
-    if (!who.email) {
-      // Logged loudly and by cause. This is the failure that strands a paying
-      // customer, and the only trace left will be this line.
-      console.error('paddle: licence issued but NOT delivered — no email',
-                    { source: who.source, subscription: subscriptionId ? 'yes' : 'no' });
-      return;
+    let outcome;
+    try {
+      outcome = await sendLicence(env, event, key, caps, subscriptionId);
+    } catch (err) {
+      // Anything unforeseen still ends in a recorded outcome. Uncaught, it
+      // turned a committed licence into a 500 and a Paddle retry when run
+      // inline, and into an unhandled rejection nobody sees under waitUntil —
+      // either way leaving no record that the customer holds nothing.
+      console.error('paddle: licence delivery threw', { error: err?.name });
+      outcome = { status: 'failed', code: 'exception' };
     }
-    const mail = licenceEmail({
-      licenceKey: key,
-      postingsPerDay: caps.max_postings_per_day,
-      lang: who.lang,
-    });
-    const sent = await sendEmail(env, { to: who.email, ...mail });
-    if (!sent.ok) {
-      console.error('paddle: licence issued but email failed',
-                    { error: sent.error, status: sent.status, lang: who.lang });
-    } else {
-      // Counts and ids only, never the address.
-      console.log('paddle: licence delivered', { id: sent.id, lang: who.lang });
-    }
+    await recordDelivery(env, key, outcome.status, outcome.code);
   })();
   if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(work);
   else await work;
+}
+
+async function sendLicence(env, event, key, caps, subscriptionId) {
+  const who = await customerDetails(env, event);
+  if (!who.email) {
+    // Logged loudly and by cause. This is the failure that strands a paying
+    // customer.
+    console.error('paddle: licence issued but NOT delivered — no email',
+                  { source: who.source, subscription: subscriptionId ? 'yes' : 'no' });
+    return { status: 'failed', code: `no_address_${who.source}` };
+  }
+  const mail = licenceEmail({
+    licenceKey: key,
+    postingsPerDay: caps.max_postings_per_day,
+    lang: who.lang,
+  });
+  const sent = await sendEmail(env, { to: who.email, ...mail });
+  if (!sent.ok) {
+    console.error('paddle: licence issued but email failed',
+                  { error: sent.error, status: sent.status, lang: who.lang });
+    return { status: 'failed', code: `send_${sent.error}` };
+  }
+  // Counts and ids only, never the address.
+  console.log('paddle: licence delivered', { id: sent.id, lang: who.lang });
+  return { status: 'sent', code: null };
+}
+
+/**
+ * Write the delivery outcome onto the licence row. The code is reduced to
+ * [a-z0-9_] before it is stored, because the column is listed by
+ * /admin/undelivered and must never become a place an address or a message
+ * can land. A failure to record is logged and swallowed: the licence exists,
+ * and the delivery either happened or it did not.
+ */
+async function recordDelivery(env, key, status, code) {
+  const safe = code === null || code === undefined
+    ? null
+    : String(code).toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 64);
+  try {
+    await env.DB.prepare(
+      'UPDATE licences SET delivery_status = ?2, delivery_error_code = ?3 WHERE licence_key = ?1'
+    ).bind(key, status, safe).run();
+  } catch (err) {
+    console.error('paddle: could not record licence delivery', { status, error: err?.name });
+  }
 }
 
 async function moveStatus(env, event) {

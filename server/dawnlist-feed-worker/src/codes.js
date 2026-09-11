@@ -56,6 +56,19 @@ function normalise(code) {
   return (code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
+/**
+ * A licence key as an admin listing shows it: the last four characters.
+ *
+ * A licence key is the whole credential — the feed and the admin console
+ * authorise on nothing else — so a listing that printed keys in full made
+ * every screenshot, pasted log and shared terminal of the console a leak.
+ * Four characters are enough to tell rows apart when talking to a customer.
+ */
+export function maskKey(key) {
+  const text = String(key || '');
+  return text.length <= 4 ? '…' : `…${text.slice(-4)}`;
+}
+
 /** Compare normalised, so formatting never decides whether a code works. */
 function sameCode(a, b) {
   return normalise(a) === normalise(b) && normalise(a).length > 0;
@@ -301,6 +314,26 @@ export async function handleAdmin(request, env) {
     return json({ licences: results || [] });
   }
 
+  // --- licences a customer paid for and may not have received -------------
+  //
+  // 'failed' is a delivery that ended in an error code. 'pending' is listed as
+  // well because a delivery runs after the webhook has answered, and a Worker
+  // stopped part-way leaves the row pending for ever with no error at all.
+  // A row pending for more than a few minutes after `created_at` is that case.
+  if (path === '/admin/undelivered' && request.method === 'GET') {
+    const { results } = await env.DB.prepare(
+      `SELECT licence_key, plan, status, created_at, paddle_subscription_id,
+              delivery_status, delivery_error_code
+         FROM licences
+        WHERE delivery_status IN ('pending', 'failed')
+        ORDER BY created_at DESC LIMIT 200`
+    ).all();
+    return json({
+      licences: (results || []).map(({ licence_key: key, ...row }) =>
+        ({ licence: maskKey(key), ...row })),
+    });
+  }
+
   // --- do the credentials actually WORK ----------------------------------
   //
   // `wrangler secret list` proves a value was stored under a name. It proves
@@ -388,6 +421,13 @@ export async function handleAdmin(request, env) {
       return json({ error: 'send_failed', code: sent.error,
                     detail: sent.detail ?? sent.error, status: sent.status }, 502);
     }
+    // Recorded as delivered, so a licence resent by hand leaves
+    // /admin/undelivered instead of being chased a second time.
+    await env.DB.prepare(
+      `UPDATE licences SET delivery_status = 'sent', delivery_error_code = NULL
+        WHERE licence_key = ?1`
+    ).bind(row.licence_key).run();
+
     // The address is not logged or echoed. The id is enough to find it in
     // Resend if somebody says it never arrived.
     return json({ ok: true, id: sent.id, lang: mail.lang });
