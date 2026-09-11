@@ -1356,8 +1356,8 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
         # straight past.
         raise NotConfigured(
             "Calibration has not been completed. The app must show you ~10 "
-            "live postings and have you correct its verdicts before it runs "
-            "daily — that is the step that transfers your judgement into the "
+            "live postings and have you correct its verdicts before its first "
+            "run — that is the step that transfers your judgement into the "
             "brief, and without it the shortlist is a guess that looks like an "
             "answer.")
 
