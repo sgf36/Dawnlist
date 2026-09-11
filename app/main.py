@@ -763,11 +763,20 @@ def build_provider(conn):
         from app.feed.managed import ManagedProvider
         return ManagedProvider(licence)
 
+    import os
+
     from app.feed.theirstack import TheirStackProvider
 
-    key = keyring.get_password("dawnlist-feed", "api-key")
-    if key:
-        return TheirStackProvider(key)
+    # A raw TheirStack key is Spencer's developer credential, and the keyring
+    # belongs to the Windows or macOS USER, not to one application. Any build
+    # — store and direct included — that found no licence read it and fetched
+    # on his credits, off the meter, for whoever was signed in on a machine
+    # where a key had once been stored for testing. The keyring is not even
+    # read unless a developer asks for this route by name.
+    if os.environ.get(DEVELOPER_FEED_ENV) == "1":
+        key = keyring.get_password("dawnlist-feed", "api-key")
+        if key:
+            return TheirStackProvider(key)
 
     # No licence and no developer key. WHAT TO SAY DEPENDS ON THE BUILD, and
     # getting it wrong is worse than saying nothing.
@@ -794,8 +803,15 @@ def build_provider(conn):
 
     raise NotConfigured(
         "No licence key found. Enter the key from your purchase email in "
-        "Settings. (Development builds may instead store a provider key under "
-        "the keyring service 'dawnlist-feed', account 'api-key'.)")
+        "Settings. (Development builds may instead set "
+        f"{DEVELOPER_FEED_ENV}=1 and store a provider key under the keyring "
+        "service 'dawnlist-feed', account 'api-key'.)")
+
+
+#: The only switch that lets `build_provider` read a developer TheirStack key.
+#: An environment variable, because no customer sets one by accident and no
+#: build can ship with it on.
+DEVELOPER_FEED_ENV = "DAWNLIST_DEVELOPER_FEED"
 
 
 def save_locale(conn, code: str) -> str:
