@@ -276,3 +276,40 @@ def test_no_release_tool_carries_a_path_into_somebodys_home_directory():
     for path in paths:
         found = HOME_PATH.findall(path.read_text(encoding="utf-8"))
         assert not found, f"{path.relative_to(ROOT)} names {found}"
+
+
+# ---------------------------------------------------------------------------
+# Dependency floors, which CI installs from
+# ---------------------------------------------------------------------------
+
+def _floor(name: str) -> tuple[int, ...]:
+    """The `>=` version stated for a package in requirements.txt."""
+    text = (ROOT / "requirements.txt").read_text(encoding="utf-8")
+    found = re.search(rf"^{name}>=([0-9.]+)", text, re.M)
+    assert found, f"{name} is not pinned in requirements.txt"
+    return tuple(int(p) for p in found.group(1).split("."))
+
+
+def test_every_key_the_app_sends_is_a_parameter_the_sdk_accepts():
+    """The floor is a claim about behaviour, so it is tested as one.
+
+    Every assessment and interview request carries `output_config`, and it
+    reaches the SDK as a keyword argument. An SDK below the floor raises a
+    TypeError naming the keyword, which reads like a fault in the caller.
+    """
+    import inspect
+    import sys
+
+    sys.path.insert(0, str(ROOT))
+    from anthropic.resources.messages import Messages
+    from app.intelligence.assess import build_request
+
+    sent = set(build_request([], "", "")) | {"stream"}
+    accepted = set(inspect.signature(Messages.create).parameters)
+    assert sent <= accepted, f"the installed SDK rejects {sent - accepted}"
+
+
+def test_the_anthropic_floor_is_a_release_that_has_output_config():
+    """0.76.0 was measured to have no output_config parameter anywhere;
+    0.77.0 has it on create and on stream."""
+    assert _floor("anthropic") >= (0, 77, 0)

@@ -1,5 +1,17 @@
 PySide6>=6.7.0
-anthropic>=0.40.0
+
+# 0.77.0 IS THE FIRST RELEASE THAT ACCEPTS `output_config`, and every request
+# the app sends carries one: app/intelligence/assess.py and
+# app/onboarding/interview.py ask for structured output by json_schema, and
+# app/main.py passes those dicts straight into messages.create/stream as
+# keyword arguments. An older SDK rejects the call with a TypeError naming a
+# keyword, which reads like a bug in the caller.
+#
+# Measured against the published wheels rather than a changelog: 0.76.0 has no
+# `output_config` parameter and no OutputConfigParam at all; 0.77.0 has both,
+# on create and on stream. The floor said >=0.40.0, which would install an SDK
+# that cannot make a single working call.
+anthropic>=0.77.0
 keyring>=24.0.0
 platformdirs>=4.0.0
 openpyxl>=3.1.0
