@@ -617,24 +617,24 @@ agreement in App Store Connect can be read and shows them.
 
 ---
 
-## Waiting on a working Anthropic key
+## The translation pass (was: waiting on a working Anthropic key)
 
-**The key in this machine's Credential Manager (`dawnlist-anthropic`) is
-rejected: 401 "API key is invalid", well-formed, so rotated or revoked since
-2026-09-10 morning.** Enter a working one in Dawnlist's Settings — the
-sessions will not store a credential for you. Resolved when a one-token call on
-the stored key returns text rather than 401.
+**The key is working again.** Spencer replaced the stored `dawnlist-anthropic`
+key with `tools/Set-AnthropicKey.ps1` on 2026-09-11, and `api_key.verify` on
+the stored value returned 11 models rather than 401. Re-check the same way
+before a long run: a key can be revoked again, and a 401 part-way through a
+translation run leaves some languages on English.
 
-Everything below is blocked on it, and goes in ONE pass, because each is
+The items below go in ONE pass each, because each is
 fifty languages and a partial pass is worse than none — `tests/test_i18n.py`
 fails a catalogue that is behind, and a half-translated file looks finished.
 
-1. **Licence email, `to_use_body`.** It told buyers a key works "on both the
-   Windows and macOS editions"; a Mac App Store build carries no licence field.
-   English is corrected in `tools/gen_email_strings.py`; then
-   `python tools/gen_email_strings.py --keys to_use_body,allowance`. The `allowance`
-   sentence was reworded on 2026-09-11 to call 700 a day a fair-use limit, matching
-   pricing.html, so both keys go in the same run.
+1. **DONE 2026-09-11 — licence email, `to_use_body` and `allowance`.** Ran
+   `python tools/gen_email_strings.py --keys to_use_body,allowance`: 49 locales
+   ok, none failed, and a diff of `email-strings.js` shows those two keys and no
+   others changed in all 50 entries, with `{count}` intact in every `allowance`.
+   `to_use_body` no longer says a key works on the macOS edition; `allowance`
+   states the fair-use limit's purpose, not its size, matching pricing.html.
 2. **Nine entitlement refusals** in `app/core/entitlement.py` are raw English
    shown under a translated title (`app/main.py`). Move them into the catalogue
    and translate all fifty in the same commit.
