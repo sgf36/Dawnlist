@@ -49,6 +49,39 @@ const completed = (sub, txn, eventId) => ({ event_id: eventId, event_type: 'tran
   data: { id: txn, subscription_id: sub, customer_id: 'ctm_1', items } });
 const licences = (db) => db.query('SELECT licence_key, paddle_subscription_id FROM licences');
 
+/**
+ * A D1 that holds statements matching `pattern` until `parties` of them are
+ * waiting, then releases them together. It forces the worst interleaving —
+ * both deliveries past their "is there a licence?" read before either writes —
+ * rather than hoping the scheduler produces it, which it often does not.
+ */
+function barrier(d1, pattern, parties = 2) {
+  let waiting = [];
+  const release = () => { const go = waiting; waiting = []; go.forEach((resolve) => resolve()); };
+  const gate = () => new Promise((resolve) => {
+    waiting.push(resolve);
+    if (waiting.length === parties) release();
+    // A regression that stops one party reaching the write must fail the test,
+    // not hang it.
+    else setTimeout(release, 500);
+  });
+  const wrap = (stmt) => ({
+    ...stmt,
+    bind: (...args) => wrap(stmt.bind(...args)),
+    first: async (col) => { if (pattern.test(stmt.sql)) await gate(); return stmt.first(col); },
+    run: async () => { if (pattern.test(stmt.sql)) await gate(); return stmt.run(); },
+    all: async () => { if (pattern.test(stmt.sql)) await gate(); return stmt.all(); },
+  });
+  return {
+    ...d1,
+    prepare: (sql) => wrap(d1.prepare(sql)),
+    batch: async (stmts) => {
+      if (stmts.some((s) => pattern.test(s.sql))) await gate();
+      return d1.batch(stmts);
+    },
+  };
+}
+
 /** A D1 whose first statement matching `pattern` fails, as a D1 outage would. */
 function failingOnce(d1, pattern) {
   let armed = true;
@@ -74,7 +107,7 @@ console.log('one payment, one licence');
 await test('two different events for one subscription, together, issue one licence and one email', async () => {
   const db = makeD1();
   const emails = stubPaddleAndResend();
-  const env = envFor(db);
+  const env = envFor(barrier(db, /INSERT INTO licences/));
   const results = await Promise.all([
     deliver(env, created('sub_1', 'evt_created')),
     deliver(env, completed('sub_1', 'txn_1', 'evt_completed')),
