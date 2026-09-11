@@ -78,10 +78,12 @@ ENGLISH = {
     # "Your plan covers up to {count} postings a day" read as a quota, and
     # pricing.html calls the same number a fair-use limit that exists to stop
     # abuse rather than to ration a search. One number, one framing, on every
-    # surface that states it.
+    # surface that states it. The sentence states the limit's purpose, never its
+    # size against a typical search: that is true by design, whereas "well above"
+    # would need a measurement across many searches, and one search is not that.
     "allowance": ("Your subscription includes up to {count} postings a day from "
-                  "the job feed. That is a fair-use limit, set well above what an "
-                  "ordinary search uses."),
+                  "the job feed. That is a fair-use limit, there to stop abuse "
+                  "rather than to ration an ordinary search."),
     "own_key": (
         "You will also need an Anthropic API key of your own — Dawnlist reads "
         "postings and drafts messages on your account rather than ours, so "
