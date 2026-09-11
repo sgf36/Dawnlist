@@ -152,6 +152,90 @@ def test_a_scanned_pdf_never_joins_the_corpus_silently(tmp_path):
     assert any("scan.pdf" in w for w in result.warnings)
 
 
+# -- what will not be opened at all -----------------------------------------
+#
+# Every reader here loads a whole file into memory, and this module opens
+# whatever a person dropped on the window. Without a ceiling, a mistaken drop —
+# a disk image, a video — and a deliberate zip bomb end the same way: setup
+# dies with no message naming any file, which is precisely what the rest of
+# this module exists to prevent.
+def test_a_file_far_larger_than_any_cv_is_refused_by_name(tmp_path, monkeypatch):
+    from app.onboarding import extract
+
+    monkeypatch.setattr(extract, "MAX_FILE_BYTES", 200)
+    big = tmp_path / "disk-image.pdf"
+    big.write_bytes(b"%PDF-1.4" + b"\x00" * 500)
+    doc, failure = extract.extract_one(big)
+    assert doc is None
+    assert failure.name == "disk-image.pdf"
+    assert "not opened" in failure.reason
+
+    # POSITIVE CONTROL: a real CV, well under the cap, is still read — the
+    # limit has not simply refused everything.
+    monkeypatch.undo()
+    doc, failure = extract.extract_one(make_docx(tmp_path / "cv.docx"))
+    assert failure is None and "Asset Manager" in doc.text
+
+
+def test_a_pdf_with_more_pages_than_a_cv_could_have_is_not_read(tmp_path,
+                                                                monkeypatch):
+    from app.onboarding import extract
+
+    path = make_scanned_pdf(tmp_path / "book.pdf", pages=3)
+    monkeypatch.setattr(extract, "MAX_PDF_PAGES", 2)
+    doc, failure = extract.extract_one(path)
+    assert doc is None and "pages" in failure.reason
+    assert "scanned" not in failure.reason, (
+        "the page count is the reason, and it is checked before any page is read")
+
+    # POSITIVE CONTROL: under the limit the same file is diagnosed as the scan
+    # it is, so the cap has not simply swallowed every PDF.
+    monkeypatch.setattr(extract, "MAX_PDF_PAGES", 50)
+    doc, failure = extract.extract_one(path)
+    assert doc is None and "scanned PDF" in failure.reason
+
+
+def test_a_docx_that_unpacks_to_gigabytes_is_never_opened(tmp_path):
+    """A .docx is a zip. A few hundred kilobytes of it can expand to far more
+    memory than the machine has, and python-docx will try."""
+    import zipfile
+
+    from app.onboarding import extract
+
+    path = make_docx(tmp_path / "bomb.docx")
+    with zipfile.ZipFile(path, "a", compression=zipfile.ZIP_DEFLATED) as z:
+        z.writestr("word/media/huge.bin", b"\x00" * (4 * extract.MB))
+    assert path.stat().st_size < extract.MAX_FILE_BYTES, (
+        "the size cap must not be what catches this, or the ratio is untested")
+
+    doc, failure = extract.extract_one(path)
+    assert doc is None
+    assert "unpacks" in failure.reason
+
+    # POSITIVE CONTROL: an ordinary .docx — same generator, no padded member —
+    # still reads, so the ratio check has not condemned real documents.
+    doc, failure = extract.extract_one(make_docx(tmp_path / "cv.docx"))
+    assert failure is None and "Asset Manager" in doc.text
+
+
+def test_a_refused_file_is_a_corpus_warning_like_any_other(tmp_path, monkeypatch):
+    """It must reach the user the same way an unreadable scan does: named, in
+    the warnings panel, with the rest of the corpus still read."""
+    from app.onboarding import extract
+
+    # Over the patched cap for the first file and comfortably under it for the
+    # CV, so the corpus proves both halves in one read.
+    monkeypatch.setattr(extract, "MAX_FILE_BYTES", 2000)
+    huge = tmp_path / "huge.txt"
+    huge.write_text("x" * 5000, encoding="utf-8")
+    small = tmp_path / "cv.txt"
+    small.write_text(CV_TEXT, encoding="utf-8")
+
+    result = extract.extract_corpus([huge, small])
+    assert [d.name for d in result.corpus.documents] == ["cv.txt"]
+    assert any("huge.txt" in w and "not opened" in w for w in result.warnings)
+
+
 # -- failures are named, never swallowed ------------------------------------
 def test_an_old_doc_file_says_what_to_do(tmp_path):
     p = tmp_path / "old.doc"
