@@ -75,7 +75,13 @@ ENGLISH = {
         "a Mac, Dawnlist is bought through the Mac App Store instead, so this "
         "key is not needed there."
     ),
-    "allowance": "Your plan covers up to {count} postings a day.",
+    # "Your plan covers up to {count} postings a day" read as a quota, and
+    # pricing.html calls the same number a fair-use limit that exists to stop
+    # abuse rather than to ration a search. One number, one framing, on every
+    # surface that states it.
+    "allowance": ("Your subscription includes up to {count} postings a day from "
+                  "the job feed. That is a fair-use limit, set well above what an "
+                  "ordinary search uses."),
     "own_key": (
         "You will also need an Anthropic API key of your own — Dawnlist reads "
         "postings and drafts messages on your account rather than ours, so "
@@ -94,7 +100,7 @@ NOTES = {
     "thanks": "'The key' means the licence key that follows. Warm but not effusive.",
     "to_use_heading": "A short bold heading introducing the instructions. Two or three words.",
     "to_use_body": "'Settings' and 'licence field' name things in the application. 'Licence key' is a CODE the person pastes, NEVER a licence agreement or terms document — if your language distinguishes these, choose the code sense. 'Every Windows computer you own' means the licence is not tied to one machine; keep that sense and do not narrow it to one computer. 'Our website' and 'the Microsoft Store' are the two ways of installing on Windows and both take this key. The last sentence says the key is NOT needed on a Mac, because a Mac subscription is bought inside the Mac App Store — do not soften it into 'you can also use it on a Mac'.",
-    "allowance": "{count} is a number, already formatted with thousands separators. Keep the placeholder exactly. 'Postings' means job adverts.",
+    "allowance": "{count} is a number, already formatted with thousands separators. Keep the placeholder exactly. 'Postings' means job adverts. 'Fair-use limit' is a ceiling that stops abuse, not a quota the customer pays for per posting and not a target: do not render it as an allowance to be used up.",
     "own_key": "CRITICAL. This must not imply that Dawnlist supplies the Anthropic key, nor that we charge for it. The person obtains and pays for their own key, directly with Anthropic. The point of the sentence is reassurance about privacy: their CV never reaches our servers.",
     "not_installed": "A short question followed by a link, which is appended after this text. End so that a URL reads naturally after it.",
     "reply_note": "Reassurance that a reply is read by a human, not a no-reply address.",

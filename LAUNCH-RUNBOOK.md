@@ -632,7 +632,9 @@ fails a catalogue that is behind, and a half-translated file looks finished.
 1. **Licence email, `to_use_body`.** It told buyers a key works "on both the
    Windows and macOS editions"; a Mac App Store build carries no licence field.
    English is corrected in `tools/gen_email_strings.py`; then
-   `python tools/gen_email_strings.py --keys to_use_body`.
+   `python tools/gen_email_strings.py --keys to_use_body,allowance`. The `allowance`
+   sentence was reworded on 2026-09-11 to call 700 a day a fair-use limit, matching
+   pricing.html, so both keys go in the same run.
 2. **Nine entitlement refusals** in `app/core/entitlement.py` are raw English
    shown under a translated title (`app/main.py`). Move them into the catalogue
    and translate all fifty in the same commit.
