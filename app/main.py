@@ -1445,6 +1445,41 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
     return outcome
 
 
+def run_daily_search(conn, *, provider=None, send=None):
+    """The daily search, and what to say about it. Returns (outcome, report).
+
+    THE ONE DOOR, for the scheduled run, Run now and `--run-once` alike. The
+    headless form already existed so that a scheduled run and a hand-run
+    produce identical state; a scheduler with a call of its own would be the
+    second system this file has always refused to grow.
+    """
+    from app.core.run_report import report_from_outcome
+
+    outcome = morning_run(conn, provider=provider, send=send)
+    return outcome, report_from_outcome(outcome)
+
+
+def database_path(conn) -> str:
+    """The file behind a connection, so a worker thread can open its own."""
+    return conn.execute("PRAGMA database_list").fetchone()[2]
+
+
+def run_daily_search_on_worker(path: str):
+    """`run_daily_search` for a worker thread. Returns a RunReport; raises as
+    the search does.
+
+    A connection of its own, because a sqlite3 connection belongs to the thread
+    that opened it and the window's is on the UI thread. Only the report comes
+    back: the outcome holds every posting fetched, and the window reads what it
+    shows from the database anyway.
+    """
+    conn = db.connect(path)
+    try:
+        return run_daily_search(conn)[1]
+    finally:
+        conn.close()
+
+
 def print_funnel(outcome) -> None:
     """The whole funnel, never one number without what it excludes."""
     counts = outcome.funnel()
@@ -1827,7 +1862,7 @@ def main(argv: list[str] | None = None) -> int:
         from app.core.entitlement import NotEntitled
 
         try:
-            outcome = morning_run(conn)
+            outcome, report = run_daily_search(conn)
         except KeyProblem as exc:
             # Exit 4: distinct from "not set up" (2) and "not paid" (3),
             # because the fix is different again.
@@ -1842,6 +1877,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"not configured: {exc}", file=sys.stderr)
             return 2
         print_funnel(outcome)
+        from app.core.run_report import LIMIT
+        if report.kind == LIMIT:
+            # Said as the cause, because the fetch line above reads like an
+            # outage and running again now would only be refused again.
+            print(f"\n  DAILY LIMIT — the job feed allows "
+                  f"{report.refreshes_per_day} refreshes per UTC day and "
+                  f"today's are used up. It resets at midnight UTC.")
         # An incomplete run exits non-zero so a scheduler notices. A run that
         # fetched nothing because the endpoint failed must never look like a
         # quiet morning.
