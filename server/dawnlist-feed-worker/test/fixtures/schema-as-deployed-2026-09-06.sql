@@ -1,22 +1,8 @@
--- Dawnlist feed Worker — D1 schema, for a FRESH database only.
+-- Dawnlist feed Worker — D1 schema.
 --
 -- Metering only. This database holds counts, licences and provider flags; it
 -- never holds job descriptions, CVs, queries with personal text, or anything
 -- else that would make the store privacy labels a lie.
---
--- FRESH INSTALL vs EXISTING DATABASE. This file is the whole schema as it
--- stands after every file in migrations/, and it is safe to run twice: every
--- statement is IF NOT EXISTS or ON CONFLICT. That same property makes it USELESS
--- on a database that already exists — `CREATE TABLE IF NOT EXISTS` skips a
--- table that is there and silently adds none of its newer columns. An existing
--- database moves forward by applying the migrations it has not had, in order,
--- once each. test/schema.test.mjs rebuilds the schema the live database was
--- created from, applies every migration, and fails if the result differs from
--- this file.
---
--- It used to end in ALTER TABLE statements. Those failed with "duplicate column
--- name" on any second run and stopped the file there, and two of them repeated
--- migration 001, so the file could be run neither fresh-then-migrated nor twice.
 
 CREATE TABLE IF NOT EXISTS licences (
     licence_key          TEXT PRIMARY KEY,
@@ -30,45 +16,16 @@ CREATE TABLE IF NOT EXISTS licences (
     max_refreshes_per_day INTEGER,
     max_saved_queries     INTEGER,
     created_at           TEXT NOT NULL DEFAULT (datetime('now')),
-    expires_at           TEXT,
-    -- Which plan the licence is on. The CAPS are the enforced truth (the
-    -- columns above); this records WHICH plan set them, so support can answer
-    -- "what am I paying for?" without reverse-engineering it from three cap
-    -- numbers, and so a plan whose caps are later revised can be found and
-    -- re-applied.
-    --
-    -- Nullable deliberately: licences issued before plans existed have no
-    -- answer, and inventing 'standard' for them would assert something nobody
-    -- verified.
-    plan                 TEXT,
-    -- Set when a Paddle event's price id matched nothing configured, so the
-    -- licence took the fallback plan. A row with this set is a customer who may
-    -- be on the wrong caps, and it is the only way to find them later — the
-    -- webhook logs counts, not payloads, so the event itself is gone.
-    plan_unmatched       INTEGER NOT NULL DEFAULT 0
+    expires_at           TEXT
 );
-
--- Managed inference was metered in tokens here until the inference proxy was
--- removed on 2026-09-06. Databases created before then still carry
--- usage_daily.input_tokens, usage_daily.output_tokens and
--- licences.max_tokens_per_day; nothing reads or writes them, and a fresh
--- install does not create them.
 
 CREATE TABLE IF NOT EXISTS usage_daily (
     licence_key TEXT NOT NULL REFERENCES licences(licence_key) ON DELETE CASCADE,
     day         TEXT NOT NULL,
     refreshes   INTEGER NOT NULL DEFAULT 0,
     -- Postings RETURNED, which is the billable unit: 1 credit = 1 job.
-    -- Instrumented from day one so the dataset crossover (~1M records/month)
-    -- is a measurement, not a guess.
-    --
-    -- CORRECTED 2026-09-08: this said "roughly 330 daily-active users", which
-    -- came from dividing 1M by the build handoff's ASSUMED 3,000 credits per
-    -- user per month. Measured consumption is ~15,400 (a comprehensive daily
-    -- delta is ~513 postings), so the crossover is nearer **65 daily-active
-    -- users** — five times sooner. Believing 330 would keep the product on
-    -- per-credit API pricing long past the point where bulk delivery is
-    -- cheaper, which is exactly the decision this column exists to inform.
+    -- Instrumented from day one so the dataset crossover (~1M records/month,
+    -- roughly 330 daily-active users) is a measurement, not a guess.
     postings    INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (licence_key, day)
 );
@@ -129,10 +86,7 @@ CREATE TABLE IF NOT EXISTS codes (
     expires_at TEXT,                          -- NULL means never
     -- A ladder, not a set: 'admin' presumes 'managed', which presumes 'byo'.
     role       TEXT NOT NULL DEFAULT 'byo'
-               CHECK (role IN ('byo', 'managed', 'admin')),
-    -- The plan a redeemed licence receives. Without it every redeemed code took
-    -- the Worker's full default, so a trial could not be told from a purchase.
-    plan       TEXT
+               CHECK (role IN ('byo', 'managed', 'admin'))
 );
 
 CREATE TABLE IF NOT EXISTS redemptions (
@@ -160,3 +114,11 @@ CREATE TABLE IF NOT EXISTS licence_roles (
     role        TEXT NOT NULL,
     from_code   TEXT
 );
+
+-- Managed inference is metered in TOKENS as well as postings, because the two
+-- costs move independently: a day with few postings but long descriptions can
+-- cost more than a day with many short ones. Added by ALTER below for databases
+-- that predate this.
+ALTER TABLE usage_daily ADD COLUMN input_tokens INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE usage_daily ADD COLUMN output_tokens INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE licences ADD COLUMN max_tokens_per_day INTEGER;

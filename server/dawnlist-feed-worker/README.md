@@ -5,6 +5,8 @@ across users, and makes the provider a config value rather than a code path.
 
 ## Deploy
 
+### A new database
+
 ```bash
 npx wrangler d1 create dawnlist
 # put the returned database_id into wrangler.jsonc
@@ -12,6 +14,31 @@ npx wrangler d1 execute dawnlist --remote --file=./schema.sql
 npx wrangler secret put THEIRSTACK_API_KEY
 npx wrangler deploy
 ```
+
+`schema.sql` is the whole schema as it stands after every migration, so a
+database created from it needs none of them — applying one would stop at
+"duplicate column name".
+
+### The existing database — migrations, never schema.sql
+
+Apply each file in `migrations/` that the database has not had, **in filename
+order, once each, before deploying the code that needs it**:
+
+```bash
+npx wrangler d1 execute dawnlist --remote --file=./migrations/<NNN-name>.sql
+```
+
+Two ways to get this wrong, both silent:
+
+- **Running `schema.sql` against it succeeds and changes nothing.** Every table
+  already exists, so `CREATE TABLE IF NOT EXISTS` skips it along with every
+  column added since. The code then fails at the first query that names one.
+- **`wrangler d1 migrations apply` would re-run 001 and 002.** It records what
+  it applied in its own table, and 001 and 002 were applied to the live
+  database by `d1 execute` on 2026-09-08, so that table has no record of them.
+
+`test/schema.test.mjs` rebuilds the schema the live database was created from,
+applies every migration, and fails if the result differs from `schema.sql`.
 
 ## Two things that have bitten this pattern before
 
