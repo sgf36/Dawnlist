@@ -219,6 +219,19 @@ def run_started_today(conn: sqlite3.Connection, now: datetime,
     return started_on((r[0] for r in rows), now.date(), to_local)
 
 
+def last_search_started_at(conn: sqlite3.Connection) -> str | None:
+    """When the most recent search started, for the "Last run" line.
+
+    Untagged rows that swept something count too, so an install upgraded this
+    morning does not claim it has never run until its first tagged search.
+    """
+    row = conn.execute(
+        "SELECT started_at FROM runs WHERE kind = ? "
+        "OR (kind IS NULL AND swept > 0) ORDER BY id DESC LIMIT 1",
+        (SWEEP,)).fetchone()
+    return row[0] if row else None
+
+
 def claimed_on(conn: sqlite3.Connection) -> date | None:
     value = _get(conn, SCHEDULED_CLAIM_KEY)
     try:

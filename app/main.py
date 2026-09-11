@@ -2418,6 +2418,23 @@ def _added_alerts(window, conn, paths) -> None:
                 incomplete_note=note)
 
 
+def _wire_daily_run(window, conn, reload, *, notify=None):
+    """Keep the run's time for as long as this window's process is open.
+
+    Returned so the caller holds it: the controller's timer is what keeps the
+    promise of a daily run, and a collected controller keeps nothing.
+    """
+    from app.ui.scheduler import RunBinding, RunController
+
+    path = database_path(conn)
+    controller = RunController(
+        conn, work=lambda: run_daily_search_on_worker(path), parent=window)
+    binding = RunBinding(window, conn, controller, reload=reload, notify=notify)
+    binding.show_latest()
+    controller.start()
+    return controller, binding
+
+
 def _main_window(conn, *, open_board: bool):
     """The board or the shortlist, loaded and wired. Never shown here.
 
@@ -2461,13 +2478,18 @@ def _main_window(conn, *, open_board: bool):
         window.alerts_dropped.connect(
             lambda paths: _added_alerts(window, conn, paths))
         connect_window(window, conn)
-        # The last run's shortlist, read back from the database rather than
-        # held from a run this process did. Opening the app the morning after
-        # is the normal case, and this window used to open empty in it — every
-        # posting the run assessed was on disk and nothing put it on screen.
-        run_id = latest_run_id(conn)
-        window.load(rows_from_db(conn), _stored_funnel(conn, run_id),
-                    notes=_screen_drift_notes(conn, run_id))
+
+        def reload():
+            # The last run's shortlist, read back from the database rather
+            # than held from a run this process did. Opening the app the
+            # morning after is the normal case, and this window used to open
+            # empty in it — every posting the run assessed was on disk and
+            # nothing put it on screen.
+            run_id = latest_run_id(conn)
+            window.load(rows_from_db(conn), _stored_funnel(conn, run_id),
+                        notes=_screen_drift_notes(conn, run_id))
+
+        window._daily_run = _wire_daily_run(window, conn, reload)
 
     return window
 
