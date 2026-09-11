@@ -230,3 +230,16 @@ CREATE TABLE IF NOT EXISTS admin_audit (
     target     TEXT
 );
 CREATE INDEX IF NOT EXISTS admin_audit_by_actor ON admin_audit (actor_hash, at);
+
+-- Mac App Store purchases (migration 010). One Apple original transaction id
+-- maps to exactly one licence and one licence to exactly one purchase; the
+-- migration says why this is a table and why it has no foreign key.
+CREATE TABLE IF NOT EXISTS apple_transactions (
+    original_transaction_id TEXT PRIMARY KEY,
+    licence_key             TEXT NOT NULL UNIQUE,
+    environment             TEXT,
+    status                  TEXT NOT NULL,
+    expires_at              TEXT,
+    created_at              TEXT NOT NULL,
+    updated_at              TEXT NOT NULL
+);

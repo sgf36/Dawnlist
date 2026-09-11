@@ -41,6 +41,7 @@
 import { newLicenceKey } from './paddle.js';
 import { handlePaddleWebhook } from './paddle.js';
 import { handleAdmin, handleRedeem } from './codes.js';
+import { handleApple } from './apple.js';
 import { PLANS, FALLBACK_PLAN, hasExpired, sellablePlans } from './plans.js';
 import { parseJsonObject } from './body.js';
 import { purgeExpired } from './retention.js';
@@ -834,6 +835,7 @@ export default {
       if (url.pathname === '/v1/plan' && request.method === 'GET') {
         return await handlePlan(request, env);
       }
+      if (url.pathname === '/v1/apple' && request.method === 'POST') return await handleApple(request, env);
       if (url.pathname === '/redeem' && request.method === 'POST') {
         return await handleRedeem(request, env, newLicenceKey);
       }
