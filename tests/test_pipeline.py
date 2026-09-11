@@ -240,3 +240,78 @@ def test_a_failed_query_gets_no_yield_rate(conn):
     assert "revenue" not in out.loose_queries(), (
         "a rate-limited query must never be reported as a loose query")
     assert "strategy" in out.per_query_yield
+
+
+# ---------------------------------------------------------------------------
+# Delta marks: per query, from the start of that query's own fetch
+# ---------------------------------------------------------------------------
+
+REVENUE = SearchQuery(label="revenue", titles=["revenue"])
+
+
+def test_a_failing_query_does_not_freeze_the_others(conn):
+    """One run-wide mark, advanced only when nothing went wrong, meant a
+    single broken search re-requested every search's window every morning."""
+    provider = StubProvider({"strategy": ok([job("a")]),
+                             "revenue": FetchResult(jobs=[], error="HTTP 502")})
+    out = run_morning(conn, provider, [Q, REVENUE], RULES, fit_brief="b",
+                      factsheet="f", send=strong_send)
+    assert "strategy" in out.marks, "the search that fetched moves on"
+    assert "revenue" not in out.marks, "the one that failed keeps its window"
+
+
+def test_an_oversize_query_advances_and_is_named_to_narrow(conn):
+    """A search matching more than a page held its mark forever: every run
+    asked for the same window again and never read past it."""
+    wide = FetchResult(jobs=[job("a")], pages_fetched=1, exhausted=False,
+                       matched=250, not_fetched=249)
+    out = run_morning(conn, StubProvider({"strategy": wide}), [Q], RULES,
+                      fit_brief="b", factsheet="f", send=strong_send)
+    assert "strategy" in out.marks
+    assert out.unfetched == {"strategy": 249}
+    assert out.funnel()["not_fetched"] == 249
+    assert any("strategy" in e and "narrow" in e for e in out.fetch_errors)
+    assert not out.complete, "a search read only in part is still said to be"
+
+
+def test_a_capped_query_keeps_its_mark(conn):
+    """The plan's ceiling stopped it, not the search. Tomorrow's allowance
+    reads the rest; advancing would have skipped it for good."""
+    capped = FetchResult(jobs=[job("a")], pages_fetched=1, exhausted=False,
+                         matched=80, not_fetched=79, capped=True)
+    out = run_morning(conn, StubProvider({"strategy": capped}), [Q], RULES,
+                      fit_brief="b", factsheet="f", send=strong_send)
+    assert "strategy" not in out.marks
+    assert out.unfetched == {}, "a cap is not a search to narrow"
+
+
+def test_the_mark_is_when_that_querys_fetch_began(conn):
+    """Stamped at the end of the run, the mark skipped every posting indexed
+    while the run was still fetching other searches and assessing."""
+    from datetime import datetime, timezone
+
+    t = [datetime(2026, 9, 11, 7, 0, tzinfo=timezone.utc)]
+
+    def later(minutes):
+        t[0] = t[0].replace(minute=t[0].minute + minutes)
+
+    class Slow(FeedProvider):
+        name = "theirstack"
+
+        def search(self, query):
+            later(5)                   # each fetch takes a while
+            return ok([job(query.label)])
+
+        def credits_used(self):
+            return 0
+
+    def slow_send(request):
+        later(20)                      # and so does the assessment
+        return strong_send(request)
+
+    out = run_morning(conn, Slow(), [Q, REVENUE], RULES, fit_brief="b",
+                      factsheet="f", send=slow_send, clock=lambda: t[0])
+    assert out.marks["strategy"] == datetime(2026, 9, 11, 7, 0, tzinfo=timezone.utc)
+    assert out.marks["revenue"] == datetime(2026, 9, 11, 7, 5, tzinfo=timezone.utc)
+    assert t[0] > out.marks["revenue"], (
+        "positive control: the run really did go on after the fetch began")

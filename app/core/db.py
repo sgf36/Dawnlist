@@ -409,6 +409,18 @@ def orphan_outputs(conn: sqlite3.Connection, output_dir: Path) -> list[Path]:
                   if p.is_file() and str(p) not in known)
 
 
+def advance_query_marks(conn: sqlite3.Connection, marks: dict) -> None:
+    """Move each named query's delta mark to its own fetch time.
+
+    By label, never across the table: a query that failed or did not run this
+    time keeps the mark for the window it has not read.
+    """
+    for label, when in marks.items():
+        conn.execute("UPDATE queries SET last_discovered_at=? WHERE label=?",
+                     (when.isoformat(timespec="seconds"), label))
+    conn.commit()
+
+
 def prune_seen(conn: sqlite3.Connection, days: int = SEEN_RETENTION_DAYS) -> int:
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
     cur = conn.execute("DELETE FROM seen_jobs WHERE seen_at < ?", (cutoff,))

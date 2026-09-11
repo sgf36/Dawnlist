@@ -122,6 +122,29 @@ def test_the_delta_mark_is_passed_back_on_the_next_run(conn):
         "re-fetching yesterday's postings is re-buying them")
 
 
+def test_only_the_query_that_fetched_advances(conn):
+    """Every enabled query was stamped together, and only when no query had
+    any problem — so one failing search froze every other search's window."""
+    seed(conn)
+    conn.execute(
+        "INSERT INTO queries(label, params_json, created_at) VALUES(?,?,?)",
+        ("revenue", json.dumps({"titles": ["revenue"], "countries": ["GB"]}), "x"))
+    conn.commit()
+
+    class ByLabel(Stub):
+        def search(self, query):
+            self.seen.append(query)
+            if query.label == "revenue":
+                return FetchResult(jobs=[], error="HTTP 502")
+            return ok([job("a")])
+
+    morning_run(conn, provider=ByLabel(None), send=strong_send)
+    marks = {r["label"]: r["last_discovered_at"]
+             for r in conn.execute("SELECT label, last_discovered_at FROM queries")}
+    assert marks["strategy"], "the search that fetched moves on"
+    assert marks["revenue"] is None, "the one that failed keeps its window"
+
+
 def test_a_seen_posting_is_deduped_on_the_next_run(conn):
     """The short-term layer: seen_jobs stops a recurring alert re-listing."""
     seed(conn)

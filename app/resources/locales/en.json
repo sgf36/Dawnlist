@@ -67,6 +67,7 @@
   "funnel.gated": "Gated",
   "funnel.incomplete": "incomplete",
   "funnel.left_unread": "{count} left unread",
+  "funnel.narrow_search": "narrow this search: it matches more than one morning's page, so the postings past that page are never read",
   "funnel.screen_drift": "your screening rules removed {now}% of postings this run, against {before}% last run — check the rules if that was not intended",
   "funnel.screened_in": "Screened in",
   "funnel.screened_out": "Screened out",

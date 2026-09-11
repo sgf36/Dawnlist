@@ -645,16 +645,16 @@ def titles_from_aim(aim: str) -> list[str]:
             seeds.append(phrase)
     return seeds[:5]
 
-def mark_queries_run(conn, when: datetime | None = None) -> None:
-    """Advance each query's delta high-water mark.
+def mark_queries_run(conn, marks: dict[str, datetime]) -> None:
+    """Advance the delta high-water mark of each query that fetched.
 
     handoff 2.1a: billing is per job RETURNED, so re-fetching yesterday's
-    postings is re-buying them. This is written only after a run completes.
+    postings is re-buying them. `marks` is `RunOutcome.marks`: label -> when
+    that query's own fetch began. Every enabled query used to be stamped with
+    the end of the run, and only when no query had any problem, so one broken
+    search held every search's window where it was.
     """
-    when = when or datetime.now(timezone.utc)
-    conn.execute("UPDATE queries SET last_discovered_at=? WHERE enabled=1",
-                 (when.isoformat(timespec="seconds"),))
-    conn.commit()
+    db.advance_query_marks(conn, marks)
 
 
 def build_provider(conn):
@@ -1206,10 +1206,10 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
     # already-seen set to compare against.
     db.prune_seen(conn)
 
-    if not outcome.fetch_errors:
-        # Only advance the delta mark on a clean fetch. Advancing it after a
-        # failure would skip the window the failed run never actually read.
-        mark_queries_run(conn)
+    # After `persist`, so a window is only marked read once what it returned is
+    # stored. Each query advances on its own fetch: a failed one keeps its
+    # mark, because advancing it would skip the window it never read.
+    mark_queries_run(conn, outcome.marks)
     return outcome
 
 

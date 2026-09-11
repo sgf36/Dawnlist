@@ -22,7 +22,12 @@ from app.core.rules import RuleTable
 from app.core.screen import ScreenReport, screen_all, yield_rate
 from app.feed.base import FeedProvider, FetchResult, SearchQuery
 from app.feed.models import Job, name_key
+from app.i18n import tr
 from app.intelligence.assess import AssessmentReport, assess
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 @dataclass
@@ -87,6 +92,13 @@ class RunOutcome:
     #: Queries whose fetch failed, so no yield rate was computed for them.
     #: Named rather than silently absent - "not measured" is not "0%".
     unscored_queries: list[str] = field(default_factory=list)
+    #: label -> when that query's fetch BEGAN, for each query whose delta mark
+    #: may advance. Per query, because one run-wide mark meant a single
+    #: failing or oversize search froze every other search's window with it.
+    marks: dict[str, datetime] = field(default_factory=dict)
+    #: label -> postings the query matched but did not fetch. Kept apart from
+    #: the errors so a search too wide to read can be named and narrowed.
+    unfetched: dict[str, int] = field(default_factory=dict)
 
     @property
     def complete(self) -> bool:
@@ -110,6 +122,8 @@ class RunOutcome:
             out["contained_needs_review"] = len(self.screen.contained)
         if self.deduped:
             out["near_duplicates_flagged"] = len(self.deduped.near_duplicates)
+        if self.unfetched:
+            out["not_fetched"] = sum(self.unfetched.values())
         return out
 
     def loose_queries(self, threshold: float = 0.10) -> list[str]:
@@ -131,6 +145,7 @@ def run_morning(
     gates: Sequence[Gate] = (),
     already_seen: set[tuple[str, str]] | None = None,
     already_judged: set[str] | None = None,
+    clock: Callable[[], datetime] = _utcnow,
 ) -> RunOutcome:
     """One morning run, recorded end to end."""
     with db.run(conn) as run:
@@ -140,6 +155,11 @@ def run_morning(
         all_jobs: list[Job] = []
         per_query: dict[str, list[Job]] = {}
         for q in queries:
+            # Taken BEFORE this query's fetch. A mark stamped when the whole
+            # run ended skipped every posting indexed while earlier searches
+            # were fetching and the batch was being assessed: none of them was
+            # in what this fetch read, and the next run started after them.
+            started = clock()
             result = provider.search(q)
             outcome.fetch[q.label] = result
             if not result.ok:
@@ -147,13 +167,26 @@ def run_morning(
                 # run cannot later be reported as a clean one.
                 outcome.fetch_errors.append(f"{q.label}: {result.error}")
                 run.record_fetch_failure(f"{q.label}: {result.error}")
-            elif result.shortfall:
-                # spec 6.2 again, and the wording carries weight. A capped run
-                # and an under-paginated one are both partial, but only one of
-                # them is the user's own plan doing what it was bought to do —
-                # so the reason is named, with its numbers, rather than
-                # flattened into "results are partial".
-                outcome.fetch_errors.append(f"{q.label}: {result.shortfall}")
+            else:
+                if result.shortfall:
+                    # spec 6.2 again, and the wording carries weight. A capped
+                    # run and an under-paginated one are both partial, but only
+                    # one of them is the user's own plan doing what it was
+                    # bought to do — so the reason is named, with its numbers,
+                    # rather than flattened into "results are partial".
+                    message = f"{q.label}: {result.shortfall}"
+                    if result.not_fetched and not result.capped:
+                        outcome.unfetched[q.label] = result.not_fetched
+                        message += f" — {tr('funnel.narrow_search')}"
+                    outcome.fetch_errors.append(message)
+                # The window this fetch read is done, even when it matched
+                # more than one page: holding the mark back re-requested the
+                # same oversize window every morning and never moved on. A
+                # CAPPED fetch keeps its mark, because the plan's daily ceiling
+                # stopped it rather than the search, and tomorrow's allowance
+                # reads the rest while the exclusion list stops a re-buy.
+                if not result.capped:
+                    outcome.marks[q.label] = started
             per_query[q.label] = result.jobs
             all_jobs.extend(result.jobs)
 
