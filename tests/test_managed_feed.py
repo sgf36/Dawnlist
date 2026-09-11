@@ -230,10 +230,34 @@ def test_no_personal_content_is_sent_upstream(monkeypatch):
                          "postedWithinDays", "discoveredSince",
                          "excludeJobIds", "maxResults", "cities",
                          "excludeTitleTerms", "excludeCompanies"}
-    # excludeJobIds carries PROVIDER IDS ONLY — opaque strings the provider
-    # issued. It is a billing control, and it must never become a channel for
-    # anything about the user.
-    assert all(isinstance(x, str) for x in body["excludeJobIds"])
+    # excludeJobIds carries PROVIDER IDS ONLY. It is a billing control, and it
+    # must never become a channel for anything about the user. They are
+    # integers, not strings: the Worker forwards the list untouched to
+    # TheirStack's `job_id_not`, which is typed as integers. This line used to
+    # assert strings, which pinned the wrong type in place.
+    assert all(isinstance(x, int) for x in body["excludeJobIds"])
+
+
+def test_only_numeric_feed_ids_reach_either_transport(monkeypatch):
+    """A pasted advert's id is a hash, and a fallback id can be a URL. Neither
+    is anything `job_id_not` can use, and one of them in the list can fail the
+    whole search it was meant to make cheaper."""
+    from app.feed.theirstack import TheirStackProvider
+
+    query = SearchQuery(label="q", titles=["GM"], countries=["GB"],
+                        exclude_job_ids=("4711", "p3f9a0c1d2e4b5a6978c1",
+                                         "https://example.com/jobs/9", " 12 "))
+
+    prov = _provider(monkeypatch, {"/v1/search": (200, {"jobs": [], "counts": {}})})
+    prov.search(query)
+    assert prov.calls[0][1]["excludeJobIds"] == [4711, 12]
+
+    direct = TheirStackProvider("TS-KEY")._body(query, 0, 10)
+    assert direct["job_id_not"] == [4711, 12]
+
+    # Nothing usable means the filter is left off, not sent empty.
+    bare = SearchQuery(label="q", exclude_job_ids=("p1", "abc"))
+    assert "job_id_not" not in TheirStackProvider("TS-KEY")._body(bare, 0, 10)
 
 
 # ---------------------------------------------------------------------------

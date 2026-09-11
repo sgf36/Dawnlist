@@ -341,14 +341,45 @@ def test_held_job_ids_are_sent_so_they_are_not_re_bought(tmp_path):
     conn.execute(
         "INSERT INTO queries(label, params_json, enabled, created_at) "
         "VALUES('q','{\"countries\":[\"GB\"]}',1,datetime('now'))")
+    # Numeric, because TheirStack issues integer ids. These tests used strings
+    # like "held-0" that no feed ever issues, which is how a list full of ids
+    # the feed could not use went unnoticed.
     for i in range(3):
         conn.execute(
             "INSERT INTO jobs(provider, provider_job_id, title, company) "
-            "VALUES('theirstack', ?, 't', 'c')", (f"held-{i}",))
+            "VALUES('theirstack', ?, 't', 'c')", (str(101 + i),))
     conn.commit()
 
     q = load_queries(conn)[0]
-    assert set(q.exclude_job_ids) == {"held-0", "held-1", "held-2"}
+    assert set(q.exclude_job_ids) == {"101", "102", "103"}
+
+
+def test_only_the_feeds_own_numeric_ids_are_excluded():
+    """`job_id_not` is typed as integers, and `jobs` also holds postings the
+    feed never issued. A pasted advert's id is a hash, and an alert email's is
+    LinkedIn's number — which would quietly exclude whichever TheirStack
+    posting shares it."""
+    from app.core import db
+    from app.main import load_queries
+
+    conn = db.connect(":memory:")
+    db.migrate(conn)
+    conn.execute(
+        "INSERT INTO queries(label, params_json, enabled, created_at) "
+        "VALUES('q','{\"countries\":[\"GB\"]}',1,datetime('now'))")
+    conn.executemany(
+        "INSERT INTO jobs(provider, provider_job_id, title, company) "
+        "VALUES(?, ?, 't', 'c')",
+        [("theirstack", "4711"),                          # the feed's own
+         ("pasted", "p3f9a0c1d2e4b5a6978c1"),             # a hash of a paste
+         ("alert-email", "4200"),                         # LinkedIn's number
+         ("theirstack", "https://example.com/jobs/9")])   # url fallback id
+    conn.commit()
+
+    q = load_queries(conn)[0]
+    # Positive control and the fix in one: the feed's id survives, nothing
+    # else does.
+    assert q.exclude_job_ids == ("4711",)
 
 
 def test_the_exclusion_list_is_bounded(tmp_path):
@@ -364,12 +395,12 @@ def test_the_exclusion_list_is_bounded(tmp_path):
     conn.executemany(
         "INSERT INTO jobs(provider, provider_job_id, title, company) "
         "VALUES('theirstack', ?, 't', 'c')",
-        [(f"j{i}",) for i in range(RECENT_HELD_IDS + 250)])
+        [(str(10_000 + i),) for i in range(RECENT_HELD_IDS + 250)])
     conn.commit()
 
     q = load_queries(conn)[0]
     assert len(q.exclude_job_ids) == RECENT_HELD_IDS
     # Newest first: the most recently inserted ids are the ones most likely to
     # come back, so those are the ones worth excluding.
-    assert f"j{RECENT_HELD_IDS + 249}" in q.exclude_job_ids
-    assert "j0" not in q.exclude_job_ids
+    assert str(10_000 + RECENT_HELD_IDS + 249) in q.exclude_job_ids
+    assert "10000" not in q.exclude_job_ids

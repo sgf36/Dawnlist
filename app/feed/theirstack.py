@@ -35,7 +35,7 @@ from datetime import datetime, timezone
 
 from app.core.http import build_request
 from app.feed.base import (USER_AGENT, FeedProvider, FetchResult, RateLimiter,
-                           SearchQuery,
+                           SearchQuery, feed_job_ids,
                            parse_date)
 from app.feed.models import Job, name_key
 
@@ -170,10 +170,11 @@ class TheirStackProvider(FeedProvider):
         # the whole of each country.
         if q.posted_within_days:
             body["posted_at_max_age_days"] = q.posted_within_days
-        if q.exclude_job_ids:
+        held = feed_job_ids(q.exclude_job_ids)
+        if held:
             # Billing control: a row we already hold is re-bought when it comes
             # back, because the provider does not cache.
-            body["job_id_not"] = list(q.exclude_job_ids)
+            body["job_id_not"] = held
         if q.discovered_since:
             # The delta pull. Only postings first indexed since the last run.
             body["discovered_at_gte"] = q.discovered_since.astimezone(

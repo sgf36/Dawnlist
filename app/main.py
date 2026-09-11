@@ -99,8 +99,20 @@ def load_queries(conn) -> list[SearchQuery]:
     # row we hold is re-bought whenever it comes back. Ordered by id DESC
     # because that is insertion order, and insertion order is recency here —
     # `jobs` carries no discovered-at column of its own.
+    #
+    # Only the FEED's own ids, and only numeric ones. The list is forwarded to
+    # TheirStack's `job_id_not`, which is typed as integers, and `jobs` also
+    # holds postings the feed never issued: a pasted advert's id is a hash of
+    # what the user pasted, and an alert email's is LinkedIn's number. Sent,
+    # the first is at best ignored and at worst fails validation for the whole
+    # search, and the second silently excludes whichever TheirStack posting
+    # happens to share that number. Neither was ever billed, so neither can be
+    # re-bought.
     held = tuple(str(r["provider_job_id"]) for r in conn.execute(
-        "SELECT provider_job_id FROM jobs ORDER BY id DESC LIMIT ?",
+        "SELECT provider_job_id FROM jobs "
+        " WHERE provider = 'theirstack' AND provider_job_id <> '' "
+        "   AND provider_job_id NOT GLOB '*[^0-9]*' "
+        " ORDER BY id DESC LIMIT ?",
         (RECENT_HELD_IDS,)))
 
     out: list[SearchQuery] = []

@@ -42,7 +42,8 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
-from app.feed.base import FeedProvider, FetchResult, SearchQuery, parse_date
+from app.feed.base import (FeedProvider, FetchResult, SearchQuery, feed_job_ids,
+                           parse_date)
 from app.feed.models import Job
 
 #: The deployed Worker. Overridable for local `wrangler dev` and for tests.
@@ -175,7 +176,7 @@ class ManagedProvider(FeedProvider):
             "postedWithinDays": query.posted_within_days,
             "discoveredSince": (query.discovered_since.isoformat()
                                 if query.discovered_since else None),
-            "excludeJobIds": list(query.exclude_job_ids),
+            "excludeJobIds": feed_job_ids(query.exclude_job_ids),
             "maxResults": query.max_results,
             "cities": list(query.cities),
             "excludeTitleTerms": list(query.exclude_title_terms),
