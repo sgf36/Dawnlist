@@ -58,6 +58,15 @@ const STATUS_ONLY = new Set([
 const UPDATING = new Set([
   'subscription.updated',
 ]);
+/**
+ * Refunds and chargebacks. `updated` matters as much as `created`: a refund
+ * made in the dashboard is created awaiting approval and only becomes final
+ * when adjustment.updated reports it approved.
+ */
+const ADJUSTING = new Set([
+  'adjustment.created',
+  'adjustment.updated',
+]);
 
 /**
  * What a Paddle subscription status means for access.
@@ -239,19 +248,25 @@ const STATE_UPSERT = `
  * Copy the newest recorded access onto the licence.
  *
  * It copies from the table rather than from the event, so running it after a
- * STALE event is harmless — it re-applies what the newer event said. A
- * 'suspended' licence is support's decision and no subscription status
- * overrides it.
+ * STALE event is harmless — it re-applies what the newer event said. Two
+ * statuses are never overridden by it: 'suspended' is support's decision, and
+ * 'refunded' means the money went back — a later "active" from Paddle describes
+ * the subscription, not whether this customer paid for the access.
  */
 const LICENCE_SYNC = `
   UPDATE licences
      SET status = (SELECT licence_status FROM paddle_subscriptions WHERE subscription_id = ?1)
    WHERE paddle_subscription_id = ?1
-     AND status <> 'suspended'
+     AND status NOT IN ('suspended', 'refunded')
      AND (SELECT licence_status FROM paddle_subscriptions WHERE subscription_id = ?1) IS NOT NULL`;
 
 const LICENCE_BY_SUBSCRIPTION =
   'SELECT licence_key, status, plan FROM licences WHERE paddle_subscription_id = ?1';
+
+const RECORD_TRANSACTION = `
+  INSERT INTO paddle_transactions (transaction_id, subscription_id, recorded_at)
+  VALUES (?1, ?2, datetime('now'))
+  ON CONFLICT(transaction_id) DO NOTHING`;
 
 /**
  * RETURNING says whether THIS request created the row. subscription.created and
@@ -368,7 +383,74 @@ async function applyEvent(env, ctx, event) {
   if (GRANTING.has(type)) return grant(env, ctx, event);
   if (STATUS_ONLY.has(type)) return moveStatus(env, event);
   if (UPDATING.has(type)) return update(env, event);
+  if (ADJUSTING.has(type)) return adjust(env, event);
   return { ok: true, action: 'ignored', event_type: type };
+}
+
+/**
+ * Whether an adjustment reverses the whole transaction. Paddle marks the
+ * adjustment itself `full` or `partial`; where that is absent, every line
+ * being `full` means the same.
+ */
+function isFullAdjustment(adjustment) {
+  if (adjustment.type === 'full') return true;
+  if (adjustment.type === 'partial') return false;
+  const items = Array.isArray(adjustment.items) ? adjustment.items : [];
+  return items.length > 0 && items.every((item) => item?.type === 'full');
+}
+
+/**
+ * The licence key a refunded transaction paid for.
+ *
+ * The record written when the payment completed comes first, because it is
+ * this Worker's own and cannot name the wrong subscription. The adjustment's
+ * own subscription_id is the fallback, for a payment whose
+ * transaction.completed was never delivered. A one-time purchase's licence is
+ * keyed by its transaction id, which is the last resort.
+ */
+async function subscriptionForAdjustment(env, adjustment) {
+  const txn = typeof adjustment.transaction_id === 'string' ? adjustment.transaction_id : null;
+  if (txn) {
+    const row = await env.DB.prepare(
+      'SELECT subscription_id FROM paddle_transactions WHERE transaction_id = ?1'
+    ).bind(txn).first();
+    if (row?.subscription_id) return row.subscription_id;
+  }
+  return adjustment.subscription_id || txn;
+}
+
+/**
+ * A refund or a chargeback.
+ *
+ * An APPROVED FULL refund, or any chargeback, ends access at once: the money
+ * went back, so the licence it bought stops working. A partial refund changes
+ * nothing, because it returns part of a payment for a period the customer
+ * keeps. A refund still awaiting approval changes nothing yet — approval
+ * arrives as adjustment.updated, and a rejected refund must not have cut the
+ * customer off in the meantime. A chargeback is not awaited: by the time it is
+ * reported the bank has already taken the money back.
+ */
+async function adjust(env, event) {
+  const adjustment = event.data || {};
+  const fullRefund = adjustment.action === 'refund'
+    && adjustment.status === 'approved' && isFullAdjustment(adjustment);
+  const chargeback = adjustment.action === 'chargeback';
+  if (!fullRefund && !chargeback) return { ok: true, action: 'adjustment_no_change' };
+
+  const kind = chargeback ? 'chargeback' : 'refund';
+  const target = await subscriptionForAdjustment(env, adjustment);
+  const changed = target
+    ? (await env.DB.prepare(
+        "UPDATE licences SET status = 'refunded' WHERE paddle_subscription_id = ?1"
+      ).bind(target).run()).meta.changes
+    : 0;
+  if (!changed) {
+    // Money has gone back and no licence was found to end. Worth a line: it is
+    // either a purchase that never issued, or a licence still working unpaid.
+    console.warn('paddle: refund matched no licence', { kind });
+    return { ok: true, action: 'refund_no_licence', kind };
+  }
+  return { ok: true, action: 'refunded', kind };
 }
 
 async function grant(env, ctx, event) {
@@ -388,20 +470,27 @@ async function grant(env, ctx, event) {
   // then set its status from the newest recorded state. Separately, a
   // cancellation could land between the insert and the status and be lost.
   const statements = [stateStatement(env, subscriptionId, event)];
+  if (event.event_type === 'transaction.completed' && typeof event.data?.id === 'string') {
+    // Which subscription this payment was for. An adjustment names the
+    // transaction it reverses, not always the subscription, so this record is
+    // how a refund finds the licence it has to end.
+    statements.push(env.DB.prepare(RECORD_TRANSACTION).bind(event.data.id, subscriptionId));
+  }
+  let insertAt = -1;
   if (caps) {
     // The caps the customer actually paid for. Before plans, every licence
     // fell back to the Worker's anti-abuse default and paying more bought
     // nothing at all.
-    statements.push(env.DB.prepare(INSERT_LICENCE).bind(
+    insertAt = statements.push(env.DB.prepare(INSERT_LICENCE).bind(
       key, tierFor(event), subscriptionId, caps.plan,
-      caps.max_postings_per_day, caps.max_refreshes_per_day, caps.max_saved_queries));
+      caps.max_postings_per_day, caps.max_refreshes_per_day, caps.max_saved_queries)) - 1;
   }
   statements.push(env.DB.prepare(LICENCE_SYNC).bind(subscriptionId));
   statements.push(env.DB.prepare(LICENCE_BY_SUBSCRIPTION).bind(subscriptionId));
   const results = await env.DB.batch(statements);
 
   const fresh = results[0].results.length > 0;
-  const created = caps ? results[1].results.length > 0 : false;
+  const created = insertAt >= 0 && results[insertAt].results.length > 0;
   const licence = results[results.length - 1].results[0] || null;
 
   if (created) {

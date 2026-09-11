@@ -120,6 +120,17 @@ CREATE TABLE IF NOT EXISTS paddle_subscriptions (
     updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Which subscription each completed payment was for. A refund or chargeback
+-- names the transaction it reverses and only sometimes the subscription, so
+-- this is how the webhook finds the licence a refund has to end. A one-time
+-- purchase records its own transaction id, which is what its licence is keyed
+-- by.
+CREATE TABLE IF NOT EXISTS paddle_transactions (
+    transaction_id  TEXT PRIMARY KEY,
+    subscription_id TEXT NOT NULL,
+    recorded_at     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- ---------------------------------------------------------------------------
 -- Override codes and the admin console.
 --
