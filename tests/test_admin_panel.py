@@ -41,10 +41,48 @@ def panel(qapp, api=None, key="ADMIN-KEY"):
     return AdminPanel(api=api or FakeAPI(), key_source=lambda: key)
 
 
+def idle(p, timeout=10.0):
+    """Wait for a console action. They run off the UI thread now, so the
+    next line after a click would otherwise read the state before the answer."""
+    import time
+
+    deadline = time.monotonic() + timeout
+    while not p.btn_issue.isEnabled():
+        if time.monotonic() > deadline:
+            raise AssertionError("the console action never finished")
+        QApplication.processEvents()
+        time.sleep(0.005)
+
+
+def test_console_actions_run_off_the_ui_thread_with_the_buttons_held(qapp):
+    """Each is a round trip to the Worker. A revoke pressed while a list is
+    still arriving would act on row indexes about to be replaced."""
+    import threading
+
+    release, seen = threading.Event(), {}
+
+    class Slow(FakeAPI):
+        def list_codes(self, key):
+            seen["thread"] = threading.current_thread()
+            release.wait(5)
+            return self.codes
+
+    p = panel(qapp, Slow())
+    p.refresh()
+    assert not (p.btn_issue.isEnabled() or p.btn_refresh.isEnabled()
+                or p.btn_revoke.isEnabled())
+    release.set()
+    idle(p)
+    assert seen["thread"] is not threading.main_thread()
+    assert p.codes.count() == 1
+    p.close()
+
+
 def test_existing_codes_show_their_use_count(qapp):
     """A code's usage is the thing you need to see before withdrawing it."""
     p = panel(qapp)
     p.refresh()
+    idle(p)
     assert p.codes.count() == 1
     assert "3/25" in p.codes.item(0).text()
     assert "Sean" in p.codes.item(0).text()
@@ -57,6 +95,7 @@ def test_a_code_without_a_note_is_refused(qapp):
     p = panel(qapp, api)
     p.note.setText("   ")
     p.btn_issue.click()
+    idle(p)
     assert api.issued == []
     assert p.result.text()
     p.close()
@@ -78,6 +117,7 @@ def test_issuing_passes_the_note_role_and_uses(qapp):
     p.note.setText("App Review")
     p.role.setCurrentText("managed")
     p.btn_issue.click()
+    idle(p)
     assert api.issued and api.issued[0][0] == "App Review"
     assert api.issued[0][1] == "managed"
     assert "DL-NEW" in p.result.text()
@@ -88,6 +128,7 @@ def test_revoking_without_a_selection_says_so(qapp):
     api = FakeAPI()
     p = panel(qapp, api)
     p.refresh()
+    idle(p)
     p.codes.setCurrentRow(-1)
     p.btn_revoke.click()
     assert api.revoked == []

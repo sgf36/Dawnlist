@@ -205,17 +205,26 @@ class KeyPanel(QWidget):
 
     def save(self) -> None:
         entered = self.field.text().strip()
-        if not entered:
+        # Ignored while a check runs: Return in the field would otherwise
+        # start a second one behind the disabled button.
+        if not entered or not self.button.isEnabled():
             return
 
         self.button.setEnabled(False)
         self.result.setObjectName("")
         self.result.setText(tr("settings.key_checking"))
-        self.result.repaint()
-        try:
-            ok, message = self._verify(entered)
-        finally:
-            self.button.setEnabled(True)
+        verify = self._verify
+        # OFF THE UI THREAD. The check is a round trip to Anthropic, and the
+        # `repaint()` that stood here only got "Checking…" on screen before
+        # the window stopped answering.
+        self._verify_task = run_in_background(
+            lambda: verify(entered),
+            on_done=lambda outcome: self._verified(entered, outcome),
+            on_error=lambda exc: self._verified(entered, (False, str(exc))))
+
+    def _verified(self, entered: str, outcome) -> None:
+        ok, message = outcome
+        self.button.setEnabled(True)
 
         if ok:
             try:
@@ -302,46 +311,50 @@ class LicencePanel(QWidget):
 
     def save(self) -> None:
         entered = self.field.text().strip()
-        if not entered:
+        if not entered or not self.button.isEnabled():
             return
 
         self.button.setEnabled(False)
-        self.result.setObjectName("")
-        self.result.setText(tr("settings.licence_checking"))
-        self.result.repaint()
+        self._show(None, tr("settings.licence_checking"))
 
         # One field for both, because a user does not care which they were
         # given. A licence key starts DAWN-; anything else is tried as a code.
+        if entered.upper().startswith("DAWN-"):
+            self._keep(entered, tr("settings.licence_saved"),
+                       tr("settings.licence_store_failed"))
+            return
+
+        redeem = self._redeem
+        # Off the UI thread: redeeming is a round trip to the Worker.
+        self._redeem_task = run_in_background(
+            lambda: redeem(entered),
+            # The code may be single-use and is spent by the time the store is
+            # asked, so a failed save shows the licence: the only copy of it.
+            on_done=lambda licence: self._keep(
+                licence, tr("settings.code_redeemed"),
+                tr("settings.code_store_failed", key=licence)),
+            on_error=lambda exc: self._finish(False, str(exc)))
+
+    def _keep(self, key: str, saved_text: str, failed_text: str) -> None:
         try:
-            if entered.upper().startswith("DAWN-"):
-                try:
-                    self._store(entered)
-                except Exception:  # noqa: BLE001
-                    raise RuntimeError(tr("settings.licence_store_failed")) from None
-                ok, message = True, tr("settings.licence_saved")
-            else:
-                licence = self._redeem(entered)
-                try:
-                    self._store(licence)
-                except Exception:  # noqa: BLE001
-                    # The code may be single-use and is now spent, so the key on
-                    # this screen is the only copy of the licence that exists.
-                    raise RuntimeError(
-                        tr("settings.code_store_failed", key=licence)) from None
-                ok, message = True, tr("settings.code_redeemed")
-        except Exception as exc:  # noqa: BLE001 - the reason is the message
-            ok, message = False, str(exc)
-        finally:
-            self.button.setEnabled(True)
+            self._store(key)
+        except Exception:  # noqa: BLE001 - any failure means it was not kept
+            self._finish(False, failed_text)
+            return
+        self._finish(True, saved_text)
 
-        self.result.setObjectName("ok" if ok else "bad")
-        self.result.setText(message)
-        self.result.style().unpolish(self.result)
-        self.result.style().polish(self.result)
-
+    def _finish(self, ok: bool, message: str) -> None:
+        self.button.setEnabled(True)
+        self._show(ok, message)
         if ok:
             self.field.clear()
             self.refresh()
+
+    def _show(self, ok: bool | None, message: str) -> None:
+        self.result.setObjectName("" if ok is None else ("ok" if ok else "bad"))
+        self.result.setText(message)
+        self.result.style().unpolish(self.result)
+        self.result.style().polish(self.result)
 
 
 def _divider() -> QFrame:
@@ -795,16 +808,34 @@ class AdminPanel(QWidget):
     def _key(self):
         return self._key_source()
 
+    def _busy(self, on: bool) -> None:
+        # All three together: a revoke started while a list is still arriving
+        # would act on the row indexes of the list it is about to replace.
+        for button in (self.btn_issue, self.btn_refresh, self.btn_revoke):
+            button.setEnabled(not on)
+
+    def _run(self, work, done) -> None:
+        """Every console action is a round trip to the Worker, so off the UI
+        thread, with the buttons disabled until it answers."""
+        self._busy(True)
+        self._task = run_in_background(work, on_done=done,
+                                       on_error=self._failed)
+
+    def _failed(self, exc) -> None:
+        self._busy(False)
+        self.result.setText(str(exc))
+
     def refresh(self) -> None:
         key = self._key()
         if not key:
             self.result.setText(tr("settings.admin_no_licence"))
             return
-        try:
-            self._codes = self._api.list_codes(key)
-        except Exception as exc:  # noqa: BLE001
-            self.result.setText(str(exc))
-            return
+        api = self._api
+        self._run(lambda: api.list_codes(key), lambda codes: self._listed(codes))
+
+    def _listed(self, codes, message: str = "") -> None:
+        self._busy(False)
+        self._codes = codes
         self.codes.clear()
         for row in self._codes:
             used, cap = row.get("uses", 0), row.get("max_uses", 1)
@@ -812,28 +843,32 @@ class AdminPanel(QWidget):
             self.codes.addItem(
                 f"{row.get('code')}  {row.get('role')}/{row.get('plan')}  "
                 f"{used}/{cap}{state}  — {row.get('note') or ''}")
-        self.result.setText("")
+        # LISTED FIRST, THEN SAY WHAT HAPPENED. Listing blanked the message,
+        # so setting it beforehand wiped the code the operator was told to
+        # copy — on a line that reads "Copy it now; it is shown once here".
+        self.result.setText(message)
 
     def _issue(self) -> None:
         key = self._key()
         if not key:
             self.result.setText(tr("settings.admin_no_licence"))
             return
-        try:
-            made = self._api.issue_code(
-                key, note=self.note.text(), role=self.role.currentText(),
-                plan=self.plan.currentText(), max_uses=self.uses.value())
-        except Exception as exc:  # noqa: BLE001
-            self.result.setText(str(exc))
-            return
-        # REFRESH FIRST, THEN SAY WHAT HAPPENED. `refresh()` blanks the
-        # message, so setting it beforehand wiped the code the operator was
-        # told to copy — on a line that reads "Copy it now; it is shown once
-        # here". The code is minted either way; only the one chance to read it
-        # was lost.
-        self.note.clear()
-        self.refresh()
-        self.result.setText(tr("settings.admin_issued", code=made.get("code", "")))
+        api = self._api
+        note, role = self.note.text(), self.role.currentText()
+        plan, uses = self.plan.currentText(), self.uses.value()
+
+        def work():
+            made = api.issue_code(key, note=note, role=role, plan=plan,
+                                  max_uses=uses)
+            return made, api.list_codes(key)
+
+        def done(pair):
+            made, codes = pair
+            self.note.clear()
+            self._listed(codes, tr("settings.admin_issued",
+                                   code=made.get("code", "")))
+
+        self._run(work, done)
 
     def _revoke(self) -> None:
         index = self.codes.currentRow()
@@ -842,13 +877,14 @@ class AdminPanel(QWidget):
             return
         key = self._key()
         code = self._codes[index].get("code")
-        try:
-            self._api.revoke_code(key, code)
-        except Exception as exc:  # noqa: BLE001
-            self.result.setText(str(exc))
-            return
-        self.refresh()
-        self.result.setText(tr("settings.admin_revoked", code=code))
+        api = self._api
+
+        def work():
+            api.revoke_code(key, code)
+            return api.list_codes(key)
+
+        self._run(work, lambda codes: self._listed(
+            codes, tr("settings.admin_revoked", code=code)))
 
 
 class StoreKitEvents(QObject):
@@ -975,13 +1011,23 @@ class SubscribePanel(QWidget):
         from app.core import entitlement
 
         code = self.code.text().strip()
-        if not code:
+        if not code or not self.btn_code.isEnabled():
             return
-        try:
-            key = (self._redeemer or entitlement.redeem_override_code)(code)
-        except Exception as exc:  # noqa: BLE001
-            self.result.setText(str(exc))
-            return
+        self.btn_code.setEnabled(False)
+        redeem = self._redeemer or entitlement.redeem_override_code
+        # Off the UI thread: redeeming is a round trip to the Worker.
+        self._code_task = run_in_background(
+            lambda: redeem(code), on_done=self._code_redeemed,
+            on_error=self._code_refused)
+
+    def _code_refused(self, exc) -> None:
+        self.btn_code.setEnabled(True)
+        self.result.setText(str(exc))
+
+    def _code_redeemed(self, key: str) -> None:
+        from app.core import entitlement
+
+        self.btn_code.setEnabled(True)
         try:
             (self._storer or entitlement.store_licence)(key)
         except Exception:  # noqa: BLE001

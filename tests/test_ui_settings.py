@@ -13,6 +13,84 @@ def qapp():
     yield QApplication.instance() or QApplication([])
 
 
+def saved(panel, timeout=10.0):
+    """Press save and wait for the answer.
+
+    The check and the redemption run off the UI thread now, so asserting on
+    the next line would read the "Checking…" state. Do not make them
+    synchronous again to shorten this.
+    """
+    import time
+
+    panel.save()
+    deadline = time.monotonic() + timeout
+    while not panel.button.isEnabled():
+        if time.monotonic() > deadline:
+            raise AssertionError("the save never finished")
+        QApplication.processEvents()
+        time.sleep(0.005)
+
+
+def _wait_until(predicate, timeout=10.0):
+    import time
+
+    deadline = time.monotonic() + timeout
+    while not predicate():
+        if time.monotonic() > deadline:
+            raise AssertionError("did not finish")
+        QApplication.processEvents()
+        time.sleep(0.005)
+
+
+def test_the_key_check_runs_off_the_ui_thread_with_the_button_held(qapp):
+    """The check is a round trip to Anthropic. On the UI thread the window
+    stopped answering for its whole length; with the button live, a second
+    press would start a second check."""
+    import threading
+
+    release, seen = threading.Event(), {}
+
+    def slow(key):
+        seen["thread"] = threading.current_thread()
+        release.wait(5)
+        return True, "Verified — 1 models available."
+
+    panel = KeyPanel(verifier=slow, storer=lambda k: None, reader=lambda: None)
+    panel.field.setText("sk-ant-api03-" + "x" * 40)
+    panel.button.click()
+    assert not panel.button.isEnabled()
+    assert "Checking" in panel.result.text()
+
+    release.set()
+    _wait_until(panel.button.isEnabled)
+    assert seen["thread"] is not threading.main_thread()
+    assert "Verified" in panel.result.text()
+    panel.close()
+
+
+def test_redeeming_a_code_runs_off_the_ui_thread_with_the_button_held(qapp):
+    import threading
+
+    release, seen = threading.Event(), {}
+
+    def slow(code):
+        seen["thread"] = threading.current_thread()
+        release.wait(5)
+        return "DAWN-FROM-CODE"
+
+    stored = []
+    panel = LicencePanel(redeemer=slow, storer=stored.append, reader=lambda: None)
+    panel.field.setText("DL-SLOW")
+    panel.button.click()
+    assert not panel.button.isEnabled()
+
+    release.set()
+    _wait_until(panel.button.isEnabled)
+    assert seen["thread"] is not threading.main_thread()
+    assert stored == ["DAWN-FROM-CODE"]
+    panel.close()
+
+
 def key_panel(qapp, *, verify=None, stored=None):
     saved = {}
     panel = KeyPanel(
@@ -53,7 +131,7 @@ def test_it_says_plainly_when_no_key_is_stored(qapp):
 def test_a_verified_key_is_stored(qapp):
     panel = key_panel(qapp)
     panel.field.setText("sk-ant-api03-" + "x" * 40)
-    panel.save()
+    saved(panel)
     assert panel._saved["key"].startswith("sk-ant-")
     assert "Verified" in panel.result.text()
 
@@ -61,7 +139,7 @@ def test_a_verified_key_is_stored(qapp):
 def test_a_rejected_key_is_NOT_stored(qapp):
     panel = key_panel(qapp, verify=lambda k: (False, "Anthropic rejected that key."))
     panel.field.setText("sk-ant-api03-wrong")
-    panel.save()
+    saved(panel)
     assert "key" not in panel._saved
     assert "rejected" in panel.result.text().lower()
 
@@ -71,14 +149,14 @@ def test_a_rejected_key_stays_in_the_box(qapp):
     again from nothing."""
     panel = key_panel(qapp, verify=lambda k: (False, "no"))
     panel.field.setText("sk-ant-typo")
-    panel.save()
+    saved(panel)
     assert panel.field.text() == "sk-ant-typo"
 
 
 def test_a_verified_key_is_cleared_from_the_box(qapp):
     panel = key_panel(qapp)
     panel.field.setText("sk-ant-api03-" + "x" * 40)
-    panel.save()
+    saved(panel)
     assert panel.field.text() == ""
 
 
@@ -92,7 +170,7 @@ def test_an_empty_save_does_nothing(qapp):
     calls = []
     panel = key_panel(qapp, verify=lambda k: calls.append(k) or (True, "ok"))
     panel.field.setText("   ")
-    panel.save()
+    saved(panel)
     assert calls == []
 
 
@@ -131,7 +209,7 @@ def licence_panel(qapp, *, redeem=None, stored=None):
 def test_a_licence_key_is_stored_directly(qapp):
     panel = licence_panel(qapp)
     panel.field.setText("DAWN-AAAA-BBBB")
-    panel.save()
+    saved(panel)
     assert panel._saved["key"] == "DAWN-AAAA-BBBB"
 
 
@@ -147,7 +225,7 @@ def test_an_override_code_is_exchanged_for_a_licence(qapp):
 
     panel = licence_panel(qapp, redeem=redeem)
     panel.field.setText("DL-ABCD-EFGH")
-    panel.save()
+    saved(panel)
     assert seen["code"] == "DL-ABCD-EFGH"
     assert panel._saved["key"] == "DAWN-ISSUED"
 
@@ -158,7 +236,7 @@ def test_a_failed_redemption_reports_the_servers_reason(qapp):
 
     panel = licence_panel(qapp, redeem=refuse)
     panel.field.setText("DL-SPENT")
-    panel.save()
+    saved(panel)
     assert "already been used" in panel.result.text()
     assert "key" not in panel._saved
 
@@ -167,7 +245,7 @@ def test_a_failed_redemption_keeps_the_code_in_the_box(qapp):
     panel = licence_panel(qapp,
                           redeem=lambda c: (_ for _ in ()).throw(RuntimeError("no")))
     panel.field.setText("DL-BAD")
-    panel.save()
+    saved(panel)
     assert panel.field.text() == "DL-BAD"
 
 
@@ -183,7 +261,7 @@ def test_a_verified_key_that_cannot_be_saved_is_not_called_verified(qapp):
     panel = KeyPanel(verifier=lambda k: (True, "Verified — 3 models available."),
                      storer=_refusing_store, reader=lambda: None)
     panel.field.setText("sk-ant-api03-" + "x" * 40)
-    panel.save()
+    saved(panel)
     assert "Verified" not in panel.result.text()
     assert "could not save" in panel.result.text().lower()
     assert panel.field.text(), "left in the box so it can be saved again"
@@ -198,7 +276,7 @@ def test_a_redeemed_code_that_cannot_be_saved_shows_the_licence(qapp):
     panel = LicencePanel(redeemer=lambda c: "DAWN-ONLY-COPY",
                          storer=_refusing_store, reader=lambda: None)
     panel.field.setText("DL-ONCE")
-    panel.save()
+    saved(panel)
     assert "DAWN-ONLY-COPY" in panel.result.text()
     assert panel.result.textInteractionFlags() & Qt.TextSelectableByMouse
     panel.close()
@@ -207,7 +285,7 @@ def test_a_redeemed_code_that_cannot_be_saved_shows_the_licence(qapp):
 def test_a_licence_key_that_cannot_be_saved_says_so(qapp):
     panel = LicencePanel(storer=_refusing_store, reader=lambda: None)
     panel.field.setText("DAWN-AAAA-BBBB")
-    panel.save()
+    saved(panel)
     assert "could not save" in panel.result.text().lower()
     assert "Licence saved." not in panel.result.text()
     panel.close()
