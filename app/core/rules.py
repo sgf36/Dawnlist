@@ -157,9 +157,9 @@ class CompiledRules:
 
     @property
     def has_positive_signal(self) -> bool:
-        """Whether this table can say YES to anything at all.
+        """Whether this table may reject a posting for matching nothing.
 
-        Tiers 2, 3 and 4 are an ALLOWLIST: a posting survives only because
+        Tiers 3 and 4 are an ALLOWLIST: a posting survives only because
         something matched it. The table is seeded empty and every entry is
         earned — but an empty allowlist rejects the entire world, and entries
         are earned by deciding on postings the user has to be shown first.
@@ -169,8 +169,17 @@ class CompiledRules:
         an empty shortlist every morning with no error at all: the funnel read
         swept N, screened out N, assessed 0 — indistinguishable from a quiet
         day in the market.
+
+        Known employers are deliberately NOT counted. They are derived from
+        pursue decisions, so counting them turned the first pursue into a
+        one-employer allowlist: pursue one Four Seasons role and every General
+        Manager at Rosewood or Mandarin Oriental became "no matching term",
+        unread, for every user from their first decision on. An employer the
+        user chased is a reason to read a posting, never a reason to stop
+        reading the rest of the market. Only terms the user typed can say that
+        what fails to match them is not wanted.
         """
-        return bool(self.employers or self.strong or self.contextual)
+        return bool(self.strong or self.contextual)
 
 
 # ---------------------------------------------------------------------------

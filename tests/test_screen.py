@@ -289,6 +289,34 @@ def test_one_earned_term_switches_the_screen_back_on():
     assert [r.job.title for r in report.unlikely] == ["Night Auditor"]
 
 
+def test_a_pursued_employer_never_gates_the_rest_of_the_market_out():
+    """The auditor's case. Known employers are derived from pursue decisions,
+    and counting them as a positive signal turned the first pursue into a
+    one-employer allowlist: every posting anywhere else became "no matching
+    term" and was never read."""
+    jobs = [Job(provider="t", provider_job_id="fs", title="Director of Rooms",
+                company="Four Seasons", description_text="A role."),
+            Job(provider="t", provider_job_id="rw", title="General Manager",
+                company="Rosewood Hotels", description_text="A role."),
+            Job(provider="t", provider_job_id="mo", title="Hotel Manager",
+                company="Mandarin Oriental", description_text="A role.")]
+    report = screen_all(jobs, RuleTable(known_employers=["Four Seasons"]))
+    by_id = {r.job.provider_job_id: r for r in report.results}
+
+    assert by_id["rw"].is_likely and by_id["mo"].is_likely
+    # The employer still upgrades its own postings; it just gates nothing.
+    assert by_id["fs"].tier is Tier.KNOWN_EMPLOYER
+
+    # Positive control: a term the user TYPED still switches the allowlist on,
+    # so the fall-through above is the fix and not a screen that stopped
+    # rejecting anything.
+    typed = screen_all(jobs, RuleTable(known_employers=["Four Seasons"],
+                                       strong_terms=["general manager"]))
+    kept = {r.job.provider_job_id for r in typed.likely}
+    assert kept == {"fs", "rw"}
+    assert [r.job.provider_job_id for r in typed.unlikely] == ["mo"]
+
+
 def test_a_kill_term_alone_is_not_a_positive_signal():
     """`unsupported_titles` can only say NO. A table holding nothing but kill
     terms still cannot say yes to anything, so it must not start rejecting

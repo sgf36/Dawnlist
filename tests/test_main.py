@@ -156,6 +156,47 @@ def test_a_rejection_still_gates_after_the_seen_window_expires(conn):
         "a rejection is a posting never assessed again")
 
 
+def test_the_first_pursue_does_not_hide_every_other_employer(conn):
+    """End to end, on the route every user takes: run, pursue one role, run
+    again. Known employers are derived from that pursue, and counting them as
+    the screen's positive signal made every later posting at any other
+    employer "no matching term" — never assessed."""
+    from app.ui.adapter import record_decision
+
+    seed(conn)
+    conn.execute("DELETE FROM rule_terms")          # a user who typed no terms
+    conn.commit()
+
+    class Sequence(Stub):
+        def __init__(self, *results):
+            super().__init__(None)
+            self.results = list(results)
+
+        def search(self, query):
+            self.seen.append(query)
+            return self.results.pop(0)
+
+    fs = Job(provider="theirstack", provider_job_id="1", title="Director of Rooms",
+             company="Four Seasons", description_text="A hotel role.")
+    rosewood = Job(provider="theirstack", provider_job_id="2",
+                   title="General Manager", company="Rosewood Hotels",
+                   description_text="A hotel role.")
+    mandarin = Job(provider="theirstack", provider_job_id="3",
+                   title="Hotel Manager", company="Mandarin Oriental",
+                   description_text="A hotel role.")
+
+    feed = Sequence(ok([fs]), ok([rosewood, mandarin]))
+    morning_run(conn, provider=feed, send=strong_send)
+    record_decision(conn, "theirstack:1", "pursue")
+    assert load_rules(conn).known_employers == ["Four Seasons"], (
+        "positive control: the pursue really did make an employer known")
+
+    outcome = morning_run(conn, provider=feed, send=strong_send)
+    assessed = {v.job.company for v in outcome.assessment.verdicts}
+    assert assessed == {"Rosewood Hotels", "Mandarin Oriental"}
+    assert outcome.funnel()["screened_out"] == 0
+
+
 # -- rules loading ----------------------------------------------------------
 def test_an_invalid_stored_kill_family_is_skipped_loudly(conn, capsys):
     seed(conn)
