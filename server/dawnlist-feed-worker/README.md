@@ -93,6 +93,51 @@ is ever set low enough to shape what the user sees, that is a pricing decision
 and belongs in the licence row, not here. Full working:
 `Apps/Claude/dawnlist-credit-cap-assessment.md`.
 
+## Paddle notification destination — the events it must send
+
+The webhook acts only on what it is sent. A destination subscribed to
+`subscription.created` alone — the state read on 2026-09-11 — issues licences
+and does nothing else: cancellations, pauses, refunds and plan changes never
+arrive, and a customer who cancelled keeps a working key.
+
+Subscribe the Dawnlist destination
+(`https://dawnlist-feed-worker.sgf36.workers.dev/paddle/webhook`) to **all** of
+these. Anything else it sends is acknowledged and ignored.
+
+| Event | Needed for | What the Worker does |
+|---|---|---|
+| `subscription.created` | grant | Issues the licence and emails it — only if a price matches a configured plan |
+| `subscription.activated` | grant | Issues if none exists; restores access |
+| `transaction.completed` | grant, refund | Issues if none exists (a one-time purchase has no subscription events); records which subscription the payment was for, which is how a refund finds its licence |
+| `subscription.updated` | update | A plan change moves the caps; its `status` also carries pauses, cancellations and past-due renewals |
+| `subscription.canceled` | cancel | Access ends (`expired`) |
+| `subscription.paused` | pause | Access ends (`expired`) |
+| `subscription.resumed` | resume | Access restored (`active`) |
+| `subscription.past_due` | past_due | Access **continues** while Paddle retries the payment; `past_due` is recorded in `paddle_subscriptions.paddle_status` |
+| `subscription.trialing` | trial | Access continues |
+| `adjustment.created` | refund, chargeback | An approved **full** refund or any chargeback sets the licence `refunded`; a partial refund changes nothing |
+| `adjustment.updated` | refund approval | A refund created awaiting approval takes effect when it is approved |
+
+Why the overlap is deliberate: Paddle does not promise delivery or order. Every
+subscription event is applied by its `occurred_at` — an older one arriving late
+is recorded as `stale_ignored` and changes nothing — so receiving both
+`subscription.canceled` and a `subscription.updated` carrying `canceled` is
+harmless, and losing either one is not.
+
+Two statuses no webhook overrides: `suspended` (support's decision) and
+`refunded`.
+
+**Proves it:** open the destination and compare its event list with the table.
+Then, for each event, send a simulation and read what the Worker did:
+
+```bash
+npx wrangler d1 execute dawnlist --remote --command \
+  "SELECT event_type, action, received_at FROM webhook_events ORDER BY received_at DESC LIMIT 20"
+```
+
+An event type missing from those rows after its simulation was sent is an event
+the destination is not subscribed to.
+
 ## Deployed
 
 Live at **https://dawnlist-feed-worker.sgf36.workers.dev** (deployed 2026-09-06,
