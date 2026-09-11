@@ -20,6 +20,10 @@
  */
 import { PLANS, capsFor } from './plans.js';
 import { licenceEmail, localeFor, sendEmail } from './email.js';
+import { parseJsonObject } from './body.js';
+
+/** Generated codes are 19 characters; this admits hand-made ones with room. */
+const MAX_CODE_CHARS = 64;
 
 const ROLES = ['byo', 'managed', 'admin'];
 const MAX_FAILED_ATTEMPTS_PER_DAY = 20;
@@ -85,9 +89,15 @@ export async function handleRedeem(request, env, newLicenceKey) {
     return json({ error: 'too_many_attempts' }, 429);
   }
 
-  let body;
-  try { body = await request.json(); } catch { return json({ error: 'bad_json' }, 400); }
+  const parsed = await parseJsonObject(request);
+  if (!parsed.ok) return json({ error: parsed.error, message: parsed.message }, 400);
+  const body = parsed.body;
 
+  if (body.code !== undefined && body.code !== null
+      && (typeof body.code !== 'string' || body.code.length > MAX_CODE_CHARS)) {
+    return json({ error: 'invalid_field',
+                  message: `code must be a string of at most ${MAX_CODE_CHARS} characters` }, 400);
+  }
   const given = normalise(body.code);
   if (!given) return json({ error: 'no_code' }, 400);
 

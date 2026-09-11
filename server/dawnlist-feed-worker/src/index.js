@@ -39,6 +39,7 @@ import { newLicenceKey } from './paddle.js';
 import { handlePaddleWebhook } from './paddle.js';
 import { handleAdmin, handleRedeem } from './codes.js';
 import { PLANS, FALLBACK_PLAN, sellablePlans } from './plans.js';
+import { parseJsonObject } from './body.js';
 
 const SEARCH_TTL_SECONDS = 6 * 60 * 60;   // 6h on search results
 // Place ids do not change, and the catalogue's cost per lookup is not
@@ -89,6 +90,85 @@ const json = (body, status = 200) =>
     status,
     headers: { 'content-type': 'application/json; charset=utf-8' },
   });
+
+// ---------------------------------------------------------------------------
+// The search body — refused before anything is reserved or fetched
+// ---------------------------------------------------------------------------
+
+/**
+ * The most postings one search may ask for. Paging exists so that a request
+ * above one page is honoured rather than cut to a hundred; ten pages bounds how
+ * many provider calls one invocation can make. The daily cap, not this, decides
+ * what is billed.
+ */
+const MAX_RESULTS_PER_SEARCH = 1000;
+
+/**
+ * A wider window only widens what is fetched and billed; a posting a year old
+ * is not one anybody is still hiring for.
+ */
+const MAX_POSTED_WITHIN_DAYS = 365;
+
+/**
+ * Bounds on each list. Most sit far above anything the app builds from what a
+ * person states, so they refuse only a malformed or hostile body. Three are
+ * set by something specific:
+ */
+const SEARCH_LISTS = {
+  titles:            { items: 50,   chars: 200 },
+  // ISO 3166-1 has 249 codes, so a search of every country still fits.
+  countries:         { items: 250,  chars: 8 },
+  companies:         { items: 200,  chars: 200 },
+  // A name the place cache has not seen costs a catalogue lookup for each
+  // listed country, so this list multiplies provider calls.
+  cities:            { items: 20,   chars: 100 },
+  excludeTitleTerms: { items: 100,  chars: 200 },
+  excludeCompanies:  { items: 500,  chars: 200 },
+  // The app sends its 1,000 most recently held ids (RECENT_HELD_IDS). Twice
+  // that leaves room, and stops an unbounded list being forwarded to the feed
+  // with every page.
+  excludeJobIds:     { items: 2000, chars: 100 },
+};
+
+const invalidField = (field, rule) =>
+  new HttpError(400, 'invalid_field', `${field} ${rule}`);
+
+function checkWholeNumber(body, field, min, max) {
+  const value = body[field];
+  if (value === undefined || value === null) return;
+  if (!Number.isInteger(value) || value < min || value > max) {
+    throw invalidField(field, `must be a whole number from ${min} to ${max}`);
+  }
+}
+
+/** The search body, or a 400 naming the field — never a body the code cannot use. */
+async function readSearch(request) {
+  const parsed = await parseJsonObject(request);
+  if (!parsed.ok) throw new HttpError(400, parsed.error, parsed.message);
+  const body = parsed.body;
+
+  checkWholeNumber(body, 'maxResults', 1, MAX_RESULTS_PER_SEARCH);
+  checkWholeNumber(body, 'limit', 1, MAX_RESULTS_PER_SEARCH);
+  checkWholeNumber(body, 'postedWithinDays', 1, MAX_POSTED_WITHIN_DAYS);
+
+  for (const [field, cap] of Object.entries(SEARCH_LISTS)) {
+    const list = body[field];
+    if (list === undefined || list === null) continue;
+    const fits = Array.isArray(list) && list.length <= cap.items
+      && list.every((s) => typeof s === 'string' && s.trim() !== '' && s.length <= cap.chars);
+    if (!fits) {
+      throw invalidField(field, `must be a list of up to ${cap.items} non-blank strings `
+        + `of at most ${cap.chars} characters`);
+    }
+  }
+
+  const since = body.discoveredSince;
+  if (since !== undefined && since !== null
+      && (typeof since !== 'string' || since.length > 64 || Number.isNaN(Date.parse(since)))) {
+    throw invalidField('discoveredSince', 'must be a date and time');
+  }
+  return body;
+}
 
 // ---------------------------------------------------------------------------
 // Licence + metering
@@ -481,7 +561,7 @@ function cacheKeyFor(query) {
 
 async function handleSearch(request, env, ctx) {
   const licence = await authenticate(env, request);
-  const query = await request.json();
+  const query = await readSearch(request);
   const caps = await reserveAllowance(env, licence, utcDay(),
     query.maxResults ?? query.limit ?? MAX_PAGE);
 
