@@ -78,6 +78,24 @@ def _variant_is_not_ambient(monkeypatch):
     monkeypatch.setattr("app.core.entitlement.verify_against_worker",
                         lambda _key: True, raising=False)
 
+    # NO TEST REACHES THE LIVE WORKER BY OPENING A WINDOW. Settings asks the
+    # Worker whether the pinned licence above is an administrator every time it
+    # is shown, so every test that showed Settings put a real network call on a
+    # worker thread — and in CI on 2026-09-11 one outlived its test and crashed
+    # the next with an access violation. Only the network path is replaced:
+    # a call that passes its own `opener`, as tests of the admin client do, still
+    # runs the real function.
+    import app.core.admin as admin
+
+    real_is_admin = admin.is_admin
+
+    def offline_is_admin(key, *args, opener=None, **kwargs):
+        if opener is None:
+            return False
+        return real_is_admin(key, *args, opener=opener, **kwargs)
+
+    monkeypatch.setattr(admin, "is_admin", offline_is_admin)
+
 
 # ---------------------------------------------------------------------------
 # Waiting for work that is deliberately no longer synchronous
