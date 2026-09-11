@@ -78,18 +78,47 @@ function sameCode(a, b) {
 // Rate limiting
 // ---------------------------------------------------------------------------
 
-async function tooManyFailures(env, ip) {
+/**
+ * The salt for the unkeyed fallback below. It stops a hash table computed for
+ * some other system from matching these rows, and nothing more: anybody with
+ * this source can still hash candidate addresses. CLIENT_HASH_SECRET closes
+ * that, and wrangler.jsonc says so.
+ */
+const CLIENT_HASH_SALT = 'dawnlist:code-attempts:v1:';
+
+const hex = (buffer) =>
+  [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('');
+
+/**
+ * What failed attempts are counted against: a hash of the connecting address,
+ * never the address. The table only has to tell one connection from another
+ * within a day; storing the address kept a list of who had tried codes, and
+ * when, for as long as the rows lived.
+ */
+export async function clientHash(env, request) {
+  const address = request.headers.get('cf-connecting-ip') || 'unknown';
+  const encoder = new TextEncoder();
+  if (env.CLIENT_HASH_SECRET) {
+    const key = await crypto.subtle.importKey(
+      'raw', encoder.encode(env.CLIENT_HASH_SECRET),
+      { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    return hex(await crypto.subtle.sign('HMAC', key, encoder.encode(address)));
+  }
+  return hex(await crypto.subtle.digest('SHA-256', encoder.encode(CLIENT_HASH_SALT + address)));
+}
+
+async function tooManyFailures(env, client) {
   const row = await env.DB.prepare(
-    'SELECT failures FROM code_attempts WHERE ip = ?1 AND day = ?2'
-  ).bind(ip, today()).first();
+    'SELECT failures FROM code_attempts WHERE client_hash = ?1 AND day = ?2'
+  ).bind(client, today()).first();
   return (row?.failures || 0) >= MAX_FAILED_ATTEMPTS_PER_DAY;
 }
 
-async function recordFailure(env, ip) {
+async function recordFailure(env, client) {
   await env.DB.prepare(
-    `INSERT INTO code_attempts (ip, day, failures) VALUES (?1, ?2, 1)
-     ON CONFLICT(ip, day) DO UPDATE SET failures = failures + 1`
-  ).bind(ip, today()).run();
+    `INSERT INTO code_attempts (client_hash, day, failures) VALUES (?1, ?2, 1)
+     ON CONFLICT(client_hash, day) DO UPDATE SET failures = failures + 1`
+  ).bind(client, today()).run();
 }
 
 // ---------------------------------------------------------------------------
@@ -97,8 +126,8 @@ async function recordFailure(env, ip) {
 // ---------------------------------------------------------------------------
 
 export async function handleRedeem(request, env, newLicenceKey) {
-  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
-  if (await tooManyFailures(env, ip)) {
+  const client = await clientHash(env, request);
+  if (await tooManyFailures(env, client)) {
     return json({ error: 'too_many_attempts' }, 429);
   }
 
@@ -126,7 +155,7 @@ export async function handleRedeem(request, env, newLicenceKey) {
   // not hold: that it once existed, that it was real until a date, that
   // somebody else has already used it.
   const refuse = async () => {
-    await recordFailure(env, ip);
+    await recordFailure(env, client);
     return json({ error: 'invalid_code' }, 403);
   };
   if (!row || row.revoked || hasExpired(row.expires_at)) return refuse();

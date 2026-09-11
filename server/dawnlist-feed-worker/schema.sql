@@ -87,6 +87,8 @@ CREATE TABLE IF NOT EXISTS usage_daily (
     postings    INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (licence_key, day)
 );
+-- Not deleted on a fixed age by the retention purge: the privacy policy keeps
+-- usage counts while a licence is active and for twelve months after it ends.
 
 -- The kill switch and failover order. Changing a row here swaps or disables a
 -- provider with no app release — this is the whole point of the abstraction.
@@ -195,11 +197,15 @@ CREATE INDEX IF NOT EXISTS redemptions_by_code ON redemptions (code);
 -- Failed attempts, for rate limiting. Codes carry enough entropy that guessing
 -- is not a real threat, but an unbounded endpoint that answers yes or no is
 -- still worth a lid.
+--
+-- client_hash is a keyed hash of the connecting address, never the address,
+-- and rows are deleted after two days (src/retention.js): the table only has
+-- to tell one connection from another today.
 CREATE TABLE IF NOT EXISTS code_attempts (
-    ip       TEXT NOT NULL,
-    day      TEXT NOT NULL,
-    failures INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (ip, day)
+    client_hash TEXT NOT NULL,
+    day         TEXT NOT NULL,
+    failures    INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (client_hash, day)
 );
 
 -- Which licence, if any, came from an override code, and with what role. This

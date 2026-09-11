@@ -43,6 +43,7 @@ import { handlePaddleWebhook } from './paddle.js';
 import { handleAdmin, handleRedeem } from './codes.js';
 import { PLANS, FALLBACK_PLAN, hasExpired, sellablePlans } from './plans.js';
 import { parseJsonObject } from './body.js';
+import { purgeExpired } from './retention.js';
 
 const SEARCH_TTL_SECONDS = 6 * 60 * 60;   // 6h on search results
 // Place ids do not change, and the catalogue's cost per lookup is not
@@ -837,5 +838,14 @@ export default {
       console.error('unhandled', err?.name);
       return json({ error: 'internal', message: 'Unexpected error' }, 500);
     }
+  },
+
+  /**
+   * The cron trigger in wrangler.jsonc. A retention period is only real if
+   * something deletes on it; src/retention.js says what goes and what is
+   * deliberately kept.
+   */
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(purgeExpired(env));
   },
 };
