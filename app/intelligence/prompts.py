@@ -30,11 +30,13 @@ Rules, in order of force:
    labelled "London Area" whose description places it two hours away. If the
    description contradicts a tag, the description wins.
 
-3. QUOTE THE DISQUALIFYING LINE. If you reject on a STATED requirement — a
-   years floor, a credential, a hard skill — or on one of the posting's fields,
-   you must quote that line verbatim from the posting block, exactly as written:
-   a line of the description, or a whole field line such as "salary: ...". If
-   you cannot quote it, you may not reject on it.
+3. QUOTE THE LINE EVERY REJECTION RESTS ON. A rejection must quote, verbatim
+   from the posting block and exactly as written, the line it rests on: a
+   stated requirement (a years floor, a credential, a hard skill), a line
+   showing the role is a different function, or a whole field line such as
+   "salary: ...". Quote a clause, not a word or two — at least about twenty
+   characters, or the whole field line. If you cannot quote it, you may not
+   reject.
 
 4. NEVER INFER A BAR THE POSTING DOES NOT STATE. Do not assume a requirement is
    implied by seniority or sector. One senior posting explicitly said the
@@ -61,7 +63,7 @@ Rules, in order of force:
 Buckets:
   strong          — clearly fits the brief; the reader should look at this today
   possible        — a real stretch or a partial fit, worth their attention
-  rejected        — does not fit, with a stated reason (and a quote if rule 3 applies)
+  rejected        — does not fit, with a stated reason and the quoted line it rests on (rule 3)
   judgement-call  — you could argue it either way; the human decides
 
 Return one entry per posting. Be terse: one sentence of reason, no preamble."""
@@ -90,10 +92,10 @@ VERDICT_SCHEMA = {
                     "disqualifying_quote": {
                         "type": ["string", "null"],
                         "description": (
-                            "REQUIRED when rejecting on a stated requirement or a "
-                            "field: the line from the posting block, verbatim and "
-                            "unedited. Null when the rejection is not based on a "
-                            "stated requirement."
+                            "REQUIRED for every rejection: the line of the posting "
+                            "block the rejection rests on, verbatim and unedited — "
+                            "at least a clause (about twenty characters) or a "
+                            "whole field line. Null when not rejecting."
                         ),
                     },
                     "requirement_checked": {

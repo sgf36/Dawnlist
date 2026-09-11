@@ -60,13 +60,13 @@ class Stub(FeedProvider):
         return 0
 
 
-def verdicts(bucket):
+def verdicts(bucket, quote=None):
     import re
 
     def send(request):
         refs = re.findall(r'ref="([^"]+)"', request["messages"][0]["content"])
         return {"verdicts": [{"job_ref": r, "bucket": bucket,
-                              "reason": "fits", "disqualifying_quote": None,
+                              "reason": "fits", "disqualifying_quote": quote,
                               "requirement_checked": True} for r in refs]}
     return send
 
@@ -131,11 +131,11 @@ def test_a_screened_out_posting_is_still_a_row(conn):
 # used to disappear, and from the user's chair the app had lost it. Detection
 # existed (`orphan_outputs`, printed by `--doctor`); recovery was written,
 # tested and never called by anything.
-def a_run_with(conn, jobs, bucket="strong"):
+def a_run_with(conn, jobs, bucket="strong", quote=None):
     outcome = run_morning(
         conn, Stub(jobs), [SearchQuery(label="q", titles=["strategy"])],
         RuleTable(strong_terms=["strategy"]), fit_brief="b", factsheet=FACTS,
-        send=verdicts(bucket))
+        send=verdicts(bucket, quote))
     persist(conn, outcome)
     return outcome
 
@@ -175,10 +175,13 @@ def test_a_decided_posting_is_not_carried_forward(conn):
 
 def test_a_rejected_posting_is_not_carried_forward(conn):
     """Restoring rejections re-surfaces judgements nobody asked to revisit."""
+    # A rejection must now quote the line it rests on. One that quotes nothing
+    # is unverified, becomes a judgement call, and IS carried forward — which
+    # is right, and is not what this test is about.
     a_run_with(conn, [Job(provider="theirstack", provider_job_id="old",
                           title="Head of Strategy", company="Acme",
                           description_text="Strategy.")],
-               bucket="rejected")
+               bucket="rejected", quote="title: Head of Strategy")
     a_run_with(conn, [Job(provider="theirstack", provider_job_id="new",
                           title="Strategy Lead", company="Beta",
                           description_text="Strategy.")])

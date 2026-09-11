@@ -131,7 +131,8 @@ def test_verdicts_map_by_ref_not_position():
         {"job_ref": "b", "bucket": "strong", "reason": "fits",
          "disqualifying_quote": None, "requirement_checked": True},
         {"job_ref": "a", "bucket": "rejected", "reason": "no",
-         "disqualifying_quote": None, "requirement_checked": True},
+         "disqualifying_quote": "minimum of 10 years' experience",
+         "requirement_checked": True},
     ]}
     verdicts, errors = parse_verdicts(payload, {"a": a, "b": b})
     by_id = {v.job.provider_job_id: v.bucket for v in verdicts}
@@ -287,11 +288,12 @@ def _job(ref, description):
 LONG = "A" * (FIRST_PASS_CHARS + 100) + " unique-marker-deep-in-the-text " + "B" * 6000
 
 
-def _payload(ref, bucket, reason="because"):
+def _payload(ref, bucket, reason="because", quote=None):
     # The ref the model is shown carries the provider, because provider ids
     # are only unique within a provider. `_job` always builds a TheirStack one.
     return {"verdicts": [{"job_ref": f"theirstack:{ref}", "bucket": bucket,
-                          "reason": reason, "requirement_checked": True}]}
+                          "reason": reason, "disqualifying_quote": quote,
+                          "requirement_checked": True}]}
 
 
 def test_a_strong_verdict_triggers_a_second_request_with_the_full_text():
@@ -320,7 +322,9 @@ def test_a_rejection_is_not_re_read():
 
     def send(request):
         sent.append(request)
-        return _payload("j1", "rejected")
+        # Every rejection now quotes the line it rests on; one that quotes
+        # nothing is a judgement call, and those ARE re-read.
+        return _payload("j1", "rejected", quote="A" * 30)
 
     assess([_job("j1", LONG)], "brief", "facts", send=send)
     assert len(sent) == 1
@@ -493,3 +497,48 @@ def test_two_sources_sharing_an_id_are_never_confused():
            send=lambda r: sent.append(r) or send(r))
     assert re.findall(r'ref="([^"]+)"', sent[0]["messages"][0]["content"]) \
         == ["alert-email:42"]
+
+
+# -- a rejection proves itself with a real line, not a fragment or nothing ---
+def test_a_rejection_that_quotes_nothing_is_not_trusted():
+    """The quote was verified only when there was one. A rejection with no
+    quote at all stood as given, so the check caught a model that quoted the
+    wrong line and trusted one that quoted none."""
+    v = enforce_quote_rule({"bucket": "rejected", "reason": "not senior enough",
+                            "disqualifying_quote": None,
+                            "requirement_checked": True}, job())
+    assert v.bucket == "judgement-call" and v.downgraded_from == "rejected"
+    assert "quoted nothing" in v.downgrade_reason
+
+    # Positive control: the same rejection citing its line stands.
+    cited = enforce_quote_rule(
+        {"bucket": "rejected", "reason": "not senior enough",
+         "disqualifying_quote": "minimum of 10 years' experience in real estate",
+         "requirement_checked": True}, job())
+    assert cited.bucket == "rejected" and cited.downgraded_from is None
+
+
+def test_a_fragment_too_short_to_prove_anything_is_not_a_quote():
+    """"10 years" sits in postings that set no such bar, so a two-word
+    fragment that happened to be in the text verified a rejection it did not
+    support."""
+    fragment = enforce_quote_rule({"bucket": "rejected", "reason": "years floor",
+                                   "disqualifying_quote": "10 years",
+                                   "requirement_checked": True}, job())
+    assert quote_is_verbatim("10 years", DESC), "positive control: it IS in the text"
+    assert fragment.bucket == "judgement-call"
+    assert "too short" in fragment.downgrade_reason
+
+    # Positive controls: a four-word clause, and a whole field line however
+    # short, are enough.
+    clause = enforce_quote_rule({"bucket": "rejected", "reason": "credential",
+                                 "disqualifying_quote": "RICS qualification is required",
+                                 "requirement_checked": True}, job())
+    assert clause.bucket == "rejected"
+    abroad = Job(provider="theirstack", provider_job_id="us", title="GM",
+                 company="Acme", description_text="A hotel role.",
+                 raw_criteria={"country_codes": ["US"]})
+    field_line = enforce_quote_rule({"bucket": "rejected", "reason": "brief: UK only",
+                                     "disqualifying_quote": "country: US",
+                                     "requirement_checked": True}, abroad)
+    assert field_line.bucket == "rejected"

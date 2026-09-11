@@ -135,18 +135,45 @@ class Verdict:
         return self.bucket != "rejected" and not self.full_read
 
 
+#: Below both of these a "quote" proves nothing. "10 years" or "London" sits in
+#: countless postings that set no such bar, so a fragment that happened to be
+#: in the text verified a rejection it did not support.
+MIN_QUOTE_CHARS = 20
+MIN_QUOTE_WORDS = 4
+
+
+def _field_lines(rendered: str) -> set[str]:
+    """The block's labelled field lines, normalised. A whole field line is a
+    complete statement however short — "country: US" — so the length floor
+    does not apply to one."""
+    head = (rendered or "").split("\ndescription:", 1)[0]
+    return {_normalise(line) for line in head.splitlines()[1:] if ":" in line}
+
+
+def quote_is_substantial(quote: str, rendered: str) -> bool:
+    text = _normalise(quote)
+    return (len(text) >= MIN_QUOTE_CHARS
+            or len(text.split()) >= MIN_QUOTE_WORDS
+            or text in _field_lines(rendered))
+
+
 def enforce_quote_rule(raw: dict, job: Job, rendered: str | None = None) -> Verdict:
     """Turn one model verdict into a trusted one, or downgrade it.
 
-    Two guards, in order:
+    Four guards, in order:
 
       1. requirement_checked=false may not co-exist with a rejection. An
          unfetchable or absent requirement is "not checked", never a failure.
-      2. a rejection carrying a quote that is NOT in the posting block the
-         model was shown is a hallucinated rejection. Downgrade it and say so.
+      2. a checked rejection must quote the line it rests on. The quote used
+         to be verified only when there was one, so the check caught a model
+         that quoted the wrong line and trusted one that quoted nothing.
+      3. the quote must be a clause or a whole field line, not a fragment
+         that occurs by coincidence.
+      4. a quote that is NOT in the posting block the model was shown is a
+         hallucinated rejection.
 
-    `rendered` is that block. Without one the full block is rendered, which is
-    the most the model could have seen.
+    Each downgrade says why. `rendered` is the block as sent; without one the
+    full block is rendered, which is the most the model could have seen.
     """
     bucket = raw.get("bucket") or "judgement-call"
     if bucket not in BUCKETS:
@@ -165,14 +192,25 @@ def enforce_quote_rule(raw: dict, job: Job, rendered: str | None = None) -> Verd
             "'not checked', never a failure")
         return v
 
+    if bucket != "rejected":
+        return v
+
     source = rendered if rendered is not None else render_job(job, full=True)
-    if bucket == "rejected" and quote and not quote_is_verbatim(quote, source):
+    if not quote:
+        v.downgraded_from, v.bucket = "rejected", "judgement-call"
+        v.downgrade_reason = (
+            "a rejection must quote the line it rests on, and this one quoted "
+            "nothing — treating it as unverified")
+    elif not quote_is_substantial(quote, source):
+        v.downgraded_from, v.bucket = "rejected", "judgement-call"
+        v.downgrade_reason = (
+            f"the quote {quote!r} is too short to show what the rejection "
+            "rests on — treating it as unverified")
+    elif not quote_is_verbatim(quote, source):
         v.downgraded_from, v.bucket = "rejected", "judgement-call"
         v.downgrade_reason = (
             "the quoted disqualifying line does not appear in the description "
             "or the posting's fields — treating this rejection as unverified")
-        return v
-
     return v
 
 
