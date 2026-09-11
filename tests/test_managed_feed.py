@@ -260,6 +260,22 @@ def test_only_numeric_feed_ids_reach_either_transport(monkeypatch):
     assert "job_id_not" not in TheirStackProvider("TS-KEY")._body(bare, 0, 10)
 
 
+def test_the_direct_adapter_records_the_country_like_the_worker_does():
+    """The location gate and the assessment both read `country_codes`. The
+    developer adapter never set it, so its gate kept every posting and the
+    model saw no country to hold a "based in" constraint against."""
+    from app.feed.theirstack import TheirStackProvider
+
+    prov = TheirStackProvider("TS-KEY")
+    single = prov._to_job({"id": 1, "job_title": "GM", "country_code": "GB"})
+    listed = prov._to_job({"id": 2, "job_title": "GM", "country_codes": ["IE", "GB"]})
+    assert single.raw_criteria["country_codes"] == ["GB"]
+    assert listed.raw_criteria["country_codes"] == ["IE", "GB"]
+    # Unknown stays absent rather than an empty tag, which the gate reads as
+    # "no country recorded" and keeps.
+    assert "country_codes" not in prov._to_job({"id": 3, "job_title": "GM"}).raw_criteria
+
+
 # ---------------------------------------------------------------------------
 # The remedy sentence: a cap message must not be a dead end
 # ---------------------------------------------------------------------------

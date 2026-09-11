@@ -6,9 +6,9 @@ guarantee:
 
   * **The quote is verified.** spec 6.7 says a rejection on a stated requirement
     must quote the line verbatim. Asking for that catches most hallucinated
-    rejections; VERIFYING that the quoted text actually occurs in the
-    description catches the rest. A reject whose quote is not in the source is
-    downgraded, never trusted.
+    rejections; VERIFYING that the quoted text actually occurs in the posting
+    catches the rest. A reject whose quote is not in the source is downgraded,
+    never trusted.
 
   * **Volume is never bought by skipping reads.** There is no "assess the top
     N". The set either completes or the run is reported incomplete with the
@@ -52,10 +52,28 @@ def _normalise(text: str) -> str:
 
 
 def quote_is_verbatim(quote: str, description: str) -> bool:
-    """Does the quoted line actually occur in the description?"""
+    """Does the quoted line actually occur in the source text?"""
     if not quote or not description:
         return False
     return _normalise(quote) in _normalise(description)
+
+
+def render_job(job: Job, *, full: bool = False) -> str:
+    """The posting block exactly as the model is shown it.
+
+    One function builds it for the request AND for quote verification. The
+    block carries field lines — salary, contract type, country — that the
+    description does not, and a rejection may rest on one of them. Verified
+    against the description alone, a true quote from a field line reads as a
+    hallucination and a correct rejection is thrown away.
+    """
+    raw = job.raw_criteria or {}
+    return render_posting(
+        job.provider_job_id, job.title, job.company, ", ".join(job.locations),
+        job.description_text, full=full, salary=job.salary,
+        employment=", ".join(str(s) for s in raw.get("employment_statuses") or ()),
+        posted=job.posted_at.isoformat() if job.posted_at else "",
+        country=", ".join(str(c) for c in raw.get("country_codes") or ()))
 
 
 @dataclass
@@ -80,15 +98,18 @@ class Verdict:
         return self.bucket == "strong" and not self.full_read
 
 
-def enforce_quote_rule(raw: dict, job: Job) -> Verdict:
+def enforce_quote_rule(raw: dict, job: Job, rendered: str | None = None) -> Verdict:
     """Turn one model verdict into a trusted one, or downgrade it.
 
     Two guards, in order:
 
       1. requirement_checked=false may not co-exist with a rejection. An
          unfetchable or absent requirement is "not checked", never a failure.
-      2. a rejection carrying a quote that is NOT in the description is a
-         hallucinated rejection. Downgrade it and say so.
+      2. a rejection carrying a quote that is NOT in the posting block the
+         model was shown is a hallucinated rejection. Downgrade it and say so.
+
+    `rendered` is that block. Without one the full block is rendered, which is
+    the most the model could have seen.
     """
     bucket = raw.get("bucket") or "judgement-call"
     if bucket not in BUCKETS:
@@ -107,11 +128,12 @@ def enforce_quote_rule(raw: dict, job: Job) -> Verdict:
             "'not checked', never a failure")
         return v
 
-    if bucket == "rejected" and quote and not quote_is_verbatim(quote, job.description_text):
+    source = rendered if rendered is not None else render_job(job, full=True)
+    if bucket == "rejected" and quote and not quote_is_verbatim(quote, source):
         v.downgraded_from, v.bucket = "rejected", "judgement-call"
         v.downgrade_reason = (
-            "the quoted disqualifying line does not appear in the description — "
-            "treating this rejection as unverified")
+            "the quoted disqualifying line does not appear in the description "
+            "or the posting's fields — treating this rejection as unverified")
         return v
 
     return v
@@ -153,10 +175,7 @@ def batches(seq: Sequence[Job], size: int = BATCH_SIZE) -> Iterable[list[Job]]:
 def build_request(jobs: list[Job], fit_brief: str, factsheet: str, *,
                   model: str = ASSESSMENT_MODEL, full: bool = False) -> dict:
     """One Messages request. `custom_id` keying is the caller's job."""
-    postings = "\n\n".join(
-        render_posting(j.provider_job_id, j.title, j.company,
-                       ", ".join(j.locations), j.description_text, full=full)
-        for j in jobs)
+    postings = "\n\n".join(render_job(j, full=full) for j in jobs)
     return {
         "model": model,
         "max_tokens": 8000,
@@ -171,8 +190,14 @@ def build_request(jobs: list[Job], fit_brief: str, factsheet: str, *,
     }
 
 
-def parse_verdicts(payload: Any, jobs_by_ref: dict[str, Job]) -> tuple[list[Verdict], list[str]]:
-    """Map a structured response back onto jobs BY REF, never by position."""
+def parse_verdicts(payload: Any, jobs_by_ref: dict[str, Job],
+                   rendered_by_ref: dict[str, str] | None = None,
+                   ) -> tuple[list[Verdict], list[str]]:
+    """Map a structured response back onto jobs BY REF, never by position.
+
+    `rendered_by_ref` holds the blocks as sent, so a quote is checked against
+    what the model actually read — a first-pass block is truncated.
+    """
     errors: list[str] = []
     if isinstance(payload, str):
         try:
@@ -180,6 +205,7 @@ def parse_verdicts(payload: Any, jobs_by_ref: dict[str, Job]) -> tuple[list[Verd
         except json.JSONDecodeError as e:
             return [], [f"unparseable verdict payload: {e}"]
 
+    rendered_by_ref = rendered_by_ref or {}
     rows = (payload or {}).get("verdicts") or []
     out: list[Verdict] = []
     seen: set[str] = set()
@@ -193,7 +219,7 @@ def parse_verdicts(payload: Any, jobs_by_ref: dict[str, Job]) -> tuple[list[Verd
             errors.append(f"duplicate verdict for ref {ref!r} — first kept")
             continue
         seen.add(ref)
-        out.append(enforce_quote_rule(row, job))
+        out.append(enforce_quote_rule(row, job, rendered_by_ref.get(ref)))
     return out, errors
 
 
@@ -217,6 +243,7 @@ def assess(jobs: list[Job], fit_brief: str, factsheet: str, *,
 
     for chunk in batches(todo):
         by_ref = {j.provider_job_id: j for j in chunk}
+        rendered = {ref: render_job(j) for ref, j in by_ref.items()}
         try:
             payload = send(build_request(chunk, fit_brief, factsheet, model=model))
         except Exception as exc:  # noqa: BLE001
@@ -225,7 +252,7 @@ def assess(jobs: list[Job], fit_brief: str, factsheet: str, *,
             report.unread.extend(chunk)
             continue
 
-        verdicts, errs = parse_verdicts(payload, by_ref)
+        verdicts, errs = parse_verdicts(payload, by_ref, rendered)
         report.verdicts.extend(verdicts)
         report.errors.extend(errs)
 
@@ -279,7 +306,10 @@ def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
                 f"truncated description")
             continue
 
-        rereads, errs = parse_verdicts(payload, {j.provider_job_id: j for j in chunk})
+        chunk_refs = {j.provider_job_id: j for j in chunk}
+        rereads, errs = parse_verdicts(
+            payload, chunk_refs,
+            {ref: render_job(j, full=True) for ref, j in chunk_refs.items()})
         report.errors.extend(errs)
 
         for fresh in rereads:

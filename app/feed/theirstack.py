@@ -217,6 +217,17 @@ class TheirStackProvider(FeedProvider):
         locations = [x for x in (row.get("location"),
                                  row.get("short_location"),
                                  row.get("long_location")) if x]
+        raw = {k: row.get(k) for k in
+               ("seniority", "industry", "remote", "employment_statuses")
+               if row.get(k) is not None}
+        # Under the key the Worker normalises to, because the location gate and
+        # the assessment both read it. This adapter never recorded one, so on
+        # the developer path the gate kept every posting and the model was
+        # shown no country to hold a "based in" constraint against.
+        codes = row.get("country_codes") or (
+            [row["country_code"]] if row.get("country_code") else [])
+        if codes:
+            raw["country_codes"] = list(codes)
         return Job(
             provider=self.name,
             provider_job_id=str(row.get("id") or row.get("job_id") or row.get("url") or ""),
@@ -229,9 +240,7 @@ class TheirStackProvider(FeedProvider):
             # ATS-canonical where the provider gives one: that is the link the
             # user should actually apply through.
             url=row.get("final_url") or row.get("url") or row.get("source_url") or "",
-            raw_criteria={k: row.get(k) for k in
-                          ("seniority", "industry", "remote", "employment_statuses")
-                          if row.get(k) is not None},
+            raw_criteria=raw,
         )
 
     # -- metering ----------------------------------------------------------

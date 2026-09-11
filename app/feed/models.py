@@ -24,11 +24,13 @@ class Job:
     salary: str | None = None
     url: str = ""
     # The provider's own structured tags (seniority, country, contract type…).
-    # NEVER consulted by the screen or the assessment: spec 6.8, metadata never
-    # outranks the description. The one exception is the scope gates in
-    # `app/core/search_scope.py`, which may only REMOVE a posting whose own tag
+    # NEVER consulted by the screen: spec 6.8, metadata never outranks the
+    # description. Two readers, both bounded. The scope gates in
+    # `app/core/search_scope.py` may only REMOVE a posting whose own tag
     # contradicts what the user stated, and keep every posting whose tag is
-    # blank.
+    # blank. The assessment is SHOWN country and contract type as labelled
+    # lines, because a brief's hard constraints are written in those terms —
+    # and its rules say the description wins wherever it disagrees with them.
     raw_criteria: dict[str, Any] = field(default_factory=dict)
 
     @property

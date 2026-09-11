@@ -31,9 +31,10 @@ Rules, in order of force:
    description contradicts a tag, the description wins.
 
 3. QUOTE THE DISQUALIFYING LINE. If you reject on a STATED requirement — a
-   years floor, a credential, a hard skill — you must quote that line verbatim
-   from the description, exactly as written. If you cannot quote it, you may not
-   reject on it.
+   years floor, a credential, a hard skill — or on one of the posting's fields,
+   you must quote that line verbatim from the posting block, exactly as written:
+   a line of the description, or a whole field line such as "salary: ...". If
+   you cannot quote it, you may not reject on it.
 
 4. NEVER INFER A BAR THE POSTING DOES NOT STATE. Do not assume a requirement is
    implied by seniority or sector. One senior posting explicitly said the
@@ -46,6 +47,14 @@ Rules, in order of force:
    unqualified one.
 
 6. GENUINELY AMBIGUOUS CALLS GO TO judgement-call, not to a silent decision.
+
+7. A HARD CONSTRAINT IN THE BRIEF IS A REJECTION WHEN THE POSTING BREAKS IT. If
+   the brief states a hard constraint — where the person will work, the contract
+   type, a salary floor, how recent a posting must be — and the posting plainly
+   breaks it, reject it. Quote the posting line that breaks it, and name the
+   brief's line in your reason. A field that says "not stated" breaks nothing
+   (rule 5), and where the description contradicts a field, the description
+   wins (rule 2).
 
 Buckets:
   strong          — clearly fits the brief; the reader should look at this today
@@ -79,10 +88,10 @@ VERDICT_SCHEMA = {
                     "disqualifying_quote": {
                         "type": ["string", "null"],
                         "description": (
-                            "REQUIRED when rejecting on a stated requirement: the "
-                            "line from the description, verbatim and unedited. "
-                            "Null when the rejection is not based on a stated "
-                            "requirement."
+                            "REQUIRED when rejecting on a stated requirement or a "
+                            "field: the line from the posting block, verbatim and "
+                            "unedited. Null when the rejection is not based on a "
+                            "stated requirement."
                         ),
                     },
                     "requirement_checked": {
@@ -130,15 +139,28 @@ def system_prefix(fit_brief: str, factsheet: str) -> list[dict]:
 
 FIRST_PASS_CHARS = 1200
 
+#: Written out rather than leaving the line off. An omitted line reads as an
+#: oversight in the prompt; "not stated" reads as the absence it is, which is
+#: what rule 5 needs the model to see before it rejects on a missing field.
+NOT_STATED = "not stated"
+
 
 def render_posting(ref: str, title: str, company: str, locations: str,
-                   description: str, *, full: bool = False) -> str:
+                   description: str, *, full: bool = False,
+                   salary: str | None = None, employment: str = "",
+                   posted: str = "", country: str = "") -> str:
     """One posting block.
 
     First pass truncates to ~1,200 characters; a posting heading for a strong
     verdict is re-read in full before the verdict is trusted. The truncation is
     ANNOUNCED, so the model can set requirement_checked=false rather than
     treating a cut-off description as a complete one.
+
+    Salary, contract type, posting date and country are here because a brief's
+    hard constraints are stated in exactly those terms — full-time only, a pay
+    floor, a country — and the model was never shown them. It could only guess
+    from the description or reject on an assumption rule 4 forbids, so a
+    constraint the user wrote down was one nothing could apply.
     """
     body = description or ""
     if not full and len(body) > FIRST_PASS_CHARS:
@@ -148,6 +170,10 @@ def render_posting(ref: str, title: str, company: str, locations: str,
         f"title: {title}\n"
         f"company: {company}\n"
         f"location: {locations}\n"
+        f"country: {country or NOT_STATED}\n"
+        f"employment type: {employment or NOT_STATED}\n"
+        f"salary: {salary or NOT_STATED}\n"
+        f"posted: {posted or NOT_STATED}\n"
         f"description:\n{body}\n"
         f"</posting>"
     )

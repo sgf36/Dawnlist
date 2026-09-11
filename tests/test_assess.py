@@ -67,6 +67,63 @@ def test_an_unknown_bucket_becomes_a_judgement_call():
     assert v.bucket == "judgement-call"
 
 
+# -- hard constraints: the model must be SHOWN what the brief constrains ----
+def _constrained(**raw):
+    from datetime import date
+    return Job(provider="theirstack", provider_job_id="hc", title="Hotel Manager",
+               company="Acme", description_text="Run a boutique hotel.",
+               salary="£30,000 a year", posted_at=date(2026, 9, 1),
+               raw_criteria=raw)
+
+
+def test_the_fields_a_brief_constrains_reach_the_model():
+    """A brief says "full-time only", "based in the UK", "£60k floor". The
+    posting block carried title, company, location and description, so none
+    of those could be applied — the model could only guess or reject on an
+    assumption rule 4 forbids."""
+    from app.intelligence.prompts import ASSESSMENT_RULES
+
+    content = build_request(
+        [_constrained(employment_statuses=["part_time"], country_codes=["US"])],
+        "brief", "facts")["messages"][0]["content"]
+    assert "salary: £30,000 a year" in content
+    assert "employment type: part_time" in content
+    assert "country: US" in content
+    assert "posted: 2026-09-01" in content
+    assert "HARD CONSTRAINT" in ASSESSMENT_RULES
+
+    # An unknown field is shown as unknown, not left out, so rule 5 can apply.
+    bare = build_request([job()], "brief", "facts")["messages"][0]["content"]
+    assert "employment type: not stated" in bare
+    assert "salary: not stated" in bare
+
+
+def test_a_rejection_quoting_a_field_line_is_verified_against_the_block():
+    """The quote was checked against the description alone, so a true quote
+    from a field line — the one a hard-constraint rejection must cite — read
+    as a hallucination and the correct rejection was thrown away."""
+    part_time = _constrained(employment_statuses=["part_time"])
+
+    def rejects(quote):
+        def send(request):
+            return {"verdicts": [{"job_ref": "hc", "bucket": "rejected",
+                                  "reason": "brief: full-time only",
+                                  "disqualifying_quote": quote,
+                                  "requirement_checked": True}]}
+        return send
+
+    report = assess([part_time], "Full-time roles only.", "facts",
+                    send=rejects("employment type: part_time"))
+    assert report.verdicts[0].bucket == "rejected"
+    assert report.verdicts[0].downgraded_from is None
+
+    # Positive control: a field line the posting does NOT carry is still
+    # caught, so the block is a wider source and not a looser check.
+    report = assess([part_time], "Full-time roles only.", "facts",
+                    send=rejects("employment type: contract"))
+    assert report.verdicts[0].bucket == "judgement-call"
+
+
 # -- mapping is by ref, never by position -----------------------------------
 def test_verdicts_map_by_ref_not_position():
     a, b = job("a", title="Strategy Lead"), job("b", title="Revenue Lead")
