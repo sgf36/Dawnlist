@@ -249,6 +249,61 @@ def test_a_failed_redemption_keeps_the_code_in_the_box(qapp):
     assert panel.field.text() == "DL-BAD"
 
 
+# -- what the server says about a saved licence ------------------------------
+def test_a_saved_licence_is_verified_off_the_ui_thread_and_its_plan_shown(qapp):
+    """"Licence saved." was said for a typo, a refund and a real key alike;
+    the truth arrived at the next morning's run."""
+    import threading
+
+    seen, stored = {}, {}
+
+    def check(key):
+        seen["thread"], seen["key"] = threading.current_thread(), key
+        return "ok", {"ok": True, "status": "active", "plan": "standard"}
+
+    panel = LicencePanel(storer=lambda k: stored.update(key=k),
+                         reader=lambda: stored.get("key"), checker=check)
+    panel.field.setText("DAWN-AAAA-BBBB")
+    saved(panel)
+    _wait_until(lambda: "Verified" in panel.verdict.text())
+    assert "standard" in panel.verdict.text()
+    assert seen["key"] == "DAWN-AAAA-BBBB"
+    assert seen["thread"] is not threading.main_thread()
+    panel.close()
+
+
+@pytest.mark.parametrize("answer,expected", [
+    (("ok", {"ok": True, "plan": "global"}), "Verified"),
+    (("refused", {"error": "licence_inactive"}), "no longer active"),
+    (("refused", {"error": "unknown_licence"}), "does not recognise"),
+    (("unreachable", {}), "not yet verified"),
+])
+def test_valid_inactive_unknown_and_unreachable_are_each_said(qapp, answer, expected):
+    panel = LicencePanel(storer=lambda k: None, reader=lambda: None,
+                         checker=lambda key: answer)
+    panel.field.setText("DAWN-AAAA-BBBB")
+    saved(panel)
+    _wait_until(lambda: expected in panel.verdict.text())
+    others = {"Verified", "no longer active", "does not recognise",
+              "not yet verified"} - {expected}
+    assert not any(o in panel.verdict.text() for o in others)
+    panel.close()
+
+
+def test_the_stored_licence_is_verified_when_the_panel_opens_not_when_built(qapp):
+    asked = []
+    panel = LicencePanel(reader=lambda: "DAWN-STORED",
+                         checker=lambda key: asked.append(key) or (
+                             "ok", {"ok": True, "plan": "standard"}))
+    QApplication.processEvents()
+    assert asked == [], "building a window must not reach the network"
+
+    panel.show()
+    _wait_until(lambda: "Verified" in panel.verdict.text())
+    assert asked == ["DAWN-STORED"]
+    panel.close()
+
+
 # -- a credential store that will not save ----------------------------------
 def _refusing_store(_key):
     from app.core.credentials import KeyringUnavailable

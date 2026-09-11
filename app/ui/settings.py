@@ -252,13 +252,18 @@ class LicencePanel(QWidget):
 
     licence_changed = Signal(bool)
 
-    def __init__(self, *, redeemer=None, storer=None, reader=None, parent=None):
+    def __init__(self, *, redeemer=None, storer=None, reader=None,
+                 checker=None, parent=None):
         super().__init__(parent)
         from app.core import entitlement
 
         self._redeem = redeemer or entitlement.redeem_override_code
         self._store = storer or entitlement.store_licence
         self._read = reader or entitlement.stored_licence
+        # Looked up when called, so the transport can be replaced after the
+        # panel is built.
+        self._check = checker or (lambda key: entitlement.licence_check(key))
+        self._verify_seq = 0
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -276,6 +281,13 @@ class LicencePanel(QWidget):
         self.stored = QLabel()
         self.stored.setObjectName("storedKey")
         layout.addWidget(self.stored)
+
+        # What the SERVER says about the stored licence. "Licence saved." was
+        # the only feedback, and it was shown for a mistyped key, a refunded
+        # one and a real one alike; the truth arrived at tomorrow's run.
+        self.verdict = QLabel()
+        self.verdict.setWordWrap(True)
+        layout.addWidget(self.verdict)
 
         row = QHBoxLayout()
         row.setSpacing(10)
@@ -342,6 +354,45 @@ class LicencePanel(QWidget):
             self._finish(False, failed_text)
             return
         self._finish(True, saved_text)
+        self.verify_licence(key)
+
+    def showEvent(self, event):
+        # Asked when the panel is SEEN, never when it is built: constructing
+        # a window must not reach the network.
+        super().showEvent(event)
+        existing = self._read()
+        if existing:
+            self.verify_licence(existing)
+
+    def verify_licence(self, key: str) -> None:
+        """Ask the Worker about `key`, off the UI thread, and say what it said."""
+        self._verify_seq += 1
+        seq = self._verify_seq
+        self.verdict.setText(tr("settings.licence_checking"))
+        check = self._check
+
+        def answered(answer, seq=seq):
+            # A slow answer about the previous key must not overwrite the
+            # answer about the one just saved.
+            if seq == self._verify_seq:
+                self._show_verdict(answer)
+
+        self._check_task = run_in_background(
+            lambda: check(key), on_done=answered,
+            on_error=lambda _exc: answered(("unreachable", {})))
+
+    def _show_verdict(self, answer) -> None:
+        outcome, body = answer
+        if outcome == "ok" and body.get("ok"):
+            text = tr("settings.licence_valid", plan=str(body.get("plan") or "—"))
+        elif outcome == "refused" and body.get("error") == "licence_inactive":
+            text = tr("settings.licence_inactive")
+        elif outcome in ("refused", "ok"):
+            text = tr("settings.licence_unknown")
+        else:
+            # Kept, and honestly unconfirmed: the key may be perfectly good.
+            text = tr("settings.licence_unverified")
+        self.verdict.setText(text)
 
     def _finish(self, ok: bool, message: str) -> None:
         self.button.setEnabled(True)

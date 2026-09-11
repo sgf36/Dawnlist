@@ -109,5 +109,7 @@
   "key.forbidden": "The key is real but not allowed to use the models - an organisation or workspace setting at Anthropic, not a typo. 'Workspace' is Anthropic's term for a group of keys inside an organisation.",
   "key.rate_limited": "Temporary. Anthropic is refusing requests because too many were made recently; the key may be perfectly good.",
   "key.unexpected": "{name} is a technical error name such as 'InternalServerError' - leave it exactly as it is.",
+  "settings.licence_valid": "{plan} is the internal name of the plan, such as 'standard' or 'global' - leave it exactly as it is.",
+  "settings.licence_unverified": "The key WAS saved; only the online check could not happen. Must not read as the key being wrong or rejected.",
   "update.body":"Explains where the update comes from. 'checksum' is the published SHA-256 hash beside the download, used to verify the file. Keep it as the technical term your market uses; do not soften it to 'code' or 'signature'."
 }
