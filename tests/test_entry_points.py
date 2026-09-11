@@ -651,6 +651,34 @@ def test_re_proposing_does_not_re_arm_a_stood_down_family(conn):
     assert not load_rules(conn).kill_families[0].adopted
 
 
+def test_a_refresh_never_widens_a_family_the_user_adopted(conn):
+    """Refreshing rewrote an adopted family's KILL and SAVES in place and kept
+    it armed, so a couple of rejections later it killed titles the user had
+    never been asked about."""
+    from app.main import (adopt_kill_family, load_rules,
+                          refresh_kill_family_proposals, save_rule_term)
+
+    save_rule_term(conn, "strong_terms", "strategy")
+    reject_all(conn, [kier("a", "Site Engineer"), kier("b", "Senior Site Engineer")])
+    refresh_kill_family_proposals(conn)
+    adopt_kill_family(conn, "Kier")
+
+    # Positive control: another rejection of the same shape adds nothing the
+    # user did not agree to, so the family stays armed.
+    reject_all(conn, [kier("c", "Lead Site Engineer")])
+    refresh_kill_family_proposals(conn)
+    assert load_rules(conn).kill_families[0].adopted
+
+    # Two surveyor rejections widen what it would kill: it is offered again
+    # rather than left armed with terms nobody accepted.
+    reject_all(conn, [kier("d", "Quantity Surveyor"),
+                      kier("e", "Senior Quantity Surveyor")])
+    refresh_kill_family_proposals(conn)
+    family = load_rules(conn).kill_families[0]
+    assert "surveyor" in family.kill_titles
+    assert not family.adopted
+
+
 def test_a_term_that_both_kills_and_saves_is_not_proposed(conn):
     """SAVES is checked first, so such a family would decline to kill the very
     titles it was built from — armed, and doing nothing."""

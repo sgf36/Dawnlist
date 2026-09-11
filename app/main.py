@@ -276,7 +276,9 @@ def refresh_kill_family_proposals(conn) -> int:
     SQLite by hand.
 
     Re-proposing is safe: a family already present keeps its `adopted` flag, so
-    a running of this never quietly re-arms one the user turned down.
+    a running of this never quietly re-arms one the user turned down — and an
+    adopted family that the evidence would now make kill MORE is put back to
+    proposed, so the user is asked again rather than having it widened.
     """
     from app.core.rules import propose_families
 
@@ -289,6 +291,19 @@ def refresh_kill_family_proposals(conn) -> int:
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     added = 0
     for fam in families:
+        # Refreshing rewrote an adopted family's KILL and SAVES in place and
+        # left it armed, so a couple of rejections later it killed titles the
+        # user had never been asked about. A new KILL term, or a SAVES term
+        # gone, widens what it removes: that is a different rule, and adopting
+        # rules is the user's decision (rule 8). More precedents, or a
+        # narrower family, is still the rule they agreed to.
+        stored = conn.execute(
+            "SELECT kill_json, saves_json, adopted FROM kill_families "
+            "WHERE name=?", (fam.name,)).fetchone()
+        widened = bool(
+            stored is not None and stored["adopted"]
+            and (set(fam.kill_titles) - set(json.loads(stored["kill_json"]))
+                 or set(json.loads(stored["saves_json"])) - set(fam.saves_titles)))
         cur = conn.execute(
             """INSERT INTO kill_families(name, employers_json, kill_json,
                    saves_json, precedents_json, adopted, created_at)
@@ -296,10 +311,11 @@ def refresh_kill_family_proposals(conn) -> int:
                ON CONFLICT(name) DO UPDATE SET
                    kill_json = excluded.kill_json,
                    saves_json = excluded.saves_json,
-                   precedents_json = excluded.precedents_json""",
+                   precedents_json = excluded.precedents_json,
+                   adopted = CASE WHEN ? THEN 0 ELSE kill_families.adopted END""",
             (fam.name, json.dumps(list(fam.employers)),
              json.dumps(list(fam.kill_titles)), json.dumps(list(fam.saves_titles)),
-             json.dumps([list(p) for p in fam.precedents]), now))
+             json.dumps([list(p) for p in fam.precedents]), now, int(widened)))
         added += cur.rowcount
     conn.commit()
     return added
