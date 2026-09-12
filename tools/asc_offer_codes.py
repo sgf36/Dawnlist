@@ -31,14 +31,24 @@ defaulted — a code with no end date given to a friend is a permanent free
 subscription, and a default would make that the thing that happens when nobody
 is paying attention.
 
-READ THIS BEFORE THE FIRST LIVE RUN. The request shapes below are written from
-Apple's documented schema and have NOT been exercised against a live account.
-One earlier attempt reached Apple and came back 409 naming only payload
-problems — `totalNumberOfCodes` not allowed on create, `prices` required — and
-said nothing about the subscription's state, which is why `create-offer`
-supplies a price relationship and no code count. Run `list` first: it is
-read-only and proves the credential and the subscription id before anything is
-written.
+THE CREATE SHAPE WAS MEASURED, NOT DEDUCED — 2026-09-12, four refusals deep
+--------------------------------------------------------------------------
+Apple named a different fault each time, and every one of them is now a comment
+beside the line it explains:
+
+  1. `offerMode: "FREE"` — not a value. The set is PAY_AS_YOU_GO,
+     PAY_UP_FRONT, FREE_TRIAL. A free grant is a FREE_TRIAL.
+  2. `prices` omitted — required even for a free trial.
+  3. `prices` with an invented id — they are created INLINE in `included`,
+     with placeholder ids the relationship refers to.
+  4. `subscriptionPricePoint` supplied — must be NULL for a FREE_TRIAL.
+
+Then HTTP 201. **And the subscription being READY_TO_SUBMIT was never the
+blocker** — that had been the open question, and it is answered: an offer can
+be created against an app that has never shipped.
+
+Run `list` first regardless: it is read-only and proves the credential and the
+subscription id before anything is written.
 """
 from __future__ import annotations
 
@@ -119,21 +129,66 @@ def cmd_create_offer(args) -> int:
                 "customerEligibilities": ["NEW", "EXISTING", "EXPIRED"],
                 "offerEligibility": "STACK_WITH_INTRO_OFFERS",
                 "duration": args.duration,
-                "offerMode": "FREE",
+                "offerMode": args.mode,
                 "numberOfPeriods": args.periods,
             },
             "relationships": {
                 "subscription": {
                     "data": {"type": "subscriptions", "id": SUBSCRIPTION}},
-                # REQUIRED on create. A FREE offer still needs a price row per
-                # territory; Apple refused an earlier attempt for its absence
-                # and said nothing else was wrong.
-                "prices": {"data": [
-                    {"type": "subscriptionOfferCodePrices",
-                     "id": f"${t}_0"} for t in args.territories]},
+                # MEASURED 2026-09-12, by asking Apple rather than reasoning:
+                # 'FREE' is not an offerMode. The valid set is PAY_AS_YOU_GO,
+                # PAY_UP_FRONT and FREE_TRIAL, and a free grant is FREE_TRIAL.
+                # A FREE_TRIAL costs nothing, so it carries no price rows;
+                # the paid modes do, and `--price` supplies them.
             },
         }
     }
+    # THE PRICES RELATIONSHIP IS REQUIRED EVEN FOR A FREE TRIAL. Measured
+    # 2026-09-12: Apple answered "You must provide a value for the relationship
+    # 'prices'" to a FREE_TRIAL carrying none. The price point is not charged —
+    # a free trial costs the customer nothing — but the relationship must name
+    # one per territory, so the cheapest is used and nothing turns on which.
+    #
+    # They are created INLINE, in `included`, with placeholder ids the
+    # relationship refers to. That is Apple's pattern for resources that do not
+    # exist until the parent does; inventing an id like "$GBR_0" and hoping, as
+    # the first attempt did, gets a 409 that names the relationship and not the
+    # reason.
+    prices, included = [], []
+    for territory in args.territories:
+        point = args.price_point.get(territory) if args.price_point else None
+        if not point:
+            st, body = call(
+                "GET",
+                f"subscriptions/{SUBSCRIPTION}/pricePoints"
+                f"?filter[territory]={territory}&limit=1")
+            rows = body.get("data", []) if st == 200 else []
+            if not rows:
+                print(f"No price point for {territory} (HTTP {st})")
+                return 1
+            point = rows[0]["id"]
+        placeholder = f"${{price-{territory}}}"
+        prices.append({"type": "subscriptionOfferCodePrices", "id": placeholder})
+        relationships = {
+            "territory": {"data": {"type": "territories", "id": territory}},
+        }
+        # AND FOR A FREE TRIAL THE PRICE POINT MUST BE ABSENT. Measured in the
+        # same conversation with Apple: supplying one returns "For FREE_TRIAL
+        # offerMode, subscriptionPricePoint must be null". So the row carries
+        # the territory the offer is available in and nothing about money,
+        # which is the only sensible reading of a free grant.
+        if args.mode != "FREE_TRIAL":
+            relationships["subscriptionPricePoint"] = {
+                "data": {"type": "subscriptionPricePoints", "id": point}}
+        included.append({
+            "type": "subscriptionOfferCodePrices",
+            "id": placeholder,
+            "relationships": relationships,
+        })
+    payload["data"]["relationships"]["prices"] = {"data": prices}
+    payload["included"] = included
+
+
     print("About to create, on subscription " + SUBSCRIPTION + ":")
     print(json.dumps(payload, indent=2))
     if not args.yes:
@@ -270,7 +325,11 @@ def main(argv=None) -> int:
     p.add_argument("--duration", default="THREE_MONTHS",
                    help="ONE_MONTH, TWO_MONTHS, THREE_MONTHS, SIX_MONTHS, ONE_YEAR")
     p.add_argument("--periods", type=int, default=1)
+    p.add_argument("--mode", default="FREE_TRIAL",
+                   help="FREE_TRIAL, PAY_AS_YOU_GO or PAY_UP_FRONT")
     p.add_argument("--territories", nargs="+", default=["GBR", "USA"])
+    p.add_argument("--price-point", default=None,
+                   help="reserved: pin a price point per territory")
     p.add_argument("--yes", action="store_true")
 
     p = sub.add_parser("mint", help="create one-time-use codes on an offer")
