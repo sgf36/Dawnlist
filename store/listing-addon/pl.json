@@ -1,0 +1,4 @@
+{
+  "name": "Subskrypcja miesięczna Dawnlist",
+  "description": "Wymaga własnego klucza API Anthropic. Odnawia się co miesiąc do czasu anulowania. Odblokowuje na miesiąc codzienne oferty pracy, oceny ogłoszeń i szkice wiadomości w Dawnlist."
+}

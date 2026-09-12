@@ -1,0 +1,4 @@
+{
+  "name": "Langganan bulanan Dawnlist",
+  "description": "Membuka feed lowongan harian, penilaian lowongan, dan draf pesan Dawnlist selama satu bulan. Diperpanjang otomatis tiap bulan hingga dibatalkan. Anda tetap perlu kunci API Anthropic sendiri."
+}

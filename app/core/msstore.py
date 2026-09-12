@@ -168,3 +168,73 @@ def collections_key(*, context=None, service_ticket: str = "",
     if not result:
         raise StoreUnavailable("the Store returned no collections id")
     return str(result)
+
+
+@dataclass(frozen=True)
+class Offer:
+    """What the Store says this subscription costs, for the purchase screen.
+
+    `price` is Microsoft's own formatted string — "£79.00", "79,00 €" — in the
+    customer's market and currency. NEVER build one from a number here: the
+    Store sells in every market it is available in, and a price formatted by
+    this app would be wrong in most of them and differ from what the customer
+    is actually charged at the till.
+    """
+
+    title: str
+    price: str
+    #: False when the Store could be asked but does not offer this add-on to
+    #: this customer — a market where it is not sold. Distinct from
+    #: `StoreUnavailable`, which is not having been able to ask.
+    available: bool = True
+
+
+def offer(*, context=None) -> Offer:
+    """Title and price, asked of the Store."""
+    ctx = context or _context()
+    try:
+        result = ctx.get_associated_store_products_async(["Durable"]).get()
+    except Exception as exc:  # noqa: BLE001
+        raise StoreUnavailable(f"could not read the add-on: {exc}") from exc
+
+    products = getattr(result, "products", None) or {}
+    for key, product in dict(products).items():
+        if not str(getattr(product, "store_id", key)).startswith(ADD_ON_STORE_ID):
+            continue
+        price = getattr(getattr(product, "price", None), "formatted_price", "")
+        return Offer(str(getattr(product, "title", "") or ""), str(price or ""))
+    return Offer("", "", available=False)
+
+
+#: Microsoft's StorePurchaseStatus, by value. Named here rather than compared
+#: as integers at the call site: `status == 1` is not readable, and 1 is the
+#: case that looks like failure and is not.
+PURCHASE_STATUS = {
+    0: "succeeded",
+    1: "already",        # already owned — a success, not an error
+    2: "cancelled",      # the customer closed the dialog
+    3: "network",
+    4: "server",
+}
+
+
+def purchase(*, context=None) -> str:
+    """Ask the Store to sell the subscription. Returns a PURCHASE_STATUS value.
+
+    ALREADY-OWNED IS NOT A FAILURE. Microsoft returns `AlreadyPurchased` when
+    the customer holds the add-on on this account — after a reinstall, or on a
+    second machine — and a screen that reported that as an error would tell
+    somebody who has paid that their payment did not work. It is folded into
+    success by the caller, and named here so that cannot be done by accident.
+
+    CANCELLED IS NOT A FAILURE EITHER. Closing the dialog is a decision, and
+    saying "purchase failed" to somebody who chose not to buy is both wrong and
+    faintly insulting.
+    """
+    ctx = context or _context()
+    try:
+        result = ctx.request_purchase_async(ADD_ON_STORE_ID).get()
+    except Exception as exc:  # noqa: BLE001
+        raise StoreUnavailable(f"the purchase could not be started: {exc}") from exc
+    status = getattr(result, "status", None)
+    return PURCHASE_STATUS.get(int(status) if status is not None else -1, "unknown")
