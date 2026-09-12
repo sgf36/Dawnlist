@@ -271,8 +271,15 @@ async function byTransaction(env, transactionId) {
         `${SERVER_API[environment]}/inApps/v1/subscriptions/${transactionId}`,
         { headers: { authorization: `Bearer ${token}` } });
       // Apple answers 404 in production for a transaction that lives in
-      // sandbox, which is where every App Review purchase lives.
-      if (res.status !== 404) break;
+      // sandbox, which is where every App Review purchase lives — and 401
+      // when the app has no production presence at all. Measured 2026-09-12,
+      // before Dawnlist had ever shipped: production refused the token
+      // outright while sandbox authenticated the SAME token and answered on
+      // the transaction. Falling through on 404 alone made that 401 terminal,
+      // so the reviewer's sandbox purchase could never have been reached.
+      // A key that is genuinely wrong still fails in BOTH, and the 401 check
+      // below reports it — this widens the retry, it does not hide anything.
+      if (res.status !== 404 && res.status !== 401) break;
     }
   } catch {
     return json({ error: 'apple_unreachable' }, 502);

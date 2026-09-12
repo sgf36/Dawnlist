@@ -238,6 +238,27 @@ await test('a production answer never asks sandbox (positive control)', async ()
   assert.ok(IS_PROD_API(calls[0].url));
 });
 
+await test('production 401 retries sandbox: an app that has never shipped', async () => {
+  const { env } = makeEnv();
+  const calls = mockApple((url) => IS_PROD_API(url)
+    ? [401, '']
+    : [200, statusBody()]);
+  const { status, body } = await exchange(env, { originalTransactionId: '2000000111' });
+  assert.strictEqual(status, 200, 'a reviewer buys in sandbox; production 401 is not an answer about them');
+  assert.ok(body.licence_key);
+  assert.strictEqual(calls.length, 2);
+  assert.ok(IS_PROD_API(calls[0].url) && IS_SANDBOX_API(calls[1].url));
+});
+
+await test('401 in BOTH environments is still apple_auth_failed (positive control)', async () => {
+  const { env } = makeEnv();
+  const calls = mockApple(() => [401, '']);
+  const { status, body } = await exchange(env, { originalTransactionId: '2000000111' });
+  assert.strictEqual(status, 502, 'widening the retry must not swallow a genuinely bad key');
+  assert.strictEqual(body.error, 'apple_auth_failed');
+  assert.strictEqual(calls.length, 2);
+});
+
 await test('unknown in both environments is a refusal', async () => {
   const { env } = makeEnv();
   mockApple(() => [404, { errorCode: 4040010 }]);
