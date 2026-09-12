@@ -281,3 +281,13 @@ def fake_keyring():
     keyring.set_keyring(_InMemory())
     yield entries
     keyring.set_keyring(previous)
+
+
+@pytest.fixture(autouse=True)
+def _storekit_trace_in_tmp(tmp_path, monkeypatch):
+    """The StoreKit trace writes beside the REAL database by default. Without
+    this, the first run of the suite wrote a storekit.log into the developer's
+    own Dawnlist data folder (measured 2026-09-13) — the same class of leak as
+    the keyring fixture above."""
+    from app.core import mac_storekit
+    monkeypatch.setattr(mac_storekit, "trace_path", lambda: tmp_path / "storekit.log")

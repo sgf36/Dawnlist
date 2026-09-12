@@ -247,6 +247,31 @@ def test_the_launch_redelivery_of_a_purchased_transaction_still_reaches_the_work
     assert t.seen[-1].outcome is Outcome.PURCHASED
 
 
+def test_every_step_is_written_to_a_file_the_terminal_can_read(tmp_path, monkeypatch):
+    """Build 168 wrote no system-log line while Apple re-added a transaction,
+    and nothing outside the process could say whether the observer ran."""
+    log = tmp_path / "storekit.log"
+    monkeypatch.setattr(mac_storekit, "trace_path", lambda: log)
+    t = make()
+    t.queue.pending = [Txn(S.purchasing)]
+    t.hub.purchase("product")
+    t.hub.transactions_updated(t.queue, [Txn(S.purchased)])
+    t.run.drain()
+    text = log.read_text(encoding="utf-8")
+    assert f"{PRODUCT_ID}=purchasing" in text
+    assert "state purchased" in text
+    assert "worker answered licence" in text
+
+
+def test_a_trace_file_that_cannot_be_written_never_breaks_a_purchase(tmp_path, monkeypatch):
+    blocker = tmp_path / "not-a-dir"
+    blocker.write_text("x")
+    monkeypatch.setattr(mac_storekit, "trace_path", lambda: blocker / "storekit.log")
+    t = make()
+    assert t.hub.purchase("product") is None
+    assert len(t.queue.payments) == 1
+
+
 # -- restore ------------------------------------------------------------------
 
 def test_restore_with_nothing_on_the_account_claims_nothing():

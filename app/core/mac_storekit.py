@@ -256,12 +256,45 @@ def _trace(message: str) -> None:
     States and outcomes only. Never a licence key, and never anything a
     customer typed.
     """
+    _trace_to_file(message)
     try:
         from Foundation import NSLog
     except Exception:  # noqa: BLE001 - not macOS, or no PyObjC: nothing to do
         return
     try:
         NSLog("Dawnlist StoreKit: %@", message)
+    except Exception:  # noqa: BLE001 - logging must never break a purchase
+        pass
+
+
+#: Past this the file is started again, so a Mac left running for months does
+#: not grow a log nobody reads.
+TRACE_FILE_LIMIT = 256_000
+
+
+def trace_path():
+    """`storekit.log` beside the database, inside the app's own container.
+
+    A FILE AS WELL AS THE SYSTEM LOG, because build 168 on the cloud Mac
+    wrote no NSLog line at all while Apple re-added a transaction, and from
+    outside the process there was no telling whether the observer never ran
+    or the NSLog call failed. A file the Terminal can `cat` settles that
+    without guessing. From a Terminal on the Mac:
+    ~/Library/Containers/com.spencerfields.dawnlist/Data/Library/Application Support/…
+    — `find ~/Library/Containers/com.spencerfields.dawnlist -name storekit.log`.
+    """
+    from app.core import db
+    return db.default_db_path().parent / "storekit.log"
+
+
+def _trace_to_file(message: str) -> None:
+    try:
+        import time
+        path = trace_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        mode = "w" if path.exists() and path.stat().st_size > TRACE_FILE_LIMIT else "a"
+        with path.open(mode, encoding="utf-8") as fh:
+            fh.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {message}\n")
     except Exception:  # noqa: BLE001 - logging must never break a purchase
         pass
 
@@ -319,12 +352,16 @@ class TransactionHub:
         # With nothing of ours in Apple's queue the old attempt is gone, so a
         # press after a sheet that never appeared must be allowed to try again.
         self.purchase_in_flight = True
+        _trace("addPayment")
         self.queue.addPayment_(self.payment_for(product))
         return None
 
     def _pending_purchase(self) -> bool:
         s = self.states
-        for t in list(self.queue.transactions() or []):
+        queued = list(self.queue.transactions() or [])
+        _trace(f"queue holds {len(queued)} transaction(s): " + ", ".join(
+            f"{_product_of(t) or '?'}={_state_name(s, t)}" for t in queued))
+        for t in queued:
             if (_product_of(t) == PRODUCT_ID
                     and t.transactionState() in (s.purchasing, s.deferred)):
                 return True
@@ -376,6 +413,7 @@ class TransactionHub:
                 self.emit(Result(Outcome.FAILED, tr("storekit.unconfirmed")))
 
     def restore_finished(self, queue) -> None:
+        _trace("restore finished")
         if self.restoring is not None:
             self.restoring["finished"] = True
             self._report_restore()
@@ -491,7 +529,8 @@ def install(*, exchange, run, emit) -> bool:
         import StoreKit
 
         from app.core.mac_storekit_objc import DawnlistTransactionObserver
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        _trace(f"observer NOT installed: {type(exc).__name__}: {exc}")
         return False
 
     hub = TransactionHub(queue=StoreKit.SKPaymentQueue.defaultQueue(),
@@ -503,6 +542,7 @@ def install(*, exchange, run, emit) -> bool:
     _LIVE.append(observer)
     hub.queue.addTransactionObserver_(observer)
     _HUB = hub
+    _trace("observer installed")
     return True
 
 
