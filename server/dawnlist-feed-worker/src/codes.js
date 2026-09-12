@@ -227,7 +227,40 @@ const ADMIN_ACTIONS = {
   'GET /admin/undelivered': 'undelivered.list',
   'GET /admin/selftest': 'selftest',
   'POST /admin/resend': 'licence.resend',
+  'POST /admin/apple-codes': 'apple.upload',
+  'GET /admin/apple-codes': 'apple.list',
+  'POST /admin/apple-codes/assign': 'apple.assign',
+  'POST /admin/apple-codes/void': 'apple.void',
 };
+
+/**
+ * Apple allows twenty-five thousand one-time codes per offer, but a single
+ * request body is not the place to move them: a Worker has a memory ceiling
+ * and D1 a statement ceiling, and an upload of that size failing half way
+ * through leaves a batch nobody can account for. The minting tool sends
+ * chunks, and re-sending a chunk is harmless by design.
+ */
+const MAX_OFFER_CODES_PER_UPLOAD = 500;
+
+/**
+ * Apple's one-time offer codes are alphanumeric, and nothing else is one.
+ *
+ * Checked rather than trusted because these arrive from a CSV Apple generates:
+ * a header row, a stray quote or a trailing blank line all look like strings
+ * and none of them is a code. Stored unchecked, they become codes somebody is
+ * handed that cannot work, with nothing to distinguish that from a bug.
+ */
+function isOfferCode(value) {
+  if (typeof value !== 'string') return false;
+  const code = value.trim().toUpperCase();
+  if (!code || code.length > 40) return false;
+  for (const ch of code) {
+    const isLetter = ch >= 'A' && ch <= 'Z';
+    const isDigit = ch >= '0' && ch <= '9';
+    if (!isLetter && !isDigit) return false;
+  }
+  return true;
+}
 
 /**
  * Requests one administrator may make in ten minutes. The console makes a few
@@ -463,6 +496,147 @@ async function routeAdmin(request, env, auth, path, audit) {
       licences: (results || []).map(({ licence_key: key, ...row }) =>
         ({ licence: maskKey(key), ...row })),
     });
+  }
+
+  // --- Mac offer codes: upload a minted batch -----------------------------
+  //
+  // The codes arrive ALREADY MINTED, from `tools/asc_offer_codes.py` on a
+  // machine holding the App Store Connect key. Nothing in this Worker talks to
+  // Apple, and migration 011 says why that is not a stylistic choice: an
+  // individual App Store Connect key carries App Manager rights over the whole
+  // app, and Apple has no finer grain to give it.
+  if (path === '/admin/apple-codes' && request.method === 'POST') {
+    const parsed = await parseJsonObject(request);
+    if (!parsed.ok) return json({ error: parsed.error, message: parsed.message }, 400);
+    const body = parsed.body;
+
+    const batch = String(body.batch || '').trim().slice(0, 60);
+    if (!batch) {
+      return json({ error: 'batch_required',
+                    message: 'Name the batch; codes nobody can group are codes nobody can account for' }, 400);
+    }
+    const codes = Array.isArray(body.codes) ? body.codes : null;
+    if (!codes || codes.length === 0) return json({ error: 'no_codes' }, 400);
+    if (codes.length > MAX_OFFER_CODES_PER_UPLOAD) {
+      return json({ error: 'too_many_codes',
+                    message: `Send at most ${MAX_OFFER_CODES_PER_UPLOAD} codes per request` }, 400);
+    }
+
+    // Validated BEFORE anything is written. A stray CSV header or a quoting
+    // accident stored as a code is a code somebody is later handed that cannot
+    // possibly work, and they have no way to tell that from a bug in the app.
+    const clean = [];
+    for (const raw of codes) {
+      if (!isOfferCode(raw)) {
+        return json({ error: 'bad_code',
+                      message: `Not an offer code: ${String(raw).slice(0, 40)}` }, 400);
+      }
+      clean.push(String(raw).trim().toUpperCase());
+    }
+
+    await env.DB.prepare(
+      `INSERT INTO apple_offer_batches (batch, offer_id) VALUES (?1, ?2)
+       ON CONFLICT(batch) DO NOTHING`
+    ).bind(batch, body.offer_id ? String(body.offer_id).slice(0, 120) : null).run();
+
+    // DO NOTHING on conflict, so re-sending a chunk after a half-finished
+    // upload adds what is missing instead of failing on the first duplicate
+    // and leaving the operator to work out how far it got.
+    const insert = env.DB.prepare(
+      `INSERT INTO apple_offer_codes (code, batch) VALUES (?1, ?2)
+       ON CONFLICT(code) DO NOTHING`);
+    await env.DB.batch(clean.map((code) => insert.bind(code, batch)));
+
+    const row = await env.DB.prepare(
+      'SELECT COUNT(*) AS n FROM apple_offer_codes WHERE batch = ?1').bind(batch).first();
+    audit.target = batch;
+    return json({ ok: true, batch, sent: clean.length, in_batch: row?.n || 0 });
+  }
+
+  // --- Mac offer codes: what is there, and where it went ------------------
+  if (path === '/admin/apple-codes' && request.method === 'GET') {
+    const state = new URL(request.url).searchParams.get('state') || 'all';
+    const where = state === 'free' ? 'WHERE void = 0 AND assigned_at IS NULL'
+      : state === 'assigned' ? 'WHERE void = 0 AND assigned_at IS NOT NULL'
+      : state === 'void' ? 'WHERE void = 1'
+      : '';
+    const { results } = await env.DB.prepare(
+      `SELECT code, batch, added_at, assigned_to, assigned_at, note, void
+         FROM apple_offer_codes ${where}
+        ORDER BY added_at DESC, code LIMIT 500`).all();
+    const { results: batches } = await env.DB.prepare(
+      `SELECT b.batch, b.offer_id, b.created_at, b.redemptions,
+              COUNT(c.code) AS total,
+              SUM(CASE WHEN c.assigned_at IS NOT NULL THEN 1 ELSE 0 END) AS assigned,
+              SUM(CASE WHEN c.void = 1 THEN 1 ELSE 0 END) AS voided
+         FROM apple_offer_batches b
+         LEFT JOIN apple_offer_codes c ON c.batch = b.batch
+        GROUP BY b.batch
+        ORDER BY b.created_at DESC`).all();
+    return json({ codes: results || [], batches: batches || [] });
+  }
+
+  // --- Mac offer codes: hand one out --------------------------------------
+  //
+  // ONE STATEMENT, and that is the whole point. Reading a free code and then
+  // marking it in a second statement is the shape that hands the same string
+  // to two people when two console windows are open: both read the same row
+  // before either writes. The UPDATE's sub-select runs under SQLite's write
+  // lock, so exactly one of them changes a row and the other is told none_free.
+  if (path === '/admin/apple-codes/assign' && request.method === 'POST') {
+    const parsed = await parseJsonObject(request);
+    if (!parsed.ok) return json({ error: parsed.error, message: parsed.message }, 400);
+    const body = parsed.body;
+
+    const who = String(body.assigned_to || '').trim().slice(0, 120);
+    if (!who) {
+      return json({ error: 'assigned_to_required',
+                    message: 'Say who this is going to; an unlabelled code cannot be audited' }, 400);
+    }
+    const note = String(body.note || '').slice(0, 200);
+    const batch = String(body.batch || '').trim();
+
+    const { results } = await env.DB.prepare(
+      `UPDATE apple_offer_codes
+          SET assigned_to = ?1, assigned_at = datetime('now'), note = ?2
+        WHERE code = (SELECT code FROM apple_offer_codes
+                       WHERE void = 0 AND assigned_at IS NULL
+                         AND (?3 = '' OR batch = ?3)
+                       ORDER BY added_at, code LIMIT 1)
+          AND assigned_at IS NULL
+        RETURNING code, batch, assigned_to, assigned_at, note`
+    ).bind(who, note, batch).all();
+
+    const row = (results || [])[0];
+    if (!row) {
+      return json({ error: 'none_free',
+                    message: 'No unassigned code left; mint another batch and upload it' }, 409);
+    }
+    audit.target = row.code;
+    return json({ ok: true, ...row });
+  }
+
+  // --- Mac offer codes: take one out of circulation -----------------------
+  //
+  // THIS DOES NOT REVOKE THE CODE AT APPLE, and cannot: Apple has no API to
+  // withdraw a one-time code once it is minted. It marks the code as not to be
+  // handed out from here. A code already given to somebody still works, and the
+  // only real control over that is the expiry set when the offer was created.
+  // The response says so, rather than letting the console imply otherwise.
+  if (path === '/admin/apple-codes/void' && request.method === 'POST') {
+    const parsed = await parseJsonObject(request);
+    if (!parsed.ok) return json({ error: parsed.error, message: parsed.message }, 400);
+    const code = String(parsed.body.code || '').trim().toUpperCase();
+    if (!code) return json({ error: 'no_code' }, 400);
+
+    const { results } = await env.DB.prepare(
+      `UPDATE apple_offer_codes SET void = 1 WHERE code = ?1 RETURNING code, batch`
+    ).bind(code).all();
+    const row = (results || [])[0];
+    if (!row) return json({ error: 'unknown_code' }, 404);
+    audit.target = row.code;
+    return json({ ok: true, code: row.code, batch: row.batch,
+                  still_redeemable_at_apple: true });
   }
 
   // --- do the credentials actually WORK ----------------------------------
