@@ -42,6 +42,7 @@ import { newLicenceKey } from './paddle.js';
 import { handlePaddleWebhook } from './paddle.js';
 import { handleAdmin, handleRedeem } from './codes.js';
 import { handleApple } from './apple.js';
+import { handleMicrosoft, handleTicket } from './microsoft.js';
 import { PLANS, FALLBACK_PLAN, hasExpired, sellablePlans } from './plans.js';
 import { parseJsonObject } from './body.js';
 import { purgeExpired } from './retention.js';
@@ -836,6 +837,16 @@ export default {
         return await handlePlan(request, env);
       }
       if (url.pathname === '/v1/apple' && request.method === 'POST') return await handleApple(request, env);
+      // The Microsoft Store's own till, beside Paddle rather than instead of
+      // it. TWO routes because a Store ID key cannot be minted by the client
+      // alone: it needs a service ticket from us first. src/microsoft.js has
+      // the sequence.
+      if (url.pathname === '/v1/microsoft/ticket' && request.method === 'GET') {
+        return await handleTicket(env);
+      }
+      if (url.pathname === '/v1/microsoft' && request.method === 'POST') {
+        return await handleMicrosoft(request, env);
+      }
       if (url.pathname === '/redeem' && request.method === 'POST') {
         return await handleRedeem(request, env, newLicenceKey);
       }

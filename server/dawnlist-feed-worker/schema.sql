@@ -277,3 +277,18 @@ CREATE TABLE IF NOT EXISTS apple_offer_batches (
     created_at  TEXT NOT NULL DEFAULT (datetime('now')),
     redemptions INTEGER NOT NULL DEFAULT 0
 );
+
+-- Microsoft Store subscriptions (migration 013). A SEPARATE table from
+-- apple_transactions because the two stores identify a purchase differently
+-- and share no key that means the same thing in both. The LICENCE is the
+-- shared part: everything downstream never learns which store paid, which is
+-- what makes returning to Paddle a build variant rather than a migration.
+CREATE TABLE IF NOT EXISTS microsoft_transactions (
+    user_id     TEXT PRIMARY KEY,
+    licence_key TEXT NOT NULL UNIQUE,
+    product_id  TEXT,
+    status      TEXT NOT NULL,
+    expires_at  TEXT,
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);

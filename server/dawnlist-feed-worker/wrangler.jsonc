@@ -33,7 +33,20 @@
     // what stops a lapsed paying customer being comped by mistake.
     // Not a secret: it is a list of offer names, and it is here rather than in
     // code so a new comp tier is a config change and not a deploy of logic.
-    "APPLE_COMP_OFFERS": "Dawnlist Comps"
+    "APPLE_COMP_OFFERS": "Dawnlist Comps",
+    // The Microsoft Store add-on, as the collections API names it. Paddle
+    // declined the Dawnlist domain on 2026-09-11 and an appeal is open, so
+    // the Store sells its own subscription alongside rather than instead.
+    "MS_PRODUCT_ID": "9P0THQRBKFPF",
+    // MS_TENANT_ID, MS_CLIENT_ID and MS_CLIENT_SECRET are SECRETS and are
+    // deliberately not here. Only the last is a secret in the cryptographic
+    // sense; the other two are identifiers — but THIS REPOSITORY IS PUBLIC,
+    // and a tenant id published in it names the directory to anyone looking
+    // for one to phish. They cost nothing to hold as secrets, so all three go
+    // in through `wrangler secret put`. See DAWNLIST-AZURE-AD-SETUP.md.
+    //
+    // MS_PRODUCT_ID stays above BECAUSE it is already public: it is the Store
+    // ID printed on the listing page.
 
     // PADDLE_PRICE_GLOBAL is deliberately ABSENT. The Global plan is not sold
     // until its 2,500/day ceiling has been measured against a real
