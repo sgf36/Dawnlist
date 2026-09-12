@@ -37,7 +37,7 @@
     // The Microsoft Store add-on, as the collections API names it. Paddle
     // declined the Dawnlist domain on 2026-09-11 and an appeal is open, so
     // the Store sells its own subscription alongside rather than instead.
-    "MS_PRODUCT_ID": "9P0THQRBKFPF",
+    "MS_PRODUCT_ID": "9P0THQRBKFPF"
     // MS_TENANT_ID, MS_CLIENT_ID and MS_CLIENT_SECRET are SECRETS and are
     // deliberately not here. Only the last is a secret in the cryptographic
     // sense; the other two are identifiers — but THIS REPOSITORY IS PUBLIC,
