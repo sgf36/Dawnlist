@@ -167,6 +167,21 @@ export async function handleMicrosoft(request, env, { fetcher = fetch } = {}) {
                     message: 'Microsoft refused the collections query — is the app '
                       + 'registration added in Partner Center?' }, 502);
     }
+    // A 400 IS AN ANSWER, NOT AN OUTAGE. Microsoft looked at the key and said
+    // it was not one. Reporting that as unreachable sends somebody to check
+    // Cloudflare and their own connection for a fault in the CLIENT — measured
+    // 2026-09-12, when a deliberately junk key came back as 400 and this
+    // surfaced it as `microsoft_unreachable`.
+    //
+    // 400 to the caller rather than 5xx, because the app reads 5xx as "could
+    // not ask" and would sit on grace waiting for a network that is fine.
+    if (res.status === 400) {
+      return json({ error: 'bad_collections_key',
+                    message: 'Microsoft did not recognise that Store ID key. It is '
+                      + 'minted by GetCustomerCollectionsIdAsync and expires; '
+                      + 'ask /v1/microsoft/ticket for a fresh ticket and try again.' },
+                  400);
+    }
     if (!res.ok) return json({ error: 'microsoft_unreachable', status: res.status }, 502);
     payload = await res.json();
   } catch {
