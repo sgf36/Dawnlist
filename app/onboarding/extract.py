@@ -17,6 +17,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.i18n import tr
 from app.onboarding.interview import Corpus, CVDocument
 
 SUPPORTED_SUFFIXES = {".pdf", ".docx", ".txt", ".md", ".rtf"}
@@ -25,6 +26,30 @@ SUPPORTED_SUFFIXES = {".pdf", ".docx", ".txt", ".md", ".rtf"}
 #: A typical CV page carries well over a thousand; a scanned page yields a
 #: handful of stray characters from headers or OCR artefacts, not zero.
 SCAN_CHARS_PER_PAGE = 120
+
+MB = 1024 * 1024
+
+#: WHAT THESE LIMITS ARE FOR. This module opens files a person dropped onto the
+#: window, and both readers below will happily work until memory runs out: a
+#: .docx is a zip, so a few hundred kilobytes can unpack to gigabytes, and
+#: pypdf will walk a hundred thousand pages one at a time without complaining.
+#: Setup then dies, or the machine does, with no message naming a file — and
+#: the whole design of this module is that an unreadable file is named.
+#:
+#: The numbers come from what a CV is, not from what an attacker might send: a
+#: long illustrated CV exported from Word runs to a couple of megabytes and a
+#: dozen pages, so every limit here is at least an order of magnitude clear of
+#: any real document.
+MAX_FILE_BYTES = 25 * MB
+MAX_PDF_PAGES = 50
+MAX_DOCX_UNPACKED_BYTES = 200 * MB
+
+#: A member that expands by more than this is not a document part. Applied only
+#: above the floor, because small XML parts legitimately compress enormously —
+#: it is the combination of large AND absurdly compressible that never occurs
+#: in a real .docx.
+MAX_DOCX_RATIO = 100
+DOCX_RATIO_FLOOR_BYTES = 1 * MB
 
 
 @dataclass(frozen=True)
@@ -81,6 +106,11 @@ def _read_pdf(path: Path) -> tuple[str, str | None]:
     pages = len(reader.pages)
     if not pages:
         return "", "the PDF has no pages"
+    if pages > MAX_PDF_PAGES:
+        # Counted BEFORE any page is read. `extract_text` is the expensive
+        # call, so a page count is the cheap place to stop.
+        return "", tr("onboarding.pdf_too_many_pages", pages=pages,
+                      limit=MAX_PDF_PAGES)
 
     chunks = []
     for page in reader.pages:
@@ -101,11 +131,49 @@ def _read_pdf(path: Path) -> tuple[str, str | None]:
     return text, None
 
 
+def _docx_unpacks_safely(path: Path) -> bool:
+    """Expand the archive, under a cap, before python-docx is let near it.
+
+    THE DECLARED SIZES ARE NOT CHECKED, because they are a claim the archive
+    makes about itself and a hostile one simply lies. This reads each member
+    and counts the bytes that actually come out, stopping the moment the total
+    passes the cap — so the worst case is bounded by the cap rather than by
+    whatever the header says.
+
+    A file that is not a readable zip is not judged here: `docx.Document` names
+    it far better than "unpacks to too much" would.
+    """
+    import zipfile
+
+    try:
+        with zipfile.ZipFile(path) as bundle:
+            total = 0
+            for info in bundle.infolist():
+                unpacked = 0
+                with bundle.open(info) as member:
+                    while chunk := member.read(MB):
+                        unpacked += len(chunk)
+                        total += len(chunk)
+                        if total > MAX_DOCX_UNPACKED_BYTES:
+                            return False
+                if (unpacked >= DOCX_RATIO_FLOOR_BYTES and info.compress_size
+                        and unpacked / info.compress_size > MAX_DOCX_RATIO):
+                    return False
+    except zipfile.BadZipFile:
+        return True
+    except Exception:  # noqa: BLE001 - let the reader below name the problem
+        return True
+    return True
+
+
 def _read_docx(path: Path) -> tuple[str, str | None]:
     try:
         import docx
     except ImportError:
         return "", "python-docx is not installed"
+
+    if not _docx_unpacks_safely(path):
+        return "", tr("onboarding.docx_unpacks_too_big")
 
     try:
         document = docx.Document(str(path))
@@ -149,6 +217,17 @@ def extract_one(path: Path) -> tuple[CVDocument | None, ExtractionFailure | None
             path.name,
             f"unsupported file type {suffix or '(none)'} — "
             f"use PDF, .docx or plain text")
+
+    # Size first, for every type, because each reader below loads the whole
+    # file: `read_text` into one string, pypdf and python-docx into their own
+    # object graphs. A person dropping the wrong file — a disk image, a video —
+    # is far commoner than an attack, and both end the same way without this.
+    size = path.stat().st_size
+    if size > MAX_FILE_BYTES:
+        return None, ExtractionFailure(
+            path.name,
+            tr("onboarding.file_too_large", size=round(size / MB),
+               limit=round(MAX_FILE_BYTES / MB)))
 
     if suffix == ".pdf":
         text, reason = _read_pdf(path)

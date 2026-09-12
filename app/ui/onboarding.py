@@ -13,22 +13,24 @@ which makes a five-minute step feel endless and trains people to guess.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtCore import QTimer, Qt, Signal
+from PySide6.QtGui import QFont, QGuiApplication
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFrame, QHBoxLayout,
                                QLabel,
-                               QLineEdit, QListWidget, QPushButton,
+                               QLineEdit, QListWidget, QListWidgetItem,
+                               QPushButton,
                                QPlainTextEdit, QRadioButton, QScrollArea, QSizePolicy,
                                QSplitter, QStackedWidget, QTextBrowser,
                                QVBoxLayout, QWidget)
 
 from app.i18n import tr
 from app.ui.background import run_in_background
-from app.onboarding.calibration import CalibrationItem, CalibrationResult
-from app.onboarding.interview import INGEST_GUIDANCE
+from app.onboarding.calibration import (MIN_DECIDED, CalibrationItem,
+                                        CalibrationResult)
+from app.onboarding.interview import ingest_guidance
 from app.ui.review import CREAM, GOLD, GOLD_DEEP, INK, TEAL, TEAL_LIFTED
 
 def VERDICT_CHOICES() -> list[tuple[str, str]]:
@@ -60,6 +62,18 @@ def app_verdict_label(value: str | None) -> str:
     if not value:
         return ""
     return tr(f"onboarding.app.{value}")
+
+
+def _same_file(path) -> str:
+    """One spelling of a path, so the same file added twice is one file.
+
+    Case-folded via `normcase` because Windows treats CV.docx and cv.docx as
+    the same document and would otherwise read it twice — which also doubles
+    it in the corpus the factsheet is drafted from.
+    """
+    import os
+
+    return os.path.normcase(os.path.abspath(str(path)))
 
 
 def reflow(text: str) -> str:
@@ -216,13 +230,44 @@ class DropZone(QFrame):
             event.acceptProposedAction()
 
 
+def _cv_file_filter() -> str:
+    """Built from the suffixes the extractor accepts, so the dialog cannot
+    offer a type that is refused on the next line."""
+    from app.onboarding.extract import SUPPORTED_SUFFIXES
+
+    patterns = " ".join(sorted("*" + suffix for suffix in SUPPORTED_SUFFIXES))
+    return f"{tr('onboarding.choose_files_filter')} ({patterns})"
+
+
+def _choose_files(parent, title: str, file_filter: str) -> list[str]:
+    from PySide6.QtWidgets import QFileDialog
+
+    chosen, _selected_filter = QFileDialog.getOpenFileNames(
+        parent, title, "", file_filter)
+    return list(chosen)
+
+
 class IngestPage(QWidget):
-    """Step one: the CV corpus."""
+    """Step one: the CV corpus.
+
+    DRAG AND DROP WAS THE ONLY WAY IN. That is fine until it is not: a file
+    manager and the window have to be visible at once, which rules out a
+    maximised window, a remote session and anyone who cannot drag. The button
+    is the same gesture without the dexterity.
+
+    Files ACCUMULATE. Dropping a second batch used to replace the first, so
+    somebody adding their old CVs one folder at a time silently lost the ones
+    before — and the guidance above the drop zone asks for exactly that.
+    """
 
     files_added = Signal(list)
+    files_removed = Signal(list)
 
-    def __init__(self, parent=None):
+    def __init__(self, *, picker=None, parent=None):
         super().__init__(parent)
+        #: `picker(parent, title, filter) -> [paths]`, injected so a test can
+        #: choose files without a modal dialog nobody is there to dismiss.
+        self._picker = picker or _choose_files
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
@@ -234,7 +279,7 @@ class IngestPage(QWidget):
         # The guidance is shown VERBATIM. Both sentences are load-bearing:
         # users hand over a single tidied CV and lose exactly the history the
         # screen needs.
-        body = QLabel(reflow(INGEST_GUIDANCE))
+        body = QLabel(reflow(ingest_guidance()))
         body.setObjectName("stepBody")
         body.setWordWrap(True)
         layout.addWidget(body)
@@ -243,8 +288,28 @@ class IngestPage(QWidget):
         self.drop.files_dropped.connect(self.files_added)
         layout.addWidget(self.drop)
 
+        buttons = QHBoxLayout()
+        self.btn_choose = QPushButton(tr("onboarding.choose_files"))
+        self.btn_choose.setObjectName("secondary")
+        self.btn_choose.clicked.connect(self._choose)
+        self.btn_remove = QPushButton(tr("onboarding.remove_file"))
+        self.btn_remove.setObjectName("secondary")
+        self.btn_remove.setEnabled(False)
+        self.btn_remove.clicked.connect(self._remove)
+        buttons.addWidget(self.btn_choose)
+        buttons.addWidget(self.btn_remove)
+        buttons.addStretch(1)
+        self.status = QLabel()
+        self.status.setObjectName("stepBody")
+        buttons.addWidget(self.status)
+        layout.addLayout(buttons)
+
         self.files = QListWidget()
         self.files.setMaximumHeight(140)
+        self.files.setSelectionMode(QListWidget.ExtendedSelection)
+        self.files.itemSelectionChanged.connect(
+            lambda: self.btn_remove.setEnabled(
+                bool(self.files.selectedItems())))
         layout.addWidget(self.files)
 
         self.warnings = QFrame()
@@ -260,15 +325,56 @@ class IngestPage(QWidget):
         layout.addStretch(1)
         self.setStyleSheet(ONBOARDING_STYLESHEET)
 
-    def show_corpus(self, names: list[str], warnings: list[str]) -> None:
+    def _choose(self) -> None:
+        chosen = self._picker(self, tr("onboarding.choose_files_title"),
+                              _cv_file_filter())
+        if chosen:
+            self.files_added.emit([Path(c) for c in chosen])
+
+    def _remove(self) -> None:
+        """A file added by mistake — the wrong Jones, a colleague's CV — must
+        be removable, or the only way out is to start setup again."""
+        removed = [item.data(Qt.UserRole) for item in self.files.selectedItems()]
+        if removed:
+            self.files_removed.emit([Path(r) for r in removed])
+
+    def set_files(self, paths) -> None:
+        """The files the user has added, readable or not.
+
+        Everything dropped is listed, because the row is also how a file is
+        removed and an unreadable one is exactly what somebody wants to take
+        out. Which of them could be READ is reported in the warnings.
+        """
         self.files.clear()
-        self.files.addItems(names)
+        for path in paths:
+            item = QListWidgetItem(Path(path).name)
+            item.setData(Qt.UserRole, str(path))
+            item.setToolTip(str(path))
+            self.files.addItem(item)
+
+    def set_reading(self, reading: bool) -> None:
+        """Reading a corpus of CVs takes seconds and runs on a worker thread,
+        so the screen has to say it is happening — and must not accept another
+        batch while the first is still being read."""
+        self.status.setText(tr("onboarding.reading_files") if reading else "")
+        self.btn_choose.setEnabled(not reading)
+        self.drop.setAcceptDrops(not reading)
+
+    def show_warnings(self, warnings: list[str]) -> None:
         if warnings:
             # Named files, so the user knows WHICH document was not read.
             self.warnings_label.setText("• " + "\n• ".join(warnings))
             self.warnings.show()
         else:
             self.warnings.hide()
+
+    def show_corpus(self, names: list[str], warnings: list[str]) -> None:
+        """Names only, for callers that hold no paths — the render tools and
+        the tests. The wizard uses `set_files`, which keeps the path on each
+        row so that row can be removed."""
+        self.files.clear()
+        self.files.addItems(names)
+        self.show_warnings(warnings)
 
 
 @dataclass
@@ -292,6 +398,9 @@ class CalibrationPage(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._widgets: list[_ItemWidgets] = []
+        #: Why the feed could not be reached, when that is why the sample is
+        #: short. Set from the sample in `load`.
+        self._no_feed: str | None = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -340,12 +449,44 @@ class CalibrationPage(QWidget):
         self.setStyleSheet(ONBOARDING_STYLESHEET)
 
     # -- population --------------------------------------------------------
-    def load(self, items: list[CalibrationItem]) -> None:
+    def set_loading(self) -> None:
+        """Fetching live postings takes a round trip per search and then an
+        assessment of every one of them. It runs on a worker thread, so this is
+        the screen saying so rather than the window going grey."""
+        self._clear_cards()
+        self._no_feed = None
+        self.blockers.setObjectName("blockers")
+        self.blockers_label.setText(tr("onboarding.calibration_fetching"))
+        self.blockers.style().unpolish(self.blockers)
+        self.blockers.style().polish(self.blockers)
+        self.btn_finish.setEnabled(False)
+
+    def load_failed(self, reason: str) -> None:
+        """The fetch itself broke. SHOWN, never swallowed into an empty list
+        that reads as a quiet market — and the user still leaves setup, because
+        there is nothing on this screen for them to act on."""
+        self._clear_cards()
+        self._no_feed = None
+        self.blockers.setObjectName("blockers")
+        self.blockers_label.setText(
+            tr("onboarding.calibration_failed", reason=reason))
+        self.blockers.style().unpolish(self.blockers)
+        self.blockers.style().polish(self.blockers)
+        self.btn_finish.setEnabled(True)
+
+    def _clear_cards(self) -> None:
         while self._holder_layout.count():
             entry = self._holder_layout.takeAt(0)
             if entry.widget():
                 entry.widget().deleteLater()
         self._widgets.clear()
+
+    def load(self, items: list[CalibrationItem]) -> None:
+        # `no_feed` rides on the sample itself (see CalibrationSample), so a
+        # caller that hands over a plain list — every test, and the render
+        # tools — behaves exactly as before.
+        self._no_feed = getattr(items, "no_feed", None)
+        self._clear_cards()
 
         for item in items:
             self._holder_layout.addWidget(self._card(item))
@@ -440,8 +581,15 @@ class CalibrationPage(QWidget):
         if refresh:
             self._refresh()
 
+    @property
+    def has_decisions(self) -> bool:
+        """Anything on this screen the user would lose if it were reloaded."""
+        return any(w.item.decided or w.item.brief_sentence.strip()
+                   for w in self._widgets)
+
     def result(self) -> CalibrationResult:
-        return CalibrationResult(items=[w.item for w in self._widgets])
+        return CalibrationResult(items=[w.item for w in self._widgets],
+                                 no_feed=self._no_feed)
 
     def _refresh(self) -> None:
         result = self.result()
@@ -450,8 +598,14 @@ class CalibrationPage(QWidget):
             # Say what happened and let them through. Calibration runs on a
             # later morning once a search is switched on; being unable to
             # finish setup at all is the worse failure by a wide margin.
+            #
+            # WHICH "what happened" matters: blaming a quiet market for an
+            # unpaid subscription sends the user to check searches that were
+            # never the problem.
             self.blockers.setObjectName("blockers")
-            self.blockers_label.setText(tr("onboarding.calibration_skipped"))
+            self.blockers_label.setText(
+                tr("onboarding.calibration_no_feed") if result.no_feed
+                else tr("onboarding.calibration_skipped"))
         elif reasons:
             self.blockers.setObjectName("blockers")
             # Every reason at once. Revealing them one at a time makes a
@@ -487,9 +641,16 @@ class InterviewPage(QWidget):
     """
 
     drafted = Signal()
+    #: Anything that changes whether this step is finished: the documents, and
+    #: whether a draft is currently running. The wizard's Next reads it, so a
+    #: step whose documents are empty cannot be walked past.
+    changed = Signal()
 
     def __init__(self, *, drafter=None, titler=None, parent=None):
         super().__init__(parent)
+        #: True while a draft is on a worker thread. Leaving mid-draft would
+        #: record the empty documents on screen and throw away the answer.
+        self.drafting = False
         #: `titler(text, brief) -> plan`, where `plan.titles` is the list of
         #: search titles. Injected like the drafter so this widget
         #: neither holds a key nor knows what a model is.
@@ -611,6 +772,9 @@ class InterviewPage(QWidget):
             column.addWidget(label)
             editor = QPlainTextEdit()
             editor.setObjectName("docEditor")
+            # Typing one in by hand counts: a failed draft must leave the step
+            # completable, or a model outage becomes a wall.
+            editor.textChanged.connect(self.changed)
             column.addWidget(editor, 1)
             setattr(self, attr, editor)
             split.addLayout(column, 1)
@@ -640,11 +804,17 @@ QPlainTextEdit#aimBox {
         """
         if corpus is not None:
             self._corpus = corpus
-        if self._corpus is None:
+        if not self._corpus:
+            # SAY SO. Pressing the one primary button on the screen and having
+            # nothing at all happen reads as a broken app; the user cannot see
+            # that the step is waiting on files they never added.
+            self.status.setText(tr("onboarding.draft_no_cvs"))
             return
 
+        self.drafting = True
         self.btn_draft.setEnabled(False)
         self.status.setText(tr("onboarding.drafting"))
+        self.changed.emit()
 
         # OFF THE UI THREAD. This reads a corpus of CVs and then calls
         # Anthropic, which is tens of seconds. It used to run here, inline,
@@ -665,6 +835,7 @@ QPlainTextEdit#aimBox {
 
     def _draft_done(self, result) -> None:
         """Back on the UI thread, with (factsheet, brief, questions)."""
+        self.drafting = False
         self.btn_draft.setEnabled(True)
         factsheet, brief, questions = result
         self.factsheet.setPlainText(factsheet)
@@ -677,12 +848,15 @@ QPlainTextEdit#aimBox {
         self.request_titles()
         self.status.setText(tr("onboarding.drafted"))
         self.drafted.emit()
+        self.changed.emit()
 
     def _draft_error(self, exc) -> None:
         """The user can still write their own; a failed draft must not be a
         dead end, and it must not look like an empty one either."""
+        self.drafting = False
         self.btn_draft.setEnabled(True)
         self.status.setText(tr("onboarding.draft_failed", reason=str(exc)[:200]))
+        self.changed.emit()
 
     def _show_questions(self, questions: list[str]) -> None:
         """One row per question: the question, and a box to answer it in."""
@@ -709,6 +883,7 @@ QPlainTextEdit#aimBox {
             self._questions_form.addWidget(label)
             box = QLineEdit()
             box.setPlaceholderText(tr("onboarding.answer_placeholder"))
+            box.textChanged.connect(self.changed)
             self._questions_form.addWidget(box)
             self._answer_rows.append((question, box))
         self.questions_area.show()
@@ -778,6 +953,45 @@ QPlainTextEdit#aimBox {
         lines = [tr("onboarding.clarifications_heading")]
         lines += [f"- {question} — {answer}" for question, answer in answered]
         return factsheet.rstrip() + "\n\n" + "\n".join(lines) + "\n"
+
+    def snapshot(self) -> dict:
+        """Everything the user has typed here, as plain data.
+
+        The ANSWERS are included, and they are the reason this exists at all:
+        the questions are regenerated by a model call that costs money, so
+        losing the answers to them loses the money as well as the typing.
+        """
+        return {
+            "aim": self.aim.toPlainText(),
+            "factsheet": self.factsheet.toPlainText(),
+            "brief": self.brief.toPlainText(),
+            "questions": list(self._questions),
+            "answers": {q: a for q, a in self.question_answers()},
+            "merged": sorted(self._merged),
+        }
+
+    def restore(self, draft: dict) -> None:
+        """Put back what `snapshot` recorded."""
+        self.aim.setPlainText(draft.get("aim") or "")
+        self.factsheet.setPlainText(draft.get("factsheet") or "")
+        self.brief.setPlainText(draft.get("brief") or "")
+
+        questions = list(draft.get("questions") or [])
+        if not questions:
+            return
+        self._questions = questions
+        self._show_questions(questions)
+        answers = draft.get("answers") or {}
+        for question, box in self._answer_rows:
+            if answers.get(question):
+                box.setText(answers[question])
+        # Answers already folded into the factsheet must not be folded in
+        # again by `documents()` — the same clarification twice, in the one
+        # record outreach is allowed to quote from.
+        self._merged = set(draft.get("merged") or [])
+        for question, box in self._answer_rows:
+            if question in self._merged:
+                box.setReadOnly(True)
 
     def question_answers(self) -> list[tuple[str, str]]:
         """Only the questions actually answered. A blank box is not an answer,
@@ -908,18 +1122,148 @@ class SearchesPage(QWidget):
         self.changed.emit()
 
 
+class TermsPage(QWidget):
+    """Step zero: the terms, and a box that has to be ticked.
+
+    NOT SKIPPABLE, and that is the whole point of it. The data licence behind
+    Dawnlist's feed requires every subscriber to be bound by written terms, and
+    neither store checkout shows Dawnlist's — Apple's shows Apple's own EULA
+    and the Microsoft listing is free. A link in Settings makes the terms
+    findable; only this makes them agreed.
+    """
+
+    changed = Signal()
+
+    def __init__(self, *, again: bool = False, parent=None):
+        super().__init__(parent)
+        from app.onboarding.terms import TERMS_LAST_UPDATED
+        from app.ui.settings import TERMS_URL
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 16)
+        layout.setSpacing(12)
+
+        heading = QLabel(tr("onboarding.terms_heading"))
+        heading.setObjectName("stepHeading")
+        layout.addWidget(heading)
+
+        if again:
+            # A different sentence for a different situation: somebody who
+            # agreed in the past is not being asked for the first time, and
+            # being shown the first-time wording reads as the app forgetting.
+            note = QLabel(reflow(tr("onboarding.terms_changed")))
+            note.setObjectName("disagreement")
+            note.setWordWrap(True)
+            layout.addWidget(note)
+
+        body = QLabel(reflow(tr("onboarding.terms_body")))
+        body.setObjectName("stepBody")
+        body.setWordWrap(True)
+        layout.addWidget(body)
+
+        # The date is shown because it is what the user is agreeing to, and
+        # what decides whether they are asked again later.
+        self.link = QLabel(
+            f'<a href="{TERMS_URL}">'
+            + tr("onboarding.terms_link", date=TERMS_LAST_UPDATED) + "</a>")
+        self.link.setObjectName("termsLink")
+        self.link.setOpenExternalLinks(True)
+        self.link.setWordWrap(True)
+        layout.addWidget(self.link)
+
+        self.agree = QCheckBox(tr("onboarding.terms_agree"))
+        self.agree.stateChanged.connect(lambda *_: self.changed.emit())
+        layout.addWidget(self.agree)
+
+        layout.addStretch(1)
+        self.setStyleSheet(ONBOARDING_STYLESHEET)
+
+    @property
+    def agreed(self) -> bool:
+        return self.agree.isChecked()
+
+
+class TermsWindow(QWidget):
+    """The same page on its own, for somebody who has already set up.
+
+    The terms can change after setup, and the promise in them is that the user
+    is asked again. Sending that person back through the whole wizard to tick
+    one box would be absurd, so the step is a widget and this is the other
+    place it appears.
+    """
+
+    accepted = Signal()
+
+    def __init__(self, *, again: bool = False, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(tr("onboarding.title"))
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        self.page = TermsPage(again=again)
+        layout.addWidget(self.page, 1)
+
+        row = QHBoxLayout()
+        row.setContentsMargins(24, 0, 24, 20)
+        self.btn_quit = QPushButton(tr("onboarding.terms_quit"))
+        self.btn_quit.setObjectName("secondary")
+        self.btn_accept = QPushButton(tr("onboarding.terms_accept"))
+        self.btn_accept.setObjectName("primary")
+        self.btn_accept.setEnabled(False)
+        row.addWidget(self.btn_quit)
+        row.addStretch(1)
+        row.addWidget(self.btn_accept)
+        layout.addLayout(row)
+
+        self.setStyleSheet(ONBOARDING_STYLESHEET)
+        self.page.changed.connect(
+            lambda: self.btn_accept.setEnabled(self.page.agreed))
+        self.btn_accept.clicked.connect(self.accepted)
+        # Closing rather than agreeing leaves the terms unaccepted, which is
+        # the honest outcome: the application simply asks again next time.
+        self.btn_quit.clicked.connect(self.close)
+
+
 #: The steps, by name. They were bare integers compared in four places
 #: (`index < 4`, `index == 3`, `index == 1`), which is fine until a step is
 #: inserted — and a step was: nothing in this wizard ever asked the user to
 #: subscribe, so a new install finished setup, reached a feed it had not paid
 #: for, and was told there was nothing to calibrate against.
-STEP_INGEST = 0
-STEP_KEY = 1
-STEP_ENTITLEMENT = 2
-STEP_INTERVIEW = 3
-STEP_SEARCHES = 4
-STEP_CALIBRATION = 5
+#
+# The terms come FIRST because they govern everything after them: the CVs are
+# read, a key is spent and postings are fetched from a supplier whose licence
+# requires the user to be bound before any of it reaches them.
+STEP_TERMS = 0
+STEP_INGEST = 1
+STEP_KEY = 2
+STEP_ENTITLEMENT = 3
+STEP_INTERVIEW = 4
+STEP_SEARCHES = 5
+STEP_CALIBRATION = 6
+FIRST_STEP = STEP_TERMS
 LAST_STEP = STEP_CALIBRATION
+
+#: What setup opens at where the screen has room for it. Capped against the
+#: actual screen by `OnboardingWizard.fit_to_screen`.
+PREFERRED_SIZE = (900, 780)
+
+#: How a saved step is written down. BY NAME, never by index: inserting a step
+#: at the front — which is exactly what the terms step did — would otherwise
+#: reopen every saved setup one step off from where it was left.
+STEP_NAMES = {
+    STEP_TERMS: "terms",
+    STEP_INGEST: "ingest",
+    STEP_KEY: "key",
+    STEP_ENTITLEMENT: "entitlement",
+    STEP_INTERVIEW: "interview",
+    STEP_SEARCHES: "searches",
+    STEP_CALIBRATION: "calibration",
+}
+STEP_INDEX = {name: index for index, name in STEP_NAMES.items()}
+
+#: Long enough that typing does not write a row per keystroke, short enough
+#: that a crash costs a sentence rather than a session.
+SAVE_DELAY_MS = 800
 
 
 class OnboardingWizard(QWidget):
@@ -937,7 +1281,8 @@ class OnboardingWizard(QWidget):
 
     def __init__(self, *, extract, sample, drafter=None, titler=None,
                  searches=None, set_search=None, entitlement_panel=None,
-                 where=None, parent=None):
+                 where=None, accept_terms=None, terms_accepted=False,
+                 confirm=None, load_draft=None, save_draft=None, parent=None):
         """`extract(paths) -> (names, warnings)` and `sample() -> [items]` are
         injected, so the wizard neither reads disks nor calls a model itself.
 
@@ -953,7 +1298,46 @@ class OnboardingWizard(QWidget):
         self._set_search = set_search
         #: `where() -> str`, the place the seeded searches look ("" if none).
         self._where = where
+        #: Called once, when the user leaves the terms step having agreed.
+        #: Injected so this widget records nothing itself.
+        self._accept_terms = accept_terms
+        #: `confirm() -> bool`, asked before anything the user cannot undo.
+        #: Injected so a test never waits on a modal nobody is there to close.
+        self._confirm = confirm
+        #: `save_draft(dict)` and `load_draft() -> dict`. Injected, so the
+        #: wizard keeps knowing nothing about where anything is stored.
+        self._save_draft = save_draft
+        #: True once a save has actually failed. Closing then says so, because
+        #: that is the one case where the work really would be lost.
+        self._draft_failed = False
+        #: Set while restoring and while finishing, so neither writes a draft
+        #: back over the one it is reading or the flow it has just completed.
+        self._restoring = False
+        self._finishing = False
+        #: Where to resume once the terms are agreed, for somebody who left
+        #: part-way through and came back to revised terms.
+        self._resume_step = None
         self._corpus = None
+        #: The files that were READ, as opposed to the ones dropped. Next on
+        #: the first step asks this: a drop of nothing but scans leaves the
+        #: later steps with no text to work on.
+        self._names: list[str] = []
+        #: Every file the user has added, in the order they added them.
+        self._paths: list[Path] = []
+        #: Slow work in flight. Both block the step they belong to: leaving
+        #: mid-read or mid-fetch lands the answer on a screen nobody is on.
+        self._sampling = False
+        self._extract_task = None
+        self._sample_task = None
+        #: The switched-on searches the postings on the gate were fetched for,
+        #: and the postings themselves. Going Back and forward again used to
+        #: re-fetch — paying a second time for the same rows and discarding
+        #: every decision the user had made on them.
+        self._sample_key = None
+        self._sample_items = None
+        #: Where the ⋯ menu was opened from, so Next out of the subscribe panel
+        #: returns there rather than jumping forward past unfinished steps.
+        self._return_to = None
 
         self.setWindowTitle(tr("onboarding.title"))
         layout = QVBoxLayout(self)
@@ -961,6 +1345,7 @@ class OnboardingWizard(QWidget):
         layout.setSpacing(0)
 
         self.stack = QStackedWidget()
+        self.terms = TermsPage()
         self.ingest = IngestPage()
         # The key step sits BETWEEN ingest and calibration, because calibration
         # fetches live postings and assesses them — it is the first thing that
@@ -987,6 +1372,7 @@ class OnboardingWizard(QWidget):
         self.interview = InterviewPage(drafter=drafter, titler=titler)
         self.calibration = CalibrationPage()
         self.searches = SearchesPage()
+        self.stack.addWidget(self.terms)
         self.stack.addWidget(self.ingest)
         self.stack.addWidget(self.keys)
         self.stack.addWidget(self.entitlement)
@@ -996,7 +1382,16 @@ class OnboardingWizard(QWidget):
         # least one of them switched on to fetch anything at all.
         self.stack.addWidget(self.searches)
         self.stack.addWidget(self.calibration)
-        layout.addWidget(self.stack, 1)
+        # THE STACK SCROLLS, THE NAVIGATION DOES NOT. Qt enforces a page's
+        # minimum height on the window that holds it, so on a short screen the
+        # window grew past the desktop and took Back and Next below the bottom
+        # edge with it — leaving a wizard that could not be advanced at all.
+        # Inside a scroll area the window may be shorter than its tallest step.
+        frame = QScrollArea()
+        frame.setWidgetResizable(True)
+        frame.setFrameShape(QFrame.NoFrame)
+        frame.setWidget(self.stack)
+        layout.addWidget(frame, 1)
 
         nav = QHBoxLayout()
         nav.setContentsMargins(16, 0, 16, 16)
@@ -1021,61 +1416,208 @@ class OnboardingWizard(QWidget):
 
         self.setStyleSheet(ONBOARDING_STYLESHEET)
 
+        self.terms.changed.connect(self._refresh_next)
         self.ingest.files_added.connect(self._on_files)
-        self.keys.key_changed.connect(self._on_key)
+        self.ingest.files_removed.connect(self._on_files_removed)
+        self.keys.key_changed.connect(lambda _present: self._refresh_next())
+        self.interview.changed.connect(self._refresh_next)
         # Subscribe from the menu goes to the step that already does it,
         # rather than opening a second copy of the same panel somewhere else.
-        self.menu.subscribe_requested.connect(
-            lambda: self._show_step(STEP_ENTITLEMENT))
+        self.menu.subscribe_requested.connect(self._detour_to_entitlement)
         self.menu.restore_requested.connect(self._restore)
         # The subscribe panel reports its own outcome; the wizard only needs to
         # stop offering the step once it has succeeded.
         if hasattr(self.entitlement, "entitlement_changed"):
+            # Subscribing re-asks the current step whether Next is available —
+            # it does NOT enable it. Enabling unconditionally is how a user who
+            # opened this panel from the ⋯ menu walked out of it past the CV
+            # and key steps they had not done.
             self.entitlement.entitlement_changed.connect(
-                lambda _ok: self.btn_next.setEnabled(True))
+                lambda _ok: self._refresh_next())
         self.btn_next.clicked.connect(self._next)
         self.btn_back.clicked.connect(self._back)
         self.calibration.finished.connect(self._finish)
-        self._show_step(0)
 
-    def _on_key(self, present: bool) -> None:
-        if self.stack.currentIndex() == STEP_KEY:
-            self.btn_next.setEnabled(present)
+        # SAVED AS THE USER GOES. Closing the window — or a crash, or a
+        # machine going to sleep — used to lose the aim, both corrected
+        # documents and every answer, all of which cost a model call to
+        # produce. Debounced rather than written per keystroke.
+        self._save_timer = QTimer(self)
+        self._save_timer.setSingleShot(True)
+        self._save_timer.setInterval(SAVE_DELAY_MS)
+        self._save_timer.timeout.connect(self._save_now)
+        self.interview.aim.textChanged.connect(self._touch)
+        self.interview.changed.connect(self._touch)
+        self.calibration.changed.connect(self._touch)
+
+        self._show_step(STEP_INGEST if terms_accepted else STEP_TERMS)
+        if load_draft is not None:
+            self._restore_draft(load_draft() or {})
+
+    def fit_to_screen(self, available=None):
+        """Size and centre the window against the screen it is opening on.
+
+        It opened at a fixed 900x780. The Microsoft Store's stated minimum
+        screen is 1366x768, whose WORKING area is shorter still once the
+        taskbar is taken out — so on the commonest small laptop setup opened
+        taller than the desktop, with its foot and both navigation buttons
+        below the edge of the screen and no way to reach them.
+
+        90% rather than the whole working area: a window flush against every
+        edge has nowhere for its own frame and reads as broken.
+        """
+        if available is None:
+            screen = self.screen() or QGuiApplication.primaryScreen()
+            if screen is None:            # no display at all: leave it alone
+                return None
+            available = screen.availableGeometry()
+
+        width = min(PREFERRED_SIZE[0], int(available.width() * 0.9))
+        height = min(PREFERRED_SIZE[1], int(available.height() * 0.9))
+        self.resize(width, height)
+        self.move(available.x() + (available.width() - width) // 2,
+                  available.y() + (available.height() - height) // 2)
+        return self.geometry()
 
     def _on_files(self, paths) -> None:
-        names, warnings = self._extract(paths)
-        self._corpus = paths
-        self.ingest.show_corpus(names, warnings)
-        # Warnings never block: an unreadable file is the user's to fix or
-        # ignore, and refusing to continue over one would strand someone whose
-        # only copy of an old CV is a scan.
-        self.btn_next.setEnabled(bool(names))
+        """MERGED, not replaced. Dropping a second batch used to discard the
+        first, so somebody adding old CVs a folder at a time lost everything
+        before — which is precisely what the guidance on this screen asks for.
+        """
+        known = {_same_file(p) for p in self._paths}
+        for path in paths:
+            if _same_file(path) not in known:
+                known.add(_same_file(path))
+                self._paths.append(Path(path))
+        self._read_files()
+
+    def _on_files_removed(self, paths) -> None:
+        dropped = {_same_file(p) for p in paths}
+        self._paths = [p for p in self._paths if _same_file(p) not in dropped]
+        self._read_files()
+
+    def _read_files(self) -> None:
+        """Read the whole set, off the UI thread.
+
+        OFF THE UI THREAD because this opens and parses every file the user has
+        added: a PDF of any size, a .docx unpacked, each one a disk read. It
+        ran inline on the drop, so the window stopped answering the OS for the
+        length of it — "(Not Responding)", which Store Policy 10.4.2 forbids.
+
+        The whole set is re-read rather than the new files alone, because the
+        corpus warnings are about the set: "only one CV version" stops being
+        true when a second arrives, and would otherwise stay on screen.
+        """
+        self.ingest.set_files(self._paths)
+        if not self._paths:
+            self._corpus = None
+            self._names = []
+            self.ingest.show_warnings([])
+            self._refresh_next()
+            return
+
+        paths = list(self._paths)
+        self.ingest.set_reading(True)
+        self._refresh_next()
+        extract = self._extract
+        self._extract_task = run_in_background(
+            lambda: extract(paths),
+            on_done=self._files_read,
+            on_error=self._files_unreadable)
+
+    def _files_read(self, result) -> None:
+        names, warnings = result
+        self._corpus = list(self._paths)
+        self._names = list(names)
+        self.ingest.set_reading(False)
+        self.ingest.show_warnings(warnings)
+        self._refresh_next()
+
+    def _files_unreadable(self, exc) -> None:
+        """A failure in the reader itself, as opposed to a file it could not
+        read. Shown rather than swallowed: silence here looks like a drop that
+        never registered, and the user simply drops the files again."""
+        self._names = []
+        self.ingest.set_reading(False)
+        self.ingest.show_warnings(
+            [tr("onboarding.files_unreadable", reason=str(exc)[:200])])
+        self._refresh_next()
+
+    @property
+    def _reading(self) -> bool:
+        return bool(self.ingest.status.text())
 
     def _show_step(self, index: int) -> None:
         self.stack.setCurrentIndex(index)
-        self.btn_back.setEnabled(index > STEP_INGEST)
+        self._touch()
+        self.btn_back.setEnabled(index > FIRST_STEP and not self._sampling)
         # The gate has its own Finish button, so the wizard's Next is hidden
         # there — two buttons that mean different things is how people click
         # the wrong one.
         self.btn_next.setVisible(index < LAST_STEP)
-        if index in (STEP_ENTITLEMENT, STEP_SEARCHES):
-            # NEITHER OF THESE BLOCKS, and for the same reason.
-            #
-            # Requiring the subscription here would trap someone who wants to
-            # look before they pay, and the app is deliberately useful without
-            # it — the board, the brief and everything already on the machine
-            # stay open; it is the live feed that is bought. Requiring a ticked
-            # search would trap someone whose suggestions are all wrong.
-            self.btn_next.setEnabled(True)
+        self._refresh_next()
+
+    def _refresh_next(self) -> None:
+        """Whether Next is available, asked of the step the user is ON.
+
+        ONE PLACE, because the gates used to be set from four — a step change,
+        a key change, a file drop, and a subscription — and each wrote the
+        button directly. Any of them could therefore enable Next for a step
+        whose own condition was unmet, and one did: subscribing from the ⋯ menu
+        enabled Next unconditionally, so the user walked out of the panel past
+        whichever step they had opened it from.
+        """
+        self.btn_next.setEnabled(self._can_leave(self.stack.currentIndex()))
+
+    def _can_leave(self, index: int) -> bool:
+        if index == STEP_TERMS:
+            # The one step in this flow that genuinely cannot be skipped.
+            return self.terms.agreed
+        if index == STEP_INGEST:
+            # Warnings never block: an unreadable file is the user's to fix or
+            # ignore, and refusing to continue over one would strand someone
+            # whose only copy of an old CV is a scan. Something readable must
+            # have arrived, though — the next steps have nothing to work on —
+            # and not while the reader is still running, or the step is left
+            # with a corpus that is still being built.
+            return bool(self._names) and not self._reading
         if index == STEP_KEY:
-            # Cannot leave the key step without a key: the next screen spends
-            # money on the user's account, and an app with no key is inert.
+            # Cannot leave without a key: the next screen spends money on the
+            # user's account, and an app with no key is inert.
             from app.core import api_key
-            self.btn_next.setEnabled(bool(api_key.get()))
+            return bool(api_key.get())
+        if index == STEP_INTERVIEW:
+            # BOTH DOCUMENTS, AND NO DRAFT IN FLIGHT. Setup could otherwise be
+            # finished with nothing written: calibration then recorded the
+            # placeholder "# Fit brief" as the brief every later verdict is
+            # scored against, and leaving mid-draft threw the answer away.
+            return self.interview.has_content and not self.interview.drafting
+        # NEITHER THE SUBSCRIPTION NOR THE SEARCHES BLOCK, for the same reason.
+        #
+        # Requiring the subscription here would trap someone who wants to look
+        # before they pay, and the app is deliberately useful without it — the
+        # board, the brief and everything already on the machine stay open; it
+        # is the live feed that is bought. Requiring a ticked search would trap
+        # someone whose suggestions are all wrong.
+        return True
 
     def _next(self) -> None:
         index = self.stack.currentIndex()
-        if index == STEP_INGEST:
+        if self._return_to is not None and index == STEP_ENTITLEMENT:
+            # A detour from the ⋯ menu ends where it started, whatever step
+            # that was — and the gates on that step still apply.
+            self._show_step(self._return_to)
+            self._return_to = None
+        elif index == STEP_TERMS:
+            # Recorded on leaving the step rather than on the tick, so the
+            # record follows the deliberate action and not a stray click.
+            if self._accept_terms is not None:
+                self._accept_terms()
+            # Somebody who left part-way through and came back to revised terms
+            # carries on where they were, not at the beginning again.
+            resume, self._resume_step = self._resume_step, None
+            self._show_step(resume if resume is not None else STEP_INGEST)
+        elif index == STEP_INGEST:
             self._show_step(STEP_KEY)
         elif index == STEP_KEY:
             self._show_step(STEP_ENTITLEMENT)
@@ -1107,8 +1649,120 @@ class OnboardingWizard(QWidget):
                         # to fix it; stopping setup here would strand the user.
                         pass
             # Only now is there anything to fetch with.
-            self.calibration.load(self._sample())
+            self._go_to_calibration()
+
+    def _searches_key(self):
+        """What the sample depends on: the searches that are switched ON.
+
+        Nothing else changes which postings come back, so nothing else is
+        grounds for spending money on a second fetch.
+        """
+        return tuple(sorted(label for label, on in self.searches.selections()
+                            if on))
+
+    def _go_to_calibration(self) -> None:
+        """Back then Next used to re-fetch — buying the same rows twice and
+        throwing away every decision the user had made on them."""
+        key = self._searches_key()
+        held = self._sample_items
+
+        if held is not None and len(held) < MIN_DECIDED:
+            # The last fetch produced nothing usable — no feed, or an error —
+            # so nothing was bought and there is nothing to lose. Somebody who
+            # has just subscribed from the ⋯ menu is exactly who gets here, and
+            # this is checked BEFORE the key, or an unchanged search list would
+            # hold them on an empty gate for ever.
+            self._fetch_sample(key)
+            return
+
+        if held is not None and self._sample_key == key:
+            # Same searches, postings already paid for: show them as they are.
             self._show_step(STEP_CALIBRATION)
+            return
+
+        if self.calibration.has_decisions and not self._ask_before_discarding():
+            self._show_step(STEP_CALIBRATION)
+            return
+
+        self._fetch_sample(key)
+
+    def _ask_before_discarding(self) -> bool:
+        """Say what a new fetch costs before it is spent, not after."""
+        if self._confirm is not None:
+            return self._confirm()
+
+        from PySide6.QtWidgets import QMessageBox
+
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Question)
+        box.setWindowTitle(tr("onboarding.title"))
+        box.setText(reflow(tr("onboarding.discard_sample")))
+        refetch = box.addButton(tr("onboarding.discard_sample_refetch"),
+                                QMessageBox.AcceptRole)
+        keep = box.addButton(tr("onboarding.discard_sample_keep"),
+                             QMessageBox.RejectRole)
+        # The cheap, reversible answer is the default one.
+        box.setDefaultButton(keep)
+        box.exec()
+        return box.clickedButton() is refetch
+
+    def _fetch_sample(self, key=None) -> None:
+        """Fetch and assess the calibration postings, off the UI thread.
+
+        This is the slowest thing in setup by a wide margin — a request per
+        switched-on search, then an assessment of everything that comes back —
+        and it ran on the UI thread, so the last click of setup froze the
+        window for the whole of it with no indication anything was happening.
+        """
+        self._show_step(STEP_CALIBRATION)
+        self.calibration.set_loading()
+        self._sample_key = key
+        self._sample_items = None
+        self._sampling = True
+        self._refresh_nav()
+        sample = self._sample
+        self._sample_task = run_in_background(
+            sample, on_done=self._sample_ready, on_error=self._sample_failed)
+
+    def _sample_ready(self, items) -> None:
+        self._sampling = False
+        self._sample_items = items
+        self.calibration.load(items)
+        self._refresh_nav()
+
+    def _sample_failed(self, exc) -> None:
+        self._sampling = False
+        # Nothing was bought, so the next attempt is free: an empty holder
+        # rather than None, which is what "fetched and got nothing" looks like.
+        self._sample_items = []
+        self.calibration.load_failed(str(exc)[:200])
+        self._refresh_nav()
+
+    def _refresh_nav(self) -> None:
+        """Back and Next while something slow is running.
+
+        Back during a fetch would return the user to a screen whose answer is
+        still in flight, and the result would then land on top of whatever they
+        did next.
+        """
+        busy = self._sampling
+        self.btn_back.setEnabled(
+            self.stack.currentIndex() > FIRST_STEP and not busy)
+        self._refresh_next()
+
+    def _detour_to_entitlement(self) -> None:
+        """Subscribe from the ⋯ menu, and come back to where you were.
+
+        It used to be a plain jump to the subscribe step, and Next from there
+        goes on to the interview — so somebody who opened the menu from the CV
+        screen or the key screen walked out past both, arriving at the draft
+        with no CVs to draft from and no key to draft with. Where they came
+        from is remembered instead.
+        """
+        current = self.stack.currentIndex()
+        if current != STEP_ENTITLEMENT:
+            self._return_to = current
+        self._show_step(STEP_ENTITLEMENT)
 
     def _restore(self) -> None:
         """Apple requires Restore to be reachable. The panel owns the actual
@@ -1124,7 +1778,153 @@ class OnboardingWizard(QWidget):
             restore()
 
     def _back(self) -> None:
-        self._show_step(max(0, self.stack.currentIndex() - 1))
+        if (self._return_to is not None
+                and self.stack.currentIndex() == STEP_ENTITLEMENT):
+            # Back out of a detour is the same journey as Next out of it.
+            self._show_step(self._return_to)
+            self._return_to = None
+            return
+        self._show_step(max(FIRST_STEP, self.stack.currentIndex() - 1))
+
+    # -- what setup remembers ----------------------------------------------
+    def _touch(self) -> None:
+        """Something changed; write it shortly."""
+        if self._restoring or self._finishing or self._save_draft is None:
+            return
+        self._save_timer.start()
+
+    def _save_now(self) -> None:
+        if self._restoring or self._finishing or self._save_draft is None:
+            return
+        try:
+            self._save_draft(self.draft())
+            self._draft_failed = False
+        except Exception:  # noqa: BLE001
+            # A scratchpad that cannot be written must not take setup down with
+            # it — but it must not pretend either, so closing says so.
+            self._draft_failed = True
+
+    def draft(self) -> dict:
+        """Everything unfinished, as plain data."""
+        data = self.interview.snapshot()
+        data["step"] = STEP_NAMES.get(self.stack.currentIndex(), "ingest")
+        data["files"] = [str(path) for path in self._paths]
+        if self._sample_items is not None:
+            # The items from the SCREEN, which carry the user's verdicts and
+            # sentences; `_sample_items` is only what arrived from the feed.
+            data["sample"] = [asdict(w.item) for w in self.calibration._widgets]
+            data["sample_key"] = list(self._sample_key or ())
+        return data
+
+    def _restore_draft(self, draft: dict) -> None:
+        """Put back an unfinished setup, without re-buying anything.
+
+        The postings come back from the draft rather than from the feed: they
+        were paid for when they were first fetched, and re-fetching on every
+        launch would charge for the same rows again and discard the decisions
+        already made on them.
+        """
+        if not draft:
+            return
+        self._restoring = True
+        try:
+            self.interview.restore(draft)
+            self._paths = [Path(f) for f in draft.get("files") or []]
+            self._restore_sample(draft)
+            wanted = STEP_INDEX.get(draft.get("step"))
+        finally:
+            self._restoring = False
+
+        if self._paths:
+            # Re-read rather than trusted: a file may have been moved or
+            # deleted since, and the warnings have to be about what is there
+            # now. This is the background read, so it costs no responsiveness.
+            self._read_files()
+        if wanted is None or wanted in (STEP_TERMS, STEP_INGEST):
+            return
+        if wanted == STEP_CALIBRATION and not self._sample_items:
+            # Nothing to show on the gate, and arriving there would fetch. The
+            # searches step is one deliberate click away from that.
+            wanted = STEP_SEARCHES
+        if wanted == STEP_SEARCHES and self._searches is not None:
+            self.searches.load(
+                self._searches(),
+                where=self._where() if self._where is not None else None)
+        if self.stack.currentIndex() == STEP_TERMS:
+            # The terms are not skipped to resume a flow. They are agreed, and
+            # then the flow resumes.
+            self._resume_step = wanted
+        else:
+            self._show_step(wanted)
+
+    def _restore_sample(self, draft: dict) -> None:
+        rows = draft.get("sample")
+        if not rows:
+            return
+        try:
+            items = [CalibrationItem(**row) for row in rows]
+        except TypeError:
+            # A draft written by another version. Losing it costs one fetch;
+            # refusing to open setup would cost the whole flow.
+            return
+        self.calibration.load(items)
+        self._sample_items = items
+        self._sample_key = tuple(draft.get("sample_key") or ())
+
+    def closeEvent(self, event):  # noqa: N802 - Qt naming
+        """Write what is unwritten, and warn only about what is really lost.
+
+        Everything typed is already saved by the time this runs, so there is
+        nothing to warn about in the ordinary case — a confirmation on every
+        close is how people learn to dismiss confirmations. What IS lost is
+        work still in flight, and a draft the store refused to keep.
+        """
+        if not self._finishing:
+            self._save_timer.stop()
+            self._save_now()
+            if self._unsaved() and not self._ask_before_closing():
+                event.ignore()
+                return
+        super().closeEvent(event)
+
+    def _unsaved(self) -> bool:
+        """What closing now would actually destroy.
+
+        NOT "is there anything on screen": everything typed has already been
+        written by the time this runs, and a confirmation on every close is how
+        people learn to dismiss confirmations without reading them.
+
+        Work in flight only counts where there is somewhere to save it. A
+        wizard built without a draft store — the render tools, and tests of a
+        single step — was never persisting anything, so there is nothing it
+        could be asked to keep.
+        """
+        if self._draft_failed:
+            return True
+        in_flight = self._sampling or self._reading or self.interview.drafting
+        return bool(in_flight and self._save_draft is not None)
+
+    def _ask_before_closing(self) -> bool:
+        if self._confirm is not None:
+            return self._confirm()
+
+        from PySide6.QtWidgets import QMessageBox
+
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Question)
+        box.setWindowTitle(tr("onboarding.title"))
+        box.setText(reflow(tr("onboarding.close_unsaved")))
+        close = box.addButton(tr("onboarding.close_anyway"),
+                              QMessageBox.AcceptRole)
+        keep = box.addButton(tr("onboarding.close_keep"),
+                             QMessageBox.RejectRole)
+        box.setDefaultButton(keep)
+        box.exec()
+        return box.clickedButton() is close
 
     def _finish(self) -> None:
+        # Set before the signal: the host closes this window from inside it,
+        # and a close during finishing is not an abandoned setup.
+        self._finishing = True
+        self._save_timer.stop()
         self.completed.emit(self.calibration.result())

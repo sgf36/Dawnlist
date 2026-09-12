@@ -168,9 +168,9 @@ def test_reflow_undoes_source_line_breaks_but_keeps_paragraphs():
 
 
 def test_reflow_preserves_the_wording(qapp):
-    from app.onboarding.interview import INGEST_GUIDANCE
+    from app.onboarding.interview import ingest_guidance
     from app.ui.onboarding import reflow
-    out = reflow(INGEST_GUIDANCE)
+    out = reflow(ingest_guidance())
     assert "Do not tidy them up first" in out
     assert "Early roles are often cut from a senior CV" in out
     assert "\n" not in out.split("\n\n")[0], "no hard breaks inside a paragraph"
@@ -233,10 +233,12 @@ def test_onboarding_has_a_key_step_before_calibration(qapp, monkeypatch):
 
     monkeypatch.setattr(api_key, "get", lambda: None)
     w = OnboardingWizard(extract=lambda p: ([], []), sample=lambda: items(1))
-    assert w.stack.count() == 6, (
-        "ingest, key, ENTITLEMENT, interview, searches, calibration — the "
-        "entitlement step is where the user subscribes, and its absence is "
-        "why a new install reached calibration having paid for nothing")
+    assert w.stack.count() == 7, (
+        "TERMS, ingest, key, entitlement, interview, searches, calibration — "
+        "the entitlement step is where the user subscribes, and its absence "
+        "was why a new install reached calibration having paid for nothing; "
+        "the terms step is what binds a subscriber to the licence the feed's "
+        "own supplier requires")
     assert isinstance(w.stack.widget(STEP_KEY), KeyPanel)
     w.close()
 
@@ -319,22 +321,22 @@ def test_the_two_documents_are_kept_apart(qapp, settle):
 
 def test_next_is_disabled_on_the_key_step_without_a_key(qapp, monkeypatch):
     from app.core import api_key
-    from app.ui.onboarding import OnboardingWizard
+    from app.ui.onboarding import STEP_KEY, OnboardingWizard
 
     monkeypatch.setattr(api_key, "get", lambda: None)
     w = OnboardingWizard(extract=lambda p: (["cv.docx"], []), sample=lambda: items(1))
-    w._show_step(1)
+    w._show_step(STEP_KEY)
     assert not w.btn_next.isEnabled(), "an app with no key is inert"
     w.close()
 
 
 def test_next_is_enabled_once_a_key_is_present(qapp, monkeypatch):
     from app.core import api_key
-    from app.ui.onboarding import OnboardingWizard
+    from app.ui.onboarding import STEP_KEY, OnboardingWizard
 
     monkeypatch.setattr(api_key, "get", lambda: "sk-ant-stored")
     w = OnboardingWizard(extract=lambda p: (["cv.docx"], []), sample=lambda: items(1))
-    w._show_step(1)
+    w._show_step(STEP_KEY)
     assert w.btn_next.isEnabled()
     w.close()
 
@@ -515,6 +517,23 @@ def test_an_unreachable_feed_does_not_trap_the_user_on_the_last_screen(qapp):
     page.close()
 
 
+def test_the_gate_names_an_unpaid_subscription_rather_than_a_quiet_market(qapp):
+    """The screen said the same thing whether the market was quiet or nothing
+    had been bought, and on a fresh install the second is far commoner."""
+    from app.onboarding.calibration import CalibrationSample
+    from app.ui.onboarding import CalibrationPage
+
+    page = CalibrationPage()
+    page.load(CalibrationSample([], no_feed="No licence key found."))
+    assert "no subscription or access code" in page.blockers_label.text()
+    assert page.btn_finish.isEnabled(), "and it still must not trap anyone"
+
+    # POSITIVE CONTROL: a sample that is simply short still reads as one.
+    page.load(CalibrationSample([]))
+    assert "no subscription" not in page.blockers_label.text()
+    page.close()
+
+
 # ---------------------------------------------------------------------------
 # When does a user actually subscribe?
 #
@@ -606,3 +625,694 @@ def test_a_build_with_no_variant_flag_shows_no_purchase_panel():
         assert onboarding_entitlement_panel() is None
     finally:
         bv.variant = real
+
+
+# ---------------------------------------------------------------------------
+# The interview step cannot be walked past empty
+#
+# Next was enabled from the moment the step was reached, so setup could be
+# finished having drafted nothing: calibration then recorded the placeholder
+# "# Fit brief" as the document every later verdict is scored against.
+# ---------------------------------------------------------------------------
+
+def a_wizard(monkeypatch, **kwargs):
+    from app.core import api_key
+    from app.ui.onboarding import OnboardingWizard
+
+    monkeypatch.setattr(api_key, "get", lambda: "sk-ant-stored")
+    kwargs.setdefault("extract", lambda p: (["cv.docx"], []))
+    kwargs.setdefault("sample", lambda: items(1))
+    return OnboardingWizard(**kwargs)
+
+
+def test_next_needs_both_documents_on_the_interview_step(qapp, monkeypatch):
+    from app.ui.onboarding import STEP_INTERVIEW
+
+    w = a_wizard(monkeypatch, drafter=lambda c, a: ("F", "B", []))
+    w._show_step(STEP_INTERVIEW)
+    assert not w.btn_next.isEnabled(), "nothing has been drafted or written"
+
+    w.interview.factsheet.setPlainText("Acme Hotels, 2019 to 2023.")
+    assert not w.btn_next.isEnabled(), "a factsheet alone is not the brief"
+
+    w.interview.brief.setPlainText("Hotel asset management in London.")
+    assert w.btn_next.isEnabled(), "written by hand counts — a failed draft "\
+        "must not be a wall"
+    w.close()
+
+
+def test_next_is_off_while_the_draft_is_still_running(qapp, monkeypatch, settle):
+    """Leaving mid-draft records the empty boxes on screen and throws away the
+    answer the user is paying for."""
+    from app.ui.onboarding import STEP_INTERVIEW
+
+    w = a_wizard(monkeypatch, drafter=lambda c, a: ("FACTS", "BRIEF", []))
+    w._show_step(STEP_INTERVIEW)
+    w.interview.factsheet.setPlainText("typed earlier")
+    w.interview.brief.setPlainText("typed earlier")
+    assert w.btn_next.isEnabled(), "positive control"
+
+    w.interview.run_draft(["cv.docx"])
+    assert not w.btn_next.isEnabled(), "left mid-draft"
+    settle(lambda: not w.interview.drafting, what="the draft")
+    assert w.btn_next.isEnabled(), "and available again once it lands"
+    w.close()
+
+
+def test_drafting_with_no_cvs_says_so_rather_than_doing_nothing(qapp):
+    """The one primary button on the screen did nothing at all, and the user
+    could not see that it was waiting on files they never added."""
+    from app.ui.onboarding import InterviewPage
+
+    page = InterviewPage(drafter=lambda c, a: ("F", "B", []))
+    page.run_draft()
+    assert "Add your CVs first" in page.status.text()
+    page.close()
+
+
+# ---------------------------------------------------------------------------
+# The terms step
+# ---------------------------------------------------------------------------
+
+def test_setup_starts_on_the_terms_and_will_not_move_until_they_are_agreed(
+        qapp, monkeypatch):
+    from app.ui.onboarding import STEP_INGEST, STEP_TERMS
+
+    w = a_wizard(monkeypatch)
+    assert w.stack.currentIndex() == STEP_TERMS, "before anything is read"
+    assert not w.btn_next.isEnabled()
+
+    w.terms.agree.setChecked(True)
+    assert w.btn_next.isEnabled()
+    w._next()
+    assert w.stack.currentIndex() == STEP_INGEST
+    w.close()
+
+
+def test_the_terms_step_links_the_published_page_and_shows_its_date(qapp,
+                                                                    monkeypatch):
+    """The date is what the user is agreeing to, and what decides whether they
+    are asked again."""
+    from app.onboarding.terms import TERMS_LAST_UPDATED
+    from app.ui.settings import TERMS_URL
+
+    w = a_wizard(monkeypatch)
+    assert TERMS_URL in w.terms.link.text()
+    assert TERMS_LAST_UPDATED in w.terms.link.text()
+    w.close()
+
+
+def test_the_acceptance_is_recorded_on_leaving_the_step(qapp, monkeypatch):
+    recorded = []
+    w = a_wizard(monkeypatch, accept_terms=lambda: recorded.append(True))
+    w.terms.agree.setChecked(True)
+    assert recorded == [], "a tick is not yet the deliberate action"
+    w._next()
+    assert recorded == [True]
+    w.close()
+
+
+def test_somebody_who_has_already_agreed_is_not_asked_again(qapp, monkeypatch):
+    from app.ui.onboarding import STEP_INGEST
+
+    w = a_wizard(monkeypatch, terms_accepted=True)
+    assert w.stack.currentIndex() == STEP_INGEST
+    w.close()
+
+
+def test_back_from_the_first_real_step_does_not_fall_out_of_the_flow(qapp,
+                                                                     monkeypatch):
+    from app.ui.onboarding import STEP_INGEST, STEP_TERMS
+
+    w = a_wizard(monkeypatch, terms_accepted=True)
+    w._back()
+    assert w.stack.currentIndex() in (STEP_TERMS, STEP_INGEST)
+    assert w.stack.currentIndex() >= 0
+    w.close()
+
+
+def test_the_standalone_gate_agrees_only_once_the_box_is_ticked(qapp):
+    """The terms can be revised after setup. Sending that person back through
+    the whole wizard to tick one box would be absurd."""
+    from app.ui.onboarding import TermsWindow
+
+    gate = TermsWindow(again=True)
+    assert not gate.btn_accept.isEnabled()
+    agreed = []
+    gate.accepted.connect(lambda: agreed.append(True))
+    gate.btn_accept.click()
+    assert agreed == [], "disabled, so nothing happened"
+
+    gate.page.agree.setChecked(True)
+    assert gate.btn_accept.isEnabled()
+    gate.btn_accept.click()
+    assert agreed == [True]
+    gate.close()
+
+
+# ---------------------------------------------------------------------------
+# Adding CVs: by button as well as by drag, merged rather than replaced, and
+# read off the UI thread
+# ---------------------------------------------------------------------------
+
+def test_files_can_be_chosen_without_dragging_anything(qapp):
+    """Drag and drop needs the file manager and the window visible at once,
+    which rules out a maximised window, a remote session, and anyone who
+    cannot drag."""
+    from app.ui.onboarding import IngestPage
+
+    page = IngestPage(picker=lambda parent, title, filt: ["/tmp/cv-2019.docx"])
+    added = []
+    page.files_added.connect(added.append)
+    page.btn_choose.click()
+    assert [p.name for p in added[0]] == ["cv-2019.docx"]
+    page.close()
+
+
+def test_the_file_dialog_offers_exactly_what_can_be_read(qapp):
+    """A dialog offering a type the extractor refuses is a trap the user walks
+    into one file at a time."""
+    from app.onboarding.extract import SUPPORTED_SUFFIXES
+    from app.ui.onboarding import _cv_file_filter
+
+    shown = _cv_file_filter()
+    for suffix in SUPPORTED_SUFFIXES:
+        assert "*" + suffix in shown
+    assert "*.doc " not in shown and not shown.endswith("*.doc)")
+
+
+def test_a_second_batch_is_added_to_the_first(qapp, monkeypatch, settle):
+    """Dropping again used to replace, so somebody adding their old CVs a
+    folder at a time lost everything before — which is what the guidance on
+    this very screen asks them to do."""
+    from pathlib import Path
+
+    read = []
+
+    def extract(paths):
+        read.append(list(paths))
+        return [Path(p).name for p in paths], []
+
+    w = a_wizard(monkeypatch, extract=extract)
+    w._on_files([Path("/cvs/one.docx")])
+    settle(lambda: not w._reading, what="the first read")
+    w._on_files([Path("/cvs/two.docx")])
+    settle(lambda: not w._reading, what="the second read")
+
+    assert [p.name for p in w._paths] == ["one.docx", "two.docx"]
+    assert [Path(p).name for p in read[-1]] == ["one.docx", "two.docx"], (
+        "the whole set is re-read, so 'only one CV version' stops being said")
+    assert w.ingest.files.count() == 2
+    w.close()
+
+
+def test_the_same_file_twice_is_one_file(qapp, monkeypatch, settle):
+    from pathlib import Path
+
+    w = a_wizard(monkeypatch,
+                 extract=lambda paths: ([Path(p).name for p in paths], []))
+    w._on_files([Path("/cvs/CV.docx")])
+    settle(lambda: not w._reading, what="the read")
+    w._on_files([Path("/cvs/CV.docx")])
+    settle(lambda: not w._reading, what="the re-read")
+    assert len(w._paths) == 1, "the corpus would hold it twice over"
+    w.close()
+
+
+def test_a_file_added_by_mistake_can_be_taken_out(qapp, monkeypatch, settle):
+    """The wrong Jones, or a colleague's CV. Without this the only way out is
+    to start setup again."""
+    from pathlib import Path
+
+    w = a_wizard(monkeypatch, terms_accepted=True,
+                 extract=lambda paths: ([Path(p).name for p in paths], []))
+    w._on_files([Path("/cvs/mine.docx"), Path("/cvs/someone-else.docx")])
+    settle(lambda: not w._reading, what="the read")
+    assert w.btn_next.isEnabled(), "positive control"
+
+    w._on_files_removed([Path("/cvs/someone-else.docx")])
+    settle(lambda: not w._reading, what="the re-read")
+    assert [p.name for p in w._paths] == ["mine.docx"]
+
+    w._on_files_removed([Path("/cvs/mine.docx")])
+    settle(lambda: not w._reading, what="the final read")
+    assert not w.btn_next.isEnabled(), "nothing left to work on"
+    w.close()
+
+
+def test_reading_the_files_does_not_happen_on_the_ui_thread(qapp, monkeypatch,
+                                                            settle):
+    """It opens and parses every file added. Inline, the window stopped
+    answering the OS for the whole of it — which Store Policy 10.4.2 forbids."""
+    import threading
+    from pathlib import Path
+
+    ui_thread = threading.current_thread().ident
+    where = []
+
+    def extract(paths):
+        where.append(threading.current_thread().ident)
+        return [Path(p).name for p in paths], []
+
+    w = a_wizard(monkeypatch, terms_accepted=True, extract=extract)
+    w._on_files([Path("/cvs/one.docx")])
+    assert w.ingest.status.text(), "the screen must say it is reading"
+    assert not w.btn_next.isEnabled(), "and not let the step be left mid-read"
+    settle(lambda: not w._reading, what="the read")
+
+    assert where and where[0] != ui_thread
+    assert w.btn_next.isEnabled()
+    assert not w.ingest.status.text()
+    w.close()
+
+
+def test_fetching_the_calibration_sample_does_not_happen_on_the_ui_thread(
+        qapp, monkeypatch, settle):
+    """A request per switched-on search and an assessment of everything that
+    comes back — the slowest thing in setup, and it ran on the UI thread."""
+    import threading
+
+    from app.ui.onboarding import STEP_CALIBRATION, STEP_SEARCHES
+
+    ui_thread = threading.current_thread().ident
+    where = []
+
+    def sample():
+        where.append(threading.current_thread().ident)
+        return items(10)
+
+    w = a_wizard(monkeypatch, sample=sample)
+    w.stack.setCurrentIndex(STEP_SEARCHES)
+    w._next()
+
+    assert w.stack.currentIndex() == STEP_CALIBRATION
+    assert "Fetching" in w.calibration.blockers_label.text()
+    assert not w.btn_back.isEnabled(), "Back mid-fetch lands the answer nowhere"
+    settle(lambda: not w._sampling, what="the fetch")
+
+    assert where and where[0] != ui_thread
+    assert len(w.calibration._widgets) == 10
+    assert w.btn_back.isEnabled()
+    w.close()
+
+
+def test_a_fetch_that_fails_is_shown_and_does_not_trap_anyone(qapp, monkeypatch,
+                                                              settle):
+    from app.ui.onboarding import STEP_SEARCHES
+
+    def boom():
+        raise RuntimeError("the feed returned HTTP 502")
+
+    w = a_wizard(monkeypatch, sample=boom)
+    w.stack.setCurrentIndex(STEP_SEARCHES)
+    w._next()
+    settle(lambda: not w._sampling, what="the failed fetch")
+
+    assert "502" in w.calibration.blockers_label.text()
+    assert w.calibration.btn_finish.isEnabled(), (
+        "nothing on this screen for the user to act on, so they may leave")
+    w.close()
+
+
+# ---------------------------------------------------------------------------
+# Subscribing from the ⋯ menu, and not paying twice for the same postings
+# ---------------------------------------------------------------------------
+
+def test_subscribing_from_the_menu_returns_to_where_it_was_opened(qapp,
+                                                                  monkeypatch):
+    """It was a plain jump to the subscribe step, and Next from there goes on
+    to the interview — so somebody who opened the menu from the CV screen
+    walked out past both the CVs and the key."""
+    from PySide6.QtWidgets import QLabel
+
+    from app.ui.onboarding import (STEP_ENTITLEMENT, STEP_INGEST, STEP_KEY,
+                                   STEP_INTERVIEW)
+
+    w = a_wizard(monkeypatch, terms_accepted=True,
+                 entitlement_panel=QLabel("subscribe"))
+    assert w.stack.currentIndex() == STEP_INGEST
+
+    w.menu.subscribe_requested.emit()
+    assert w.stack.currentIndex() == STEP_ENTITLEMENT
+    w._next()
+    assert w.stack.currentIndex() == STEP_INGEST, (
+        "walked forward past the CVs and the key")
+
+    # And from the key step, back to the key step — not onward.
+    w._show_step(STEP_KEY)
+    w.menu.subscribe_requested.emit()
+    w._back()
+    assert w.stack.currentIndex() == STEP_KEY
+
+    # POSITIVE CONTROL: reached in the ordinary way, the subscribe step still
+    # leads to the interview.
+    w._show_step(STEP_ENTITLEMENT)
+    w._next()
+    assert w.stack.currentIndex() == STEP_INTERVIEW
+    w.close()
+
+
+def test_subscribing_does_not_enable_next_on_a_step_that_is_not_done(qapp,
+                                                                     monkeypatch):
+    """The panel's own signal used to enable Next unconditionally."""
+    from app.core import api_key
+    from app.ui.onboarding import STEP_KEY
+
+    w = a_wizard(monkeypatch, terms_accepted=True)
+    monkeypatch.setattr(api_key, "get", lambda: None)
+    w._show_step(STEP_KEY)
+    assert not w.btn_next.isEnabled(), "positive control"
+
+    if hasattr(w.entitlement, "entitlement_changed"):
+        w.entitlement.entitlement_changed.emit(True)
+    w._refresh_next()
+    assert not w.btn_next.isEnabled(), "an app with no key is still inert"
+    w.close()
+
+
+def test_going_back_and_forward_does_not_buy_the_postings_again(qapp,
+                                                                monkeypatch,
+                                                                settle):
+    """Every posting a fetch returns is paid for, and the user's decisions on
+    the ones already fetched were thrown away with them."""
+    from app.ui.onboarding import STEP_SEARCHES
+
+    fetches = []
+
+    def sample():
+        fetches.append(1)
+        return items(10)
+
+    w = a_wizard(monkeypatch, terms_accepted=True, sample=sample,
+                 searches=lambda: [("hotels", ["hotels"], True)],
+                 set_search=lambda label, on: None)
+    w.searches.load(w._searches())
+    w.stack.setCurrentIndex(STEP_SEARCHES)
+    w._next()
+    settle(lambda: not w._sampling, what="the first fetch")
+    assert len(fetches) == 1
+
+    choose(w.calibration, 0, "strong")
+    type_sentence(w.calibration, 0, "Operational real estate is in scope.")
+
+    w._back()
+    assert w.stack.currentIndex() == STEP_SEARCHES
+    w._next()
+    assert len(fetches) == 1, "the same rows were bought a second time"
+    assert w.calibration._widgets[0].item.brief_sentence == (
+        "Operational real estate is in scope."), "the correction was discarded"
+    w.close()
+
+
+def test_switching_a_different_search_on_asks_before_discarding(qapp,
+                                                                monkeypatch,
+                                                                settle):
+    from app.ui.onboarding import STEP_CALIBRATION, STEP_SEARCHES
+
+    fetches = []
+    answers = []
+
+    def sample():
+        fetches.append(1)
+        return items(10)
+
+    w = a_wizard(monkeypatch, terms_accepted=True, sample=sample,
+                 confirm=lambda: answers.pop(0),
+                 searches=lambda: [("hotels", ["hotels"], True),
+                                   ("asset management", ["asset"], False)],
+                 set_search=lambda label, on: None)
+    w.searches.load(w._searches())
+    w.stack.setCurrentIndex(STEP_SEARCHES)
+    w._next()
+    settle(lambda: not w._sampling, what="the first fetch")
+    choose(w.calibration, 0, "strong")
+
+    # Switch a second search on, then decline the re-fetch.
+    w._back()
+    w.searches._rows[1][1].setChecked(True)
+    answers.append(False)
+    w._next()
+    assert len(fetches) == 1, "fetched despite the user saying no"
+    assert w.stack.currentIndex() == STEP_CALIBRATION
+    assert w.calibration._widgets[0].item.decided, "their answers survived"
+
+    # Ask again and accept: now it fetches.
+    w._back()
+    answers.append(True)
+    w._next()
+    settle(lambda: not w._sampling, what="the second fetch")
+    assert len(fetches) == 2
+    w.close()
+
+
+def test_an_empty_first_fetch_is_retried_without_asking(qapp, monkeypatch,
+                                                        settle):
+    """Nothing was bought and nothing was decided, so there is nothing to
+    confirm — and somebody who has just subscribed from the ⋯ menu is exactly
+    who arrives here."""
+    from app.ui.onboarding import STEP_SEARCHES
+
+    results = [[], items(10)]
+    asked = []
+
+    w = a_wizard(monkeypatch, terms_accepted=True,
+                 sample=lambda: results.pop(0),
+                 confirm=lambda: asked.append(True) or True,
+                 searches=lambda: [("hotels", ["hotels"], True)],
+                 set_search=lambda label, on: None)
+    w.searches.load(w._searches())
+    w.stack.setCurrentIndex(STEP_SEARCHES)
+    w._next()
+    settle(lambda: not w._sampling, what="the empty fetch")
+
+    w._back()
+    w._next()
+    settle(lambda: not w._sampling, what="the retry")
+    assert asked == [], "asked about discarding decisions that do not exist"
+    assert len(w.calibration._widgets) == 10
+    w.close()
+
+
+def test_setup_fits_the_screen_it_opens_on_and_keeps_its_buttons(qapp,
+                                                                 monkeypatch):
+    """It opened at a fixed 900x780. The Store's stated minimum screen is
+    1366x768, and its working area is shorter still — so setup opened taller
+    than the desktop with Back and Next below the bottom edge."""
+    from PySide6.QtCore import QRect
+
+    small = QRect(0, 0, 1366, 728)          # 768 less a taskbar
+    w = a_wizard(monkeypatch, terms_accepted=True)
+    placed = w.fit_to_screen(small)
+
+    assert w.width() <= int(small.width() * 0.9)
+    assert w.height() <= int(small.height() * 0.9)
+    assert placed.center().x() == small.center().x() or abs(
+        placed.center().x() - small.center().x()) <= 2, "centred on the screen"
+
+    w.show()
+    for _ in range(4):
+        qapp.processEvents()
+    assert w.btn_next.isVisible() and w.btn_back.isVisible()
+    bottom = w.btn_next.mapTo(w, w.btn_next.rect().bottomLeft()).y()
+    assert bottom <= w.height(), (
+        f"the navigation is {bottom - w.height()}px below the window")
+    w.close()
+
+
+def test_a_large_screen_does_not_get_a_stretched_window(qapp, monkeypatch):
+    """POSITIVE CONTROL: the cap is a ceiling, not a size."""
+    from PySide6.QtCore import QRect
+    from app.ui.onboarding import PREFERRED_SIZE
+
+    w = a_wizard(monkeypatch, terms_accepted=True)
+    w.fit_to_screen(QRect(0, 0, 3840, 2160))
+    assert (w.width(), w.height()) == PREFERRED_SIZE
+    w.close()
+
+
+# ---------------------------------------------------------------------------
+# Setup remembers what was typed into it
+#
+# Closing the window lost the aim, both corrected documents and every answer —
+# all of which cost a model call to produce — and reopening started at the
+# first screen with nothing in it.
+# ---------------------------------------------------------------------------
+
+def a_store():
+    """A draft store that behaves like the real one: last write wins."""
+    held = {}
+    return held, (lambda: dict(held)), (lambda draft: held.update(draft))
+
+
+def test_what_the_user_types_is_saved_as_they_go(qapp, monkeypatch):
+    held, load, save = a_store()
+    w = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                 save_draft=save)
+    w.interview.aim.setPlainText("Hotel asset management, London, 85k floor.")
+    w.interview.factsheet.setPlainText("Acme Hotels, 2019 to 2023.")
+    w.interview.brief.setPlainText("Operational real estate in scope.")
+    w._save_now()
+
+    assert "85k" in held["aim"]
+    assert "Acme Hotels" in held["factsheet"]
+    assert "Operational real estate" in held["brief"]
+    w.close()
+
+
+def test_the_next_launch_opens_where_setup_was_left(qapp, monkeypatch):
+    from app.ui.onboarding import STEP_INTERVIEW
+
+    held, load, save = a_store()
+    first = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                     save_draft=save)
+    first._show_step(STEP_INTERVIEW)
+    first.interview.aim.setPlainText("Hotel asset management in London.")
+    first.interview.factsheet.setPlainText("FACTS")
+    first.interview.brief.setPlainText("BRIEF")
+    first._save_now()
+    first.close()
+
+    second = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                      save_draft=save)
+    assert second.stack.currentIndex() == STEP_INTERVIEW
+    assert second.interview.aim.toPlainText() == (
+        "Hotel asset management in London.")
+    assert second.interview.factsheet.toPlainText() == "FACTS"
+    assert second.interview.brief.toPlainText() == "BRIEF"
+    second.close()
+
+
+def test_the_answers_to_the_open_questions_come_back_too(qapp, monkeypatch,
+                                                         settle):
+    """The questions are produced by a model call, so losing the answers loses
+    the money as well as the typing."""
+    held, load, save = a_store()
+    first = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                     save_draft=save,
+                     drafter=lambda c, a: ("F", "B", ["Did you manage anyone?"]))
+    first.interview.run_draft(["cv.docx"])
+    settle(lambda: not first.interview.drafting, what="the draft")
+    first.interview._answer_rows[0][1].setText("Yes, four direct reports.")
+    first._save_now()
+    first.close()
+
+    second = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                      save_draft=save)
+    asked = dict(second.interview.question_answers())
+    assert asked == {"Did you manage anyone?": "Yes, four direct reports."}
+    assert "four direct reports" in second.interview.documents()[0]
+    second.close()
+
+
+def test_the_postings_already_paid_for_come_back_rather_than_being_refetched(
+        qapp, monkeypatch, settle):
+    """Re-fetching on every launch would buy the same rows again and discard
+    the decisions already made on them."""
+    from app.ui.onboarding import STEP_CALIBRATION, STEP_SEARCHES
+
+    held, load, save = a_store()
+    fetches = []
+
+    def sample():
+        fetches.append(1)
+        return items(10)
+
+    first = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                     save_draft=save, sample=sample,
+                     searches=lambda: [("hotels", ["hotels"], True)],
+                     set_search=lambda label, on: None)
+    first.searches.load(first._searches())
+    first.stack.setCurrentIndex(STEP_SEARCHES)
+    first._next()
+    settle(lambda: not first._sampling, what="the fetch")
+    choose(first.calibration, 0, "strong")
+    type_sentence(first.calibration, 0, "Operational real estate is in scope.")
+    first._save_now()
+    first.close()
+
+    second = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                      save_draft=save, sample=sample,
+                      searches=lambda: [("hotels", ["hotels"], True)],
+                      set_search=lambda label, on: None)
+    assert fetches == [1], "the same postings were bought a second time"
+    assert second.stack.currentIndex() == STEP_CALIBRATION
+    assert len(second.calibration._widgets) == 10
+    assert second.calibration._widgets[0].item.brief_sentence == (
+        "Operational real estate is in scope.")
+    second.close()
+
+
+def test_a_draft_left_on_the_gate_with_no_postings_reopens_a_step_earlier(
+        qapp, monkeypatch):
+    """Arriving at the gate is what spends money, so it is never arrived at by
+    restoring — the searches step is one deliberate click away from it."""
+    from app.ui.onboarding import STEP_SEARCHES
+
+    held, load, save = a_store()
+    held.update({"step": "calibration", "aim": "", "factsheet": "",
+                 "brief": "", "questions": [], "answers": {}, "files": []})
+    w = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                 save_draft=save, searches=lambda: [("hotels", ["h"], True)],
+                 set_search=lambda label, on: None)
+    assert w.stack.currentIndex() == STEP_SEARCHES
+    w.close()
+
+
+def test_revised_terms_are_agreed_before_the_flow_resumes(qapp, monkeypatch):
+    """The terms are not skipped to resume a flow: they are agreed, and then
+    the flow resumes where it was."""
+    from app.ui.onboarding import STEP_INTERVIEW, STEP_TERMS
+
+    held, load, save = a_store()
+    held.update({"step": "interview", "aim": "a", "factsheet": "F",
+                 "brief": "B", "questions": [], "answers": {}, "files": []})
+    w = a_wizard(monkeypatch, terms_accepted=False, load_draft=load,
+                 save_draft=save)
+    assert w.stack.currentIndex() == STEP_TERMS
+
+    w.terms.agree.setChecked(True)
+    w._next()
+    assert w.stack.currentIndex() == STEP_INTERVIEW, "back to where they were"
+    w.close()
+
+
+def test_finishing_does_not_ask_about_closing(qapp, monkeypatch):
+    """The host closes the window from inside the finish handler, and a close
+    during finishing is not an abandoned setup."""
+    held, load, save = a_store()
+    asked = []
+    w = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                 save_draft=save, confirm=lambda: asked.append(True) or True)
+    w._draft_failed = True          # would otherwise warn
+    w._finish()
+    w.close()
+    assert asked == []
+
+
+def test_a_draft_that_could_not_be_saved_warns_before_closing(qapp, monkeypatch):
+    """The one case where the work really would be lost. A confirmation on
+    every close is how people learn to dismiss confirmations."""
+    def refuse(draft):
+        raise RuntimeError("the database is read-only")
+
+    asked = []
+    w = a_wizard(monkeypatch, terms_accepted=True, load_draft=lambda: {},
+                 save_draft=refuse, confirm=lambda: asked.append(True) or False)
+    w.show()
+    w.interview.aim.setPlainText("Hotel asset management.")
+    w._save_now()
+    assert w._draft_failed
+
+    w.close()
+    assert asked == [True]
+    assert w.isVisible(), "the close was declined, so the window is still up"
+
+    # POSITIVE CONTROL: a store that works warns about nothing.
+    held, load, save = a_store()
+    fine = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                    save_draft=save,
+                    confirm=lambda: asked.append("again") or True)
+    fine.interview.aim.setPlainText("Hotel asset management.")
+    fine._save_now()
+    fine.close()
+    assert asked == [True], "warned when nothing was at risk"

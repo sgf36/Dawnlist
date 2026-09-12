@@ -1067,6 +1067,19 @@ def ingest_alerts(conn, paths, *, send=None, today: date | None = None):
             "Calibration has not been completed. Adding postings by hand does "
             "not skip the step that transfers your judgement into the brief.")
 
+    from app.onboarding.terms import is_accepted as terms_accepted
+    if not terms_accepted(conn):
+        # GATED HERE, beside calibration, for the same reason: a gate enforced
+        # in a screen is one the scheduled run walks straight past. The feed's
+        # own licence requires every subscriber to be bound by written terms
+        # before any posting reaches them, so a run before that is a breach
+        # rather than a discourtesy.
+        raise NotConfigured(
+            "Dawnlist's terms have not been agreed on this computer, or they "
+            "have changed since they were agreed. Open Dawnlist and read "
+            "them — the postings it fetches come from a supplier whose "
+            "licence requires it, so nothing is fetched until that is done.")
+
     from app.core.entitlement import require as require_entitlement
     require_entitlement(conn)
 
@@ -1143,6 +1156,39 @@ CALIBRATION_SAMPLE = 10
 #: every one of those rows was paid for, by every new user.
 CALIBRATION_FETCH = 15
 
+#: How many are screened and assessed to produce a sample of ten.
+#:
+#: WIDER THAN THE SAMPLE ON PURPOSE, and that is a deliberate cost: the ten put
+#: to the user are chosen to span the app's own verdicts (`worth_calibrating`),
+#: and a pool of exactly ten cannot be spread — it is whatever arrived. The
+#: extra assessments are paid once, during setup, and buy the difference
+#: between a gate that teaches the brief something and a screen of ten obvious
+#: rejections the user clicks through.
+CALIBRATION_POOL = 14
+
+
+def spread_candidates(jobs):
+    """Drop the near-duplicates before anything is paid for.
+
+    The same two rules the sample itself applies — at most two per employer,
+    never two of the same normalised title — but applied to raw postings, where
+    they save an assessment rather than a slot.
+    """
+    from app.onboarding.calibration import MAX_PER_COMPANY, normalised_title
+
+    kept, companies, titles = [], {}, set()
+    for job in jobs:
+        company = (job.company or "").strip().casefold()
+        title = normalised_title(job.title)
+        if company and companies.get(company, 0) >= MAX_PER_COMPANY:
+            continue
+        if title and title in titles:
+            continue
+        kept.append(job)
+        companies[company] = companies.get(company, 0) + 1
+        titles.add(title)
+    return kept
+
 #: The search label the stored calibration run is filed under. It is not the
 #: name of a saved search, so the run moves no search's delta mark: a few
 #: postings drawn across all the searches is not a reading of any one
@@ -1164,18 +1210,25 @@ def calibration_sample(conn, *, provider=None, send=None):
     Returns fewer than `CALIBRATION_SAMPLE` when the feed is short or
     unreachable, and the gate reports that as a setup failure rather than
     asking the user for decisions they cannot make.
+
+    WHY the feed was unreachable travels back with the sample. Swallowed here,
+    it reached the user as "not enough live postings to calibrate against" —
+    a true sentence describing a quiet market, shown to somebody whose actual
+    problem was that nothing had been subscribed to.
     """
-    from app.core.screen import screen_all
+    from app.core.screen import Tier, screen_all
     from app.intelligence.assess import job_ref
-    from app.onboarding.calibration import CalibrationItem
+    from app.onboarding.calibration import (CalibrationItem, CalibrationSample,
+                                            worth_calibrating)
 
     jobs = []
+    no_feed = None
     queries = load_queries(conn)
     if queries:
         try:
             feed = provider or build_provider(conn)
-        except NotConfigured:
-            feed = None
+        except NotConfigured as exc:
+            feed, no_feed = None, str(exc)
         if feed is not None:
             gates = scope_gates(enabled_scopes(conn))
             per_search = max(3, -(-CALIBRATION_FETCH // len(queries)))
@@ -1201,9 +1254,12 @@ def calibration_sample(conn, *, provider=None, send=None):
                     if j.provider_job_id not in
                     {x.provider_job_id for x in jobs})
 
-    jobs = jobs[:CALIBRATION_SAMPLE]
+    # Near-duplicates are dropped BEFORE anything is assessed, because each one
+    # would be paid for and would then take a slot teaching what the posting
+    # beside it already taught.
+    jobs = spread_candidates(jobs)[:CALIBRATION_POOL]
     if not jobs:
-        return []
+        return CalibrationSample([], no_feed=no_feed)
 
     brief = load_document(conn, "fit_brief")
     factsheet = load_document(conn, "factsheet")
@@ -1250,6 +1306,14 @@ def calibration_sample(conn, *, provider=None, send=None):
     items = []
     for result in outcome.screen.results:
         job = result.job
+        if result.tier in (Tier.UNSUPPORTED_TITLE, Tier.KILL_FAMILY):
+            # Removed on the TITLE or the EMPLOYER, before the description was
+            # read. The brief never judged it, so there is no verdict of the
+            # app's for the user to correct — asking them to is asking them to
+            # argue with a rule they cannot see from here. A posting the screen
+            # read and found nothing in is different, and still shown: that is
+            # the over-reaching-rule case the gate exists to surface.
+            continue
         shown = dict(job_key=f"{job.provider}:{job.provider_job_id}",
                      title=job.title, company=job.company,
                      description=job.description_text)
@@ -1267,8 +1331,11 @@ def calibration_sample(conn, *, provider=None, send=None):
         else:
             items.append(CalibrationItem(
                 **shown, app_verdict="rejected",
-                app_reason=result.reason or "screened out before reading"))
-    return items
+                app_reason=(result.reason
+                            or tr("onboarding.screened_out_before_reading"))))
+    # Chosen across the app's own verdicts rather than taken in fetch order:
+    # a sample nobody can disagree with transfers no judgement at all.
+    return CalibrationSample(worth_calibrating(items), no_feed=no_feed)
 
 
 def morning_run(conn, *, provider=None, send=None, today: date | None = None):
@@ -1293,6 +1360,19 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
             "daily — that is the step that transfers your judgement into the "
             "brief, and without it the shortlist is a guess that looks like an "
             "answer.")
+
+    from app.onboarding.terms import is_accepted as terms_accepted
+    if not terms_accepted(conn):
+        # GATED HERE, beside calibration, for the same reason: a gate enforced
+        # in a screen is one the scheduled run walks straight past. The feed's
+        # own licence requires every subscriber to be bound by written terms
+        # before any posting reaches them, so a run before that is a breach
+        # rather than a discourtesy.
+        raise NotConfigured(
+            "Dawnlist's terms have not been agreed on this computer, or they "
+            "have changed since they were agreed. Open Dawnlist and read "
+            "them — the postings it fetches come from a supplier whose "
+            "licence requires it, so nothing is fetched until that is done.")
 
     # The entitlement gate sits HERE, next to the calibration gate, for the
     # same reason: a gate enforced in a screen is one the scheduled run walks
@@ -1920,22 +2000,31 @@ def _doctor(conn) -> int:
     return 0 if shipped else 1
 
 
-def _launch_onboarding(app, conn) -> int:
-    """The setup flow. Opened automatically when the gate has not been passed.
+def build_onboarding(conn, *, on_finished=None):
+    """The setup flow, wired but NOT shown. Returns the wizard.
 
-    Routing here rather than to an empty shortlist is the honest thing to show
-    a new user: the shortlist would be empty anyway, and an empty screen with
-    no explanation reads as a broken app rather than an unfinished setup.
+    Separated from `_launch_onboarding` because two callers need a wizard with
+    no event loop wrapped round it: finishing setup has to open the shortlist
+    in THIS process, and calibration has to stay reachable afterwards from a
+    window that is already running. Anything ending in `app.exec()` can do
+    neither.
+
+    `on_finished()` is called when the user leaves the last screen, after
+    whatever could be recorded has been recorded.
     """
+    from app.onboarding import terms
     from app.onboarding.calibration import complete_calibration
     from app.onboarding.extract import extract_corpus
+    from app.onboarding import state
     from app.ui.onboarding import OnboardingWizard
-
-    start_storekit()
 
     def extract(paths):
         result = extract_corpus(list(paths))
         return [d.name for d in result.corpus.documents], result.warnings
+
+    # The database FILE, not the connection: `sample` below runs on a worker
+    # thread, and a sqlite connection belongs to the thread that opened it.
+    db_file = conn.execute("PRAGMA database_list").fetchone()[2]
 
     def sample():
         """The postings to calibrate against — a real pull, or nothing.
@@ -1945,8 +2034,19 @@ def _launch_onboarding(app, conn) -> int:
         impossible to complete. Returning a short list is now handled by the
         gate, which names it as a setup failure instead of asking for eight
         decisions out of one.
+
+        RUNS ON A WORKER THREAD, so it opens its own connection. Reusing the
+        one the UI thread opened raises ProgrammingError inside the worker,
+        which arrives as a failed fetch rather than as the bug it is. An
+        in-memory database has no file to reopen and only tests have one.
         """
-        return calibration_sample(conn)
+        if not db_file:
+            return calibration_sample(conn)
+        worker = db.connect(db_file)
+        try:
+            return calibration_sample(worker)
+        finally:
+            worker.close()
 
     def drafter(paths, aim=""):
         """CVs in, factsheet and brief out, on the user's own key.
@@ -1989,6 +2089,10 @@ def _launch_onboarding(app, conn) -> int:
 
     wizard = OnboardingWizard(
         extract=extract, sample=sample, drafter=drafter,
+        accept_terms=lambda: terms.record_acceptance(conn),
+        terms_accepted=terms.is_accepted(conn),
+        load_draft=lambda: state.load_draft(conn),
+        save_draft=lambda draft: state.save_draft(conn, draft),
         titler=lambda text, brief="": search_plan(
             text, brief=brief, send=send_if_configured(conn)),
         entitlement_panel=onboarding_entitlement_panel(),
@@ -2030,20 +2134,78 @@ def _launch_onboarding(app, conn) -> int:
                                   brief=brief, send=send_if_configured(conn))
 
     def finished(result):
-        brief = load_document(conn, "fit_brief") or "# Fit brief"
-        if result.sample_unavailable:
-            # Nothing to record. `complete_calibration` would raise, which is
-            # correct — a calibration against no postings is not one — but the
-            # user must still be able to finish and start the app. It runs on a
-            # later morning, once a search is switched on.
-            wizard.close()
+        brief = load_document(conn, "fit_brief")
+        if not brief.strip():
+            # REFUSED, rather than papered over. This read `or "# Fit brief"`,
+            # so a user who reached the gate with nothing written had that
+            # heading recorded as their brief — and every later verdict was
+            # scored against a document of three words, with the calibration
+            # gate marked passed on top of it.
+            from PySide6.QtWidgets import QMessageBox
+
+            from app.ui.onboarding import STEP_INTERVIEW
+            QMessageBox.warning(wizard, tr("onboarding.title"),
+                                tr("onboarding.no_brief_yet"))
+            wizard._show_step(STEP_INTERVIEW)
             return
-        complete_calibration(conn, brief, result)
+        if not result.sample_unavailable:
+            # A short sample is not a calibration and is never recorded as one
+            # — `complete_calibration` refuses it. The user still leaves setup;
+            # see `CalibrationResult.can_finish`.
+            complete_calibration(conn, brief, result)
+
+        # SETUP IS FINISHED WHETHER OR NOT CALIBRATION WAS, and the two are
+        # recorded separately for exactly that reason: the launch path asked
+        # `is_calibrated`, so anybody whose sample never arrived was sent back
+        # to the first screen of setup on every launch, for ever.
+        state.mark_setup_finished(conn)
+        # The documents are saved properly by now, so the scratchpad is stale:
+        # leaving it would reopen a flow the user has already finished.
+        state.clear_draft(conn)
+        # The next window FIRST. Closing the wizard while it is the only one
+        # open ends the event loop, and the process exits instead of showing
+        # the shortlist the user has just spent half an hour producing.
+        if on_finished is not None:
+            on_finished()
         wizard.close()
 
     wizard.documents_ready.connect(save_documents)
     wizard.completed.connect(finished)
-    wizard.resize(900, 780)
+    return wizard
+
+
+def _launch_onboarding(app, conn) -> int:
+    """Setup, and then the shortlist, in one process.
+
+    Routing a new user here rather than to an empty shortlist is the honest
+    thing to show: the shortlist would be empty anyway, and an empty screen
+    with no explanation reads as a broken app rather than an unfinished setup.
+
+    FINISHING USED TO END THE PROCESS. The wizard closed, no window was left,
+    `app.exec()` returned, and the application vanished — so the first thing a
+    user saw on completing setup was Dawnlist quitting, and they had to start
+    it again to see any of what they had produced.
+    """
+    # AT LAUNCH, and on this path too: Apple delivers unfinished transactions —
+    # a renewal, an interrupted purchase, an approved Ask to Buy — as soon as
+    # an observer exists, and setup is where a first subscription is bought.
+    start_storekit()
+
+    # Held, because this closure is the only reference to the window: a
+    # QWidget nobody holds is collected as soon as the callback returns, and
+    # it disappears as fast as it appeared.
+    opened = []
+
+    def show_the_shortlist():
+        window = _main_window(conn, open_board=False)
+        opened.append(window)
+        window.show()
+        _offer_update(window)
+
+    wizard = build_onboarding(conn, on_finished=show_the_shortlist)
+    # Sized against the screen rather than at a fixed 900x780, which is taller
+    # than the working area of a 1366x768 laptop — the Store's stated minimum.
+    wizard.fit_to_screen()
     wizard.show()
     return app.exec()
 
@@ -2214,23 +2376,17 @@ def _added_alerts(window, conn, paths) -> None:
                 incomplete_note=note)
 
 
-def _launch_ui(conn, *, open_board: bool) -> int:
-    from PySide6.QtWidgets import QApplication
+def _main_window(conn, *, open_board: bool):
+    """The board or the shortlist, loaded and wired. Never shown here.
 
-    from app.onboarding.calibration import is_calibrated
+    Pulled out of `_launch_ui` so the end of setup can open the very same
+    window in the same process, instead of leaving the user with nothing on
+    screen and an application they have to start again.
+    """
     from app.ui.adapter import connect_window, latest_run_id, rows_from_db
     from app.ui.board import BoardWindow
     from app.ui.board_adapter import board_rows, connect_board
     from app.ui.review import ReviewWindow
-
-    app = QApplication.instance() or QApplication(sys.argv)
-    from app.ui.branding import apply_icon
-    apply_icon(app)
-
-    if not is_calibrated(conn) and not open_board:
-        return _launch_onboarding(app, conn)
-
-    start_storekit()
 
     if open_board:
         window = BoardWindow()
@@ -2271,6 +2427,67 @@ def _launch_ui(conn, *, open_board: bool) -> int:
         window.load(rows_from_db(conn), _stored_funnel(conn, run_id),
                     notes=_screen_drift_notes(conn, run_id))
 
+    return window
+
+
+def _launch_terms(app, conn, *, open_board: bool) -> int:
+    """The terms on their own, for somebody who has already set up.
+
+    The terms can be revised after setup, and they promise the user is asked
+    again when they are. Sending that person back through the whole wizard to
+    tick one box would be absurd, so the step appears here on its own — and
+    closing it without agreeing simply means being asked next time.
+    """
+    from app.onboarding import terms
+    from app.ui.onboarding import TermsWindow
+
+    opened = []
+    gate = TermsWindow(again=terms.has_changed_since_acceptance(conn))
+
+    def agreed():
+        terms.record_acceptance(conn)
+        window = _main_window(conn, open_board=open_board)
+        opened.append(window)
+        window.show()
+        # After the replacement is up: closing the last window open would end
+        # the event loop and the process with it.
+        gate.close()
+        _offer_update(window)
+
+    gate.accepted.connect(agreed)
+    gate.resize(620, 400)
+    gate.show()
+    return app.exec()
+
+
+def _launch_ui(conn, *, open_board: bool) -> int:
+    from PySide6.QtWidgets import QApplication
+
+    from app.onboarding import terms
+    from app.onboarding.state import is_setup_finished
+
+    app = QApplication.instance() or QApplication(sys.argv)
+    from app.ui.branding import apply_icon
+    apply_icon(app)
+
+    # SETUP FINISHED, not calibration passed. Calibration is skipped by design
+    # whenever no feed answers (`CalibrationResult.can_finish`), so asking
+    # `is_calibrated` here sent every such user back to the start of setup on
+    # every launch — they could never reach their own shortlist at all.
+    if not open_board and not is_setup_finished(conn):
+        return _launch_onboarding(app, conn)
+
+    # BEFORE the terms gate, not after it: Apple delivers unfinished
+    # transactions as soon as an observer exists, and somebody reading the
+    # terms may leave the window open for a long time.
+    start_storekit()
+
+    # Setup asks for this on its first screen, so reaching it here means the
+    # terms have been revised since — or that this install predates the step.
+    if not terms.is_accepted(conn):
+        return _launch_terms(app, conn, open_board=open_board)
+
+    window = _main_window(conn, open_board=open_board)
     window.show()
     _offer_update(window)
     return app.exec()

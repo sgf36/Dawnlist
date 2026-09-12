@@ -15,22 +15,21 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from app.i18n import tr
 from app.intelligence.assess import ASSESSMENT_MODEL, DRAFTING_MODEL
 
-#: Shown verbatim in the UI. Both sentences are load-bearing: users routinely
-#: hand over a tidied CV and lose exactly the history the screen needs.
-INGEST_GUIDANCE = """\
-Drag in every version of your CV you still have — including the old ones, the
-ones tailored for a specific job, and the ones you think are out of date.
 
-**Do not tidy them up first.** Different versions describe the same role in
-different words, and those differences are the evidence. A single polished CV
-is the least useful thing you can give this step.
+def ingest_guidance() -> str:
+    """Shown verbatim on the first screen of setup. Both sentences are
+    load-bearing: users routinely hand over a tidied CV and lose exactly the
+    history the screen needs.
 
-If your CV starts part-way through your career, say so. Early roles are often
-cut from a senior CV, and the screen needs them: they are what tell it which
-operational jobs you have actually done, rather than only the ones you have
-managed."""
+    A FUNCTION RATHER THAN A CONSTANT. A module-level `tr()` is resolved at
+    import time, which happens before `main` applies the stored locale — so the
+    one screen every user starts on would have stayed English in all fifty
+    languages.
+    """
+    return tr("onboarding.ingest_guidance")
 
 #: The distortion rules, stated to the model as a schema for the factsheet.
 #: Each one is a real, recurring failure, not a hypothetical.
@@ -118,22 +117,16 @@ class Corpus:
         """Everything worth telling the user before the interview starts."""
         out: list[str] = []
         if not self.usable:
-            out.append("No readable CV text was found — check the files opened "
-                       "correctly before continuing.")
+            out.append(tr("onboarding.corpus_none"))
         elif len(self.usable) == 1:
-            out.append("Only one CV version was read. Different versions "
-                       "describe the same role in different words, and those "
-                       "differences are the evidence — add the older ones if "
-                       "you still have them.")
+            out.append(tr("onboarding.corpus_one_version"))
         unreadable = [d.name for d in self.documents if not d.is_usable]
         if unreadable:
-            out.append("Could not read enough text from: "
-                       + ", ".join(unreadable))
+            out.append(tr("onboarding.corpus_unreadable",
+                          files=", ".join(unreadable)))
         if self.earliest_year() and self.earliest_year() > 2010:
-            out.append(
-                f"The earliest role found starts in {self.earliest_year()}. If "
-                "you worked before then, add it — early operational roles are "
-                "what tell the screen which jobs you have actually done.")
+            out.append(tr("onboarding.corpus_earliest_year",
+                          year=self.earliest_year()))
         return out
 
     def earliest_year(self) -> int | None:

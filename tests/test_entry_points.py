@@ -707,6 +707,8 @@ def test_a_run_prunes_the_rolling_seen_window(conn, monkeypatch):
     save_document(conn, "fit_brief", "b")
     save_document(conn, "factsheet", FACTS)
     from app.onboarding.calibration import CALIBRATION_KEY
+    from app.onboarding.terms import record_acceptance
+    record_acceptance(conn)
     conn.execute("INSERT INTO settings(key, value) VALUES(?, 'done')",
                  (CALIBRATION_KEY,))
     conn.execute("INSERT INTO queries(label, params_json, enabled, created_at) "
@@ -787,6 +789,8 @@ Content-Type: text/html; charset="utf-8"
 
 def a_configured_db(conn, monkeypatch):
     from app.onboarding.calibration import CALIBRATION_KEY
+    from app.onboarding.terms import record_acceptance
+    record_acceptance(conn)
     save_document(conn, "fit_brief", "Asset management in London.")
     save_document(conn, "factsheet", FACTS)
     conn.execute("INSERT INTO settings(key, value) VALUES(?, 'done')",
@@ -988,8 +992,11 @@ def test_the_calibration_sample_is_a_real_pull(conn, monkeypatch):
     from app.main import CALIBRATION_SAMPLE, calibration_sample, save_query
 
     save_query(conn, "strategy", ["strategy"], countries=["GB"])
+    # One employer each, and distinct titles: ten roles at one company is a
+    # sample the gate now refuses to build, because it teaches one rule ten
+    # times over (see `worth_calibrating`).
     jobs = [Job(provider="theirstack", provider_job_id=str(i),
-                title=f"Head of Strategy {i}", company="Acme",
+                title=f"Head of Strategy {i}", company=f"Employer {i}",
                 description_text="Strategy work.")
             for i in range(CALIBRATION_SAMPLE)]
 
@@ -1035,6 +1042,35 @@ def test_a_screened_out_posting_still_reaches_the_gate(conn):
     items = calibration_sample(conn, provider=Stub(jobs), send=verdicts("strong"))
     titles = {i.title for i in items}
     assert "Night Auditor" in titles, "the screened-out row was hidden"
+
+
+def test_a_posting_killed_on_its_title_never_reaches_the_gate(conn):
+    """The screen removed it WITHOUT reading the description, so the brief
+    never judged it and there is no verdict of the app's for the user to
+    correct. Asking them to is asking them to argue with a rule they cannot
+    see from this screen."""
+    from app.main import calibration_sample, save_query, save_rule_term
+
+    save_query(conn, "strategy", ["strategy"], countries=["GB"])
+    save_rule_term(conn, "strong_terms", "strategy")
+    save_rule_term(conn, "unsupported_titles", "night auditor")
+    jobs = [Job(provider="theirstack", provider_job_id="a",
+                title="Head of Strategy", company="Acme",
+                description_text="Strategy."),
+            Job(provider="theirstack", provider_job_id="n",
+                title="Night Auditor", company="Beta Hotels",
+                description_text="Front desk."),
+            Job(provider="theirstack", provider_job_id="p",
+                title="Porter", company="Gamma Hotels",
+                description_text="Luggage.")]
+
+    items = calibration_sample(conn, provider=Stub(jobs), send=verdicts("strong"))
+    titles = {i.title for i in items}
+    assert "Night Auditor" not in titles, "killed on the title, never read"
+    # POSITIVE CONTROL: the posting the screen READ and found nothing in is
+    # still shown — that is the over-reaching-rule case the gate exists for.
+    assert "Porter" in titles
+    assert "Head of Strategy" in titles
 
 
 # -- onboarding without a feed credential (the beta blocker) ----------------
@@ -1125,6 +1161,41 @@ def test_no_feed_and_no_alerts_is_still_a_named_setup_failure(conn, tmp_path, mo
     items = calibration_sample(conn)
     assert items == []
     assert "setup problem" in CalibrationResult(items=items).blocking_reasons()[0]
+
+
+def test_an_unbuildable_feed_says_why_instead_of_reporting_a_quiet_market(
+        conn, tmp_path, monkeypatch):
+    """The refusal used to be swallowed at the `except`, so a user who had
+    subscribed to nothing was told there were "not enough live postings to
+    calibrate against" — a description of an empty market."""
+    import app.main as main
+    from app.main import NotConfigured, calibration_sample, save_query
+    from app.onboarding.calibration import CalibrationResult
+
+    monkeypatch.setattr(main, "alerts_dir", lambda: tmp_path / "nothing-here")
+    monkeypatch.setattr(main, "build_provider", lambda c: (_ for _ in ()).throw(
+        NotConfigured("No licence key yet, so there is no job feed to read.")))
+    save_query(conn, "strategy", ["strategy"], countries=["GB"])
+
+    items = calibration_sample(conn)
+    assert items == []
+    assert "No licence key yet" in items.no_feed
+    reasons = CalibrationResult(items=items,
+                                no_feed=items.no_feed).blocking_reasons()
+    assert "no subscription or access code" in reasons[0]
+
+
+def test_a_reachable_feed_that_simply_found_nothing_carries_no_cause(
+        conn, tmp_path, monkeypatch):
+    """POSITIVE CONTROL for the test above: an empty answer from a feed that
+    WAS built is a quiet market, and must not be reported as an unpaid one."""
+    import app.main as main
+    from app.main import calibration_sample, save_query
+
+    monkeypatch.setattr(main, "alerts_dir", lambda: tmp_path / "nothing-here")
+    save_query(conn, "strategy", ["strategy"], countries=["GB"])
+    items = calibration_sample(conn, provider=Stub([]))
+    assert items == [] and items.no_feed is None
 
 
 def test_the_alerts_folder_is_not_a_synced_one():
