@@ -12,15 +12,41 @@ script imports it.
 THE CREDENTIALS ARE NOT IN THIS REPOSITORY AND MUST NOT BE.
 The .p8 lives outside the tree entirely, and `sgf36/Dawnlist` is PUBLIC — this
 file said "private", which was true when it was written and stopped being true
-without anything here noticing. The key opens every app on the account, not
-just this one — Easy-Post, Wren and the mobile companion included — so it is
-not a Dawnlist secret to hold in any case.
+without anything here noticing.
 
 WHERE THE KEY IS, IS ALSO NOT IN THIS FILE. It used to be a literal path into
-one developer's OneDrive, which made every script here unrunnable anywhere
-else and published the shape of that person's filing on a public repository.
-Set `ASC_KEY_PATH`, or store the path in Credential Manager under service
+one developer's OneDrive, which made every script here unrunnable anywhere else
+and published the shape of that person's filing on a public repository. Set
+`ASC_KEY_PATH`, or store the path in Credential Manager under service
 `dawnlist-asc`, account `key-path`.
+
+TEAM KEYS AND INDIVIDUAL KEYS ARE SIGNED DIFFERENTLY
+----------------------------------------------------
+A **team** key carries an issuer id in `iss` and reaches EVERY app on the
+account — measured 2026-09-12, the previous key listed Dawnlist, Easy-Post
+Desktop, Easy-Post Mobile Companion and Wren. A key that opens four products is
+not a Dawnlist secret to hold.
+
+An **individual** key belongs to one user and inherits that user's app
+restriction, so a user limited to Dawnlist yields a key limited to Dawnlist —
+measured the same day, `apps?limit=50` returned exactly one. Its token has NO
+`iss` at all and carries `sub: "user"` instead.
+
+Sign an individual key the team way and Apple answers 401 with "provide a
+properly configured and signed bearer token", which reads exactly like a wrong
+or expired key and sends you looking in the wrong place. Both shapes were tried
+against the same key to establish this rather than reasoned about.
+
+So: configure an issuer id and you get a team token; leave it unset and you get
+an individual one. There is deliberately no auto-detection — a silent guess
+between two things that fail identically is worse than a setting.
+
+THE KEY ID COMES FROM THE FILE, NOT FROM A CONSTANT. It used to be hard-coded,
+which meant pointing `ASC_KEY_PATH` at a different key still sent the OLD key's
+id in the token header: a 401 that blames the new key for the old one's name.
+Apple names the download after the id — `AuthKey_<id>.p8` for a team key,
+`ApiKey_<id>.p8` for an individual one — so the file already knows it.
+`ASC_KEY_ID` overrides, for a file that has been renamed.
 
 A JWT IS MINTED PER CALL WITH iat BACKDATED SIXTY SECONDS. Apple rejects a
 token whose iat is in the future by its own clock, and a laptop that is a few
@@ -32,18 +58,21 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import re
 import time
 import urllib.error
 import urllib.request
 
-KEY_ID = "4CU796U485"
-ISSUER = "65aee88f-46c4-4daf-8238-5dc37263d06b"
-
 #: Where to look for the .p8, in order. The environment variable wins so a
 #: one-off run can point at a different key without touching the store.
 KEY_ENV = "ASC_KEY_PATH"
+KEY_ID_ENV = "ASC_KEY_ID"
+ISSUER_ENV = "ASC_ISSUER_ID"
 KEY_SERVICE = "dawnlist-asc"
 KEY_ACCOUNT = "key-path"
+
+#: Apple's own download naming. Both spellings are real.
+KEY_FILENAME = re.compile(r"^(?:AuthKey|ApiKey)_([A-Za-z0-9]+)\.p8$")
 
 
 def key_path() -> pathlib.Path:
@@ -63,8 +92,7 @@ def key_path() -> pathlib.Path:
             f"no App Store Connect key configured. Set {KEY_ENV} to the .p8 "
             f"path, or store it with:\n"
             f"  python -c \"import keyring; keyring.set_password("
-            f"'{KEY_SERVICE}', '{KEY_ACCOUNT}', r'<path to "
-            f"AuthKey_{KEY_ID}.p8>')\"")
+            f"'{KEY_SERVICE}', '{KEY_ACCOUNT}', r'<path to the .p8>')\"")
 
     path = pathlib.Path(configured).expanduser()
     if not path.is_file():
@@ -73,6 +101,49 @@ def key_path() -> pathlib.Path:
         raise SystemExit(f"the configured App Store Connect key {path} does "
                          f"not exist")
     return path
+
+
+def key_id(path: pathlib.Path | None = None) -> str:
+    """The `kid` for the token header: the override, else the filename's."""
+    configured = os.environ.get(KEY_ID_ENV)
+    if configured:
+        return configured
+    path = path or key_path()
+    match = KEY_FILENAME.match(path.name)
+    if not match:
+        raise SystemExit(
+            f"cannot tell the key id from {path.name}. Apple names the "
+            f"download AuthKey_<id>.p8 or ApiKey_<id>.p8; if this file was "
+            f"renamed, set {KEY_ID_ENV} to the id shown in App Store Connect.")
+    return match.group(1)
+
+
+def issuer() -> str | None:
+    """The team issuer id, or None for an individual key."""
+    return os.environ.get(ISSUER_ENV) or None
+
+
+def claims(iss: str | None, now: int) -> dict:
+    """The token payload. Pure, so both shapes are testable without a key."""
+    payload = {"iat": now - 60, "exp": now + 1140, "aud": "appstoreconnect-v1"}
+    if iss:
+        payload["iss"] = iss      # team key: every app on the account
+    else:
+        payload["sub"] = "user"   # individual key: this user's apps only
+    return payload
+
+
+def token() -> str:
+    import jwt  # PyJWT is a tooling dependency, not one the app ships
+
+    path = key_path()
+    kid = key_id(path)
+    return jwt.encode(
+        claims(issuer(), int(time.time())),
+        path.read_text(),
+        algorithm="ES256",
+        headers={"kid": kid, "typ": "JWT"})
+
 
 #: Dawnlist in App Store Connect. Confirmed live 2026-09-08: the record already
 #: existed with a MAC_OS 1.0 version in PREPARE_FOR_SUBMISSION.
@@ -85,18 +156,6 @@ BUNDLE = "com.spencerfields.dawnlist"
 PRIMARY_LOCALE = "en-GB"
 
 BASE = "https://api.appstoreconnect.apple.com"
-
-
-def token() -> str:
-    import jwt  # PyJWT is a tooling dependency, not one the app ships
-
-    now = int(time.time())
-    return jwt.encode(
-        {"iss": ISSUER, "iat": now - 60, "exp": now + 1140,
-         "aud": "appstoreconnect-v1"},
-        key_path().read_text(),
-        algorithm="ES256",
-        headers={"kid": KEY_ID, "typ": "JWT"})
 
 
 def call(method: str, path: str, body=None, version: str = "v1"):
