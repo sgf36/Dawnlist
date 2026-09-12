@@ -72,101 +72,61 @@ def test_an_unverifiable_licence_is_refused_rather_than_assumed(conn, monkeypatc
         main.build_provider(conn)
 
 
-def test_the_mac_panel_can_redeem_a_code(monkeypatch):
-    """The Mac build had no way to redeem at all: LicencePanel owns the box and
-    is never shown on `mas`."""
+
+
+# -- what the Mac build may OFFER, which is not the same question ------------
+#
+# Apple rejected 1.1.0 (75) under 3.1.1: "the app uses access codes to unlock
+# app features". The keyring guard above is unchanged — a grant found on the
+# machine is still honoured, and a purchase is still refused — but no Mac
+# screen may offer to redeem one. Windows is untouched: Microsoft has no such
+# rule, and the direct build has nothing else to sell through.
+
+def code_boxes(window):
+    """Every box in this window a person could paste an access code into.
+
+    By panel rather than by placeholder text: the panels that accept a code are
+    the ones that own the redemption call, and a test that matched on wording
+    would go quiet the first time the wording was translated or reworded.
+    """
+    from PySide6.QtWidgets import QLineEdit
+
+    from app.ui.settings import LicencePanel, SubscribePanel
+
+    boxes = []
+    for kind in (LicencePanel, SubscribePanel):
+        for panel in window.findChildren(kind):
+            boxes += [f for f in panel.findChildren(QLineEdit)
+                      if f.isVisibleTo(window)]
+    return boxes
+
+
+def _settings_window(build):
     pytest.importorskip("PySide6")
     from PySide6.QtWidgets import QApplication
-    from app.ui.settings import SubscribePanel
+
+    from app.ui.settings import SettingsWindow
 
     QApplication.instance() or QApplication([])
-    stored = []
-
-    class SK:
-        def available(self): return True
-        def can_make_payments(self): return True
-        def price(self): return "$79.00"
-
-    panel = SubscribePanel(storekit=SK(),
-                           redeemer=lambda code: f"DAWN-FOR-{code}",
-                           storer=stored.append)
-    panel.code.setText("DL-ABC")
-    panel.btn_code.click()
-    # Redeemed off the UI thread, with the button held until it answers.
-    _wait_for_redemption(panel)
-
-    assert stored == ["DAWN-FOR-DL-ABC"]
-    assert panel.code.text() == ""
-    panel.close()
+    return SettingsWindow(variant=build)
 
 
-def test_a_mac_code_that_cannot_be_saved_shows_the_licence(monkeypatch):
-    """The code is spent by the time the store refuses, so the key on screen
-    is the only copy. The test above is the positive control."""
-    pytest.importorskip("PySide6")
-    from PySide6.QtWidgets import QApplication
-    from app.core.credentials import KeyringUnavailable
-    from app.ui.settings import SubscribePanel
-
-    QApplication.instance() or QApplication([])
-
-    class SK:
-        def available(self): return True
-        def can_make_payments(self): return True
-        def price(self): return "$79.00"
-
-    def refuse(_key):
-        raise KeyringUnavailable("locked")
-
-    panel = SubscribePanel(storekit=SK(), redeemer=lambda code: "DAWN-ONLY-COPY",
-                           storer=refuse)
-    panel.code.setText("DL-ABC")
-    panel.btn_code.click()
-    _wait_for_redemption(panel)
-    assert "DAWN-ONLY-COPY" in panel.result.text()
-    panel.close()
+def test_a_mac_build_offers_nowhere_to_redeem_a_code():
+    window = _settings_window("mas")
+    assert code_boxes(window) == [], (
+        "a Mac build offers a box an access code can be typed into")
+    # The purchase panel has no text field of ANY kind, so there is nothing to
+    # re-wire a redemption onto later without noticing.
+    from PySide6.QtWidgets import QLineEdit
+    assert window.subscribe is not None, "the purchase panel must still build"
+    assert window.subscribe.findChildren(QLineEdit) == []
+    window.close()
 
 
-def test_the_mac_code_is_redeemed_off_the_ui_thread(monkeypatch):
-    """A redemption is a round trip to the Worker; on the UI thread the whole
-    window stopped answering for it."""
-    import threading
-
-    pytest.importorskip("PySide6")
-    from PySide6.QtWidgets import QApplication
-    from app.ui.settings import SubscribePanel
-
-    QApplication.instance() or QApplication([])
-    release, seen = threading.Event(), {}
-
-    class SK:
-        def available(self): return True
-        def can_make_payments(self): return True
-        def price(self): return "$79.00"
-
-    def slow(code):
-        seen["thread"] = threading.current_thread()
-        release.wait(5)
-        return "DAWN-SLOW"
-
-    panel = SubscribePanel(storekit=SK(), redeemer=slow, storer=lambda k: None)
-    panel.code.setText("DL-ABC")
-    panel.btn_code.click()
-    assert not panel.btn_code.isEnabled(), "held while the Worker is asked"
-    release.set()
-    _wait_for_redemption(panel)
-    assert seen["thread"] is not threading.main_thread()
-    panel.close()
-
-
-def _wait_for_redemption(panel, timeout=10.0):
-    import time
-
-    from PySide6.QtWidgets import QApplication
-
-    deadline = time.monotonic() + timeout
-    while not panel.btn_code.isEnabled():
-        if time.monotonic() > deadline:
-            raise AssertionError("the redemption never finished")
-        QApplication.processEvents()
-        time.sleep(0.005)
+@pytest.mark.parametrize("build", ["store", "direct"])
+def test_the_windows_builds_still_offer_redemption(build):
+    """The positive control. A test that only asserts absence passes just as
+    happily when the whole panel failed to build."""
+    window = _settings_window(build)
+    assert code_boxes(window), f"{build} lost its redemption box"
+    window.close()

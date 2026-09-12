@@ -290,21 +290,6 @@ def test_a_purchase_that_never_answers_still_leaves_a_way_out(qapp_and_settle):
     panel.close()
 
 
-def test_the_access_code_box_is_never_disabled_by_a_pending_purchase(
-        qapp_and_settle):
-    """It is an independent route in. Somebody with a reviewer or
-    friends-and-family code must not be blocked by a StoreKit call that is
-    going nowhere."""
-    _qapp, settle = qapp_and_settle
-    from app.ui.settings import SubscribePanel
-
-    panel = SubscribePanel(storekit=_NeverAnswers())
-    settle(lambda: panel.buy.isEnabled(), what="the price")
-    panel.buy.click()
-    assert panel.code.isEnabled() and panel.btn_code.isEnabled()
-    panel.close()
-
-
 # -- the app opens in the machine's language --------------------------------
 
 def test_the_system_language_is_used_when_nothing_has_been_chosen(monkeypatch):
@@ -491,3 +476,75 @@ def test_a_second_press_while_the_first_is_pending_says_so_without_an_error(
     said = panel.result.text().lower()
     assert "fail" not in said and "error" not in said
     panel.close()
+
+
+# -- what guideline 3.1.2(c) requires the purchase screen to say -------------
+#
+# Version 1.1.0 (75) carried all of it in App Store Connect and none of it on
+# the screen where the person actually buys, and was rejected for that. The
+# metadata is not the purchase flow.
+
+def test_the_purchase_screen_states_the_title_the_length_and_the_price(
+        qapp_and_settle):
+    _qapp, settle = qapp_and_settle
+    from PySide6.QtWidgets import QLabel
+    from app.ui.settings import SUBSCRIPTION_TITLE, SubscribePanel
+
+    panel = SubscribePanel(storekit=_SlowStoreKit())
+    settle(lambda: panel.price.text() == "$79.00", what="the price")
+
+    shown = " ".join(label.text() for label in panel.findChildren(QLabel))
+    assert SUBSCRIPTION_TITLE in shown, "the subscription is not named"
+    assert "1 month" in shown, "the length of one term is not stated"
+    assert "$79.00" in shown, "the price is not stated"
+    panel.close()
+
+
+def test_both_required_links_are_the_documents_they_claim_to_be(
+        qapp_and_settle):
+    """A test that asserts "a link exists" passes on a link to nowhere, so the
+    URLs are asserted by value — they are what Apple was given and what the
+    listing cites."""
+    _qapp, settle = qapp_and_settle
+    from app.ui.settings import APPLE_EULA_URL, PRIVACY_URL, SubscribePanel
+
+    assert PRIVACY_URL == "https://dawnlist.spencerfields.com/privacy.html"
+    assert APPLE_EULA_URL == (
+        "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")
+
+    panel = SubscribePanel(storekit=_SlowStoreKit())
+    settle(lambda: panel.price.text() == "$79.00", what="the price")
+    for link, url in ((panel.link_privacy, PRIVACY_URL),
+                      (panel.link_eula, APPLE_EULA_URL)):
+        assert f'href="{url}"' in link.text(), link.text()
+        # A link that opens nothing is a link to nowhere with extra steps.
+        assert link.openExternalLinks()
+    panel.close()
+
+
+def test_the_app_and_the_mac_listing_cite_the_same_eula():
+    """A Mac subscriber is bound by the EULA the listing names and by nothing
+    else. Two plausible links to two different agreements is worse than one."""
+    import json
+
+    from app.ui.settings import APPLE_EULA_URL
+
+    listing = json.loads(
+        (ROOT / "store" / "listing-mac" / "en.json").read_text(encoding="utf-8"))
+    assert APPLE_EULA_URL in listing["description"]
+
+
+def test_the_screen_names_the_subscription_apple_was_actually_given():
+    """The title and the term shown before purchase come from the same place
+    the storefront's do. A second name for one product is how somebody ends up
+    unsure what they bought."""
+    from app.i18n import tr
+    from app.ui.settings import PRIVACY_URL, SUBSCRIPTION_TITLE
+
+    asc = (ROOT / "tools" / "asc_subscription.py").read_text(encoding="utf-8")
+    assert f'DISPLAY_NAME = "{SUBSCRIPTION_TITLE}"' in asc
+    assert '"subscriptionPeriod": "ONE_MONTH"' in asc
+    assert tr("settings.subscribe_length") == "1 month"
+
+    listing = (ROOT / "tools" / "asc_listing.py").read_text(encoding="utf-8")
+    assert f'PRIVACY_URL = "{PRIVACY_URL}"' in listing
