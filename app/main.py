@@ -1101,6 +1101,9 @@ def ingest_alerts(conn, paths, *, send=None, today: date | None = None):
         gates=[permanent_reject_gate(rejected_keys(conn)),
                posted_within_gate(DEFAULT_POSTED_WITHIN_DAYS, today=today)],
         already_seen=seen,
+        # Dropped files, not a sweep: no refresh of the feed was spent, so an
+        # import must not stand in for the day's search.
+        kind=db.ALERTS,
     )
     persist(conn, outcome)
     db.prune_seen(conn)
@@ -1281,7 +1284,7 @@ def calibration_sample(conn, *, provider=None, send=None):
     outcome = run_morning(
         conn, AlertProvider(jobs), [SearchQuery(label=CALIBRATION_LABEL)],
         rules, fit_brief=brief, factsheet=factsheet, send=send,
-        kind="calibration")
+        kind=db.CALIBRATION)
 
     class NotAssessed(CalibrationItem):
         """A screened-in posting the model never judged. Its "verdict" is an
@@ -1356,8 +1359,8 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
         # straight past.
         raise NotConfigured(
             "Calibration has not been completed. The app must show you ~10 "
-            "live postings and have you correct its verdicts before it runs "
-            "daily — that is the step that transfers your judgement into the "
+            "live postings and have you correct its verdicts before its first "
+            "run — that is the step that transfers your judgement into the "
             "brief, and without it the shortlist is a guess that looks like an "
             "answer.")
 
@@ -1443,6 +1446,41 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
     # old undecided ones goes.
     db.prune_descriptions(conn)
     return outcome
+
+
+def run_daily_search(conn, *, provider=None, send=None):
+    """The daily search, and what to say about it. Returns (outcome, report).
+
+    THE ONE DOOR, for the scheduled run, Run now and `--run-once` alike. The
+    headless form already existed so that a scheduled run and a hand-run
+    produce identical state; a scheduler with a call of its own would be the
+    second system this file has always refused to grow.
+    """
+    from app.core.run_report import report_from_outcome
+
+    outcome = morning_run(conn, provider=provider, send=send)
+    return outcome, report_from_outcome(outcome)
+
+
+def database_path(conn) -> str:
+    """The file behind a connection, so a worker thread can open its own."""
+    return conn.execute("PRAGMA database_list").fetchone()[2]
+
+
+def run_daily_search_on_worker(path: str):
+    """`run_daily_search` for a worker thread. Returns a RunReport; raises as
+    the search does.
+
+    A connection of its own, because a sqlite3 connection belongs to the thread
+    that opened it and the window's is on the UI thread. Only the report comes
+    back: the outcome holds every posting fetched, and the window reads what it
+    shows from the database anyway.
+    """
+    conn = db.connect(path)
+    try:
+        return run_daily_search(conn)[1]
+    finally:
+        conn.close()
 
 
 def print_funnel(outcome) -> None:
@@ -1754,6 +1792,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="open settings alone, without the rest of the app")
     parser.add_argument("--onboard", action="store_true",
                         help="open the setup flow, even if already calibrated")
+    parser.add_argument("--background", action="store_true",
+                        help="start in the tray without opening the window, "
+                             "as a launch at sign-in does")
     parser.add_argument("--db", type=Path, default=None,
                         help="database path (defaults to the app data dir)")
     parser.add_argument("--locale", default=None, help="UI locale, e.g. fr")
@@ -1827,7 +1868,7 @@ def main(argv: list[str] | None = None) -> int:
         from app.core.entitlement import NotEntitled
 
         try:
-            outcome = morning_run(conn)
+            outcome, report = run_daily_search(conn)
         except KeyProblem as exc:
             # Exit 4: distinct from "not set up" (2) and "not paid" (3),
             # because the fix is different again.
@@ -1842,6 +1883,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"not configured: {exc}", file=sys.stderr)
             return 2
         print_funnel(outcome)
+        from app.core.run_report import LIMIT
+        if report.kind == LIMIT:
+            # Said as the cause, because the fetch line above reads like an
+            # outage and running again now would only be refused again.
+            print(f"\n  DAILY LIMIT — the job feed allows "
+                  f"{report.refreshes_per_day} refreshes per UTC day and "
+                  f"today's are used up. It resets at midnight UTC.")
         # An incomplete run exits non-zero so a scheduler notices. A run that
         # fetched nothing because the endpoint failed must never look like a
         # quiet morning.
@@ -1907,7 +1955,14 @@ def main(argv: list[str] | None = None) -> int:
         apply_icon(app)
         return _launch_onboarding(app, conn)
 
-    return _launch_ui(conn, open_board=args.board)
+    from app.core.build_variant import variant
+    from app.core.sign_in import launched_at_sign_in
+
+    # The Store's startup task passes no arguments, so it is recognised from
+    # how Windows activated the package; the direct build's Run command
+    # carries --background itself.
+    background = args.background or launched_at_sign_in(variant(), [])
+    return _launch_ui(conn, open_board=args.board, background=background)
 
 
 def _doctor(conn) -> int:
@@ -2264,6 +2319,32 @@ def _screen_drift_notes(conn, run_id) -> list[str]:
                before=round(before * 100))]
 
 
+def _schedule_panel(conn):
+    """The run-time, keep-running and start-at-sign-in panel, wired for real.
+
+    The sign-in reader is passed only on a build that has a way to do it, so
+    an unmarked build shows no switch rather than one that cannot work.
+    """
+    from PySide6.QtWidgets import QSystemTrayIcon
+
+    from app.core import schedule as sched
+    from app.core import sign_in
+    from app.core.build_variant import variant
+    from app.ui.settings import SchedulePanel
+
+    build = variant()
+    return SchedulePanel(
+        loader=lambda: (sched.load_run_time(conn),
+                        sched.load_flag(conn, sched.KEEP_RUNNING_KEY)),
+        time_saver=lambda value: sched.save_run_time(conn, value),
+        keep_saver=lambda on: sched.save_flag(conn, sched.KEEP_RUNNING_KEY, on),
+        sign_in_reader=((lambda: sign_in.is_enabled(build))
+                        if sign_in.supported(build) else None),
+        sign_in_setter=lambda on: sign_in.set_enabled(build, on),
+        page_opener=sign_in.open_page,
+        tray_available=QSystemTrayIcon.isSystemTrayAvailable())
+
+
 def open_settings(parent=None, conn=None):
     """The settings window, wired to the real keyring.
 
@@ -2287,8 +2368,9 @@ def open_settings(parent=None, conn=None):
     # real redeemer; the injection points exist so the tests can spend nothing.
     # The rules panel cannot default, because the rules are per-user and live
     # in the database — so it is offered only when there is one.
-    rules = families = searches = None
+    rules = families = searches = when = None
     if conn is not None:
+        when = _schedule_panel(conn)
         searches = SearchesPanel(
             loader=lambda: all_queries(conn),
             saver=lambda label, titles: save_new_search(conn, label, titles),
@@ -2307,9 +2389,15 @@ def open_settings(parent=None, conn=None):
             forgetter=lambda field, term: forget_rule_term(conn, field, term))
 
     window = SettingsWindow(rules=rules, families=families,
-                            searches=searches, home=parent)
+                            searches=searches, schedule=when, home=parent)
     if parent is not None:
         parent._settings_window = window
+        # A run time changed here changes whether Run now is offered on the
+        # window behind this one. Without this the shortlist keeps yesterday's
+        # answer until the next tick, which reads as the setting not taking.
+        daily = getattr(parent, "_daily_run", None)
+        if when is not None and daily is not None:
+            when.changed.connect(daily[0].tick)
     window.show()
     return window
 
@@ -2376,6 +2464,27 @@ def _added_alerts(window, conn, paths) -> None:
                 incomplete_note=note)
 
 
+def _wire_daily_run(window, conn, reload, *, tray_available=None):
+    """Keep the run's time for as long as this process is open.
+
+    Returns (controller, binding, tray) so the caller holds them: the
+    controller's timer is what keeps the promise of a daily run, and a
+    collected controller keeps nothing.
+    """
+    from app.ui.scheduler import RunBinding, RunController
+    from app.ui.tray import TrayPresence
+
+    path = database_path(conn)
+    controller = RunController(
+        conn, work=lambda: run_daily_search_on_worker(path), parent=window)
+    tray = TrayPresence(window, conn, controller, available=tray_available)
+    binding = RunBinding(window, conn, controller, reload=reload,
+                         notify=tray.notify)
+    binding.show_latest()
+    controller.start()
+    return controller, binding, tray
+
+
 def _main_window(conn, *, open_board: bool):
     """The board or the shortlist, loaded and wired. Never shown here.
 
@@ -2419,13 +2528,18 @@ def _main_window(conn, *, open_board: bool):
         window.alerts_dropped.connect(
             lambda paths: _added_alerts(window, conn, paths))
         connect_window(window, conn)
-        # The last run's shortlist, read back from the database rather than
-        # held from a run this process did. Opening the app the morning after
-        # is the normal case, and this window used to open empty in it — every
-        # posting the run assessed was on disk and nothing put it on screen.
-        run_id = latest_run_id(conn)
-        window.load(rows_from_db(conn), _stored_funnel(conn, run_id),
-                    notes=_screen_drift_notes(conn, run_id))
+
+        def reload():
+            # The last run's shortlist, read back from the database rather
+            # than held from a run this process did. Opening the app the
+            # morning after is the normal case, and this window used to open
+            # empty in it — every posting the run assessed was on disk and
+            # nothing put it on screen.
+            run_id = latest_run_id(conn)
+            window.load(rows_from_db(conn), _stored_funnel(conn, run_id),
+                        notes=_screen_drift_notes(conn, run_id))
+
+        window._daily_run = _wire_daily_run(window, conn, reload)
 
     return window
 
@@ -2460,7 +2574,7 @@ def _launch_terms(app, conn, *, open_board: bool) -> int:
     return app.exec()
 
 
-def _launch_ui(conn, *, open_board: bool) -> int:
+def _launch_ui(conn, *, open_board: bool, background: bool = False) -> int:
     from PySide6.QtWidgets import QApplication
 
     from app.onboarding import terms
@@ -2488,6 +2602,11 @@ def _launch_ui(conn, *, open_board: bool) -> int:
         return _launch_terms(app, conn, open_board=open_board)
 
     window = _main_window(conn, open_board=open_board)
+    daily = getattr(window, "_daily_run", None)
+    if background and daily is not None and daily[2].start_hidden():
+        # Into the tray, and no update prompt: a dialog with no window behind
+        # it, at sign-in, is the worst moment to ask anyone anything.
+        return app.exec()
     window.show()
     _offer_update(window)
     return app.exec()

@@ -777,7 +777,7 @@ def test_switching_says_what_it_will_cost_you(qapp):
     panel = searches_panel(qapp, [("asset management", ["asset manager"], False)])
     panel.listing.setCurrentRow(0)
     panel.toggle()
-    assert "swept each morning" in panel.result.text()
+    assert "swept in each daily run" in panel.result.text()
     panel.close()
 
 

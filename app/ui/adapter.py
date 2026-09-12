@@ -16,8 +16,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
+from app.core.db import ALERTS, SWEEP
 from app.core.dedup import recover_stranded
 from app.core.pipeline import RunOutcome
 from app.core.screen import Verdict
@@ -28,6 +30,10 @@ from app.ui.review import ReviewRow
 SCREENED_OUT = "screened-out"
 
 VALID_DECISIONS = {"pursue", "reject", "later"}
+
+#: A run id no row can carry, for asking `stranded_rows` for everything
+#: undecided rather than everything undecided from OTHER runs.
+NO_RUN = -1
 
 
 def rows_from_outcome(outcome: RunOutcome) -> list[ReviewRow]:
@@ -192,21 +198,56 @@ def connect_window(window, conn: sqlite3.Connection) -> None:
 
 
 def latest_run_id(conn: sqlite3.Connection) -> int | None:
-    """The most recent run that actually swept anything.
+    """The most recent run whose postings the user is meant to work through: a
+    daily search, or a job-alert import.
 
-    Deliberately not MAX(id): a run row is opened by any run that produces
-    outputs, an outreach run included, and those sweep no jobs. Taking the
-    newest row regardless would empty the review window every time the user
-    drafted their outreach — the shortlist would vanish for no visible reason.
+    Deliberately not MAX(id): a `runs` row is opened by anything that produces
+    output — an outreach run, the calibration sample — so taking the newest row
+    regardless would empty the review window every time the user drafted their
+    outreach, and would show a new user the setup sample as though it were the
+    morning's shortlist.
+
+    Nor `swept > 0` any longer (PIPELINE-P6). A search whose fetch failed
+    sweeps nothing, so that rule skipped past it to the run before and the
+    window showed an older shortlist as though it were today's, with nothing
+    saying the morning had gone wrong. The run is chosen by what it was FOR,
+    however little it found, so its status is what the window reports.
+    Undecided postings from earlier runs still arrive, marked as carried
+    forward.
     """
-    row = conn.execute(
-        "SELECT MAX(id) AS id FROM runs WHERE swept > 0").fetchone()
-    if row and row["id"] is not None:
-        return row["id"]
-    # No run has swept yet: fall back to the newest, so a first run that
-    # fetched nothing still shows its (empty) result rather than nothing at all.
-    row = conn.execute("SELECT MAX(id) AS id FROM runs").fetchone()
+    row = conn.execute("SELECT MAX(id) AS id FROM runs WHERE kind IN (?, ?)",
+                       (SWEEP, ALERTS)).fetchone()
     return row["id"] if row and row["id"] is not None else None
+
+
+@dataclass(frozen=True)
+class RunStatus:
+    """What the window says about a run, read back from its row."""
+    run_id: int
+    status: str
+    started_at: str
+    incomplete_note: str = ""
+    fetch_error: str = ""
+
+    @property
+    def went_wrong(self) -> bool:
+        # 'incomplete' covers both a partial fetch and postings left unread;
+        # either way the shortlist is not the whole of what was there.
+        return self.status in ("failed", "incomplete")
+
+
+def run_status(conn: sqlite3.Connection, run_id: int | None) -> RunStatus | None:
+    if run_id is None:
+        return None
+    row = conn.execute(
+        "SELECT id, status, started_at, incomplete_note, fetch_error "
+        "FROM runs WHERE id=?", (run_id,)).fetchone()
+    if row is None:
+        return None
+    return RunStatus(run_id=row["id"], status=row["status"],
+                     started_at=row["started_at"],
+                     incomplete_note=row["incomplete_note"] or "",
+                     fetch_error=row["fetch_error"] or "")
 
 
 #: The columns both row queries read. Written once because the two of them
@@ -328,7 +369,16 @@ def rows_from_db(conn: sqlite3.Connection, run_id: int | None = None,
     """
     run_id = run_id if run_id is not None else latest_run_id(conn)
     if run_id is None:
-        return []
+        # No search has run yet, which is NOT the same as having nothing to
+        # show. Onboarding assesses ten live postings to calibrate against and
+        # stores them as a run of their own, so the first launch after setup
+        # has judged, undecided postings on disk — and returning [] here put an
+        # empty window in front of a user who had just spent their own tokens
+        # filling it. The recovery rules are the ones spec 6.5 already
+        # defines; nothing here decides anything on their behalf.
+        if not (recover and not include_decided):
+            return []
+        return stranded_rows(conn, NO_RUN, near_duplicate_notes(conn))
 
     sql = _ROW_COLUMNS + """
           FROM jobs j

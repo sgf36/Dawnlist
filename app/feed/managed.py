@@ -189,7 +189,8 @@ class ManagedProvider(FeedProvider):
             # was already gathered, and the user is told in plain numbers.
             code = payload.get("error", "cap")
             return FetchResult(jobs=[], capped=(code == "posting_cap"),
-                               error=payload.get("message", "Daily limit reached"))
+                               error=payload.get("message", "Daily limit reached"),
+                               refusal=code)
         if status != 200:
             return FetchResult(jobs=[], error=_message(status, payload))
 

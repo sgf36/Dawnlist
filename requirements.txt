@@ -78,3 +78,22 @@ Pillow>=10.0.0
 pyobjc-core>=10.0 ; sys_platform == "darwin"
 pyobjc-framework-Cocoa>=10.0 ; sys_platform == "darwin"
 pyobjc-framework-StoreKit>=10.0 ; sys_platform == "darwin"
+
+# START AT SIGN-IN. The daily run happens only while Dawnlist is running, so
+# each build needs its own way to be running after a restart.
+#
+# macOS (both builds): SMAppService.mainApp, from ServiceManagement.
+# Microsoft Store: the manifest's startup task, which only
+# Windows.ApplicationModel.StartupTask can switch on — a packaged app cannot
+# write the Run key for itself. Activation is read to tell a launch at sign-in
+# from one by hand, so the first opens in the tray.
+#
+# All imported lazily in app/core/sign_in.py. Without them the Store build
+# opens Windows' own Startup apps page instead, and a Mac build reports the
+# switch as unavailable, so a missing package costs the convenience, not a
+# crash. The direct Windows build needs none of these: it uses the Run key.
+pyobjc-framework-ServiceManagement>=10.0 ; sys_platform == "darwin"
+winrt-runtime>=2.0 ; sys_platform == "win32"
+winrt-Windows.Foundation>=2.0 ; sys_platform == "win32"
+winrt-Windows.ApplicationModel>=2.0 ; sys_platform == "win32"
+winrt-Windows.ApplicationModel.Activation>=2.0 ; sys_platform == "win32"

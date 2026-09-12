@@ -21,7 +21,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QFont, QFontMetrics
 from app.i18n import is_rtl, tr
 from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel,
-                               QMainWindow,
+                               QMainWindow, QProgressBar,
                                QPushButton, QSizePolicy, QSplitter,
                                QTabWidget, QTextBrowser,
                                QTreeWidget, QTreeWidgetItem, QVBoxLayout,
@@ -157,6 +157,31 @@ QTextBrowser#detailPane {{
 QTabBar::tab {{ padding: 8px 14px; }}
 """
 
+#: The run controls, appended rather than written into the block above so the
+#: two can change independently. The status box has a background, so it has
+#: explicit padding for the reason given on the block above.
+STYLESHEET += f"""
+QLabel#runStatus {{
+    background: #f7efe2;
+    border: 1px solid {GOLD_DEEP};
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: {INK};
+}}
+QLabel#runNote {{ color: #45505a; padding: 2px 2px; }}
+QLabel#lastRun {{ color: #45505a; }}
+QPushButton#runNowButton {{
+    min-height: 30px;
+    padding: 6px 18px;
+    border-radius: 6px;
+    border: 1px solid {TEAL};
+    background: {TEAL};
+    color: {CREAM};
+    font-weight: 600;
+}}
+QPushButton#runNowButton:hover {{ background: {TEAL_LIFTED}; }}
+"""
+
 
 class FunnelBar(QFrame):
     """swept -> deduped -> gated -> screened -> assessed, always on screen."""
@@ -269,6 +294,9 @@ class ReviewWindow(QMainWindow):
     #: "add job-alert emails yourself for anything the feeds miss", and the
     #: parser for them was complete and reachable from nowhere.
     alerts_dropped = Signal(list)
+    #: Run now was pressed. The window never decides whether a run may start;
+    #: whoever owns the schedule does, and tells it through `set_run_state`.
+    run_now_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -321,6 +349,45 @@ class ReviewWindow(QMainWindow):
 
         self.funnel = FunnelBar()
         outer.addWidget(self.funnel)
+
+        # PIPELINE-P6: a failed or partial run says so beside its counts. The
+        # counts of a failed run are mostly zero, and without this the window
+        # showed them over yesterday's carried-forward postings as though the
+        # morning had simply been quiet.
+        self.run_status = QLabel()
+        self.run_status.setObjectName("runStatus")
+        self.run_status.setWordWrap(True)
+        self.run_status.setTextFormat(Qt.PlainText)
+        self.run_status.hide()
+        outer.addWidget(self.run_status)
+
+        run_row = QHBoxLayout()
+        run_row.setSpacing(10)
+        self.last_run = QLabel()
+        self.last_run.setObjectName("lastRun")
+        self.run_busy = QProgressBar()
+        # A range of nothing is Qt's indeterminate bar: a run reports no
+        # fraction done, and a bar that guessed one would stall at 90%.
+        self.run_busy.setRange(0, 0)
+        self.run_busy.setTextVisible(False)
+        self.run_busy.setMaximumWidth(140)
+        self.run_busy.hide()
+        self.run_progress = QLabel(tr("run.running"))
+        self.run_progress.setObjectName("lastRun")
+        self.run_progress.hide()
+        self.btn_run_now = QPushButton(tr("run.now"))
+        self.btn_run_now.setObjectName("runNowButton")
+        self.btn_run_now.setToolTip(tr("run.now_tip"))
+        self.btn_run_now.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.btn_run_now.hide()
+        self.btn_run_now.setEnabled(False)
+        self.btn_run_now.clicked.connect(self.run_now_requested)
+        run_row.addWidget(self.last_run)
+        run_row.addWidget(self.run_busy)
+        run_row.addWidget(self.run_progress)
+        run_row.addStretch(1)
+        run_row.addWidget(self.btn_run_now)
+        outer.addLayout(run_row)
 
         splitter = QSplitter(Qt.Horizontal)
 
@@ -454,6 +521,30 @@ class ReviewWindow(QMainWindow):
                 (self.contained, "tab.needs_review"))):
             self.tabs.setTabText(idx, tr("tab.with_count", label=tr(key),
                                          count=tree.topLevelItemCount()))
+
+    # -- the daily run -----------------------------------------------------
+    def set_run_state(self, *, offered: bool, running: bool) -> None:
+        """Show Run now exactly when it is offered and nothing is running.
+
+        Hidden rather than only greyed out when it is not offered: a disabled
+        button with no explanation reads as broken, and pressing it before the
+        run time would spend the day's refreshes ahead of the scheduled run.
+        """
+        available = offered and not running
+        self.btn_run_now.setVisible(available)
+        self.btn_run_now.setEnabled(available)
+        self.run_busy.setVisible(running)
+        self.run_progress.setVisible(running)
+
+    def set_last_run(self, text: str) -> None:
+        self.last_run.setText(text)
+
+    def set_run_status(self, text: str, *, problem: bool = True) -> None:
+        self.run_status.setObjectName("runStatus" if problem else "runNote")
+        self.run_status.style().unpolish(self.run_status)
+        self.run_status.style().polish(self.run_status)
+        self.run_status.setText(text)
+        self.run_status.setVisible(bool(text))
 
     # -- interaction -------------------------------------------------------
     def _current_row(self) -> ReviewRow | None:

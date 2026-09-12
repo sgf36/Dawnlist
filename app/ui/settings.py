@@ -25,11 +25,13 @@ from __future__ import annotations
 
 from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import (QComboBox, QFrame, QGridLayout, QHBoxLayout,
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout,
+                               QHBoxLayout,
                                QLabel,
                                QLineEdit, QListWidget, QListWidgetItem,
                                QPushButton,
                                QScrollArea, QSizePolicy, QSpinBox, QStyle,
+                               QTimeEdit,
                                QVBoxLayout, QWidget)
 
 from app.core import api_key
@@ -426,7 +428,8 @@ class SettingsWindow(QWidget):
     """
 
     def __init__(self, parent=None, *, variant=None, rules=None,
-                 families=None, searches=None, is_admin=None, home=None):
+                 families=None, searches=None, schedule=None, is_admin=None,
+                 home=None):
         super().__init__(parent)
         from app.core.build_variant import variant as read_variant
 
@@ -504,6 +507,15 @@ class SettingsWindow(QWidget):
         if families is not None:
             layout.addWidget(_divider())
             layout.addWidget(families, 1)
+
+        # When the search happens, and what keeps Dawnlist there to do it.
+        # Only with a database behind it, like the three panels above: the run
+        # time is a per-install setting, and a panel wired to nothing would
+        # offer to change a time that no run would ever read.
+        self.schedule = schedule
+        if schedule is not None:
+            layout.addWidget(_divider())
+            layout.addWidget(schedule)
 
         self.licence = LicencePanel()
         build = variant if variant is not None else read_variant()
@@ -1753,3 +1765,180 @@ class SearchesPanel(QWidget):
         self._say(tr("searches.removed", label=label), ok=True)
         self.refresh()
         self.changed.emit()
+
+
+class SchedulePanel(QWidget):
+    """When the daily search runs, and what keeps Dawnlist there to run it.
+
+    Three settings that only make sense together. A run time means nothing if
+    the app is closed at that hour, keeping it running means nothing if the
+    machine was restarted and nobody opened it, and starting at sign-in means
+    nothing without a run time. Split across the screen they would each look
+    like a small preference rather than the one promise they add up to.
+
+    Start at sign-in is read and written through `app.core.sign_in`, which
+    talks to Windows or macOS — so it is done off the UI thread, both when the
+    panel opens and when the box is ticked.
+    """
+
+    changed = Signal()
+
+    def __init__(self, *, loader=None, time_saver=None, keep_saver=None,
+                 sign_in_reader=None, sign_in_setter=None, page_opener=None,
+                 tray_available: bool = True, parent=None):
+        super().__init__(parent)
+        from datetime import time as _time
+
+        self._load = loader or (lambda: (_time(7, 0), False))
+        self._save_time = time_saver or (lambda value: None)
+        self._save_keep = keep_saver or (lambda on: None)
+        #: None on a build with no way to start at sign-in, and then the box is
+        #: not shown at all: an unmarked build cannot do it, and a switch that
+        #: does nothing is worse than no switch.
+        self._read_sign_in = sign_in_reader
+        self._set_sign_in = sign_in_setter or (lambda on: None)
+        self._open_page = page_opener or (lambda page: False)
+        self._task = None
+        #: Counts what the user has asked for. The opening read of the system's
+        #: state runs on a worker thread, and a slow one landing after the box
+        #: was ticked would untick it — showing the state from before the
+        #: change as though the change had failed.
+        self._asked = 0
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
+
+        heading = QLabel(tr("schedule.heading"))
+        heading.setObjectName("stepHeading")
+        layout.addWidget(heading)
+
+        body = QLabel(reflow(tr("schedule.body")))
+        body.setObjectName("stepBody")
+        body.setWordWrap(True)
+        layout.addWidget(body)
+
+        row = QHBoxLayout()
+        row.setSpacing(10)
+        row.addWidget(QLabel(tr("schedule.run_time")))
+        self.time_field = QTimeEdit()
+        self.time_field.setDisplayFormat("HH:mm")
+        self.time_field.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        row.addWidget(self.time_field)
+        row.addStretch(1)
+        layout.addLayout(row)
+
+        self.keep_running = QCheckBox(tr("schedule.keep_running"))
+        layout.addWidget(self.keep_running)
+        if not tray_available:
+            # Hiding the window with no tray icon would leave no way back to
+            # it, so the setting is shown refused rather than silently absent.
+            self.keep_running.setEnabled(False)
+            no_tray = QLabel(tr("schedule.no_tray"))
+            no_tray.setWordWrap(True)
+            layout.addWidget(no_tray)
+
+        self.sign_in = QCheckBox(tr("schedule.sign_in"))
+        self.sign_in.setVisible(self._read_sign_in is not None)
+        layout.addWidget(self.sign_in)
+
+        self.result = QLabel()
+        self.result.setWordWrap(True)
+        self.result.hide()
+        layout.addWidget(self.result)
+        layout.addStretch(1)
+
+        self.setStyleSheet(SETTINGS_STYLESHEET)
+        self.refresh()
+        self.time_field.timeChanged.connect(self._time_changed)
+        self.keep_running.toggled.connect(self._keep_changed)
+        self.sign_in.toggled.connect(self._sign_in_changed)
+
+    def refresh(self) -> None:
+        from PySide6.QtCore import QTime
+
+        run_time, keep = self._load()
+        # Set before the signals are connected on the first pass, and blocked
+        # here afterwards: writing a value back is not the user changing it,
+        # and saying "Dawnlist will run at 07:00" for opening the screen is a
+        # message about nothing.
+        for widget, value in ((self.time_field,
+                               QTime(run_time.hour, run_time.minute)),
+                              (self.keep_running, keep)):
+            widget.blockSignals(True)
+            (widget.setTime if widget is self.time_field
+             else widget.setChecked)(value)
+            widget.blockSignals(False)
+        if self._read_sign_in is not None:
+            asked = self._asked
+            self._task = run_in_background(
+                self._read_sign_in,
+                on_done=lambda on: self._show_sign_in(on, asked=asked),
+                on_error=lambda exc: self._show_sign_in(False, asked=asked))
+
+    def _show_sign_in(self, on: bool, *, asked: int | None = None) -> None:
+        if asked is not None and asked != self._asked:
+            return          # answered about a state the user has since changed
+        self.sign_in.blockSignals(True)
+        self.sign_in.setChecked(bool(on))
+        self.sign_in.blockSignals(False)
+
+    def _say(self, text: str, ok: bool = True) -> None:
+        self.result.setObjectName("ok" if ok else "bad")
+        self.result.setText(text)
+        self.result.style().unpolish(self.result)
+        self.result.style().polish(self.result)
+        self.result.setVisible(bool(text))
+
+    def _time_changed(self, value) -> None:
+        from datetime import time as _time
+
+        run_time = _time(value.hour(), value.minute())
+        self._save_time(run_time)
+        self._say(tr("schedule.saved_time",
+                     time=value.toString(self.time_field.displayFormat())))
+        self.changed.emit()
+
+    def _keep_changed(self, on: bool) -> None:
+        self._save_keep(on)
+        self._say(tr("schedule.keep_on" if on else "schedule.keep_off"))
+        self.changed.emit()
+
+    def _sign_in_changed(self, on: bool) -> None:
+        self._asked += 1
+        self.sign_in.setEnabled(False)
+        self._say(tr("schedule.working"))
+        self._task = run_in_background(
+            lambda: self._set_sign_in(on), on_done=self._sign_in_done,
+            on_error=self._sign_in_failed)
+
+    def _sign_in_done(self, change) -> None:
+        from app.core import sign_in as sign_in_api
+
+        self.sign_in.setEnabled(True)
+        # The box follows what the system actually did, never what was asked:
+        # a tick that stays on while nothing was switched on is the one outcome
+        # nobody can act on.
+        self._show_sign_in(getattr(change, "enabled", False))
+
+        page = getattr(change, "open_page", "")
+        problem = getattr(change, "problem", "")
+        if page:
+            self._open_page(page)
+            self._say(tr("schedule.sign_in_startup_apps"
+                         if page == sign_in_api.WINDOWS_STARTUP_APPS
+                         else "schedule.sign_in_login_items"), ok=False)
+        elif problem == "policy":
+            self._say(tr("schedule.sign_in_policy"), ok=False)
+        elif problem:
+            self._say(tr("schedule.sign_in_failed", reason=problem), ok=False)
+        else:
+            self._say(tr("schedule.sign_in_on" if change.enabled
+                         else "schedule.sign_in_off"))
+        self.changed.emit()
+
+    def _sign_in_failed(self, exc: BaseException) -> None:
+        self.sign_in.setEnabled(True)
+        self._show_sign_in(False)
+        self._say(tr("schedule.sign_in_failed",
+                     reason=f"{type(exc).__name__}: {exc}"), ok=False)

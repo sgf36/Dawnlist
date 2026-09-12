@@ -95,6 +95,11 @@ class FetchResult:
     #: query that simply matched fewer rows. The distinction is what lets the
     #: app name the cause instead of reporting a vague shortfall.
     capped: bool = False
+    #: The provider's own code when it refused the request outright, such as
+    #: the Worker's `refresh_cap`. The message beside it is English prose meant
+    #: for a log; this is what the app matches on to tell the user, in their
+    #: language, that the day's refreshes are used up and when they return.
+    refusal: str | None = None
 
     @property
     def ok(self) -> bool:
