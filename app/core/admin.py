@@ -208,3 +208,32 @@ def void_apple_code(key: str, code: str, *, opener=None) -> dict:
     """
     return _request(key, "/admin/apple-codes/void", method="POST",
                     body={"code": (code or "").strip().upper()}, opener=opener)
+
+
+def apple_subscribers(key: str, *, opener=None) -> dict:
+    """Who redeemed, and whether they may be comped.
+
+    NOT the same set as the offer-code ledger. A code can be handed out and
+    never used; only a redemption produces a transaction, and only a
+    transaction can be comped.
+
+    `comp_eligible` is computed by the SERVER from the offer Apple recorded,
+    and the console must use that answer rather than deriving its own. A button
+    enabled by a second copy of the rule is a button that lies the day the two
+    copies disagree.
+    """
+    return _request(key, "/admin/apple-subscribers", opener=opener)
+
+
+def set_apple_comp(key: str, *, original_transaction_id: str, comp: bool,
+                   opener=None) -> dict:
+    """Keep this Mac user's licence alive past Apple's free period, or stop.
+
+    Switching comp ON is refused by the server unless the subscription began
+    with a comp offer — evidence from the transaction Apple signed, which
+    nothing here can fabricate. Switching it OFF is never refused: withdrawing
+    access must not be blocked by a gate that exists to control granting it.
+    """
+    return _request(key, "/admin/apple-comp", method="POST",
+                    body={"original_transaction_id": str(original_transaction_id),
+                          "comp": bool(comp)}, opener=opener)

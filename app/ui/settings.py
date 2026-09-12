@@ -1063,6 +1063,7 @@ class AppleOfferPanel(QWidget):
         self._key_source = key_source or entitlement.stored_licence
         self._confirm = confirm or self._ask_before_voiding
         self._codes: list[dict] = []
+        self._people: list[dict] = []
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -1113,6 +1114,41 @@ class AppleOfferPanel(QWidget):
         row.addStretch(1)
         layout.addLayout(row)
 
+        # --- who redeemed, and who keeps it afterwards ----------------------
+        #
+        # A SECOND LIST, not a column on the first. The ledger above is who was
+        # GIVEN a code; this is who redeemed one. They are different sets — a
+        # code can be handed out and never used — and showing them as one
+        # screen would invite comping somebody who has not turned up yet.
+        layout.addWidget(_divider())
+
+        people = QLabel(tr("settings.offer_people_heading"))
+        people.setObjectName("stepHeading")
+        layout.addWidget(people)
+
+        people_body = QLabel(reflow(tr("settings.offer_people_body")))
+        people_body.setObjectName("stepBody")
+        people_body.setWordWrap(True)
+        layout.addWidget(people_body)
+
+        self.people = QListWidget()
+        self.people.setMaximumHeight(140)
+        layout.addWidget(self.people)
+
+        people_row = QHBoxLayout()
+        self.btn_comp = QPushButton(tr("settings.offer_comp_on"))
+        self.btn_comp.setObjectName("primary")
+        people_row.addWidget(self.btn_comp)
+        people_row.addStretch(1)
+        layout.addLayout(people_row)
+
+        self.people_result = QLabel()
+        self.people_result.setWordWrap(True)
+        layout.addWidget(self.people_result)
+
+        self.btn_comp.clicked.connect(self._toggle_comp)
+        self.people.currentRowChanged.connect(self._people_changed)
+
         self.btn_assign.clicked.connect(self._assign)
         self.btn_refresh.clicked.connect(self.refresh)
         self.btn_void.clicked.connect(self._void)
@@ -1138,7 +1174,8 @@ class AppleOfferPanel(QWidget):
         return self._key_source()
 
     def _busy(self, on: bool) -> None:
-        for button in (self.btn_assign, self.btn_refresh, self.btn_void):
+        for button in (self.btn_assign, self.btn_refresh, self.btn_void,
+                       self.btn_comp):
             button.setEnabled(not on)
 
     def _run(self, work, done) -> None:
@@ -1185,7 +1222,90 @@ class AppleOfferPanel(QWidget):
             self.result.setText(tr("settings.admin_no_licence"))
             return
         api = self._api
-        self._run(lambda: api.apple_codes(key), self._listed)
+
+        def then_people(payload):
+            self._listed(payload)
+            self.refresh_people()
+
+        self._run(lambda: api.apple_codes(key), then_people)
+
+    # -- who keeps it after Apple stops paying attention --------------------
+    def _describe_person(self, row: dict) -> str:
+        offer = row.get("offer_identifier") or tr("settings.offer_person_paid")
+        state = (tr("settings.offer_person_comped") if row.get("comp")
+                 else tr("settings.offer_person_normal"))
+        return tr("settings.offer_row_person", licence=row.get("licence", ""),
+                  offer=offer, state=state)
+
+    def _people_changed(self, index: int) -> None:
+        """The button says what pressing it will do, and goes dead when it
+        would do nothing.
+
+        `comp_eligible` comes from the SERVER, computed from the offer Apple
+        recorded. Deriving it here as well would be a second copy of the rule,
+        and the day the two disagree the button is enabled for something the
+        server refuses — which reads as a broken console rather than a
+        deliberate refusal.
+        """
+        if index < 0 or index >= len(self._people):
+            self.btn_comp.setEnabled(False)
+            self.btn_comp.setText(tr("settings.offer_comp_on"))
+            return
+        row = self._people[index]
+        comped = bool(row.get("comp"))
+        self.btn_comp.setText(tr("settings.offer_comp_off") if comped
+                              else tr("settings.offer_comp_on"))
+        # Switching OFF is always allowed. Only granting is gated, so a
+        # customer who cannot be comped can still be un-comped if somebody
+        # managed it before the gate existed.
+        self.btn_comp.setEnabled(comped or bool(row.get("comp_eligible")))
+        if not comped and not row.get("comp_eligible"):
+            self.people_result.setText(tr("settings.offer_comp_not_eligible"))
+
+    def _listed_people(self, payload, message: str = "") -> None:
+        self._busy(False)
+        self._people = list(payload.get("subscribers", []))
+        self.people.clear()
+        for row in self._people:
+            self.people.addItem(self._describe_person(row))
+        if message:
+            self.people_result.setText(message)
+        elif not self._people:
+            self.people_result.setText(tr("settings.offer_nobody"))
+        self._people_changed(self.people.currentRow())
+
+    def _toggle_comp(self) -> None:
+        key = self._key()
+        if not key:
+            self.people_result.setText(tr("settings.admin_no_licence"))
+            return
+        index = self.people.currentRow()
+        if index < 0 or index >= len(self._people):
+            self.people_result.setText(tr("settings.offer_pick_person"))
+            return
+        row = self._people[index]
+        txn, comp = row.get("original_transaction_id", ""), not row.get("comp")
+        api = self._api
+
+        def done(_):
+            self._run(lambda: api.apple_subscribers(key),
+                      lambda payload: self._listed_people(
+                          payload,
+                          tr("settings.offer_comp_done_on") if comp
+                          else tr("settings.offer_comp_done_off")))
+
+        self._run(
+            lambda: api.set_apple_comp(key, original_transaction_id=txn, comp=comp),
+            done)
+
+    def refresh_people(self) -> None:
+        key = self._key()
+        if not key:
+            self.people_result.setText(tr("settings.admin_no_licence"))
+            return
+        api = self._api
+        self._run(lambda: api.apple_subscribers(key), self._listed_people)
+
 
     def _assign(self) -> None:
         key = self._key()

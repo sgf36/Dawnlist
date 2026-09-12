@@ -233,6 +233,7 @@ const ADMIN_ACTIONS = {
   'POST /admin/apple-codes/assign': 'apple.assign',
   'POST /admin/apple-codes/void': 'apple.void',
   'POST /admin/apple-comp': 'apple.comp',
+  'GET /admin/apple-subscribers': 'apple.subscribers',
 };
 
 /**
@@ -690,6 +691,36 @@ async function routeAdmin(request, env, auth, path, audit) {
     return json({ ok: true, original_transaction_id: id, comp,
                   began_with: row.offer_identifier || null,
                   licence: maskKey(row.licence_key) });
+  }
+
+  // --- who is on the Mac subscription, and how they got there -------------
+  //
+  // The offer-code ledger above says who was GIVEN a code. This says who
+  // actually redeemed one, which is a different set: a code can be handed out
+  // and never used, and only a redemption produces a transaction to comp.
+  //
+  // `offer_identifier` is the interesting column. It comes from the payload
+  // Apple signed and is the difference between a guest and a customer.
+  if (path === '/admin/apple-subscribers' && request.method === 'GET') {
+    const { results } = await env.DB.prepare(
+      `SELECT original_transaction_id, licence_key, status, expires_at,
+              offer_identifier, offer_type, comp, updated_at
+         FROM apple_transactions
+        ORDER BY updated_at DESC LIMIT 200`
+    ).all();
+    const offers = String(env.APPLE_COMP_OFFERS || '')
+      .split(',').map((s) => s.trim()).filter(Boolean);
+    return json({
+      comp_offers: offers,
+      subscribers: (results || []).map(({ licence_key: key, ...row }) => ({
+        ...row,
+        licence: maskKey(key),
+        // Computed here rather than in the console, so one rule decides both
+        // what the screen offers and what the server will accept. A button
+        // enabled by a second copy of this logic is a button that lies.
+        comp_eligible: compEligible(env, row),
+      })),
+    });
   }
 
   // --- do the credentials actually WORK ----------------------------------
