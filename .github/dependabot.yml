@@ -19,6 +19,19 @@ updates:
       day: "tuesday"
     open-pull-requests-limit: 5
     labels: ["dependencies"]
+    ignore:
+      # pydantic-core is pinned to an EXACT version by pydantic itself
+      # (pydantic 2.13.5 requires pydantic-core==2.46.5), so a pull request
+      # that moves only the core is unresolvable: pip-audit fails with
+      # ResolutionImpossible before a single test runs, which is what #24 did.
+      # The real upgrade path is bumping `pydantic`, which carries its matching
+      # core with it - and those pull requests still open, because only this
+      # one package is ignored.
+      #
+      # THIS IS A STANDING DECISION, NOT A DISMISSAL. If pydantic is ever
+      # bumped and the lock still pins an older core, this line will hide that
+      # mismatch - so check the core moved with it.
+      - dependency-name: "pydantic-core"
 
   # The SHA pins in .github/workflows/build.yml, including the ones on the
   # signing actions. A pinned action is safe from a retagged release and
