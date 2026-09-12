@@ -217,6 +217,36 @@ def test_a_press_after_a_sheet_that_never_appeared_can_try_again():
     assert len(t.queue.payments) == 2
 
 
+def test_a_purchase_apple_kept_open_from_an_earlier_launch_is_said_not_repeated():
+    """Build 165 on the cloud Mac, 2026-09-13: the first press was interrupted
+    by sign-in and 2FA, Apple re-added that open transaction at every launch,
+    and each later press called addPayment, which Apple silently discards.
+    A fresh process has no flag set, so the flag cannot be what decides."""
+    t = make()
+    t.queue.pending = [Txn(S.purchasing)]
+    said = t.hub.purchase("product")
+    assert said.outcome is Outcome.IN_PROGRESS
+    assert said.detail, "a wait with no end needs words, not 'talking to…'"
+    assert t.queue.payments == []
+
+
+def test_an_open_purchase_for_another_product_does_not_block_this_one():
+    t = make()
+    t.queue.pending = [Txn(S.purchasing, product="com.example.other")]
+    assert t.hub.purchase("product") is None
+    assert len(t.queue.payments) == 1
+
+
+def test_the_launch_redelivery_of_a_purchased_transaction_still_reaches_the_worker():
+    """The positive control for the check above: only purchasing and deferred
+    block a press. A completed purchase Apple redelivers is exchanged."""
+    t = make()
+    t.hub.transactions_updated(t.queue, [Txn(S.purchased)])
+    t.run.drain()
+    assert t.asked == ["2000000999"]
+    assert t.seen[-1].outcome is Outcome.PURCHASED
+
+
 # -- restore ------------------------------------------------------------------
 
 def test_restore_with_nothing_on_the_account_claims_nothing():

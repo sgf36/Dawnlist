@@ -1699,8 +1699,10 @@ class SubscribePanel(QWidget):
         if result.outcome is Outcome.IN_PROGRESS:
             # A second press while Apple's queue still holds the first. Adding
             # another payment would stack purchase sheets; saying nothing new
-            # is the honest answer.
-            self.result.setText(tr("settings.subscribe_working"))
+            # is the honest answer. A detail means the open purchase is not
+            # this press's at all but one Apple kept from an earlier launch,
+            # and "talking to the App Store" would be a wait with no end.
+            self.result.setText(result.detail or tr("settings.subscribe_working"))
             return
         if result.outcome is Outcome.DEFERRED:
             self.result.setText(tr("settings.subscribe_deferred"))

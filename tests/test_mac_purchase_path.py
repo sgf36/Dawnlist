@@ -284,7 +284,11 @@ def test_a_purchase_that_never_answers_still_leaves_a_way_out(qapp_and_settle):
         "Restore is the answer for somebody who already paid and is watching "
         "a sheet that never opened")
     said = panel.result.text().lower()
-    assert "sandbox" in said, "say what to actually check"
+    assert "signed in" in said, "say what to actually check"
+    # System Settings has no App Store pane on current macOS, and a TestFlight
+    # build needs no sandbox account at all: the old text sent people to a
+    # screen that does not exist (found on the cloud Mac, 2026-09-13).
+    assert "sandbox account" not in said
     # Not a failure claim: the purchase may still be in flight.
     assert "failed" not in said and "error" not in said
     panel.close()

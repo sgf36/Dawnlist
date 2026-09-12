@@ -233,6 +233,39 @@ def _original_id(transaction) -> str:
                .transactionIdentifier())
 
 
+def _state_name(states, transaction) -> str:
+    try:
+        value = transaction.transactionState()
+    except Exception:  # noqa: BLE001
+        return "?"
+    for name in ("purchasing", "purchased", "failed", "restored", "deferred"):
+        if getattr(states, name) == value:
+            return name
+    return str(value)
+
+
+def _trace(message: str) -> None:
+    """One line in the macOS unified log, under process Dawnlist.
+
+    WHY THIS EXISTS. The stuck purchase of 2026-09-13 took an evening to
+    diagnose because the app wrote nothing anywhere: whether Apple had handed
+    over a transaction, in what state, and what the Worker said all had to be
+    inferred from Apple's own daemons. `log show --predicate 'process ==
+    "Dawnlist"' | grep "Dawnlist StoreKit"` now answers it directly.
+
+    States and outcomes only. Never a licence key, and never anything a
+    customer typed.
+    """
+    try:
+        from Foundation import NSLog
+    except Exception:  # noqa: BLE001 - not macOS, or no PyObjC: nothing to do
+        return
+    try:
+        NSLog("Dawnlist StoreKit: %@", message)
+    except Exception:  # noqa: BLE001 - logging must never break a purchase
+        pass
+
+
 def _describe(error) -> str:
     try:
         return str(error.localizedDescription()) if error is not None else ""
@@ -268,10 +301,23 @@ class TransactionHub:
     # -- starting ---------------------------------------------------------
     def purchase(self, product) -> Result | None:
         """Add a payment, unless one of ours is still in Apple's queue."""
-        if self.purchase_in_flight and self._pending_purchase():
-            return Result(Outcome.IN_PROGRESS)
-        # The flag alone would strand somebody whose sheet never appeared:
-        # once Apple's queue holds nothing of ours, the old attempt is gone.
+        if self._pending_purchase():
+            # AN OPEN PURCHASE FROM AN EARLIER LAUNCH COUNTS TOO. Measured on
+            # the cloud Mac, 2026-09-13, build 165: the first press was
+            # interrupted by the Apple ID sign-in and a 2FA code, Apple kept
+            # that transaction open, and re-added it to the queue at every
+            # launch. This checked the per-process flag first, which is False
+            # after a relaunch, so every later press called addPayment and
+            # Apple discarded it with "Payment added for transaction already
+            # in the SKPaymentQueue" — no sheet, no callback, and a screen
+            # waiting on an answer that could never come. Relaunching and
+            # restarting Apple's store agents did not clear it.
+            if self.purchase_in_flight:
+                return Result(Outcome.IN_PROGRESS)
+            return Result(Outcome.IN_PROGRESS,
+                          tr("storekit.earlier_purchase_open"))
+        # With nothing of ours in Apple's queue the old attempt is gone, so a
+        # press after a sheet that never appeared must be allowed to try again.
         self.purchase_in_flight = True
         self.queue.addPayment_(self.payment_for(product))
         return None
@@ -296,6 +342,8 @@ class TransactionHub:
     def transactions_updated(self, queue, transactions) -> None:
         s = self.states
         for t in list(transactions or []):
+            _trace(f"transaction {_product_of(t) or '?'} "
+                   f"state {_state_name(s, t)}")
             try:
                 # NOT OURS: neither delivered nor finished here. Finishing a
                 # transaction tells Apple its content was delivered.
@@ -362,6 +410,8 @@ class TransactionHub:
         self.run(ask, answered)
 
     def _answered(self, queue, transaction, result, counting: bool) -> None:
+        _trace(f"worker answered {result.outcome} saved={result.saved} "
+               f"error={getattr(result, 'error', '') or ''}")
         definite = result.outcome in ("licence", "refused")
         # FINISHED ONLY ON A DEFINITE, KEPT ANSWER. Unfinished, Apple delivers
         # the transaction again at the next launch, which is the retry an
