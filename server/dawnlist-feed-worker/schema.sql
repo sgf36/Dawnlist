@@ -241,7 +241,17 @@ CREATE TABLE IF NOT EXISTS apple_transactions (
     status                  TEXT NOT NULL,
     expires_at              TEXT,
     created_at              TEXT NOT NULL,
-    updated_at              TEXT NOT NULL
+    updated_at              TEXT NOT NULL,
+    -- Comp access (migration 012). offer_identifier is read from the
+    -- transaction Apple SIGNED and names the offer the subscription began
+    -- with; comp is an administrator deliberate act. Both are required before
+    -- /v1/apple keeps answering past Apple free period, so a paying customer
+    -- whose subscription lapsed can never qualify. offer_type is recorded and
+    -- nothing depends on it: its value for an offer-code redemption is
+    -- unconfirmed, and a guard resting on a guess is not a guard.
+    offer_identifier        TEXT,
+    offer_type              INTEGER,
+    comp                    INTEGER NOT NULL DEFAULT 0
 );
 
 -- Mac App Store offer codes (migration 011). Minted in App Store Connect on a

@@ -21,6 +21,7 @@
 import { PLANS, capsFor, defaultCodeExpiry, hasExpired, licenceExpiry } from './plans.js';
 import { licenceEmail, localeFor, sendEmail } from './email.js';
 import { parseJsonObject } from './body.js';
+import { compEligible } from './apple.js';
 
 /** Generated codes are 19 characters; this admits hand-made ones with room. */
 const MAX_CODE_CHARS = 64;
@@ -231,6 +232,7 @@ const ADMIN_ACTIONS = {
   'GET /admin/apple-codes': 'apple.list',
   'POST /admin/apple-codes/assign': 'apple.assign',
   'POST /admin/apple-codes/void': 'apple.void',
+  'POST /admin/apple-comp': 'apple.comp',
 };
 
 /**
@@ -637,6 +639,57 @@ async function routeAdmin(request, env, auth, path, audit) {
     audit.target = row.code;
     return json({ ok: true, code: row.code, batch: row.batch,
                   still_redeemable_at_apple: true });
+  }
+
+  // --- comp a Mac user who never paid, and only such a user ---------------
+  //
+  // TWO GATES, AND THIS ROUTE IS ONLY THE SECOND ONE. `compEligible` reads
+  // `offer_identifier` off the row, which was written from the transaction
+  // APPLE SIGNED — so a subscription somebody bought carries no comp offer and
+  // cannot be comped here however this request is phrased. That is what makes
+  // it impossible to hand free access to a lapsed paying customer by mistake:
+  // the evidence is absent, not merely the intention.
+  if (path === '/admin/apple-comp' && request.method === 'POST') {
+    const parsed = await parseJsonObject(request);
+    if (!parsed.ok) return json({ error: parsed.error, message: parsed.message }, 400);
+    const body = parsed.body;
+
+    const id = String(body.original_transaction_id || '').trim();
+    if (!id) return json({ error: 'no_transaction' }, 400);
+    const comp = body.comp === true || body.comp === 1;
+
+    const row = await env.DB.prepare(
+      `SELECT original_transaction_id, licence_key, offer_identifier, comp
+         FROM apple_transactions WHERE original_transaction_id = ?1`
+    ).bind(id).first();
+    if (!row) return json({ error: 'unknown_transaction' }, 404);
+
+    if (comp && !compEligible(env, row)) {
+      // Named, so the refusal is actionable. "Not eligible" sends somebody
+      // looking for a bug; naming the offer the subscription actually began
+      // with tells them immediately that this is a customer, not a guest.
+      return json({
+        error: 'not_comp_eligible',
+        message: 'This subscription did not begin with a comp offer, so it '
+          + 'cannot be comped. Comp offers: '
+          + (String(env.APPLE_COMP_OFFERS || '') || '(none configured)'),
+        began_with: row.offer_identifier || null,
+      }, 409);
+    }
+
+    await env.DB.prepare(
+      'UPDATE apple_transactions SET comp = ?1 WHERE original_transaction_id = ?2'
+    ).bind(comp ? 1 : 0, id).run();
+
+    // Switching comp OFF does not itself end access: Apple may still be saying
+    // the subscription is live, and a period they were genuinely granted is
+    // not ours to cancel. What it ends is the EXTENSION past that period. To
+    // cut somebody off now, revoke the licence — which an Apple check can no
+    // longer undo.
+    audit.target = maskKey(row.licence_key);
+    return json({ ok: true, original_transaction_id: id, comp,
+                  began_with: row.offer_identifier || null,
+                  licence: maskKey(row.licence_key) });
   }
 
   // --- do the credentials actually WORK ----------------------------------

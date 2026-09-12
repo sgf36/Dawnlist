@@ -39,11 +39,28 @@ function makeEnv(over = {}) {
       _a: [],
       bind(...a) { this._a = a; return this; },
       async first() {
-        if (sql.includes('SELECT licence_key FROM apple_transactions')) {
+        if (sql.includes('FROM apple_transactions')) {
+          // The whole row, not a hand-picked field. The previous version
+          // matched one exact SELECT string, so adding a column to the query
+          // silently returned null and a refusal stopped switching the licence
+          // off — a stub answering what its author believed the SQL did.
           const row = db.apple.get(this._a[0]);
-          return row ? { licence_key: row.licence_key } : null;
+          return row ? { comp: 0, offer_identifier: null, ...row } : null;
+        }
+        if (sql.includes('SELECT status FROM licences')) {
+          return db.licences.get(this._a[0]) || null;
         }
         return null;
+      },
+      async all() {
+        const a = this._a;
+        if (sql.includes("UPDATE licences SET status = 'active'")) {
+          const row = db.licences.get(a[0]);
+          if (!row || row.status === 'revoked') return { results: [] };
+          Object.assign(row, { status: 'active', expires_at: null });
+          return { results: [{ licence_key: a[0] }] };
+        }
+        throw new Error(`unexpected SQL in test: ${sql}`);
       },
       async run() {
         const a = this._a;
