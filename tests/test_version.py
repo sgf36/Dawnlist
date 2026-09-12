@@ -55,21 +55,49 @@ def test_the_committed_manifest_matches_the_app():
         f"so the committed file is not a lie.")
 
 
-def test_the_manifest_is_ahead_of_what_is_published():
-    """Read off Partner Center on 2026-09-09, not assumed:
+def published_version() -> str:
+    """The live Store version, from the file updated at each publish.
 
-        live (Submission 1)      1.0.0.0
-        draft (Submission 2)     1.0.2.0   built, validated, never published
-
-    A package at or below the live one is refused at upload. The floor here is
-    the DRAFT's version, which is the stricter of the two — a package that
-    cannot replace what is already staged is no use either.
+    It was a literal in the assertion below, and it stayed at 1.0.2.0 after
+    1.1.0 went live — a number inside a test reads as part of the test rather
+    than as a fact about the outside world, so nobody thinks to revisit it. In
+    a file of its own it is an observation with instructions attached.
     """
-    published = (1, 0, 2, 0)
+    text = (MANIFEST.parent / "last-published-version.txt").read_text(
+        encoding="utf-8")
+    versions = [line.strip() for line in text.splitlines()
+                if line.strip() and not line.lstrip().startswith("#")]
+    assert len(versions) == 1, (
+        "last-published-version.txt must hold exactly one version, not "
+        f"{versions}")
+    return versions[0]
+
+
+def test_the_manifest_is_not_behind_what_is_published():
+    """Partner Center refuses a package that is not above the live one.
+
+    NOT BEHIND rather than AHEAD, and the difference is worth stating.
+    Between releases the committed tree IS the published release, so demanding
+    strictly more would fail every run until somebody bumped the version for a
+    release nobody was making. What this catches is the failure that actually
+    happened: the manifest falling BEHIND the Store, which is how CI built a
+    correct, signed package stamped 1.0.2.0 when 1.0.2.0 was already taken.
+
+    A submission has to raise the version anyway, and the floor follows it
+    once that submission is live.
+    """
+    published = tuple(int(p) for p in published_version().split("."))
     current = tuple(int(p) for p in manifest_version().split("."))
-    assert current > published, (
-        f"package version {manifest_version()} is not above the published "
-        f"1.0.2.0 — Partner Center will refuse it")
+    assert current >= published, (
+        f"package version {manifest_version()} is behind the published "
+        f"{published_version()} — Partner Center will refuse it")
+
+
+def test_the_published_version_is_four_parts_like_a_package():
+    """The floor is compared field by field against a package version, so a
+    three-part value here would silently compare short and pass anything."""
+    assert re.fullmatch(r"\d+\.\d+\.\d+\.\d+", published_version()), (
+        published_version())
 
 
 def test_the_packaging_scripts_read_the_app_rather_than_repeating_it():

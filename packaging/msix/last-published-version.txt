@@ -1,0 +1,11 @@
+# The Microsoft Store package version that is PUBLISHED, four parts.
+#
+# Partner Center refuses a package whose version is not higher than the live
+# one, so this is the floor tests/test_version.py holds app/version.py to. It
+# is a recorded observation, not a target: update it in the commit that
+# publishes a submission, and never ahead of one, because a floor above what is
+# actually live would pass a package the Store then rejects.
+#
+# Read off Partner Center rather than assumed. History: 1.0.0.0 was live and
+# 1.0.2.0 staged on 2026-09-09; 1.1.0.0 is published as at 2026-09-11.
+1.1.0.0

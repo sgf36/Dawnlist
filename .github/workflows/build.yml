@@ -8,49 +8,64 @@ name: Build
 # to both the Mac App Store and Developer ID this way since August 2026. This
 # workflow is modelled on that one, including the lessons its comments record.
 #
+# NOTHING SIGNS OFF master, AND THAT IS A SECURITY PROPERTY RATHER THAN
+# TIDINESS. A workflow_dispatch can be started from ANY branch by anyone who
+# can push one, and this file used to gate signing on "is this a pull request"
+# alone. So a branch could be dispatched, signed with the Developer ID
+# certificate, and — once the `mas` job below existed — uploaded to App Store
+# Connect as a Dawnlist build. Every step that touches a signing identity, a
+# notarisation credential or App Store Connect therefore also tests
+# `github.ref == 'refs/heads/master'`, and tests/test_release_workflow.py
+# evaluates those conditions for a manual run from a branch.
+#
+# macOS SHIPS THROUGH THE MAC APP STORE ONLY, by Spencer's decision of
+# 2026-09-08, and this file used to say the opposite of itself two paragraphs
+# running. The direct .dmg leg still BUILDS on every push, because the bundle
+# guards are worth running and the Mac App Store package comes off the same
+# spec — but it no longer signs with the Developer ID certificate and spends a
+# notarisation round trip to produce a file nobody publishes. Ask for one with
+# the `macos_direct` input.
+#
 # WHY THE MATRIX LISTS VARIANTS AND NOT JUST OPERATING SYSTEMS
 # ------------------------------------------------------------
 # It used to be `os: [windows-latest, macos-latest]` with the variant chosen
 # per OS, which meant one run produced ONE package per platform. Windows built
 # the Store MSIX and nothing else, so the Windows direct download did not
-# exist — and nothing failed, because nothing was looking for it. "Direct
-# download and the stores, shipped together" was not reachable from this
-# repository at all.
-#
-# The variant is now part of the matrix, so a single push produces the whole
-# release: Store MSIX, Windows ZIP, macOS .dmg.
-#
-# WHY `mas` IS NOT HERE
-# ---------------------
-# STILL TRUE as of 2026-09-09, but for a narrower reason than when this was
-# written. The purchase flow that was missing now EXISTS —
-# app/core/mac_storekit.py and SubscribePanel — and has never run on a Mac.
-# Adding the leg now would build a .pkg carrying an unverified payment path,
-# which is worse than not building one. Add it once a signed build has taken a
-# real sandbox purchase; store/MACOS-STOREKIT-GAP.md tracks that.
-#
-# A Mac App Store build cannot be submitted today, and a workflow that keeps
-# producing one implies otherwise. Apple's guideline 3.1.1 forbids unlocking an
-# app with a licence key, which is exactly how the entitlement works; the
-# compliant route (3.1.3(b) Multiplatform Services) needs a StoreKit in-app
-# subscription and user accounts, and neither exists. See
-# store/STORE-COMPLIANCE.md. `packaging/build_macos.py --variant mas` still
-# works and can be run by hand on a Mac when that project starts.
+# exist — and nothing failed, because nothing was looking for it.
 #
 # WHAT THIS DELIBERATELY DOES NOT DO: duplicate the packaging logic in YAML.
 # Signing, notarising and the bundle guards live in the packaging scripts, so
 # they can be read, reviewed and run by hand. A workflow that reimplements them
 # in bash is a second source of truth that drifts, and it can only be tested by
 # pushing.
+#
+# EVERY ACTION IS PINNED TO A COMMIT SHA, with its tag in the comment beside
+# it. A tag is a mutable pointer: `azure/login@v2` and
+# `azure/artifact-signing-action@v2` run in a job holding an OIDC token and the
+# signing profile, so a retagged release would run there with nothing changed
+# here and nothing to see in a diff. Dependabot moves the pins.
 
 on:
   push:
     branches: [master, main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      macos_direct:
+        description: "Also sign and notarise the direct-download macOS .dmg"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
+
+env:
+  # The suite runs headless HERE AND ON A DEVELOPER'S MACHINE, deliberately.
+  # A fixture drawn by Qt behaves differently where there is a display, and
+  # tests/test_extract.py duly failed in CI for weeks while passing locally —
+  # long enough for a red result to become scenery. One platform everywhere is
+  # what stops that being rediscovered.
+  QT_QPA_PLATFORM: offscreen
 
 jobs:
   # The Worker is half the product — caps, entitlement and the Paddle webhook
@@ -60,9 +75,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
+          # 22 resolves to the latest 22.x, and that is a floor rather than a
+          # preference: test/d1.mjs imports node:sqlite, which arrived in
+          # 22.13. Lowering this makes every Worker test fail on an import.
           node-version: "22"
       # An explicit glob, not the directory. `node --test test/` collects
       # nothing and still exits reporting one failed "test", which reads like a
@@ -71,7 +89,56 @@ jobs:
         working-directory: server/dawnlist-feed-worker
         run: node --test test/*.test.mjs
 
+  # Two checks that need no build, and so must not wait behind one.
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install the audit tool
+        run: pip install --require-hashes -r requirements-audit.lock.txt
+
+      # The repository is PUBLIC and its history is public with it, so a
+      # redacted value that has come back is not something a later commit can
+      # undo. Cheap on every push; impossible to fix afterwards.
+      - name: Nothing redacted has come back
+        run: python tools/scrub_for_public.py --check
+
+      # Audits the LOCKS rather than an installed environment, so it covers the
+      # macOS-only and Linux-only packages this runner never installs. It exits
+      # non-zero on a known vulnerability, which is the point of running it.
+      - name: Known vulnerabilities in what CI installs
+        run: |
+          pip-audit --require-hashes --desc \
+            -r requirements.lock.txt \
+            -r requirements-dev.lock.txt \
+            -r requirements-audit.lock.txt
+
+  # The app is developed on 3.14 and frozen on 3.12, so the suite passing on
+  # one says nothing about the other — and only 3.12 was ever run here. Tests
+  # only: nothing about the packaged interpreter changes.
+  tests-3-14:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+        with:
+          python-version: "3.14"
+      - name: Install dependencies
+        run: pip install --require-hashes -r requirements-dev.lock.txt
+      - name: Run tests
+        run: python -m pytest -q
+
   build:
+    # The Worker tests take under a minute and cover half the product. Signing
+    # a client against a Worker whose tests fail is work spent on an artefact
+    # nobody should publish.
+    needs: worker
     strategy:
       fail-fast: false
       matrix:
@@ -81,7 +148,7 @@ jobs:
           - os: windows-latest
             variant: direct       # Website download -> dist/Dawnlist-windows-*.zip
           - os: macos-latest
-            variant: direct       # Website download -> dist/Dawnlist-*.dmg
+            variant: direct       # Bundle guards, and a .dmg only on request
     runs-on: ${{ matrix.os }}
     # GitHub's default is six hours, which is far longer than anything here
     # should legitimately take.
@@ -92,25 +159,41 @@ jobs:
       id-token: write   # OIDC federated-credential exchange for azure/login
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
         with:
           python-version: "3.12"
 
+      # The LOCK, not the floors. An unpinned install resolves whatever PyPI
+      # offers that minute, in a job that goes on to hold a signing identity,
+      # and two runners on one commit can install different code.
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          # requirements-dev.txt, not a second hand-typed list. The inline
-          # `pip install pyinstaller pytest` that used to sit here was a copy
-          # of that file, and a test dependency added to one of them would
-          # have been missing from the other.
-          pip install -r requirements-dev.txt
+        run: pip install --require-hashes -r requirements-dev.lock.txt
 
       # Tests first. A package built from code that does not pass its own
       # tests is not worth signing.
       - name: Run tests
         run: python -m pytest -q
+
+      # A branch build produces the same file names as a release and is not
+      # one. `dawnlist-windows-latest-store` downloaded from the wrong run is
+      # indistinguishable from the release it is not, and the MSIX inside is
+      # signed with the same throwaway certificate either way.
+      - name: Name this build
+        id: label
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.ref }}" = "refs/heads/master" ]; then
+            echo "suffix=" >> "$GITHUB_OUTPUT"
+          else
+            # A pull request's own SHA is the merge commit, which appears in no
+            # branch and tells a reader nothing. The head SHA is the commit
+            # somebody pushed.
+            sha="${{ github.event.pull_request.head.sha || github.sha }}"
+            echo "suffix=-${{ github.event_name }}-${sha:0:7}" >> "$GITHUB_OUTPUT"
+          fi
 
       # The flag is baked into the bundle by PyInstaller, so this must happen
       # BEFORE the build and not after. Every packaging script re-checks the
@@ -123,7 +206,7 @@ jobs:
 
       # ---------------------------------------------------------------- macOS
       - name: Import the signing certificate
-        if: matrix.os == 'macos-latest' && env.HAS_SIGNING == 'true' && github.event_name != 'pull_request'
+        if: matrix.os == 'macos-latest' && env.HAS_SIGNING == 'true' && github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && inputs.macos_direct
         env:
           HAS_SIGNING: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 != '' }}
           P12_BASE64: ${{ secrets.MACOS_CERTIFICATE_P12_BASE64 }}
@@ -146,7 +229,7 @@ jobs:
           rm -f "$RUNNER_TEMP/cert.p12"
 
       - name: Store the notarisation credentials
-        if: matrix.os == 'macos-latest' && env.HAS_NOTARY == 'true' && github.event_name != 'pull_request'
+        if: matrix.os == 'macos-latest' && env.HAS_NOTARY == 'true' && github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && inputs.macos_direct
         env:
           HAS_NOTARY: ${{ secrets.APPLE_ID != '' }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -159,15 +242,16 @@ jobs:
             --password "$APPLE_APP_PASSWORD" \
             --team-id "$APPLE_TEAM_ID"
 
-      # Runs with or without secrets. Without them the guards still execute,
-      # so a bundle missing its locale catalogues or carrying the wrong variant
-      # flag fails here rather than at submission.
+      # Runs on every push, with or without secrets, and this is why the macOS
+      # leg still exists at all. The guards catch a bundle missing its locale
+      # catalogues or carrying the wrong variant flag HERE rather than at
+      # submission, and the Mac App Store package is built from the same spec.
       - name: Verify the bundle (macOS)
         if: matrix.os == 'macos-latest'
         run: python packaging/build_macos.py --variant ${{ matrix.variant }} --verify-only
 
       - name: Sign, package and notarise (macOS)
-        if: matrix.os == 'macos-latest' && env.HAS_SIGNING == 'true' && github.event_name != 'pull_request'
+        if: matrix.os == 'macos-latest' && env.HAS_SIGNING == 'true' && github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && inputs.macos_direct
         # Hard ceiling. Apple normally answers in minutes; the sibling project
         # once sat here for 1h58m against a dead runner network.
         timeout-minutes: 45
@@ -187,11 +271,18 @@ jobs:
 
       # Partner Center refuses an unsigned package, and the Store strips this
       # signature and re-signs on publish — so a throwaway certificate is the
-      # right instrument, not a shortcut. What must be exact is its subject.
+      # right instrument, not a shortcut. It carries no release identity and
+      # reaches no secret, which is why this step alone is not branch-gated;
+      # what keeps a branch package distinguishable is the name it leaves under.
       - name: Sign the MSIX for upload
         if: matrix.os == 'windows-latest' && matrix.variant == 'store'
         shell: pwsh
         run: pwsh -NoProfile -File packaging\sign_msix.ps1
+
+      - name: Mark a non-release MSIX in its own filename
+        if: matrix.os == 'windows-latest' && matrix.variant == 'store' && steps.label.outputs.suffix != ''
+        shell: bash
+        run: mv dist/Dawnlist.msix "dist/Dawnlist${{ steps.label.outputs.suffix }}.msix"
 
       # ------------------------------------------------ Windows, direct build
       # A real Microsoft-managed Public Trust certificate through Azure
@@ -202,24 +293,25 @@ jobs:
       # No-op until the repo variable AZURE_SIGNING_READY is 'true'. The three
       # AZURE_* repo secrets are directory identifiers, not credentials — the
       # OIDC federated credential is what proves this workflow may use them, so
-      # no client secret exists to leak. Because that credential is bound to a
-      # branch subject, signing can only ever happen on the default branch.
+      # no client secret exists to leak. That credential is bound to a branch
+      # subject, so Azure refuses the exchange off master in any case; the
+      # condition below states it here too, where a reader can see it.
       #
       # The signing action reads the Azure credential from the CLI session
       # azure/login leaves behind, so the login step is not optional. Account,
       # endpoint and profile are properties of the resource: see Easy-Post
       # Desktop's CI-AZURE-SIGNING-SETUP.md before changing any of the three.
       - name: Azure login (OIDC) for signing
-        if: matrix.os == 'windows-latest' && matrix.variant == 'direct' && vars.AZURE_SIGNING_READY == 'true' && github.event_name != 'pull_request'
-        uses: azure/login@v2
+        if: matrix.os == 'windows-latest' && matrix.variant == 'direct' && vars.AZURE_SIGNING_READY == 'true' && github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6  # v2.3.1
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Sign the Windows build (Azure Artifact Signing)
-        if: matrix.os == 'windows-latest' && matrix.variant == 'direct' && vars.AZURE_SIGNING_READY == 'true' && github.event_name != 'pull_request'
-        uses: azure/artifact-signing-action@v2
+        if: matrix.os == 'windows-latest' && matrix.variant == 'direct' && vars.AZURE_SIGNING_READY == 'true' && github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82  # v2.0.0
         with:
           endpoint: https://weu.codesigning.azure.net/
           # The account is named for the product it was first created for; the
@@ -238,21 +330,28 @@ jobs:
       # executable in place, so a ZIP or a checksum made beforehand describes a
       # file nobody will ever download. build_windows_direct.py enforces the
       # ordering itself: it refuses to package an unsigned exe unless told to.
+      #
+      # SIGNED repeats the signing step's condition as an expression rather
+      # than as re-typed shell, because the two drifting apart is how this file
+      # produced a green job and an unsigned ZIP under a release name. The
+      # tests evaluate both and require them to agree in every scenario.
       - name: Package the Windows download
         if: matrix.os == 'windows-latest' && matrix.variant == 'direct'
         shell: bash
+        env:
+          SIGNED: ${{ vars.AZURE_SIGNING_READY == 'true' && github.event_name != 'pull_request' && github.ref == 'refs/heads/master' }}
         run: |
           set -euo pipefail
-          if [ "${{ vars.AZURE_SIGNING_READY }}" = "true" ] && [ "${{ github.event_name }}" != "pull_request" ]; then
+          if [ "$SIGNED" = "true" ]; then
             # No --allow-unsigned: if the signing step above silently signed
             # nothing, the guard fails the build here rather than letting a
             # SmartScreen prompt find it on a stranger's machine.
             python packaging/build_windows_direct.py
           else
-            # Signing is not configured yet. Still build the package, so the
-            # guards run on every push and the artefact can be smoke-tested —
-            # but say so in the log and in the file name, because an unsigned
-            # ZIP is indistinguishable from a signed one once it is downloaded.
+            # Signing did not run. Still build the package, so the guards run
+            # on every push and the artefact can be smoke-tested — but say so
+            # in the log and in the file name, because an unsigned ZIP is
+            # indistinguishable from a signed one once it is downloaded.
             python packaging/build_windows_direct.py --allow-unsigned
             # The checksum goes, rather than being renamed alongside. A hash
             # published for an unsigned binary teaches buyers to verify
@@ -266,24 +365,21 @@ jobs:
 
       # -------------------------------------------------------------- artefacts
       - name: Upload
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
         with:
-          name: dawnlist-${{ matrix.os }}-${{ matrix.variant }}
+          name: dawnlist-${{ matrix.os }}-${{ matrix.variant }}${{ steps.label.outputs.suffix }}
           # `error` only when a package is genuinely expected. Both Windows
           # legs always produce one; macOS produces a .dmg ONLY when it has
-          # actually signed, because an unsigned run stops after the guards.
+          # actually signed, because every other run stops after the guards.
           # Hard-coding `error` failed the first green macOS build for having
           # correctly produced nothing — the job had passed every real step.
           #
           # "Has secrets" WAS NOT THE SAME QUESTION AS "will sign", and reading
-          # it as one failed every run on this branch. The macOS signing steps
-          # are gated on `github.event_name != 'pull_request'` as well, so on a
-          # PR from a branch in this repository the secrets are present, the
-          # signing is skipped anyway, and this line demanded a .dmg that
-          # nothing had been asked to build. The condition below now mirrors
-          # the signing steps' own conditions rather than half of them — if
-          # those gain a third clause, this needs it too.
-          if-no-files-found: ${{ (matrix.os == 'windows-latest' || (secrets.MACOS_CERTIFICATE_P12_BASE64 != '' && github.event_name != 'pull_request')) && 'error' || 'warn' }}
+          # it as one failed every run on 2026-09-10. This expression repeats
+          # EVERY clause gating the step that produces the .dmg — the secret,
+          # the event, the branch and the input — and a test compares the two
+          # by evaluating them rather than by reading them.
+          if-no-files-found: ${{ (matrix.os == 'windows-latest' || (secrets.MACOS_CERTIFICATE_P12_BASE64 != '' && github.event_name != 'pull_request' && github.ref == 'refs/heads/master' && inputs.macos_direct)) && 'error' || 'warn' }}
           retention-days: 14
           path: |
             dist/*.msix
@@ -320,17 +416,17 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
         with:
           python-version: "3.12"
 
+      # Pillow comes from the lock like everything else. It used to be a bare
+      # `pip install pillow` beside the requirements install: a second
+      # dependency list that nothing checks and no hash covers.
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pillow
+        run: pip install --require-hashes -r requirements.lock.txt
 
       - name: Render every captured locale
         run: |
@@ -359,7 +455,7 @@ jobs:
               sys.exit("no screenshots were rendered")
           PY
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
         with:
           name: mac-screenshots
           path: dist/mac-screenshots
@@ -384,16 +480,14 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
         with:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        run: pip install --require-hashes -r requirements.lock.txt
 
       # The price must match App Store Connect for the storefront the reviewer
       # sees — USA, $79.00. A screenshot showing a price the App Store does not
@@ -401,7 +495,7 @@ jobs:
       - name: Render the purchase screen
         run: python tools/render_subscribe.py --price '$79.00' --out dist/review
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
         with:
           name: subscription-review
           path: dist/review/*.png
@@ -410,40 +504,49 @@ jobs:
   # ---------------------------------------------------------------------------
   # Mac App Store .pkg — built, signed and uploaded to App Store Connect.
   #
-  # A NO-OP UNTIL MAS_CERTIFICATE_P12_BASE64 EXISTS, so adding this changes
-  # nothing until the secret is set. That is deliberate: the certificates are
+  # A NO-OP UNTIL MAS_CERTIFICATE_P12_BASE64 EXISTS, so adding this changed
+  # nothing until the secret was set. That is deliberate: the certificates are
   # team-wide and already exist (Apple Distribution + 3rd Party Mac Developer
   # Installer, both valid to Aug 2027), and the .p12 holding their private keys
   # was exported off the cloud Mac before it was given up. Only the profile is
   # app-specific, and Dawnlist's is already a secret.
   #
-  # NO MAC IS NEEDED FOR ANY OF THIS. What still needs one is verifying that a
-  # real purchase works — see store/MACOS-STOREKIT-GAP.md — and that is a
-  # TestFlight install, not a build machine.
+  # THIS JOB UPLOADS TO THE REAL APP STORE, so it is master-only at the job
+  # level as well as at the step, and it runs the tests first by depending on
+  # the build matrix. It also names an ENVIRONMENT, because a condition in this
+  # file is only as trustworthy as this file: anyone who can push a branch can
+  # edit it, and a branch restriction or a required reviewer on the `app-store`
+  # environment is enforced by GitHub instead. See the runbook — the
+  # environment has to be created there, not here.
   #
   # CFBundleVersion COMES FROM THE RUN NUMBER because App Store Connect refuses
   # an upload whose build number it has seen before, even for an identical
   # marketing version. The run number only ever increases.
   # ---------------------------------------------------------------------------
   mas:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
+    # The Worker tests, and the matrix with its own `python -m pytest`. This
+    # job used to run neither: it built, signed and uploaded to App Store
+    # Connect without one test having run in the same workflow.
+    needs: [worker, build]
+    environment: app-store
     runs-on: macos-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09  # v5.1.0
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
         with:
           python-version: "3.12"
 
+      # PyInstaller is in requirements-dev.txt and therefore in this lock. It
+      # used to be installed by hand here, unpinned and unhashed, in the job
+      # that signs with the Apple Distribution certificate.
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller
+        run: pip install --require-hashes -r requirements-dev.lock.txt
 
       - name: Build, sign and upload the Mac App Store package
-        if: env.HAS_MAS_SIGNING == 'true'
+        if: env.HAS_MAS_SIGNING == 'true' && github.ref == 'refs/heads/master'
         env:
           HAS_MAS_SIGNING: ${{ secrets.MAS_CERTIFICATE_P12_BASE64 != '' }}
           MAS_CERTIFICATE_P12_BASE64: ${{ secrets.MAS_CERTIFICATE_P12_BASE64 }}
@@ -507,7 +610,7 @@ jobs:
 
           security delete-keychain "$KEYCHAIN"
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
         if: always()
         with:
           name: mas-pkg

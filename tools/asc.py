@@ -10,9 +10,17 @@ a key rotation ends up half-applied, so Dawnlist gets one module and every
 script imports it.
 
 THE CREDENTIALS ARE NOT IN THIS REPOSITORY AND MUST NOT BE.
-The .p8 lives outside the tree entirely. `dawnlist` is a private repo, but the
-key opens every app on the account, not just this one — Easy-Post, Wren and the
-mobile companion included — so it is not a Dawnlist secret to hold.
+The .p8 lives outside the tree entirely, and `sgf36/Dawnlist` is PUBLIC — this
+file said "private", which was true when it was written and stopped being true
+without anything here noticing. The key opens every app on the account, not
+just this one — Easy-Post, Wren and the mobile companion included — so it is
+not a Dawnlist secret to hold in any case.
+
+WHERE THE KEY IS, IS ALSO NOT IN THIS FILE. It used to be a literal path into
+one developer's OneDrive, which made every script here unrunnable anywhere
+else and published the shape of that person's filing on a public repository.
+Set `ASC_KEY_PATH`, or store the path in Credential Manager under service
+`dawnlist-asc`, account `key-path`.
 
 A JWT IS MINTED PER CALL WITH iat BACKDATED SIXTY SECONDS. Apple rejects a
 token whose iat is in the future by its own clock, and a laptop that is a few
@@ -22,17 +30,49 @@ nothing and removes the failure mode.
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import time
 import urllib.error
 import urllib.request
 
-import jwt
-
 KEY_ID = "4CU796U485"
 ISSUER = "65aee88f-46c4-4daf-8238-5dc37263d06b"
-KEY = (pathlib.Path(r"C:\Users\SpencerFields\OneDrive - Spencer Fields")
-       / r"Apps\Claude MacOS\signing" / f"AuthKey_{KEY_ID}.p8")
+
+#: Where to look for the .p8, in order. The environment variable wins so a
+#: one-off run can point at a different key without touching the store.
+KEY_ENV = "ASC_KEY_PATH"
+KEY_SERVICE = "dawnlist-asc"
+KEY_ACCOUNT = "key-path"
+
+
+def key_path() -> pathlib.Path:
+    """The .p8, or a refusal that says how to configure one.
+
+    Resolved per call rather than at import, so that importing this module for
+    its identifiers — which `asc_listing.py` and friends all do — never needs a
+    key, and so a rotation takes effect without restarting anything.
+    """
+    configured = os.environ.get(KEY_ENV)
+    if not configured:
+        import keyring  # not needed when the environment already answers
+
+        configured = keyring.get_password(KEY_SERVICE, KEY_ACCOUNT)
+    if not configured:
+        raise SystemExit(
+            f"no App Store Connect key configured. Set {KEY_ENV} to the .p8 "
+            f"path, or store it with:\n"
+            f"  python -c \"import keyring; keyring.set_password("
+            f"'{KEY_SERVICE}', '{KEY_ACCOUNT}', r'<path to "
+            f"AuthKey_{KEY_ID}.p8>')\"")
+
+    path = pathlib.Path(configured).expanduser()
+    if not path.is_file():
+        # Named, because a missing key and a wrong key both come back from
+        # Apple as 401 and the message is identical.
+        raise SystemExit(f"the configured App Store Connect key {path} does "
+                         f"not exist")
+    return path
 
 #: Dawnlist in App Store Connect. Confirmed live 2026-09-08: the record already
 #: existed with a MAC_OS 1.0 version in PREPARE_FOR_SUBMISSION.
@@ -48,11 +88,13 @@ BASE = "https://api.appstoreconnect.apple.com"
 
 
 def token() -> str:
+    import jwt  # PyJWT is a tooling dependency, not one the app ships
+
     now = int(time.time())
     return jwt.encode(
         {"iss": ISSUER, "iat": now - 60, "exp": now + 1140,
          "aud": "appstoreconnect-v1"},
-        KEY.read_text(),
+        key_path().read_text(),
         algorithm="ES256",
         headers={"kid": KEY_ID, "typ": "JWT"})
 

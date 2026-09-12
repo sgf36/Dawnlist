@@ -34,6 +34,11 @@ def _require_icon(path):
     return path
 
 from app.version import marketing_version  # noqa: E402
+# The flag names come from the module the app reads them with. Listed here as
+# literals they were a third copy — after tools/set_build_variant.py — and a
+# variant added to the app but not to this list would simply not be bundled,
+# which is invisible until someone unpacks the artefact.
+from app.core.build_variant import FLAGS as VARIANT_FLAGS  # noqa: E402
 
 # --------------------------------------------------------------------------
 # Version. The marketing version is read from the app so there is one source
@@ -78,7 +83,7 @@ datas = [
 #   Mac App Store   : mas_build.flag
 datas += [
     (str(project_root / "app" / "resources" / name), "app/resources")
-    for name in ("license_required.flag", "store_build.flag", "mas_build.flag")
+    for name in VARIANT_FLAGS.values()
     if (project_root / "app" / "resources" / name).exists()
 ]
 

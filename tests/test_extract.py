@@ -103,6 +103,16 @@ def test_a_text_pdf_is_read(tmp_path):
     assert "Spencer Fields" in doc.text
 
 
+def test_the_text_pdf_fixture_embeds_no_font_of_its_own(tmp_path):
+    """The control on the fixture above, which is otherwise one drawing call
+    away from depending on the host again. A PDF that EMBEDS a font took it
+    from the machine, and the machines that have one are exactly the ones
+    nobody runs the suite on."""
+    raw = make_text_pdf(tmp_path / "cv.pdf").read_bytes()
+    assert b"/BaseFont /Helvetica" in raw
+    assert b"/FontFile" not in raw, "the fixture is embedding a host font again"
+
+
 def test_plain_text_is_read(tmp_path):
     p = tmp_path / "cv.txt"
     p.write_text(CV_TEXT, encoding="utf-8")

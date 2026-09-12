@@ -1,0 +1,31 @@
+# Nothing here updates itself, and that is the point of both entries below.
+#
+# The lock files are hashed, so a dependency only moves when somebody
+# recompiles them — which means a published vulnerability sits in CI and in
+# every build until a person notices. The action pins are full commit SHAs, so
+# a tag moving to a fixed release reaches this repository never.
+#
+# Dependabot is what turns both into a pull request that CI then has to pass.
+version: 2
+updates:
+  # requirements*.lock.txt are what every job installs; the loose
+  # requirements*.txt beside them are the inputs a person edits. A pull request
+  # here has to keep the two consistent, which the tests in
+  # tests/test_release_workflow.py assert.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+    open-pull-requests-limit: 5
+    labels: ["dependencies"]
+
+  # The SHA pins in .github/workflows/build.yml, including the ones on the
+  # signing actions. A pinned action is safe from a retagged release and
+  # equally safe from a fix, so this is the other half of pinning.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+    labels: ["dependencies"]
