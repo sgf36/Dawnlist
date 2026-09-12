@@ -62,6 +62,16 @@ which matters because the keychain is per USER and not per application.
 A reviewer or friends-and-family code must be `managed` or the feed stays shut
 and the code looks broken.
 
+**ON A MAC BUILD THERE IS NOWHERE TO TYPE ONE, SINCE 2026-09-12.** Apple
+rejected 1.1.0 (75) under 3.1.1 — "the app uses access codes to unlock app
+features" — so the redemption box is gone from `SubscribePanel` and no `mas`
+screen offers redemption at all. A grant already in the keychain is still
+honoured (section 3 is unchanged), and Windows keeps its box in
+`LicencePanel`. The consequence to plan for: an App Review reviewer can no
+longer let themselves in with a code and has to complete a sandbox
+subscription, which makes the Worker's Apple route a prerequisite for
+resubmission rather than a nice-to-have.
+
 ## 5. The Mac purchase path had NEVER worked
 
 PyObjC was never a declared dependency, so `import StoreKit` failed in every

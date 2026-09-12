@@ -655,6 +655,26 @@ RULE_TIERS = (
 #: this link makes the terms findable, which is not the same as agreed.
 TERMS_URL = "https://dawnlist.spencerfields.com/terms.html"
 
+#: The two documents Apple requires an auto-renewing subscription to link to
+#: from INSIDE the app, alongside the title, the length and the price
+#: (guideline 3.1.2(c) — version 1.1.0 (75) was rejected for their absence).
+#:
+#: The EULA is Apple's standard one, which is what the Mac listing's
+#: description already cites. A Mac subscriber is bound by that document and by
+#: no other, so the app and the listing have to name the SAME url: two
+#: plausible links to two different agreements is worse than one, and
+#: `test_the_app_and_the_mac_listing_cite_the_same_eula` holds them together.
+PRIVACY_URL = "https://dawnlist.spencerfields.com/privacy.html"
+APPLE_EULA_URL = (
+    "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")
+
+#: What Apple's storefront calls this subscription. Mirrors DISPLAY_NAME in
+#: `tools/asc_subscription.py`, as `settings.subscribe_length` mirrors its
+#: ONE_MONTH period: a title or a term shown here that differs from the one on
+#: Apple's payment sheet reads as a second product rather than the one being
+#: bought.
+SUBSCRIPTION_TITLE = "Dawnlist"
+
 #: Where a person reports what the model wrote. Microsoft Store Policy 11.16
 #: requires products with live generative AI to "provide a means for users to
 #: report inappropriate content to the developer" and to act on what comes in.
@@ -1032,17 +1052,31 @@ class SubscribePanel(QWidget):
     across 175 territories and formats it for the customer's region. A
     hardcoded price is wrong almost everywhere, and showing one that differs
     from what the App Store charges is a rejection.
+
+    WHAT A PURCHASE SCREEN HAS TO SAY, AND WHY IT IS HERE RATHER THAN ONLY IN
+    THE METADATA. Guideline 3.1.2(c) wants the title, the length, the price and
+    working links to the privacy policy and the EULA in the app's own purchase
+    flow. Version 1.1.0 (75) had all of it in App Store Connect and none of it
+    on this screen, and was rejected for exactly that.
+
+    AND NO ACCESS-CODE BOX. It stood here until Apple rejected the same build
+    under 3.1.1: "the app uses access codes to unlock app features". A comp
+    code is a grant rather than a purchase, which is why it was defensible, but
+    the reviewer's reading is the one that ships — so a Mac build now offers no
+    redemption at all, and this panel deliberately has no text field of any
+    kind. Windows keeps it, in `LicencePanel`, which no `mas` build lays out.
+    The Worker's /v1/redeem route and the code machinery are untouched: this is
+    about what the Mac build OFFERS, not about what exists. The cost is that an
+    App Review reviewer can no longer let themselves in with a code and must
+    complete a sandbox subscription instead.
     """
 
     entitlement_changed = Signal(bool)
 
-    def __init__(self, *, storekit=None, redeemer=None, storer=None,
-                 events=None, parent=None):
+    def __init__(self, *, storekit=None, events=None, parent=None):
         super().__init__(parent)
         from app.core import mac_storekit
 
-        self._redeemer = redeemer
-        self._storer = storer
         self._sk = storekit or mac_storekit
         (events or storekit_events()).finished.connect(self._finished)
 
@@ -1058,6 +1092,17 @@ class SubscribePanel(QWidget):
         body.setObjectName("stepBody")
         body.setWordWrap(True)
         layout.addWidget(body)
+
+        # The title and the length, which 3.1.2(c) asks for beside the price.
+        # One label rather than three: a customer reads "Dawnlist — 1 month"
+        # as a sentence, and Apple's requirement is that the terms be visible,
+        # not that they be itemised.
+        self.terms = QLabel(tr("settings.subscribe_terms",
+                               title=SUBSCRIPTION_TITLE,
+                               length=tr("settings.subscribe_length")))
+        self.terms.setObjectName("stepBody")
+        self.terms.setWordWrap(True)
+        layout.addWidget(self.terms)
 
         self.price = QLabel()
         self.price.setObjectName("storedKey")
@@ -1079,67 +1124,25 @@ class SubscribePanel(QWidget):
         self.result.setWordWrap(True)
         layout.addWidget(self.result)
 
-        # AN ACCESS CODE, AND DELIBERATELY NOT A LICENCE KEY BOX.
-        #
-        # Guideline 3.1.1 forbids unlocking content with a key INSTEAD OF
-        # Apple's commerce. This redeems a free grant — a reviewer, a friend,
-        # the developer — and sells nothing, which is why it may exist on a MAS
-        # build at all. The wording matters as much as the mechanism: "licence
-        # key" reads as an alternative way to buy, which is the thing that is
-        # actually prohibited, so it is never called that here.
-        #
-        # `build_provider` will only honour what comes back if the SERVER says
-        # it was granted by a code rather than purchased. A Paddle licence
-        # already in the keyring is still refused on this build.
-        code_row = QHBoxLayout()
-        code_row.setSpacing(10)
-        self.code = QLineEdit()
-        self.code.setObjectName("sentence")
-        self.code.setPlaceholderText(tr("settings.subscribe_code_placeholder"))
-        self.btn_code = QPushButton(tr("settings.subscribe_code_button"))
-        self.btn_code.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        code_row.addWidget(self.code, 1)
-        code_row.addWidget(self.btn_code)
-        layout.addLayout(code_row)
+        # THE TWO LINKS 3.1.2(c) REQUIRES, AND THEY HAVE TO WORK. A link is
+        # only evidence of an agreement if a person can read what it points at,
+        # so these open in the browser rather than describing a document.
+        links = QHBoxLayout()
+        links.setSpacing(16)
+        self.link_privacy = QLabel(
+            f'<a href="{PRIVACY_URL}">{tr("settings.privacy_link")}</a>')
+        self.link_eula = QLabel(
+            f'<a href="{APPLE_EULA_URL}">{tr("settings.eula_link")}</a>')
+        for link in (self.link_privacy, self.link_eula):
+            link.setObjectName("dataTerms")
+            link.setOpenExternalLinks(True)
+            links.addWidget(link)
+        links.addStretch(1)
+        layout.addLayout(links)
 
         self.buy.clicked.connect(self._purchase)
         self.restore.clicked.connect(self._restore)
-        self.btn_code.clicked.connect(self._redeem_code)
-        self.code.returnPressed.connect(self._redeem_code)
         self.refresh()
-
-    def _redeem_code(self) -> None:
-        """Exchange an access code for the grant it names."""
-        from app.core import entitlement
-
-        code = self.code.text().strip()
-        if not code or not self.btn_code.isEnabled():
-            return
-        self.btn_code.setEnabled(False)
-        redeem = self._redeemer or entitlement.redeem_override_code
-        # Off the UI thread: redeeming is a round trip to the Worker.
-        self._code_task = run_in_background(
-            lambda: redeem(code), on_done=self._code_redeemed,
-            on_error=self._code_refused)
-
-    def _code_refused(self, exc) -> None:
-        self.btn_code.setEnabled(True)
-        self.result.setText(str(exc))
-
-    def _code_redeemed(self, key: str) -> None:
-        from app.core import entitlement
-
-        self.btn_code.setEnabled(True)
-        try:
-            (self._storer or entitlement.store_licence)(key)
-        except Exception:  # noqa: BLE001
-            # The code is spent; the key on screen is the only copy.
-            self.result.setTextInteractionFlags(Qt.TextSelectableByMouse)
-            self.result.setText(tr("settings.code_store_failed", key=key))
-            return
-        self.code.clear()
-        self.result.setText(tr("settings.code_redeemed"))
-        self.entitlement_changed.emit(True)
 
     def refresh(self) -> None:
         """Ask Apple what to show. On construction, and after a purchase.
