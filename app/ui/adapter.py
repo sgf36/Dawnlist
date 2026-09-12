@@ -31,6 +31,10 @@ SCREENED_OUT = "screened-out"
 
 VALID_DECISIONS = {"pursue", "reject", "later"}
 
+#: A run id no row can carry, for asking `stranded_rows` for everything
+#: undecided rather than everything undecided from OTHER runs.
+NO_RUN = -1
+
 
 def rows_from_outcome(outcome: RunOutcome) -> list[ReviewRow]:
     """Every posting the run touched, assessed or not — from memory.
@@ -365,7 +369,16 @@ def rows_from_db(conn: sqlite3.Connection, run_id: int | None = None,
     """
     run_id = run_id if run_id is not None else latest_run_id(conn)
     if run_id is None:
-        return []
+        # No search has run yet, which is NOT the same as having nothing to
+        # show. Onboarding assesses ten live postings to calibrate against and
+        # stores them as a run of their own, so the first launch after setup
+        # has judged, undecided postings on disk — and returning [] here put an
+        # empty window in front of a user who had just spent their own tokens
+        # filling it. The recovery rules are the ones spec 6.5 already
+        # defines; nothing here decides anything on their behalf.
+        if not (recover and not include_decided):
+            return []
+        return stranded_rows(conn, NO_RUN, near_duplicate_notes(conn))
 
     sql = _ROW_COLUMNS + """
           FROM jobs j

@@ -171,3 +171,47 @@ def test_the_status_carries_what_went_wrong(conn):
     clean = run_status(conn, add(conn, swept=5, kind=db.SWEEP))
     assert not clean.went_wrong
     assert run_status(conn, None) is None
+
+
+def test_a_first_launch_after_setup_is_not_an_empty_window(conn):
+    """Onboarding assesses ten live postings and stores them as a calibration
+    run. That run is not the morning's shortlist, but its postings are judged
+    and undecided — and until the first search they are all there is to show.
+    """
+    from app.ui.adapter import rows_from_db
+
+    calibration = add(conn, swept=1, kind=db.CALIBRATION)
+    conn.execute(
+        "INSERT INTO jobs(provider, provider_job_id, title, company, "
+        "first_seen_run, screen_verdict) VALUES('theirstack','c1','Head of "
+        "Strategy','Acme',?,'likely')", (calibration,))
+    job_row = conn.execute("SELECT id FROM jobs").fetchone()[0]
+    conn.execute(
+        "INSERT INTO assessments(job_id, run_id, bucket, reason, created_at) "
+        "VALUES(?,?,'strong','fits','x')", (job_row, calibration))
+    conn.commit()
+
+    assert latest_run_id(conn) is None, "a calibration run is not a search"
+    rows = rows_from_db(conn)
+    assert [r.title for r in rows] == ["Head of Strategy"]
+    assert rows[0].carried_forward, "and it says where it came from"
+
+
+def test_a_posting_the_user_already_ruled_on_stays_gone(conn):
+    """The positive control: recovery must not re-open decided postings."""
+    from app.ui.adapter import rows_from_db
+
+    calibration = add(conn, swept=1, kind=db.CALIBRATION)
+    conn.execute(
+        "INSERT INTO jobs(provider, provider_job_id, title, company, "
+        "first_seen_run, screen_verdict) VALUES('theirstack','c1','Head of "
+        "Strategy','Acme',?,'likely')", (calibration,))
+    job_row = conn.execute("SELECT id FROM jobs").fetchone()[0]
+    conn.execute(
+        "INSERT INTO assessments(job_id, run_id, bucket, reason, created_at) "
+        "VALUES(?,?,'strong','fits','x')", (job_row, calibration))
+    conn.execute("INSERT INTO decisions(job_id, kind, decided_at) "
+                 "VALUES(?,'reject','x')", (job_row,))
+    conn.commit()
+
+    assert rows_from_db(conn) == []
