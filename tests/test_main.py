@@ -38,7 +38,7 @@ def conn(dbfile):
 
 
 def seed(conn, *, brief="Roles in hospitality strategy.", queries=True,
-         calibrated=True):
+         calibrated=True, terms=True):
     if brief:
         conn.execute("INSERT INTO documents(kind, version, body, created_at)"
                      " VALUES('fit_brief', 1, ?, 'x')", (brief,))
@@ -55,6 +55,12 @@ def seed(conn, *, brief="Roles in hospitality strategy.", queries=True,
         conn.execute("INSERT INTO settings(key, value) "
                      "VALUES('calibration_passed_at', '2026-09-06T00:00:00+00:00')")
     conn.commit()
+    if terms:
+        # A real install cannot reach a run without this: setup asks on its
+        # first screen. Seeded here so the tests below exercise the run rather
+        # than the terms gate, which has its own tests.
+        from app.onboarding.terms import record_acceptance
+        record_acceptance(conn)
 
 
 class Stub(FeedProvider):
@@ -729,3 +735,68 @@ def test_finishing_with_no_brief_records_nothing_and_says_so(conn, qapp,
     assert wizard.stack.currentIndex() == STEP_INTERVIEW, "sent where the fix is"
     assert "# Fit brief" not in load_document(conn, "fit_brief")
     wizard.close()
+
+
+def test_a_set_up_user_whose_terms_changed_is_asked_before_the_shortlist(
+        dbfile, monkeypatch, qapp):
+    """Setup asks on its first screen, so reaching this means the terms have
+    been revised since — or that the install predates the step entirely."""
+    import app.main as main_mod
+    from app.onboarding import terms
+    from app.onboarding.state import mark_setup_finished
+    from app.ui.onboarding import TermsWindow
+
+    c = db.connect(dbfile)
+    db.migrate(c)
+    mark_setup_finished(c)
+    terms.record_acceptance(c)
+    monkeypatch.setattr(terms, "TERMS_LAST_UPDATED", "2027-03-01")
+
+    shown = []
+    monkeypatch.setattr(main_mod, "_main_window",
+                        lambda conn, open_board: shown.append("main"))
+    monkeypatch.setattr(main_mod, "_offer_update", lambda window: None)
+    monkeypatch.setattr("PySide6.QtWidgets.QApplication.exec", lambda self: 0)
+
+    main_mod._launch_ui(c, open_board=False)
+    assert shown == [], "the shortlist opened over unaccepted terms"
+    gates = [w for w in qapp.topLevelWidgets() if isinstance(w, TermsWindow)]
+    assert gates, "and nothing asked"
+    for gate in gates:
+        gate.close()
+    c.close()
+
+
+def test_agreeing_at_that_gate_records_it_and_opens_the_shortlist(dbfile,
+                                                                  monkeypatch,
+                                                                  qapp):
+    import app.main as main_mod
+    from app.onboarding import terms
+    from app.onboarding.state import mark_setup_finished
+    from app.ui.onboarding import TermsWindow
+
+    c = db.connect(dbfile)
+    db.migrate(c)
+    mark_setup_finished(c)
+
+    shown = []
+    monkeypatch.setattr(main_mod, "_main_window",
+                        lambda conn, open_board: shown.append("main") or
+                        TermsWindow())      # a window, cheaply
+    monkeypatch.setattr(main_mod, "_offer_update", lambda window: None)
+    monkeypatch.setattr("PySide6.QtWidgets.QApplication.exec", lambda self: 0)
+    main_mod._launch_ui(c, open_board=False)
+
+    gates = [w for w in qapp.topLevelWidgets()
+             if isinstance(w, TermsWindow) and w.isVisible()]
+    assert gates, "nothing asked"
+    gate = gates[0]
+    gate.page.agree.setChecked(True)
+    gate.btn_accept.click()
+
+    assert terms.is_accepted(c), "agreed and not recorded is agreed by nobody"
+    assert shown == ["main"], "and the user is left staring at a closed gate"
+    for w in qapp.topLevelWidgets():
+        if isinstance(w, TermsWindow):
+            w.close()
+    c.close()

@@ -1067,6 +1067,19 @@ def ingest_alerts(conn, paths, *, send=None, today: date | None = None):
             "Calibration has not been completed. Adding postings by hand does "
             "not skip the step that transfers your judgement into the brief.")
 
+    from app.onboarding.terms import is_accepted as terms_accepted
+    if not terms_accepted(conn):
+        # GATED HERE, beside calibration, for the same reason: a gate enforced
+        # in a screen is one the scheduled run walks straight past. The feed's
+        # own licence requires every subscriber to be bound by written terms
+        # before any posting reaches them, so a run before that is a breach
+        # rather than a discourtesy.
+        raise NotConfigured(
+            "Dawnlist's terms have not been agreed on this computer, or they "
+            "have changed since they were agreed. Open Dawnlist and read "
+            "them — the postings it fetches come from a supplier whose "
+            "licence requires it, so nothing is fetched until that is done.")
+
     from app.core.entitlement import require as require_entitlement
     require_entitlement(conn)
 
@@ -1300,6 +1313,19 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
             "daily — that is the step that transfers your judgement into the "
             "brief, and without it the shortlist is a guess that looks like an "
             "answer.")
+
+    from app.onboarding.terms import is_accepted as terms_accepted
+    if not terms_accepted(conn):
+        # GATED HERE, beside calibration, for the same reason: a gate enforced
+        # in a screen is one the scheduled run walks straight past. The feed's
+        # own licence requires every subscriber to be bound by written terms
+        # before any posting reaches them, so a run before that is a breach
+        # rather than a discourtesy.
+        raise NotConfigured(
+            "Dawnlist's terms have not been agreed on this computer, or they "
+            "have changed since they were agreed. Open Dawnlist and read "
+            "them — the postings it fetches come from a supplier whose "
+            "licence requires it, so nothing is fetched until that is done.")
 
     # The entitlement gate sits HERE, next to the calibration gate, for the
     # same reason: a gate enforced in a screen is one the scheduled run walks
@@ -1939,6 +1965,7 @@ def build_onboarding(conn, *, on_finished=None):
     `on_finished()` is called when the user leaves the last screen, after
     whatever could be recorded has been recorded.
     """
+    from app.onboarding import terms
     from app.onboarding.calibration import complete_calibration
     from app.onboarding.extract import extract_corpus
     from app.onboarding.state import mark_setup_finished
@@ -2002,6 +2029,8 @@ def build_onboarding(conn, *, on_finished=None):
 
     wizard = OnboardingWizard(
         extract=extract, sample=sample, drafter=drafter,
+        accept_terms=lambda: terms.record_acceptance(conn),
+        terms_accepted=terms.is_accepted(conn),
         titler=lambda text, brief="": search_plan(
             text, brief=brief, send=send_if_configured(conn)),
         entitlement_panel=onboarding_entitlement_panel(),
@@ -2329,9 +2358,40 @@ def _main_window(conn, *, open_board: bool):
     return window
 
 
+def _launch_terms(app, conn, *, open_board: bool) -> int:
+    """The terms on their own, for somebody who has already set up.
+
+    The terms can be revised after setup, and they promise the user is asked
+    again when they are. Sending that person back through the whole wizard to
+    tick one box would be absurd, so the step appears here on its own — and
+    closing it without agreeing simply means being asked next time.
+    """
+    from app.onboarding import terms
+    from app.ui.onboarding import TermsWindow
+
+    opened = []
+    gate = TermsWindow(again=terms.has_changed_since_acceptance(conn))
+
+    def agreed():
+        terms.record_acceptance(conn)
+        window = _main_window(conn, open_board=open_board)
+        opened.append(window)
+        window.show()
+        # After the replacement is up: closing the last window open would end
+        # the event loop and the process with it.
+        gate.close()
+        _offer_update(window)
+
+    gate.accepted.connect(agreed)
+    gate.resize(620, 400)
+    gate.show()
+    return app.exec()
+
+
 def _launch_ui(conn, *, open_board: bool) -> int:
     from PySide6.QtWidgets import QApplication
 
+    from app.onboarding import terms
     from app.onboarding.state import is_setup_finished
 
     app = QApplication.instance() or QApplication(sys.argv)
@@ -2345,9 +2405,15 @@ def _launch_ui(conn, *, open_board: bool) -> int:
     if not open_board and not is_setup_finished(conn):
         return _launch_onboarding(app, conn)
 
+    # BEFORE the terms gate, not after it: Apple delivers unfinished
+    # transactions as soon as an observer exists, and somebody reading the
+    # terms may leave the window open for a long time.
+    start_storekit()
+
     # Setup asks for this on its first screen, so reaching it here means the
     # terms have been revised since — or that this install predates the step.
-    start_storekit()
+    if not terms.is_accepted(conn):
+        return _launch_terms(app, conn, open_board=open_board)
 
     window = _main_window(conn, open_board=open_board)
     window.show()

@@ -233,10 +233,12 @@ def test_onboarding_has_a_key_step_before_calibration(qapp, monkeypatch):
 
     monkeypatch.setattr(api_key, "get", lambda: None)
     w = OnboardingWizard(extract=lambda p: ([], []), sample=lambda: items(1))
-    assert w.stack.count() == 6, (
-        "ingest, key, ENTITLEMENT, interview, searches, calibration — the "
-        "entitlement step is where the user subscribes, and its absence is "
-        "why a new install reached calibration having paid for nothing")
+    assert w.stack.count() == 7, (
+        "TERMS, ingest, key, entitlement, interview, searches, calibration — "
+        "the entitlement step is where the user subscribes, and its absence "
+        "was why a new install reached calibration having paid for nothing; "
+        "the terms step is what binds a subscriber to the licence the feed's "
+        "own supplier requires")
     assert isinstance(w.stack.widget(STEP_KEY), KeyPanel)
     w.close()
 
@@ -319,22 +321,22 @@ def test_the_two_documents_are_kept_apart(qapp, settle):
 
 def test_next_is_disabled_on_the_key_step_without_a_key(qapp, monkeypatch):
     from app.core import api_key
-    from app.ui.onboarding import OnboardingWizard
+    from app.ui.onboarding import STEP_KEY, OnboardingWizard
 
     monkeypatch.setattr(api_key, "get", lambda: None)
     w = OnboardingWizard(extract=lambda p: (["cv.docx"], []), sample=lambda: items(1))
-    w._show_step(1)
+    w._show_step(STEP_KEY)
     assert not w.btn_next.isEnabled(), "an app with no key is inert"
     w.close()
 
 
 def test_next_is_enabled_once_a_key_is_present(qapp, monkeypatch):
     from app.core import api_key
-    from app.ui.onboarding import OnboardingWizard
+    from app.ui.onboarding import STEP_KEY, OnboardingWizard
 
     monkeypatch.setattr(api_key, "get", lambda: "sk-ant-stored")
     w = OnboardingWizard(extract=lambda p: (["cv.docx"], []), sample=lambda: items(1))
-    w._show_step(1)
+    w._show_step(STEP_KEY)
     assert w.btn_next.isEnabled()
     w.close()
 
@@ -686,3 +688,83 @@ def test_drafting_with_no_cvs_says_so_rather_than_doing_nothing(qapp):
     page.run_draft()
     assert "Add your CVs first" in page.status.text()
     page.close()
+
+
+# ---------------------------------------------------------------------------
+# The terms step
+# ---------------------------------------------------------------------------
+
+def test_setup_starts_on_the_terms_and_will_not_move_until_they_are_agreed(
+        qapp, monkeypatch):
+    from app.ui.onboarding import STEP_INGEST, STEP_TERMS
+
+    w = a_wizard(monkeypatch)
+    assert w.stack.currentIndex() == STEP_TERMS, "before anything is read"
+    assert not w.btn_next.isEnabled()
+
+    w.terms.agree.setChecked(True)
+    assert w.btn_next.isEnabled()
+    w._next()
+    assert w.stack.currentIndex() == STEP_INGEST
+    w.close()
+
+
+def test_the_terms_step_links_the_published_page_and_shows_its_date(qapp,
+                                                                    monkeypatch):
+    """The date is what the user is agreeing to, and what decides whether they
+    are asked again."""
+    from app.onboarding.terms import TERMS_LAST_UPDATED
+    from app.ui.settings import TERMS_URL
+
+    w = a_wizard(monkeypatch)
+    assert TERMS_URL in w.terms.link.text()
+    assert TERMS_LAST_UPDATED in w.terms.link.text()
+    w.close()
+
+
+def test_the_acceptance_is_recorded_on_leaving_the_step(qapp, monkeypatch):
+    recorded = []
+    w = a_wizard(monkeypatch, accept_terms=lambda: recorded.append(True))
+    w.terms.agree.setChecked(True)
+    assert recorded == [], "a tick is not yet the deliberate action"
+    w._next()
+    assert recorded == [True]
+    w.close()
+
+
+def test_somebody_who_has_already_agreed_is_not_asked_again(qapp, monkeypatch):
+    from app.ui.onboarding import STEP_INGEST
+
+    w = a_wizard(monkeypatch, terms_accepted=True)
+    assert w.stack.currentIndex() == STEP_INGEST
+    w.close()
+
+
+def test_back_from_the_first_real_step_does_not_fall_out_of_the_flow(qapp,
+                                                                     monkeypatch):
+    from app.ui.onboarding import STEP_INGEST, STEP_TERMS
+
+    w = a_wizard(monkeypatch, terms_accepted=True)
+    w._back()
+    assert w.stack.currentIndex() in (STEP_TERMS, STEP_INGEST)
+    assert w.stack.currentIndex() >= 0
+    w.close()
+
+
+def test_the_standalone_gate_agrees_only_once_the_box_is_ticked(qapp):
+    """The terms can be revised after setup. Sending that person back through
+    the whole wizard to tick one box would be absurd."""
+    from app.ui.onboarding import TermsWindow
+
+    gate = TermsWindow(again=True)
+    assert not gate.btn_accept.isEnabled()
+    agreed = []
+    gate.accepted.connect(lambda: agreed.append(True))
+    gate.btn_accept.click()
+    assert agreed == [], "disabled, so nothing happened"
+
+    gate.page.agree.setChecked(True)
+    assert gate.btn_accept.isEnabled()
+    gate.btn_accept.click()
+    assert agreed == [True]
+    gate.close()

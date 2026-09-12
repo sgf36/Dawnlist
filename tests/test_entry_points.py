@@ -707,6 +707,8 @@ def test_a_run_prunes_the_rolling_seen_window(conn, monkeypatch):
     save_document(conn, "fit_brief", "b")
     save_document(conn, "factsheet", FACTS)
     from app.onboarding.calibration import CALIBRATION_KEY
+    from app.onboarding.terms import record_acceptance
+    record_acceptance(conn)
     conn.execute("INSERT INTO settings(key, value) VALUES(?, 'done')",
                  (CALIBRATION_KEY,))
     conn.execute("INSERT INTO queries(label, params_json, enabled, created_at) "
@@ -787,6 +789,8 @@ Content-Type: text/html; charset="utf-8"
 
 def a_configured_db(conn, monkeypatch):
     from app.onboarding.calibration import CALIBRATION_KEY
+    from app.onboarding.terms import record_acceptance
+    record_acceptance(conn)
     save_document(conn, "fit_brief", "Asset management in London.")
     save_document(conn, "factsheet", FACTS)
     conn.execute("INSERT INTO settings(key, value) VALUES(?, 'done')",

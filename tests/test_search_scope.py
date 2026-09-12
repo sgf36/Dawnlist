@@ -231,6 +231,8 @@ def test_a_run_refuses_and_names_a_search_with_no_location(conn):
     from app.onboarding.interview import save_document
 
     save_document(conn, "fit_brief", "Hotel asset management.")
+    from app.onboarding.terms import record_acceptance
+    record_acceptance(conn)
     conn.execute("INSERT INTO settings(key, value) "
                  "VALUES('calibration_passed_at', '2026-09-06T00:00:00+00:00')")
     conn.execute("INSERT INTO queries(label, params_json, enabled, created_at) "

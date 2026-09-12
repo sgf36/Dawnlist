@@ -289,3 +289,103 @@ def test_a_half_finished_calibration_still_cannot_be_left(conn):
     assert not partial.sample_unavailable
     assert not partial.can_finish
     assert not partial.passed
+
+
+# ---------------------------------------------------------------------------
+# The terms, which nothing used to record
+#
+# The feed's data licence requires every subscriber to be bound by written
+# terms, and neither store checkout shows Dawnlist's: Apple's shows Apple's own
+# EULA and the Microsoft listing is free. A link in Settings makes the terms
+# findable, which is not the same as agreed.
+# ---------------------------------------------------------------------------
+
+def test_a_fresh_install_has_not_agreed_to_anything(conn):
+    from app.onboarding import terms
+    assert not terms.is_accepted(conn)
+    assert terms.accepted_version(conn) is None
+    assert not terms.has_changed_since_acceptance(conn), (
+        "never having agreed is not the same as having agreed to an old copy")
+
+
+def test_agreeing_records_the_date_of_the_terms_and_the_moment(conn):
+    from app.onboarding import terms
+
+    terms.record_acceptance(conn)
+    assert terms.is_accepted(conn)
+    assert terms.accepted_version(conn) == terms.TERMS_LAST_UPDATED
+    assert terms.accepted_at(conn), "the moment is part of the record"
+
+
+def test_a_revision_asks_again(conn, monkeypatch):
+    """Recording only "accepted: yes" would leave everybody bound to whatever
+    they happened to read first, which is the opposite of what the terms
+    themselves promise."""
+    from app.onboarding import terms
+
+    terms.record_acceptance(conn)
+    assert terms.is_accepted(conn), "positive control"
+
+    monkeypatch.setattr(terms, "TERMS_LAST_UPDATED", "2027-01-30")
+    assert not terms.is_accepted(conn)
+    assert terms.has_changed_since_acceptance(conn), (
+        "and this person is being asked AGAIN, which reads differently")
+
+    terms.record_acceptance(conn)
+    assert terms.is_accepted(conn) and not terms.has_changed_since_acceptance(conn)
+
+
+def test_the_recorded_date_is_the_one_on_the_published_page():
+    """The constant is what the user is shown and what decides who is asked
+    again. If it drifts from the page, people are recorded as having accepted
+    terms they were never shown."""
+    import re
+
+    from app.onboarding.terms import TERMS_LAST_UPDATED
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", TERMS_LAST_UPDATED)
+
+
+def test_a_run_will_not_start_until_the_terms_are_agreed(conn, monkeypatch):
+    """Gated at the door into a run, beside calibration: a gate enforced in a
+    screen is one the scheduled run walks straight past."""
+    from app.main import NotConfigured, morning_run
+    from app.onboarding.calibration import CALIBRATION_KEY
+    from app.onboarding.interview import save_document
+    from app.onboarding import terms
+
+    save_document(conn, "fit_brief", "Hotel asset management in London.")
+    conn.execute("INSERT INTO settings(key, value) VALUES(?, 'done')",
+                 (CALIBRATION_KEY,))
+    conn.execute("INSERT INTO queries(label, params_json, enabled, created_at) "
+                 "VALUES('q','{\"titles\":[\"strategy\"],\"countries\":[\"GB\"]}',1,'x')")
+    conn.commit()
+    monkeypatch.setattr("app.core.entitlement.require", lambda c: None)
+
+    with pytest.raises(NotConfigured, match="terms"):
+        morning_run(conn, provider=None, send=lambda r: {})
+
+    # POSITIVE CONTROL: with the terms agreed the same run gets past this gate
+    # and fails, if at all, on something else entirely.
+    terms.record_acceptance(conn)
+    try:
+        morning_run(conn, provider=None, send=lambda r: {})
+    except NotConfigured as exc:
+        assert "terms" not in str(exc)
+
+
+def test_dragging_postings_in_does_not_skip_the_terms(conn, tmp_path, monkeypatch):
+    """A gate the user can walk round by dragging a file is not a gate."""
+    from app.main import NotConfigured, ingest_alerts
+    from app.onboarding.calibration import CALIBRATION_KEY
+    from app.onboarding.interview import save_document
+
+    save_document(conn, "fit_brief", "Asset management in London.")
+    conn.execute("INSERT INTO settings(key, value) VALUES(?, 'done')",
+                 (CALIBRATION_KEY,))
+    conn.commit()
+    monkeypatch.setattr("app.core.entitlement.require", lambda c: None)
+    path = tmp_path / "alert.eml"
+    path.write_text("From: a@b\nSubject: jobs\n\nnothing", encoding="utf-8")
+
+    with pytest.raises(NotConfigured, match="terms"):
+        ingest_alerts(conn, [path])

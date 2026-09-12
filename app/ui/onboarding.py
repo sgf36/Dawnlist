@@ -942,17 +942,125 @@ class SearchesPage(QWidget):
         self.changed.emit()
 
 
+class TermsPage(QWidget):
+    """Step zero: the terms, and a box that has to be ticked.
+
+    NOT SKIPPABLE, and that is the whole point of it. The data licence behind
+    Dawnlist's feed requires every subscriber to be bound by written terms, and
+    neither store checkout shows Dawnlist's — Apple's shows Apple's own EULA
+    and the Microsoft listing is free. A link in Settings makes the terms
+    findable; only this makes them agreed.
+    """
+
+    changed = Signal()
+
+    def __init__(self, *, again: bool = False, parent=None):
+        super().__init__(parent)
+        from app.onboarding.terms import TERMS_LAST_UPDATED
+        from app.ui.settings import TERMS_URL
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 16)
+        layout.setSpacing(12)
+
+        heading = QLabel(tr("onboarding.terms_heading"))
+        heading.setObjectName("stepHeading")
+        layout.addWidget(heading)
+
+        if again:
+            # A different sentence for a different situation: somebody who
+            # agreed in the past is not being asked for the first time, and
+            # being shown the first-time wording reads as the app forgetting.
+            note = QLabel(reflow(tr("onboarding.terms_changed")))
+            note.setObjectName("disagreement")
+            note.setWordWrap(True)
+            layout.addWidget(note)
+
+        body = QLabel(reflow(tr("onboarding.terms_body")))
+        body.setObjectName("stepBody")
+        body.setWordWrap(True)
+        layout.addWidget(body)
+
+        # The date is shown because it is what the user is agreeing to, and
+        # what decides whether they are asked again later.
+        self.link = QLabel(
+            f'<a href="{TERMS_URL}">'
+            + tr("onboarding.terms_link", date=TERMS_LAST_UPDATED) + "</a>")
+        self.link.setObjectName("termsLink")
+        self.link.setOpenExternalLinks(True)
+        self.link.setWordWrap(True)
+        layout.addWidget(self.link)
+
+        self.agree = QCheckBox(tr("onboarding.terms_agree"))
+        self.agree.stateChanged.connect(lambda *_: self.changed.emit())
+        layout.addWidget(self.agree)
+
+        layout.addStretch(1)
+        self.setStyleSheet(ONBOARDING_STYLESHEET)
+
+    @property
+    def agreed(self) -> bool:
+        return self.agree.isChecked()
+
+
+class TermsWindow(QWidget):
+    """The same page on its own, for somebody who has already set up.
+
+    The terms can change after setup, and the promise in them is that the user
+    is asked again. Sending that person back through the whole wizard to tick
+    one box would be absurd, so the step is a widget and this is the other
+    place it appears.
+    """
+
+    accepted = Signal()
+
+    def __init__(self, *, again: bool = False, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(tr("onboarding.title"))
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        self.page = TermsPage(again=again)
+        layout.addWidget(self.page, 1)
+
+        row = QHBoxLayout()
+        row.setContentsMargins(24, 0, 24, 20)
+        self.btn_quit = QPushButton(tr("onboarding.terms_quit"))
+        self.btn_quit.setObjectName("secondary")
+        self.btn_accept = QPushButton(tr("onboarding.terms_accept"))
+        self.btn_accept.setObjectName("primary")
+        self.btn_accept.setEnabled(False)
+        row.addWidget(self.btn_quit)
+        row.addStretch(1)
+        row.addWidget(self.btn_accept)
+        layout.addLayout(row)
+
+        self.setStyleSheet(ONBOARDING_STYLESHEET)
+        self.page.changed.connect(
+            lambda: self.btn_accept.setEnabled(self.page.agreed))
+        self.btn_accept.clicked.connect(self.accepted)
+        # Closing rather than agreeing leaves the terms unaccepted, which is
+        # the honest outcome: the application simply asks again next time.
+        self.btn_quit.clicked.connect(self.close)
+
+
 #: The steps, by name. They were bare integers compared in four places
 #: (`index < 4`, `index == 3`, `index == 1`), which is fine until a step is
 #: inserted — and a step was: nothing in this wizard ever asked the user to
 #: subscribe, so a new install finished setup, reached a feed it had not paid
 #: for, and was told there was nothing to calibrate against.
-STEP_INGEST = 0
-STEP_KEY = 1
-STEP_ENTITLEMENT = 2
-STEP_INTERVIEW = 3
-STEP_SEARCHES = 4
-STEP_CALIBRATION = 5
+#
+# The terms come FIRST because they govern everything after them: the CVs are
+# read, a key is spent and postings are fetched from a supplier whose licence
+# requires the user to be bound before any of it reaches them.
+STEP_TERMS = 0
+STEP_INGEST = 1
+STEP_KEY = 2
+STEP_ENTITLEMENT = 3
+STEP_INTERVIEW = 4
+STEP_SEARCHES = 5
+STEP_CALIBRATION = 6
+FIRST_STEP = STEP_TERMS
 LAST_STEP = STEP_CALIBRATION
 
 
@@ -971,7 +1079,8 @@ class OnboardingWizard(QWidget):
 
     def __init__(self, *, extract, sample, drafter=None, titler=None,
                  searches=None, set_search=None, entitlement_panel=None,
-                 where=None, parent=None):
+                 where=None, accept_terms=None, terms_accepted=False,
+                 parent=None):
         """`extract(paths) -> (names, warnings)` and `sample() -> [items]` are
         injected, so the wizard neither reads disks nor calls a model itself.
 
@@ -987,6 +1096,9 @@ class OnboardingWizard(QWidget):
         self._set_search = set_search
         #: `where() -> str`, the place the seeded searches look ("" if none).
         self._where = where
+        #: Called once, when the user leaves the terms step having agreed.
+        #: Injected so this widget records nothing itself.
+        self._accept_terms = accept_terms
         self._corpus = None
         #: The files that were READ, as opposed to the ones dropped. Next on
         #: the first step asks this: a drop of nothing but scans leaves the
@@ -999,6 +1111,7 @@ class OnboardingWizard(QWidget):
         layout.setSpacing(0)
 
         self.stack = QStackedWidget()
+        self.terms = TermsPage()
         self.ingest = IngestPage()
         # The key step sits BETWEEN ingest and calibration, because calibration
         # fetches live postings and assesses them — it is the first thing that
@@ -1025,6 +1138,7 @@ class OnboardingWizard(QWidget):
         self.interview = InterviewPage(drafter=drafter, titler=titler)
         self.calibration = CalibrationPage()
         self.searches = SearchesPage()
+        self.stack.addWidget(self.terms)
         self.stack.addWidget(self.ingest)
         self.stack.addWidget(self.keys)
         self.stack.addWidget(self.entitlement)
@@ -1059,6 +1173,7 @@ class OnboardingWizard(QWidget):
 
         self.setStyleSheet(ONBOARDING_STYLESHEET)
 
+        self.terms.changed.connect(self._refresh_next)
         self.ingest.files_added.connect(self._on_files)
         self.keys.key_changed.connect(lambda _present: self._refresh_next())
         self.interview.changed.connect(self._refresh_next)
@@ -1079,7 +1194,7 @@ class OnboardingWizard(QWidget):
         self.btn_next.clicked.connect(self._next)
         self.btn_back.clicked.connect(self._back)
         self.calibration.finished.connect(self._finish)
-        self._show_step(0)
+        self._show_step(STEP_INGEST if terms_accepted else STEP_TERMS)
 
     def _on_files(self, paths) -> None:
         names, warnings = self._extract(paths)
@@ -1110,6 +1225,9 @@ class OnboardingWizard(QWidget):
         self.btn_next.setEnabled(self._can_leave(self.stack.currentIndex()))
 
     def _can_leave(self, index: int) -> bool:
+        if index == STEP_TERMS:
+            # The one step in this flow that genuinely cannot be skipped.
+            return self.terms.agreed
         if index == STEP_INGEST:
             # Warnings never block: an unreadable file is the user's to fix or
             # ignore, and refusing to continue over one would strand someone
@@ -1138,7 +1256,13 @@ class OnboardingWizard(QWidget):
 
     def _next(self) -> None:
         index = self.stack.currentIndex()
-        if index == STEP_INGEST:
+        if index == STEP_TERMS:
+            # Recorded on leaving the step rather than on the tick, so the
+            # record follows the deliberate action and not a stray click.
+            if self._accept_terms is not None:
+                self._accept_terms()
+            self._show_step(STEP_INGEST)
+        elif index == STEP_INGEST:
             self._show_step(STEP_KEY)
         elif index == STEP_KEY:
             self._show_step(STEP_ENTITLEMENT)
@@ -1187,7 +1311,7 @@ class OnboardingWizard(QWidget):
             restore()
 
     def _back(self) -> None:
-        self._show_step(max(0, self.stack.currentIndex() - 1))
+        self._show_step(max(FIRST_STEP, self.stack.currentIndex() - 1))
 
     def _finish(self) -> None:
         self.completed.emit(self.calibration.result())
