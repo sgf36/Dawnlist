@@ -28,11 +28,11 @@ from __future__ import annotations
 import os
 
 #: The marketing version. Bump this and nothing else.
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 
 
 def marketing_version() -> str:
-    """`1.1.0` — what a buyer sees, on every storefront.
+    """`1.1.1` — what a buyer sees, on every storefront.
 
     `DAWNLIST_VERSION` overrides it so a build can be cut without a commit;
     the default is the committed truth.
@@ -41,7 +41,7 @@ def marketing_version() -> str:
 
 
 def msix_version() -> str:
-    """`1.1.0.0` — the four-part Identity version an MSIX package carries.
+    """`1.1.1.0` — the four-part Identity version an MSIX package carries.
 
     The revision stays 0 deliberately; see the module docstring.
     """

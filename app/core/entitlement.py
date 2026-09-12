@@ -838,6 +838,45 @@ def _check_ms_store(conn, now, exchanger) -> Entitlement:
     reader comparing them should find the difference in one place rather than
     in the shape of the function.
     """
+    # A DAWNLIST LICENCE FIRST, AND ANY KIND OF ONE.
+    #
+    # Override codes, comps and reviewer grants all arrive as a licence in the
+    # credential store, and without this they would silently stop working the
+    # day a build shipped as `store_iap` — the codes would still redeem, the
+    # Worker would still issue a licence, and the app would ignore it and ask
+    # for a Store subscription instead. Nothing would report an error.
+    #
+    # UNLIKE THE MAC, A PURCHASED KEY IS HONOURED TOO. `_check_mac` accepts
+    # only `granted_by_code and not purchased`, because guideline 3.1.1 forbids
+    # unlocking a Mac build with a key that was bought elsewhere. Microsoft has
+    # no such rule — Store Policies 10.8.1 and 10.8.6 permit third-party
+    # commerce for non-game PC apps — so an existing Paddle customer keeps
+    # working if this variant ever reaches them. That is not laxity: it is the
+    # difference between the two storefronts, and applying Apple's rule here by
+    # assumption is what produced a hole in the Store build once already.
+    try:
+        licence = read_licence()
+    except KeyringUnavailable:
+        licence = None
+    if licence:
+        outcome, body = licence_check(licence)
+        if outcome == "ok" and body.get("ok"):
+            _stamp(conn, licence, "grant", now)
+            return Entitlement(True, "licence", "licence key verified")
+        # "Could not ask" about a licence is not a refusal, and must not fall
+        # through to the Store: a subscriber whose key is fine would be told
+        # they have no Store subscription, which is true and beside the point.
+        if outcome == "unreachable" and _get(conn, VERIFIED_SOURCE) == "grant":
+            elapsed = _grace_elapsed(conn, licence, now)
+            if elapsed is not None:
+                return Entitlement(
+                    True, "grace",
+                    f"licence last verified {elapsed} day(s) ago; running on "
+                    f"grace for up to {GRACE_DAYS - elapsed} more")
+        # A licence that was REFUSED falls through deliberately. Somebody whose
+        # comp was withdrawn may well have subscribed since, and refusing here
+        # would hide a subscription they are paying for.
+
     result = exchanger()
 
     if result.outcome == "licence":
