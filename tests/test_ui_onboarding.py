@@ -1128,3 +1128,191 @@ def test_a_large_screen_does_not_get_a_stretched_window(qapp, monkeypatch):
     w.fit_to_screen(QRect(0, 0, 3840, 2160))
     assert (w.width(), w.height()) == PREFERRED_SIZE
     w.close()
+
+
+# ---------------------------------------------------------------------------
+# Setup remembers what was typed into it
+#
+# Closing the window lost the aim, both corrected documents and every answer —
+# all of which cost a model call to produce — and reopening started at the
+# first screen with nothing in it.
+# ---------------------------------------------------------------------------
+
+def a_store():
+    """A draft store that behaves like the real one: last write wins."""
+    held = {}
+    return held, (lambda: dict(held)), (lambda draft: held.update(draft))
+
+
+def test_what_the_user_types_is_saved_as_they_go(qapp, monkeypatch):
+    held, load, save = a_store()
+    w = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                 save_draft=save)
+    w.interview.aim.setPlainText("Hotel asset management, London, 85k floor.")
+    w.interview.factsheet.setPlainText("Acme Hotels, 2019 to 2023.")
+    w.interview.brief.setPlainText("Operational real estate in scope.")
+    w._save_now()
+
+    assert "85k" in held["aim"]
+    assert "Acme Hotels" in held["factsheet"]
+    assert "Operational real estate" in held["brief"]
+    w.close()
+
+
+def test_the_next_launch_opens_where_setup_was_left(qapp, monkeypatch):
+    from app.ui.onboarding import STEP_INTERVIEW
+
+    held, load, save = a_store()
+    first = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                     save_draft=save)
+    first._show_step(STEP_INTERVIEW)
+    first.interview.aim.setPlainText("Hotel asset management in London.")
+    first.interview.factsheet.setPlainText("FACTS")
+    first.interview.brief.setPlainText("BRIEF")
+    first._save_now()
+    first.close()
+
+    second = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                      save_draft=save)
+    assert second.stack.currentIndex() == STEP_INTERVIEW
+    assert second.interview.aim.toPlainText() == (
+        "Hotel asset management in London.")
+    assert second.interview.factsheet.toPlainText() == "FACTS"
+    assert second.interview.brief.toPlainText() == "BRIEF"
+    second.close()
+
+
+def test_the_answers_to_the_open_questions_come_back_too(qapp, monkeypatch,
+                                                         settle):
+    """The questions are produced by a model call, so losing the answers loses
+    the money as well as the typing."""
+    held, load, save = a_store()
+    first = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                     save_draft=save,
+                     drafter=lambda c, a: ("F", "B", ["Did you manage anyone?"]))
+    first.interview.run_draft(["cv.docx"])
+    settle(lambda: not first.interview.drafting, what="the draft")
+    first.interview._answer_rows[0][1].setText("Yes, four direct reports.")
+    first._save_now()
+    first.close()
+
+    second = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                      save_draft=save)
+    asked = dict(second.interview.question_answers())
+    assert asked == {"Did you manage anyone?": "Yes, four direct reports."}
+    assert "four direct reports" in second.interview.documents()[0]
+    second.close()
+
+
+def test_the_postings_already_paid_for_come_back_rather_than_being_refetched(
+        qapp, monkeypatch, settle):
+    """Re-fetching on every launch would buy the same rows again and discard
+    the decisions already made on them."""
+    from app.ui.onboarding import STEP_CALIBRATION, STEP_SEARCHES
+
+    held, load, save = a_store()
+    fetches = []
+
+    def sample():
+        fetches.append(1)
+        return items(10)
+
+    first = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                     save_draft=save, sample=sample,
+                     searches=lambda: [("hotels", ["hotels"], True)],
+                     set_search=lambda label, on: None)
+    first.searches.load(first._searches())
+    first.stack.setCurrentIndex(STEP_SEARCHES)
+    first._next()
+    settle(lambda: not first._sampling, what="the fetch")
+    choose(first.calibration, 0, "strong")
+    type_sentence(first.calibration, 0, "Operational real estate is in scope.")
+    first._save_now()
+    first.close()
+
+    second = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                      save_draft=save, sample=sample,
+                      searches=lambda: [("hotels", ["hotels"], True)],
+                      set_search=lambda label, on: None)
+    assert fetches == [1], "the same postings were bought a second time"
+    assert second.stack.currentIndex() == STEP_CALIBRATION
+    assert len(second.calibration._widgets) == 10
+    assert second.calibration._widgets[0].item.brief_sentence == (
+        "Operational real estate is in scope.")
+    second.close()
+
+
+def test_a_draft_left_on_the_gate_with_no_postings_reopens_a_step_earlier(
+        qapp, monkeypatch):
+    """Arriving at the gate is what spends money, so it is never arrived at by
+    restoring — the searches step is one deliberate click away from it."""
+    from app.ui.onboarding import STEP_SEARCHES
+
+    held, load, save = a_store()
+    held.update({"step": "calibration", "aim": "", "factsheet": "",
+                 "brief": "", "questions": [], "answers": {}, "files": []})
+    w = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                 save_draft=save, searches=lambda: [("hotels", ["h"], True)],
+                 set_search=lambda label, on: None)
+    assert w.stack.currentIndex() == STEP_SEARCHES
+    w.close()
+
+
+def test_revised_terms_are_agreed_before_the_flow_resumes(qapp, monkeypatch):
+    """The terms are not skipped to resume a flow: they are agreed, and then
+    the flow resumes where it was."""
+    from app.ui.onboarding import STEP_INTERVIEW, STEP_TERMS
+
+    held, load, save = a_store()
+    held.update({"step": "interview", "aim": "a", "factsheet": "F",
+                 "brief": "B", "questions": [], "answers": {}, "files": []})
+    w = a_wizard(monkeypatch, terms_accepted=False, load_draft=load,
+                 save_draft=save)
+    assert w.stack.currentIndex() == STEP_TERMS
+
+    w.terms.agree.setChecked(True)
+    w._next()
+    assert w.stack.currentIndex() == STEP_INTERVIEW, "back to where they were"
+    w.close()
+
+
+def test_finishing_does_not_ask_about_closing(qapp, monkeypatch):
+    """The host closes the window from inside the finish handler, and a close
+    during finishing is not an abandoned setup."""
+    held, load, save = a_store()
+    asked = []
+    w = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                 save_draft=save, confirm=lambda: asked.append(True) or True)
+    w._draft_failed = True          # would otherwise warn
+    w._finish()
+    w.close()
+    assert asked == []
+
+
+def test_a_draft_that_could_not_be_saved_warns_before_closing(qapp, monkeypatch):
+    """The one case where the work really would be lost. A confirmation on
+    every close is how people learn to dismiss confirmations."""
+    def refuse(draft):
+        raise RuntimeError("the database is read-only")
+
+    asked = []
+    w = a_wizard(monkeypatch, terms_accepted=True, load_draft=lambda: {},
+                 save_draft=refuse, confirm=lambda: asked.append(True) or False)
+    w.show()
+    w.interview.aim.setPlainText("Hotel asset management.")
+    w._save_now()
+    assert w._draft_failed
+
+    w.close()
+    assert asked == [True]
+    assert w.isVisible(), "the close was declined, so the window is still up"
+
+    # POSITIVE CONTROL: a store that works warns about nothing.
+    held, load, save = a_store()
+    fine = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
+                    save_draft=save,
+                    confirm=lambda: asked.append("again") or True)
+    fine.interview.aim.setPlainText("Hotel asset management.")
+    fine._save_now()
+    fine.close()
+    assert asked == [True], "warned when nothing was at risk"

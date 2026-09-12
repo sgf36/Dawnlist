@@ -1968,7 +1968,7 @@ def build_onboarding(conn, *, on_finished=None):
     from app.onboarding import terms
     from app.onboarding.calibration import complete_calibration
     from app.onboarding.extract import extract_corpus
-    from app.onboarding.state import mark_setup_finished
+    from app.onboarding import state
     from app.ui.onboarding import OnboardingWizard
 
     start_storekit()
@@ -2046,6 +2046,8 @@ def build_onboarding(conn, *, on_finished=None):
         extract=extract, sample=sample, drafter=drafter,
         accept_terms=lambda: terms.record_acceptance(conn),
         terms_accepted=terms.is_accepted(conn),
+        load_draft=lambda: state.load_draft(conn),
+        save_draft=lambda draft: state.save_draft(conn, draft),
         titler=lambda text, brief="": search_plan(
             text, brief=brief, send=send_if_configured(conn)),
         entitlement_panel=onboarding_entitlement_panel(),
@@ -2111,7 +2113,10 @@ def build_onboarding(conn, *, on_finished=None):
         # recorded separately for exactly that reason: the launch path asked
         # `is_calibrated`, so anybody whose sample never arrived was sent back
         # to the first screen of setup on every launch, for ever.
-        mark_setup_finished(conn)
+        state.mark_setup_finished(conn)
+        # The documents are saved properly by now, so the scratchpad is stale:
+        # leaving it would reopen a flow the user has already finished.
+        state.clear_draft(conn)
         # The next window FIRST. Closing the wizard while it is the only one
         # open ends the event loop, and the process exits instead of showing
         # the shortlist the user has just spent half an hour producing.
