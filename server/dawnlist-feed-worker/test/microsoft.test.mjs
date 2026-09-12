@@ -167,6 +167,30 @@ for (const name of ['MS_TENANT_ID', 'MS_CLIENT_ID', 'MS_CLIENT_SECRET', 'MS_PROD
   });
 }
 
+await test('a key Microsoft rejects is a bad key, not an outage', async () => {
+  /* MEASURED against the live API on 2026-09-12: a junk key comes back 400,
+     because Microsoft authenticated the request and then looked at the key.
+     Reported as 'unreachable' it sends somebody to check Cloudflare for a
+     fault in the client, and the app sits on grace waiting for a network that
+     was never down. */
+  const db = makeD1();
+  mockMicrosoft({ collections: {}, collectionsStatus: 400 });
+  const { status, out } = await post(db, { collectionsKey: 'not-a-real-key' });
+  assert.strictEqual(status, 400, 'a client fault must not read as 5xx');
+  assert.strictEqual(out.error, 'bad_collections_key');
+  assert.match(out.message, /ticket/, 'say how to get a good one');
+});
+
+await test('a 500 from Microsoft IS an outage, and still reads as one', async () => {
+  /* The positive control for the test above: narrowing 400 must not swallow
+     the case the old branch existed for. */
+  const db = makeD1();
+  mockMicrosoft({ collections: {}, collectionsStatus: 500 });
+  const { status, out } = await post(db, { collectionsKey: 'a-key' });
+  assert.strictEqual(status, 502);
+  assert.strictEqual(out.error, 'microsoft_unreachable');
+});
+
 await test('a refused query names Partner Center rather than the customer', async () => {
   /* THE failure worth naming. A token that mints and a query that is refused
      almost always means the registration was never added in Partner Center.
