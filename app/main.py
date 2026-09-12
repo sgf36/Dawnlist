@@ -1971,8 +1971,6 @@ def build_onboarding(conn, *, on_finished=None):
     from app.onboarding import state
     from app.ui.onboarding import OnboardingWizard
 
-    start_storekit()
-
     def extract(paths):
         result = extract_corpus(list(paths))
         return [d.name for d in result.corpus.documents], result.warnings
@@ -2141,6 +2139,11 @@ def _launch_onboarding(app, conn) -> int:
     user saw on completing setup was Dawnlist quitting, and they had to start
     it again to see any of what they had produced.
     """
+    # AT LAUNCH, and on this path too: Apple delivers unfinished transactions —
+    # a renewal, an interrupted purchase, an approved Ask to Buy — as soon as
+    # an observer exists, and setup is where a first subscription is bought.
+    start_storekit()
+
     # Held, because this closure is the only reference to the window: a
     # QWidget nobody holds is collected as soon as the callback returns, and
     # it disappears as fast as it appeared.
