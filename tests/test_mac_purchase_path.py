@@ -176,14 +176,17 @@ def _opener(payload, capture=None):
     return open_it
 
 
+# The receipt is now the FALLBACK shape: sent only when no transaction id was
+# ever kept, for a customer who subscribed through the build in review. The
+# transaction-id contract is pinned in tests/test_mac_entitlement.py.
+
 def test_a_valid_receipt_becomes_a_licence():
-    from app.core.entitlement import exchange_mac_receipt
+    from app.core.entitlement import exchange_apple
 
     seen = []
-    got = exchange_mac_receipt(b"receipt-bytes",
-                               opener=_opener({"licence_key": "DAWN-MAC"},
-                                              seen))
-    assert got == "DAWN-MAC"
+    got = exchange_apple(receipt=b"receipt-bytes",
+                         opener=_opener({"licence_key": "DAWN-MAC"}, seen))
+    assert got.outcome == "licence" and got.licence_key == "DAWN-MAC"
     sent = json.loads(seen[0].data.decode())
     assert base64.b64decode(sent["receipt"]) == b"receipt-bytes", (
         "the receipt goes as opaque bytes — the app forms no view of what is "
@@ -194,29 +197,37 @@ def test_the_receipt_request_identifies_the_client():
     """The same Cloudflare 1010 that refused every other Worker call. This one
     is the Mac purchase path, so a 403 here means a paid subscription that
     reaches no feed."""
-    from app.core.entitlement import exchange_mac_receipt
+    from app.core.entitlement import exchange_apple
     from app.core.http import USER_AGENT
 
     seen = []
-    exchange_mac_receipt(b"x", opener=_opener({"licence_key": "k"}, seen))
+    exchange_apple(receipt=b"x", opener=_opener({"licence_key": "k"}, seen))
     assert seen[0].get_header("User-agent") == USER_AGENT
 
 
 def test_no_active_subscription_is_an_answer_not_an_error():
     """Lapsed, refunded, or a sandbox receipt against production. All
-    legitimate, none of them a failure to hide."""
-    from app.core.entitlement import exchange_mac_receipt
+    legitimate, none of them a failure to hide — and since the route exists,
+    Apple's answer arrives as the Worker's refusal, not as an empty reply."""
+    from app.core.entitlement import exchange_apple
 
-    assert exchange_mac_receipt(b"x", opener=_opener({})) is None
+    def refused(request, timeout=None):
+        raise urllib.error.HTTPError(
+            request.full_url, 403, "no", {},
+            io.BytesIO(json.dumps({"error": "not_subscribed",
+                                   "status": "expired"}).encode()))
+
+    got = exchange_apple(receipt=b"x", opener=refused)
+    assert got.outcome == "refused" and got.status == "expired"
 
 
 def test_an_outage_is_not_a_refusal():
-    from app.core.entitlement import exchange_mac_receipt
+    from app.core.entitlement import exchange_apple
 
     def boom(_request, timeout=None):
         raise urllib.error.URLError("no network")
 
-    assert exchange_mac_receipt(b"x", opener=boom) is None
+    assert exchange_apple(receipt=b"x", opener=boom).outcome == "unreachable"
 
 
 # -- the purchase screen must never become a dead end -----------------------
@@ -231,6 +242,9 @@ def test_an_outage_is_not_a_refusal():
 class _NeverAnswers:
     """StoreKit that accepts a purchase and then says nothing, ever."""
 
+    def __init__(self):
+        self.purchases = 0
+
     def available(self):
         return True
 
@@ -240,11 +254,18 @@ class _NeverAnswers:
     def price(self):
         return "$79.00"
 
-    def purchase(self, _on_finished):
-        pass                    # the callback that never comes
+    def has_product(self):
+        return True
 
-    def restore(self, _on_finished):
-        pass
+    def load_product(self):
+        return "product"
+
+    def purchase(self):
+        self.purchases += 1
+        return None             # started; the signal that never comes
+
+    def restore(self):
+        return None
 
 
 def test_a_purchase_that_never_answers_still_leaves_a_way_out(qapp_and_settle):
@@ -330,105 +351,143 @@ def test_a_stored_choice_beats_the_machine(tmp_path, monkeypatch):
 # subscribing answered "Subscribed. The feed reads for you from tomorrow
 # morning."
 #
-# `paymentQueueRestoreCompletedTransactionsFinished_` fires when the RESTORE
-# OPERATION finishes, including with nothing found. The code then asked only
-# whether a receipt file existed — true for every Mac App Store app, holding a
-# subscription or not. The /health bug in a different hat: a question whose
-# answer is yes for everybody, standing in for one that would have been no.
+# These drove the old per-restore observer, whose success test was "a receipt
+# file exists". That observer is gone; success now means the Worker confirmed
+# the restored transaction with Apple. The same three cases are asserted here
+# against the one observer's logic, and the rest in tests/test_storekit_hub.py.
 
-class _Queue:
-    """Enough SKPaymentQueue for the restore path."""
+def _restore_with(restored, answer):
+    from types import SimpleNamespace
 
-    def __init__(self, to_restore=0):
-        self.to_restore = to_restore
-        self.finished = 0
-        self.observer = None
+    from app.core.mac_storekit import DEFAULT_STATES, PRODUCT_ID, TransactionHub
 
-    def addTransactionObserver_(self, obs):
-        self.observer = obs
+    class Txn:
+        def transactionState(self):
+            return DEFAULT_STATES.restored
 
-    def removeTransactionObserver_(self, obs):
-        self.observer = None
+        def payment(self):
+            return SimpleNamespace(productIdentifier=lambda: PRODUCT_ID)
 
-    def finishTransaction_(self, _t):
-        self.finished += 1
+        def transactionIdentifier(self):
+            return "2000000111"
 
-    def restoreCompletedTransactions(self):
-        obs = self.observer
-        if self.to_restore:
-            obs.paymentQueue_updatedTransactions_(
-                self, [_Txn() for _ in range(self.to_restore)])
-        obs.paymentQueueRestoreCompletedTransactionsFinished_(self)
+        def originalTransaction(self):
+            return None
 
-
-class _Txn:
-    def transactionState(self):
-        return 1          # SKPaymentTransactionStateRestored, stubbed below
-
-
-def _run_restore(monkeypatch, to_restore, receipt_ok=True):
-    """Drive `mac_storekit.restore` with StoreKit stubbed out."""
-    import types
-
-    from app.core import mac_storekit
-
-    sk = types.ModuleType("StoreKit")
-    sk.SKPaymentTransactionStateRestored = 1
-    queue = _Queue(to_restore)
-    sk.SKPaymentQueue = types.SimpleNamespace(defaultQueue=lambda: queue)
-
-    foundation = types.ModuleType("Foundation")
-    foundation.NSObject = object
-
-    monkeypatch.setitem(__import__("sys").modules, "StoreKit", sk)
-    monkeypatch.setitem(__import__("sys").modules, "Foundation", foundation)
-    monkeypatch.setattr(mac_storekit, "available", lambda: True)
-    monkeypatch.setattr(mac_storekit, "refresh_receipt",
-                        lambda cb: cb(receipt_ok))
-
-    # NSObject.alloc().init() is PyObjC; with NSObject = object the class the
-    # function builds is a plain class, so give it the same two-step ctor.
-    class _Alloc:
-        def __init__(self, cls):
-            self._cls = cls
-
-        def init(self):
-            return self._cls()
-
-    monkeypatch.setattr(foundation, "NSObject",
-                        type("NSObject", (), {
-                            "alloc": classmethod(lambda cls: _Alloc(cls))}))
-
+    queue = SimpleNamespace(finished=[], restoreCompletedTransactions=lambda: None)
+    queue.finishTransaction_ = queue.finished.append
     seen = []
-    mac_storekit.restore(seen.append)
+    hub = TransactionHub(queue=queue, exchange=lambda oid: answer,
+                         run=lambda fn, done: done(fn()), emit=seen.append,
+                         payment_for=lambda p: p)
+    hub.restore()
+    hub.transactions_updated(queue, [Txn() for _ in range(restored)])
+    hub.restore_finished(queue)
     return seen[0] if seen else None, queue
 
 
-def test_restore_with_nothing_to_restore_does_not_claim_a_subscription(
-        monkeypatch):
+def test_restore_with_nothing_to_restore_does_not_claim_a_subscription():
+    from app.core.entitlement import AppleExchange
     from app.core.mac_storekit import Outcome
 
-    result, _q = _run_restore(monkeypatch, to_restore=0)
+    result, _q = _restore_with(0, AppleExchange("licence", licence_key="K"))
     assert result is not None, "restore must always answer"
     assert result.outcome is not Outcome.PURCHASED, (
         "pressing Restore before subscribing said 'Subscribed.'")
     assert "othing to restore" in (result.detail or "")
 
 
-def test_restore_with_a_real_transaction_does_report_it(monkeypatch):
+def test_restore_with_a_real_transaction_does_report_it():
     """The positive control. A suite that only ever saw the empty case could
     not tell a working restore from one that always refuses."""
+    from app.core.entitlement import AppleExchange
     from app.core.mac_storekit import Outcome
 
-    result, queue = _run_restore(monkeypatch, to_restore=1)
+    result, queue = _restore_with(1, AppleExchange("licence", licence_key="K"))
     assert result.outcome is Outcome.PURCHASED
-    assert queue.finished == 1, (
+    assert len(queue.finished) == 1, (
         "an unfinished transaction is re-delivered on every launch for ever")
 
 
-def test_a_restored_transaction_with_no_receipt_is_not_success(monkeypatch):
+def test_a_restored_transaction_the_worker_could_not_confirm_is_not_success():
+    from app.core.entitlement import AppleExchange
     from app.core.mac_storekit import Outcome
 
-    result, _q = _run_restore(monkeypatch, to_restore=1, receipt_ok=False)
+    result, queue = _restore_with(1, AppleExchange("unreachable"))
     assert result.outcome is not Outcome.PURCHASED
-    assert "receipt" in (result.detail or "").lower()
+    assert queue.finished == [], "left for Apple to deliver again"
+
+
+# -- the panel: no waiting on the UI thread, answers by signal ---------------
+
+def test_subscribe_fetches_the_product_off_the_ui_thread_then_buys_on_it(
+        qapp_and_settle):
+    import threading
+
+    _qapp, settle = qapp_and_settle
+    from app.ui.settings import StoreKitEvents, SubscribePanel
+
+    class NoProductYet(_NeverAnswers):
+        def __init__(self):
+            super().__init__()
+            self.fetched_on = None
+            self.bought_on = None
+
+        def has_product(self):
+            return False
+
+        def load_product(self):
+            self.fetched_on = threading.current_thread()
+            return "product"
+
+        def purchase(self):
+            self.bought_on = threading.current_thread()
+            return super().purchase()
+
+    sk = NoProductYet()
+    panel = SubscribePanel(storekit=sk, events=StoreKitEvents())
+    settle(lambda: panel.buy.isEnabled(), what="the price")
+    panel.buy.click()
+    settle(lambda: sk.purchases == 1, what="the purchase")
+    assert sk.fetched_on is not threading.main_thread(), "fetched on the UI thread"
+    assert sk.bought_on is threading.main_thread(), "addPayment belongs on the main thread"
+    panel.close()
+
+
+def test_a_purchase_answer_reaches_the_panel_through_the_signal(qapp_and_settle):
+    _qapp, settle = qapp_and_settle
+    from app.core.mac_storekit import Outcome, Result
+    from app.ui.settings import StoreKitEvents, SubscribePanel
+
+    events = StoreKitEvents()
+    panel = SubscribePanel(storekit=_NeverAnswers(), events=events)
+    settle(lambda: panel.buy.isEnabled(), what="the price")
+
+    events.finished.emit(Result(Outcome.DEFERRED, "waiting"))
+    assert "approval" in panel.result.text()
+
+    events.finished.emit(Result(Outcome.PURCHASED))
+    assert "Subscribed" in panel.result.text()
+    settle(lambda: True)
+    panel.close()
+
+
+def test_a_second_press_while_the_first_is_pending_says_so_without_an_error(
+        qapp_and_settle):
+    _qapp, settle = qapp_and_settle
+    from app.core.mac_storekit import Outcome, Result
+    from app.ui.settings import StoreKitEvents, SubscribePanel
+
+    class Pending(_NeverAnswers):
+        def purchase(self):
+            super().purchase()
+            return Result(Outcome.IN_PROGRESS) if self.purchases > 1 else None
+
+    sk = Pending()
+    panel = SubscribePanel(storekit=sk, events=StoreKitEvents())
+    settle(lambda: panel.buy.isEnabled(), what="the price")
+    panel._purchase()
+    panel._purchase()
+    said = panel.result.text().lower()
+    assert "fail" not in said and "error" not in said
+    panel.close()

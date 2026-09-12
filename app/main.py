@@ -727,10 +727,10 @@ def build_provider(conn):
     # Windows is different and deliberately not covered here: Microsoft permits
     # third-party commerce, subject to declaring it in Partner Center.
     if build == "mas":
-        # The ONLY entitlement route Apple permits here. The receipt is written
-        # into the bundle by the App Store, is never seen or typed by the user,
-        # and cannot be obtained any other way — so the entitlement originates
-        # with Apple throughout, which is what a stored key would not.
+        # The ONLY purchase route Apple permits here. The transaction id comes
+        # from StoreKit and the Worker confirms it with Apple, so the
+        # entitlement originates with Apple throughout, which is what a stored
+        # key would not.
         #
         # A stored licence is deliberately NOT consulted, even if one exists:
         # the keyring is per user, so somebody who ran the direct build first
@@ -751,8 +751,10 @@ def build_provider(conn):
         # licence in the keyring is still refused here, which is the case the
         # guard above was written for: whoever ran the direct build first still
         # has one.
-        from app.core.entitlement import exchange_mac_receipt, licence_details
-        from app.core.mac_receipt import read_receipt
+        from app.core.credentials import KeyringUnavailable
+        from app.core.entitlement import (apple_cache, exchange_and_cache,
+                                          fresh_apple_licence, licence_details)
+        from app.i18n import tr
 
         granted = stored_licence()
         if granted:
@@ -766,21 +768,33 @@ def build_provider(conn):
                 from app.feed.managed import ManagedProvider
                 return ManagedProvider(granted)
 
-        receipt = read_receipt()
-        if receipt is None:
-            raise NotConfigured(
-                "This copy has no App Store receipt yet, so there is no job "
-                "feed to read. Your board, your brief and everything already "
-                "on this machine stay open.")
-        mac_licence = exchange_mac_receipt(receipt)
-        if not mac_licence:
-            raise NotConfigured(
-                "The App Store could not confirm an active subscription, so "
-                "there is no job feed to read. If you have just subscribed it "
-                "can take a moment. Everything already on this machine stays "
-                "open.")
         from app.feed.managed import ManagedProvider
-        return ManagedProvider(mac_licence)
+
+        try:
+            cache = apple_cache()
+        except KeyringUnavailable:
+            raise NotConfigured(tr("entitlement.keyring_unavailable")) from None
+
+        fresh = fresh_apple_licence(cache)
+        if fresh:
+            # `check()` confirmed it with Apple minutes ago, at the door into
+            # this same run. Asking again doubles every Mac run's calls to
+            # Apple and learns nothing new.
+            return ManagedProvider(fresh)
+
+        result = exchange_and_cache(cache.get("original_transaction_id"))
+        if result.outcome == "licence":
+            return ManagedProvider(result.licence_key)
+        if result.outcome == "refused":
+            raise NotConfigured(tr("entitlement.mac_lapsed"))
+        if result.outcome == "none":
+            raise NotConfigured(tr("entitlement.mac_not_subscribed"))
+        if cache.get("licence_key"):
+            # Apple, or the Worker, could not be asked. The licence issued last
+            # time is still the Worker's to honour or refuse at the feed, so
+            # nothing is granted here that the server has not granted.
+            return ManagedProvider(cache["licence_key"])
+        raise NotConfigured(tr("entitlement.mac_unreachable"))
 
     licence = stored_licence()
     if licence:
@@ -805,17 +819,11 @@ def build_provider(conn):
     # No licence and no developer key. WHAT TO SAY DEPENDS ON THE BUILD, and
     # getting it wrong is worse than saying nothing.
     #
-    # A store build reaches here with the entitlement gate already satisfied —
-    # `entitlement.require` treats a store build as entitled BY POSSESSION,
-    # because the storefront does not hand the binary to someone who has not
-    # bought it. That reasoning holds for a one-time purchase and does NOT hold
-    # here: the feed is metered per licence server-side, so possession alone
-    # gives the app nothing to meter against and no way to fetch. The customer
-    # has paid and cannot run.
-    #
-    # Telling that person to "enter your licence key" is advice they cannot
-    # act on — no key was ever issued to them — and telling them to put a
-    # provider key in their keyring is advice for a product they did not buy.
+    # Both Windows channels sell through Paddle, so whoever reads this either
+    # has a key to enter or has not bought yet, and the message names that.
+    # Telling a customer to put a provider key in their keyring is advice for
+    # a product they did not buy, so only a build with no store variant says
+    # it.
     if build == "store":
         # Windows Store: the licence box IS shown (Microsoft permits
         # third-party commerce), so this is something the user can act on
@@ -863,6 +871,44 @@ def save_locale(conn, code: str) -> str:
     conn.commit()
     set_locale(code)
     return code
+
+
+def start_storekit() -> bool:
+    """Register the Mac App Store transaction observer, once, at launch.
+
+    AT LAUNCH, not when Settings opens: Apple delivers unfinished transactions
+    — a renewal, a purchase interrupted by a crash, an approved Ask to Buy — as
+    soon as an observer exists, and a process with none never hears of them.
+    Only on `mas`; elsewhere it registers nothing.
+    """
+    from app.core.build_variant import variant
+
+    if variant() != "mas":
+        return False
+
+    from app.core import mac_storekit
+    from app.core.entitlement import AppleExchange, exchange_and_cache
+    from app.ui.background import run_in_background
+    from app.ui.settings import storekit_events
+
+    tasks: list = []
+
+    def run(fn, on_done):
+        # Held until it answers: a task nothing references is collected and
+        # never delivers, and the transaction would wait for ever.
+        def settle(value):
+            if box and box[0] in tasks:
+                tasks.remove(box[0])
+            on_done(value)
+
+        box: list = []
+        box.append(run_in_background(
+            fn, on_done=settle,
+            on_error=lambda _exc: settle(AppleExchange("unreachable"))))
+        tasks.append(box[0])
+
+    return mac_storekit.install(exchange=exchange_and_cache, run=run,
+                                emit=storekit_events().finished.emit)
 
 
 def wire_quick_menu(source, conn, *, parent=None, on_subscribe=None) -> None:
@@ -1885,6 +1931,8 @@ def _launch_onboarding(app, conn) -> int:
     from app.onboarding.extract import extract_corpus
     from app.ui.onboarding import OnboardingWizard
 
+    start_storekit()
+
     def extract(paths):
         result = extract_corpus(list(paths))
         return [d.name for d in result.corpus.documents], result.warnings
@@ -2182,6 +2230,8 @@ def _launch_ui(conn, *, open_board: bool) -> int:
     if not is_calibrated(conn) and not open_board:
         return _launch_onboarding(app, conn)
 
+    start_storekit()
+
     if open_board:
         window = BoardWindow()
         connect_board(window, conn)
@@ -2226,12 +2276,26 @@ def _launch_ui(conn, *, open_board: bool) -> int:
     return app.exec()
 
 
-def _offer_update(parent) -> None:
+#: How long after the window appears the daily check starts. Not zero: the
+#: first moments belong to painting the shortlist.
+UPDATE_CHECK_DELAY_MS = 3_000
+
+#: Held until each check answers; a task nothing references is collected and
+#: never delivers.
+_UPDATE_TASKS: list = []
+
+
+def _offer_update(parent, *, checker=None,
+                  delay_ms: int = UPDATE_CHECK_DELAY_MS) -> None:
     """Tell a direct-download user that a newer build exists. Nothing else.
 
-    AFTER `window.show()`, never before. A modal raised while the window is
-    still being built is a dialog with nothing behind it, on the one launch a
-    person most wants to see their shortlist.
+    AFTER THE WINDOW SHOWS, AND OFF THE UI THREAD. `check()` fetches a
+    manifest over the network with a ten-second timeout, and it ran inline
+    straight after `window.show()` — before the event loop had started — so
+    a slow host held the first paint of the shortlist for up to ten seconds.
+    It is now scheduled onto the running loop, runs on a worker thread, and
+    the dialog comes from the answer. A modal raised while the window is still
+    being built would also be a dialog with nothing behind it.
 
     It offers a LINK. Dawnlist does not download the new build and does not
     replace itself on disk — the artefact on the website is signed and carries
@@ -2246,23 +2310,68 @@ def _offer_update(parent) -> None:
     never be the reason the application did not open.
     """
     try:
-        from app.core.updates import check
+        from PySide6.QtCore import QTimer
 
-        found = check()
-        if found is None:
-            return
+        from app.core import updates
+        from app.ui.background import run_in_background
 
+        def start():
+            def done(found, task=None):
+                if task in _UPDATE_TASKS:
+                    _UPDATE_TASKS.remove(task)
+                _show_update(parent, found)
+
+            box: list = []
+            box.append(run_in_background(
+                checker or updates.check,
+                on_done=lambda found: done(found, box[0]),
+                on_error=lambda _exc: done(None, box[0])))
+            _UPDATE_TASKS.append(box[0])
+
+        QTimer.singleShot(delay_ms, start)
+    except Exception:  # noqa: BLE001 - see the docstring: never block the launch
+        pass
+
+
+def _readable_size(size: int | None) -> str:
+    if not size:
+        return ""
+    return f"{size / 1_048_576:.1f} MB"
+
+
+def _update_texts(found) -> tuple[str, str]:
+    """The prompt's headline and body, with the checksum to verify against."""
+    from app.i18n import tr
+
+    lines = [tr("update.body")]
+    if found.sha256:
+        lines.append(tr("update.checksum", sha256=found.sha256))
+    if found.size:
+        lines.append(tr("update.size", size=_readable_size(found.size)))
+    return tr("update.available", version=found.version), "\n\n".join(lines)
+
+
+def _show_update(parent, found) -> None:
+    """The prompt itself, on the UI thread, from the check's answer."""
+    if found is None:
+        return
+    try:
         from PySide6.QtCore import QUrl
         from PySide6.QtGui import QDesktopServices
         from PySide6.QtWidgets import QMessageBox
 
         from app.i18n import tr
 
+        headline, body = _update_texts(found)
+        from PySide6.QtCore import Qt
+
         box = QMessageBox(parent)
         box.setIcon(QMessageBox.Information)
         box.setWindowTitle(tr("update.title"))
-        box.setText(tr("update.available", version=found.version))
-        box.setInformativeText(tr("update.body"))
+        box.setText(headline)
+        box.setInformativeText(body)
+        # Selectable, so the checksum can be copied into a verification tool.
+        box.setTextInteractionFlags(Qt.TextSelectableByMouse)
         get = box.addButton(tr("update.get"), QMessageBox.AcceptRole)
         box.addButton(tr("update.later"), QMessageBox.RejectRole)
         box.setDefaultButton(get)

@@ -68,11 +68,35 @@ def test_an_empty_receipt_counts_as_absent(monkeypatch, tmp_path):
     assert mac_receipt.read_receipt() is None
 
 
-def test_the_missing_receipt_exit_code_is_apples(monkeypatch):
-    """173 exactly. macOS reads that one code as "fetch a receipt and relaunch";
-    any other non-zero code is just a crash, and the app never comes back."""
-    assert mac_receipt.exit_code_for_missing_receipt() == 173
-    assert mac_receipt.MISSING_RECEIPT_EXIT == 173
+def test_the_app_never_quits_for_a_receipt_it_does_not_validate():
+    """This pinned an exit-173 helper that nothing called, under the claim that
+    Apple requires it. 173 serves ON-DEVICE receipt validation, which Dawnlist
+    does not do — the Worker asks Apple — so the helper and the claim went.
+    Asserted across the app so the dead number cannot come back as a real exit
+    that closes the app over a file it never reads."""
+    import ast
+    import pathlib
+
+    assert not hasattr(mac_receipt, "exit_code_for_missing_receipt")
+    app_dir = pathlib.Path(mac_receipt.__file__).resolve().parents[1]
+    for path in app_dir.rglob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Call)
+                    and any(isinstance(a, ast.Constant) and a.value == 173
+                            for a in node.args)):
+                raise AssertionError(f"{path.name}:{node.lineno} exits 173")
+
+
+def test_the_receipt_is_still_read_for_the_fallback():
+    """The positive control: the module is not dead. A customer who subscribed
+    through the build in review has no transaction id kept, and the receipt is
+    what the Worker is asked with once."""
+    import inspect
+
+    from app.core import entitlement
+
+    assert "read_receipt" in inspect.getsource(entitlement.exchange_and_cache)
 
 
 def test_the_app_never_looks_inside_the_receipt():

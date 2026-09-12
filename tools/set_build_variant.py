@@ -1,6 +1,7 @@
 """Select the build variant before running PyInstaller.
 
-    python tools/set_build_variant.py store     # Microsoft Store / MAS
+    python tools/set_build_variant.py store     # Microsoft Store
+    python tools/set_build_variant.py mas       # Mac App Store
     python tools/set_build_variant.py direct    # direct download
     python tools/set_build_variant.py --show
 
@@ -25,8 +26,8 @@ from pathlib import Path
 RESOURCES = Path(__file__).resolve().parents[1] / "app" / "resources"
 
 VARIANTS = {
-    "store": "store_build.flag",     # Microsoft Store: production via the add-on
-    "mas": "mas_build.flag",         # Mac App Store: production via StoreKit
+    "store": "store_build.flag",     # Microsoft Store: Paddle licence key
+    "mas": "mas_build.flag",         # Mac App Store: StoreKit subscription
     "direct": "license_required.flag",  # direct download: Paddle licence key
 }
 

@@ -23,7 +23,7 @@ Three decisions about handling the key:
 """
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (QComboBox, QFrame, QGridLayout, QHBoxLayout,
                                QLabel,
@@ -205,17 +205,34 @@ class KeyPanel(QWidget):
 
     def save(self) -> None:
         entered = self.field.text().strip()
-        if not entered:
+        # Ignored while a check runs: Return in the field would otherwise
+        # start a second one behind the disabled button.
+        if not entered or not self.button.isEnabled():
             return
 
         self.button.setEnabled(False)
         self.result.setObjectName("")
         self.result.setText(tr("settings.key_checking"))
-        self.result.repaint()
-        try:
-            ok, message = self._verify(entered)
-        finally:
-            self.button.setEnabled(True)
+        verify = self._verify
+        # OFF THE UI THREAD. The check is a round trip to Anthropic, and the
+        # `repaint()` that stood here only got "Checking…" on screen before
+        # the window stopped answering.
+        self._verify_task = run_in_background(
+            lambda: verify(entered),
+            on_done=lambda outcome: self._verified(entered, outcome),
+            on_error=lambda exc: self._verified(entered, (False, str(exc))))
+
+    def _verified(self, entered: str, outcome) -> None:
+        ok, message = outcome
+        self.button.setEnabled(True)
+
+        if ok:
+            try:
+                self._store(entered)
+            except Exception:  # noqa: BLE001 - any failure means it was not kept
+                # Never "Verified" over a key that was not kept: the user would
+                # close Settings believing they were set up.
+                ok, message = False, tr("settings.key_store_failed")
 
         self.result.setObjectName("ok" if ok else "bad")
         self.result.setText(message)
@@ -223,7 +240,6 @@ class KeyPanel(QWidget):
         self.result.style().polish(self.result)
 
         if ok:
-            self._store(entered)
             # Cleared on success only. A rejected key stays in the box so the
             # user can see what they pasted and fix it, rather than starting
             # again from nothing.
@@ -236,13 +252,18 @@ class LicencePanel(QWidget):
 
     licence_changed = Signal(bool)
 
-    def __init__(self, *, redeemer=None, storer=None, reader=None, parent=None):
+    def __init__(self, *, redeemer=None, storer=None, reader=None,
+                 checker=None, parent=None):
         super().__init__(parent)
         from app.core import entitlement
 
         self._redeem = redeemer or entitlement.redeem_override_code
         self._store = storer or entitlement.store_licence
         self._read = reader or entitlement.stored_licence
+        # Looked up when called, so the transport can be replaced after the
+        # panel is built.
+        self._check = checker or (lambda key: entitlement.licence_check(key))
+        self._verify_seq = 0
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -261,6 +282,13 @@ class LicencePanel(QWidget):
         self.stored.setObjectName("storedKey")
         layout.addWidget(self.stored)
 
+        # What the SERVER says about the stored licence. "Licence saved." was
+        # the only feedback, and it was shown for a mistyped key, a refunded
+        # one and a real one alike; the truth arrived at tomorrow's run.
+        self.verdict = QLabel()
+        self.verdict.setWordWrap(True)
+        layout.addWidget(self.verdict)
+
         row = QHBoxLayout()
         row.setSpacing(10)
         self.field = QLineEdit()
@@ -275,6 +303,9 @@ class LicencePanel(QWidget):
 
         self.result = QLabel()
         self.result.setWordWrap(True)
+        # Selectable, because a licence the credential store refused is shown
+        # here, and a key that cannot be copied is a key retyped wrongly.
+        self.result.setTextInteractionFlags(Qt.TextSelectableByMouse)
         layout.addWidget(self.result)
         layout.addStretch(1)
 
@@ -292,37 +323,89 @@ class LicencePanel(QWidget):
 
     def save(self) -> None:
         entered = self.field.text().strip()
-        if not entered:
+        if not entered or not self.button.isEnabled():
             return
 
         self.button.setEnabled(False)
-        self.result.setObjectName("")
-        self.result.setText(tr("settings.licence_checking"))
-        self.result.repaint()
+        self._show(None, tr("settings.licence_checking"))
 
         # One field for both, because a user does not care which they were
         # given. A licence key starts DAWN-; anything else is tried as a code.
+        if entered.upper().startswith("DAWN-"):
+            self._keep(entered, tr("settings.licence_saved"),
+                       tr("settings.licence_store_failed"))
+            return
+
+        redeem = self._redeem
+        # Off the UI thread: redeeming is a round trip to the Worker.
+        self._redeem_task = run_in_background(
+            lambda: redeem(entered),
+            # The code may be single-use and is spent by the time the store is
+            # asked, so a failed save shows the licence: the only copy of it.
+            on_done=lambda licence: self._keep(
+                licence, tr("settings.code_redeemed"),
+                tr("settings.code_store_failed", key=licence)),
+            on_error=lambda exc: self._finish(False, str(exc)))
+
+    def _keep(self, key: str, saved_text: str, failed_text: str) -> None:
         try:
-            if entered.upper().startswith("DAWN-"):
-                self._store(entered)
-                ok, message = True, tr("settings.licence_saved")
-            else:
-                licence = self._redeem(entered)
-                self._store(licence)
-                ok, message = True, tr("settings.code_redeemed")
-        except Exception as exc:  # noqa: BLE001 - the reason is the message
-            ok, message = False, str(exc)
-        finally:
-            self.button.setEnabled(True)
+            self._store(key)
+        except Exception:  # noqa: BLE001 - any failure means it was not kept
+            self._finish(False, failed_text)
+            return
+        self._finish(True, saved_text)
+        self.verify_licence(key)
 
-        self.result.setObjectName("ok" if ok else "bad")
-        self.result.setText(message)
-        self.result.style().unpolish(self.result)
-        self.result.style().polish(self.result)
+    def showEvent(self, event):
+        # Asked when the panel is SEEN, never when it is built: constructing
+        # a window must not reach the network.
+        super().showEvent(event)
+        existing = self._read()
+        if existing:
+            self.verify_licence(existing)
 
+    def verify_licence(self, key: str) -> None:
+        """Ask the Worker about `key`, off the UI thread, and say what it said."""
+        self._verify_seq += 1
+        seq = self._verify_seq
+        self.verdict.setText(tr("settings.licence_checking"))
+        check = self._check
+
+        def answered(answer, seq=seq):
+            # A slow answer about the previous key must not overwrite the
+            # answer about the one just saved.
+            if seq == self._verify_seq:
+                self._show_verdict(answer)
+
+        self._check_task = run_in_background(
+            lambda: check(key), on_done=answered,
+            on_error=lambda _exc: answered(("unreachable", {})))
+
+    def _show_verdict(self, answer) -> None:
+        outcome, body = answer
+        if outcome == "ok" and body.get("ok"):
+            text = tr("settings.licence_valid", plan=str(body.get("plan") or "—"))
+        elif outcome == "refused" and body.get("error") == "licence_inactive":
+            text = tr("settings.licence_inactive")
+        elif outcome in ("refused", "ok"):
+            text = tr("settings.licence_unknown")
+        else:
+            # Kept, and honestly unconfirmed: the key may be perfectly good.
+            text = tr("settings.licence_unverified")
+        self.verdict.setText(text)
+
+    def _finish(self, ok: bool, message: str) -> None:
+        self.button.setEnabled(True)
+        self._show(ok, message)
         if ok:
             self.field.clear()
             self.refresh()
+
+    def _show(self, ok: bool | None, message: str) -> None:
+        self.result.setObjectName("" if ok is None else ("ok" if ok else "bad"))
+        self.result.setText(message)
+        self.result.style().unpolish(self.result)
+        self.result.style().polish(self.result)
 
 
 def _divider() -> QFrame:
@@ -335,10 +418,11 @@ def _divider() -> QFrame:
 class SettingsWindow(QWidget):
     """The panels, for the Settings menu and for onboarding.
 
-    In a store build the licence panel is not shown. Entitlement there is by
-    possession — the storefront already took the money and there is no licence
-    key in existence — so a box asking for one sends a paying user hunting
-    through their email for something nobody ever sent them.
+    Which purchase panel appears follows the build, because the rules do: both
+    Windows channels sell a Paddle licence, so `store` and `direct` show the
+    licence box; guideline 3.1.1 forbids a key on the Mac, so `mas` shows the
+    StoreKit subscription instead; and a build that does not know which it is
+    shows neither rather than guessing.
     """
 
     def __init__(self, parent=None, *, variant=None, rules=None,
@@ -434,7 +518,12 @@ class SettingsWindow(QWidget):
         # MAY accept a licence bought on the website — and hiding the box there
         # was the reason a Store customer could pay and then reach no feed at
         # all. The restriction was Apple's, applied to both by assumption.
-        self.shows_licence = build != "mas"
+        #
+        # NAMED, not "anything but mas". A build with no variant flag, or two,
+        # was made wrong and may well be a Mac build; offering it a key box is
+        # the shape guideline 3.1.1 forbids, and guessing is worse than
+        # showing nothing.
+        self.shows_licence = build in ("store", "direct")
         if self.shows_licence:
             layout.addWidget(_divider())
             layout.addWidget(self.licence)
@@ -687,13 +776,16 @@ class AdminPanel(QWidget):
     issues free grants rather than selling anything.
     """
 
-    def __init__(self, *, key_source=None, api=None, parent=None):
+    def __init__(self, *, key_source=None, api=None, confirm=None, parent=None):
         super().__init__(parent)
         from app.core import admin as admin_api
         from app.core import entitlement
 
         self._api = api or admin_api
         self._key_source = key_source or entitlement.stored_licence
+        #: `confirm(code) -> bool`, asked before a withdrawal. Injectable so a
+        #: test can answer without a modal dialog.
+        self._confirm = confirm or self._ask_before_revoking
         self._codes: list[dict] = []
 
         layout = QVBoxLayout(self)
@@ -731,6 +823,16 @@ class AdminPanel(QWidget):
         self.uses.setToolTip(tr("settings.admin_uses_tip"))
         form.addWidget(self.uses)
 
+        # Days rather than a date: "how long should this work?" is the question
+        # the issuer can answer. Codes went out with no expiry at all, so every
+        # reviewer's and friend's grant stood for ever.
+        self.expires = QSpinBox()
+        self.expires.setRange(1, 3650)
+        self.expires.setValue(self._api.DEFAULT_EXPIRY_DAYS)
+        self.expires.setSuffix(tr("settings.admin_expires_suffix"))
+        self.expires.setToolTip(tr("settings.admin_expires_tip"))
+        form.addWidget(self.expires)
+
         self.btn_issue = QPushButton(tr("settings.admin_issue"))
         self.btn_issue.setObjectName("primary")
         form.addWidget(self.btn_issue)
@@ -759,6 +861,9 @@ class AdminPanel(QWidget):
         self.btn_refresh.clicked.connect(self.refresh)
         self.btn_revoke.clicked.connect(self._revoke)
         self.role.currentTextChanged.connect(self._role_changed)
+        self.role.currentTextChanged.connect(self._limit_expiry)
+        self.plan.currentTextChanged.connect(self._limit_expiry)
+        self._limit_expiry()
 
     # -- helpers -----------------------------------------------------------
     def _role_changed(self, role: str) -> None:
@@ -768,48 +873,102 @@ class AdminPanel(QWidget):
         if role == "managed" and self.uses.value() == 1:
             self.uses.setValue(self._api.REVIEW_USES)
 
+    def _limit_expiry(self, *_) -> None:
+        """Zero — never — only for an administrator's own code or the owner plan.
+
+        A floor of one day for everything else, so an open-ended grant cannot
+        be issued by leaving the box at its lowest value. The "never" wording
+        is shown only where zero is allowed: a spin box shows its special text
+        at its minimum, which would otherwise label one day "never".
+        """
+        if self._api.may_be_open_ended(self.role.currentText(),
+                                       self.plan.currentText()):
+            self.expires.setMinimum(0)
+            self.expires.setSpecialValueText(tr("settings.admin_never"))
+        else:
+            self.expires.setSpecialValueText("")
+            self.expires.setMinimum(1)
+
+    def _ask_before_revoking(self, code: str) -> bool:
+        """Withdrawing also expires every licence already redeemed from the
+        code, and nothing reverses it — one click on the wrong row would cut a
+        reviewer off mid-review."""
+        from PySide6.QtWidgets import QMessageBox
+
+        answer = QMessageBox.question(
+            self, tr("settings.admin_confirm_revoke_title"),
+            tr("settings.admin_confirm_revoke", code=code),
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        return answer == QMessageBox.Yes
+
     def _key(self):
         return self._key_source()
+
+    def _busy(self, on: bool) -> None:
+        # All three together: a revoke started while a list is still arriving
+        # would act on the row indexes of the list it is about to replace.
+        for button in (self.btn_issue, self.btn_refresh, self.btn_revoke):
+            button.setEnabled(not on)
+
+    def _run(self, work, done) -> None:
+        """Every console action is a round trip to the Worker, so off the UI
+        thread, with the buttons disabled until it answers."""
+        self._busy(True)
+        self._task = run_in_background(work, on_done=done,
+                                       on_error=self._failed)
+
+    def _failed(self, exc) -> None:
+        self._busy(False)
+        self.result.setText(str(exc))
 
     def refresh(self) -> None:
         key = self._key()
         if not key:
             self.result.setText(tr("settings.admin_no_licence"))
             return
-        try:
-            self._codes = self._api.list_codes(key)
-        except Exception as exc:  # noqa: BLE001
-            self.result.setText(str(exc))
-            return
+        api = self._api
+        self._run(lambda: api.list_codes(key), lambda codes: self._listed(codes))
+
+    def _listed(self, codes, message: str = "") -> None:
+        self._busy(False)
+        self._codes = codes
         self.codes.clear()
         for row in self._codes:
             used, cap = row.get("uses", 0), row.get("max_uses", 1)
             state = " REVOKED" if row.get("revoked") else ""
+            expires = row.get("expires_at")
+            when = (f"  {tr('settings.admin_expires_on', date=str(expires)[:10])}"
+                    if expires else "")
             self.codes.addItem(
                 f"{row.get('code')}  {row.get('role')}/{row.get('plan')}  "
-                f"{used}/{cap}{state}  — {row.get('note') or ''}")
-        self.result.setText("")
+                f"{used}/{cap}{state}{when}  — {row.get('note') or ''}")
+        # LISTED FIRST, THEN SAY WHAT HAPPENED. Listing blanked the message,
+        # so setting it beforehand wiped the code the operator was told to
+        # copy — on a line that reads "Copy it now; it is shown once here".
+        self.result.setText(message)
 
     def _issue(self) -> None:
         key = self._key()
         if not key:
             self.result.setText(tr("settings.admin_no_licence"))
             return
-        try:
-            made = self._api.issue_code(
-                key, note=self.note.text(), role=self.role.currentText(),
-                plan=self.plan.currentText(), max_uses=self.uses.value())
-        except Exception as exc:  # noqa: BLE001
-            self.result.setText(str(exc))
-            return
-        # REFRESH FIRST, THEN SAY WHAT HAPPENED. `refresh()` blanks the
-        # message, so setting it beforehand wiped the code the operator was
-        # told to copy — on a line that reads "Copy it now; it is shown once
-        # here". The code is minted either way; only the one chance to read it
-        # was lost.
-        self.note.clear()
-        self.refresh()
-        self.result.setText(tr("settings.admin_issued", code=made.get("code", "")))
+        api = self._api
+        note, role = self.note.text(), self.role.currentText()
+        plan, uses = self.plan.currentText(), self.uses.value()
+        expires_at = api.expiry_after(self.expires.value())
+
+        def work():
+            made = api.issue_code(key, note=note, role=role, plan=plan,
+                                  max_uses=uses, expires_at=expires_at)
+            return made, api.list_codes(key)
+
+        def done(pair):
+            made, codes = pair
+            self.note.clear()
+            self._listed(codes, tr("settings.admin_issued",
+                                   code=made.get("code", "")))
+
+        self._run(work, done)
 
     def _revoke(self) -> None:
         index = self.codes.currentRow()
@@ -818,13 +977,37 @@ class AdminPanel(QWidget):
             return
         key = self._key()
         code = self._codes[index].get("code")
-        try:
-            self._api.revoke_code(key, code)
-        except Exception as exc:  # noqa: BLE001
-            self.result.setText(str(exc))
+        if not self._confirm(code):
             return
-        self.refresh()
-        self.result.setText(tr("settings.admin_revoked", code=code))
+        api = self._api
+
+        def work():
+            api.revoke_code(key, code)
+            return api.list_codes(key)
+
+        self._run(work, lambda codes: self._listed(
+            codes, tr("settings.admin_revoked", code=code)))
+
+
+class StoreKitEvents(QObject):
+    """Where the one transaction observer reports, for whichever panel is open.
+
+    A SIGNAL, not a callback handed to StoreKit by the panel that pressed the
+    button. That panel may be closed by the time Apple answers, and a
+    transaction Apple redelivers at launch has no panel at all.
+    """
+
+    finished = Signal(object)
+
+
+_STOREKIT_EVENTS: StoreKitEvents | None = None
+
+
+def storekit_events() -> StoreKitEvents:
+    global _STOREKIT_EVENTS
+    if _STOREKIT_EVENTS is None:
+        _STOREKIT_EVENTS = StoreKitEvents()
+    return _STOREKIT_EVENTS
 
 
 class SubscribePanel(QWidget):
@@ -854,13 +1037,14 @@ class SubscribePanel(QWidget):
     entitlement_changed = Signal(bool)
 
     def __init__(self, *, storekit=None, redeemer=None, storer=None,
-                 parent=None):
+                 events=None, parent=None):
         super().__init__(parent)
         from app.core import mac_storekit
 
         self._redeemer = redeemer
         self._storer = storer
         self._sk = storekit or mac_storekit
+        (events or storekit_events()).finished.connect(self._finished)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -929,13 +1113,29 @@ class SubscribePanel(QWidget):
         from app.core import entitlement
 
         code = self.code.text().strip()
-        if not code:
+        if not code or not self.btn_code.isEnabled():
             return
+        self.btn_code.setEnabled(False)
+        redeem = self._redeemer or entitlement.redeem_override_code
+        # Off the UI thread: redeeming is a round trip to the Worker.
+        self._code_task = run_in_background(
+            lambda: redeem(code), on_done=self._code_redeemed,
+            on_error=self._code_refused)
+
+    def _code_refused(self, exc) -> None:
+        self.btn_code.setEnabled(True)
+        self.result.setText(str(exc))
+
+    def _code_redeemed(self, key: str) -> None:
+        from app.core import entitlement
+
+        self.btn_code.setEnabled(True)
         try:
-            key = (self._redeemer or entitlement.redeem_override_code)(code)
             (self._storer or entitlement.store_licence)(key)
-        except Exception as exc:  # noqa: BLE001
-            self.result.setText(str(exc))
+        except Exception:  # noqa: BLE001
+            # The code is spent; the key on screen is the only copy.
+            self.result.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            self.result.setText(tr("settings.code_store_failed", key=key))
             return
         self.code.clear()
         self.result.setText(tr("settings.code_redeemed"))
@@ -1005,6 +1205,15 @@ class SubscribePanel(QWidget):
             # their mind, which is a normal thing to do in a payment sheet.
             self.result.setText("")
             return
+        if result.outcome is Outcome.IN_PROGRESS:
+            # A second press while Apple's queue still holds the first. Adding
+            # another payment would stack purchase sheets; saying nothing new
+            # is the honest answer.
+            self.result.setText(tr("settings.subscribe_working"))
+            return
+        if result.outcome is Outcome.DEFERRED:
+            self.result.setText(tr("settings.subscribe_deferred"))
+            return
         self.result.setText(result.detail or tr("settings.subscribe_unavailable"))
 
     #: How long to wait before saying something, in milliseconds. Not a
@@ -1015,11 +1224,37 @@ class SubscribePanel(QWidget):
 
     def _purchase(self) -> None:
         self._busy(True)
-        self._sk.purchase(self._finished)
+        sk = self._sk
+        if sk.has_product():
+            self._start_purchase()
+            return
+        # FETCHED OFF THE UI THREAD, then bought from the answer on it. The
+        # fetch waits for a delegate that fires on the main run loop, so doing
+        # it here waited for itself for thirty seconds and then failed.
+        self._product_task = run_in_background(
+            sk.load_product,
+            on_done=lambda _product: self._start_purchase(),
+            on_error=lambda _exc: self._start_purchase())
+
+    def _start_purchase(self) -> None:
+        started = self._sk.purchase()
+        if started is not None:
+            self._finished(started)
+
+    def restore_purchases(self) -> None:
+        """Start a restore, exactly as the Restore button does.
+
+        Public because the setup wizard's menu restores through this panel,
+        where the answer is shown, rather than firing StoreKit from somewhere
+        with nothing to display it.
+        """
+        self._restore()
 
     def _restore(self) -> None:
         self._busy(True)
-        self._sk.restore(self._finished)
+        started = self._sk.restore()
+        if started is not None:
+            self._finished(started)
 
     def _start_waiting(self) -> None:
         """Arm the "still waiting" message.

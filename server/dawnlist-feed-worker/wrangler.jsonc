@@ -19,7 +19,13 @@
     // tell which id was configured when a customer landed on the wrong plan.
     //
     // Comma-separate when annual or per-currency ids are added.
-    "PADDLE_PRICE_STANDARD": "pri_01m217zszynjmwmcx6xqpewxc1"
+    "PADDLE_PRICE_STANDARD": "pri_01m217zszynjmwmcx6xqpewxc1",
+
+    // What /v1/apple requires every Apple purchase to be for. Public
+    // identifiers, committed so a mismatch is findable: a wrong value refuses
+    // every Mac subscriber with `wrong_bundle` or `wrong_product`.
+    "APPLE_BUNDLE_ID": "com.spencerfields.dawnlist",
+    "APPLE_PRODUCT_ID": "com.spencerfields.dawnlist.monthly"
 
     // PADDLE_PRICE_GLOBAL is deliberately ABSENT. The Global plan is not sold
     // until its 2,500/day ceiling has been measured against a real
@@ -37,6 +43,14 @@
   //                           of the table, but anybody holding the source and
   //                           a copy of the table can hash candidate addresses
   //                           and match them. Set it to close that.
+
+  //   APPLE_SHARED_SECRET     App-Specific Shared Secret; verifies the receipt
+  //                           the Mac build in review sends
+  //   APPLE_IAP_KEY_ID        In-App Purchase key id    } App Store Server API,
+  //   APPLE_IAP_ISSUER_ID     issuer id                 } for builds that send
+  //   APPLE_IAP_PRIVATE_KEY   the .p8 file's contents   } a transaction id
+  // Unset, /v1/apple answers 503 `apple_not_configured`, which the app treats
+  // as unreachable rather than as "not subscribed".
   //
   // ANTHROPIC_API_KEY was listed here and IS NOT USED. Nothing in src/ reads
   // it. It belonged to an inference proxy that was built and REMOVED on

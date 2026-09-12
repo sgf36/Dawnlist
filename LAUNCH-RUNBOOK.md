@@ -17,16 +17,38 @@ same command, this file is the order to do it in and that one is the why.
 | Microsoft Store (Windows) | Ready to submit | `dist/Dawnlist.msix` |
 | Direct download, Windows | Ready to submit | `dist/Dawnlist-windows-1.0.0.zip` |
 | Direct download, macOS | Ready to submit | `dist/Dawnlist-1.0.0.dmg` |
-| **Mac App Store** | **Cannot be submitted** | — |
+| **Mac App Store** | **In App Review** — StoreKit subscription; `/v1/apple` inert until its Apple secrets are set (below) | uploaded by the `mas` CI leg |
 
-**The Mac App Store is not a packaging step away.** Apple's guideline 3.1.1
-forbids unlocking an app with a licence key, which is exactly how the
-entitlement works. The compliant route — 3.1.3(b), Multiplatform Services —
-requires a StoreKit in-app subscription *and* account sign-in, and the product
-has neither, having deliberately avoided holding user records. The receipt
-plumbing in `app/core/mac_receipt.py` is the start of that work, not the end of
-it: the Worker has no `/v1/apple` endpoint and there is no StoreKit purchase to
-produce a receipt in the first place.
+**The Mac App Store build sells the subscription through StoreKit.** Entitlement
+comes from Apple and never from a key (guideline 3.1.1): the app sends the
+StoreKit original transaction id — or, from the build already in review, its
+receipt — to the Worker's `/v1/apple`, which confirms it with Apple and issues a
+licence the user never sees. **That route answers 503 `apple_not_configured`
+until its credentials are set**, and until then no Mac purchase can be
+confirmed: subscribers run on grace or are told the service is unreachable.
+
+### Activate `/v1/apple`
+
+1. **App-Specific Shared Secret** (the build in review sends a receipt). App
+   Store Connect → Apps → Dawnlist → App Information → App-Specific Shared
+   Secret → Manage → Generate.
+2. **In-App Purchase key** (every later build sends a transaction id). Users and
+   Access → Integrations → In-App Purchase → Generate In-App Purchase Key. Note
+   the Key ID and the Issuer ID shown above the list, and download the `.p8`
+   — Apple offers the download once.
+3. Apply `migrations/010-apple-transactions.sql` to the remote database before
+   deploying (the command is in the file).
+4. From `server/dawnlist-feed-worker`, type each command literally; the value
+   goes at the prompt, never in the command:
+   `npx wrangler secret put APPLE_SHARED_SECRET`,
+   `npx wrangler secret put APPLE_IAP_KEY_ID`,
+   `npx wrangler secret put APPLE_IAP_ISSUER_ID`,
+   `npx wrangler secret put APPLE_IAP_PRIVATE_KEY` (paste the whole `.p8`,
+   header and footer included). `APPLE_BUNDLE_ID` and `APPLE_PRODUCT_ID` are
+   committed vars in `wrangler.jsonc`.
+5. Deploy. **Proved working** only by a sandbox purchase (or a restore) on the
+   Mac build returning a licence — a 503 means a secret is missing, a 502
+   `apple_auth_failed` means the key, issuer or `.p8` is wrong.
 
 macOS buyers are properly served by the notarised `.dmg`, which is outside
 Apple's commerce rules entirely and keeps 100% of revenue less Paddle. It is

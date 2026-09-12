@@ -1,4 +1,12 @@
-"""The Mac App Store receipt, and turning it into an entitlement.
+"""The Mac App Store receipt, read as opaque bytes for one fallback.
+
+WHAT IT IS FOR NOW
+------------------
+The Worker confirms a subscription from the StoreKit ORIGINAL TRANSACTION ID.
+The receipt is sent only when no id was ever kept on this Mac — a customer who
+subscribed through the build that was in App Review, which recorded none — and
+the Worker's reply carries the id used from then on. See
+`entitlement.exchange_and_cache`.
 
 WHY THIS IS NOT A LICENCE KEY, WHICH MATTERS LEGALLY AND NOT JUST SEMANTICALLY
 -----------------------------------------------------------------------------
@@ -25,27 +33,23 @@ and looks fine.
 
 More importantly it is CLIENT-SIDE, so a determined user can patch it out. The
 app therefore treats the receipt as opaque bytes and forwards them; the Worker
-validates against Apple's App Store Server API and decides. That is the same
-boundary the feed already uses: the client asks, the server rules.
+asks Apple and decides. That is the same boundary the feed already uses: the
+client asks, the server rules.
 
-WHAT APPLE REQUIRES OF A MAS BUILD REGARDLESS OF SUBSCRIPTIONS
---------------------------------------------------------------
-A Mac App Store application must exit with status 173 when its receipt is
-missing or invalid. macOS interprets that specific code as "fetch a receipt for
-this app" and re-launches it. An app that starts normally without a receipt is
-a copy anyone can run, and Apple rejects builds that do not do this.
-
-`exit_code_for_missing_receipt` exists so that behaviour is stated in one place
-and tested, rather than being a magic number somebody later mistakes for a bug.
+NO EXIT 173
+-----------
+This module carried `exit_code_for_missing_receipt`, which nothing called,
+beside a paragraph saying Apple requires every Mac App Store build to exit 173
+without a receipt. That status belongs to apps that validate the receipt ON THE
+DEVICE: it asks macOS to fetch one so the local check can run. Dawnlist checks
+nothing locally, so quitting for a missing file would close the app for the
+sake of a check it never makes. The helper and the claim are gone rather than
+wired.
 """
 from __future__ import annotations
 
 import sys
 from pathlib import Path
-
-#: macOS reads this exact status as "this app needs a receipt". Any other
-#: non-zero code is just a crash, and the app will not be re-launched.
-MISSING_RECEIPT_EXIT = 173
 
 #: Where the App Store places the receipt inside a .app bundle.
 RECEIPT_RELATIVE = "Contents/_MASReceipt/receipt"
@@ -88,14 +92,3 @@ def read_receipt() -> bytes | None:
     except OSError:
         return None
     return data or None
-
-
-def exit_code_for_missing_receipt() -> int:
-    """173, stated once so it is not mistaken for an arbitrary error code.
-
-    Apple requires a Mac App Store build to exit with this when the receipt is
-    absent or invalid. macOS then fetches one and re-launches. Returning 1
-    here, or raising, would leave a store customer with an app that closes
-    itself and never explains why.
-    """
-    return MISSING_RECEIPT_EXIT

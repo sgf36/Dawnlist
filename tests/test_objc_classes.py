@@ -87,9 +87,11 @@ def test_the_storekit_classes_are_module_level_and_prefixed():
     source = (APP / "core" / "mac_storekit_objc.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
     classes = {n.name for n in tree.body if isinstance(n, ast.ClassDef)}
-    assert classes == {
-        "DawnlistProductsDelegate", "DawnlistPaymentObserver",
-        "DawnlistRestoreObserver", "DawnlistReceiptDelegate"}, classes
+    # Two, where there were four: one observer per purchase and one per
+    # restore stacked observers on every press, and the receipt delegate went
+    # with the receipt.
+    assert classes == {"DawnlistProductsDelegate",
+                       "DawnlistTransactionObserver"}, classes
     for name in classes:
         assert name.startswith("Dawnlist"), (
             f"{name} is unprefixed and shares a global namespace with every "

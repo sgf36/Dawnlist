@@ -75,6 +75,24 @@ def _variant_is_not_ambient(monkeypatch):
     # Tests that are ABOUT entitlement override both of these.
     monkeypatch.setattr("app.core.entitlement.stored_licence",
                         lambda: "DAWN-TEST-LICENCE", raising=False)
+    # `check()` reads through `read_licence`, which tells a missing key from an
+    # unreadable credential store; pinning only `stored_licence` would send the
+    # gate to the developer's real Credential Manager.
+    monkeypatch.setattr("app.core.entitlement.read_licence",
+                        lambda: "DAWN-TEST-LICENCE", raising=False)
+    # The Mac subscription cache lives in the credential store too. Empty and
+    # unwritable-by-accident here, so a test that reaches a `mas` path never
+    # reads or overwrites the developer's own entry.
+    monkeypatch.setattr("app.core.entitlement.apple_cache", lambda: {},
+                        raising=False)
+    monkeypatch.setattr("app.core.entitlement.write_apple_cache",
+                        lambda cache: None, raising=False)
+    # The one transport every licence question goes through. Unpinned, merely
+    # showing Settings asked the live Worker whether the test licence was an
+    # administrator, and a `mas` gate asked whether it was an access code.
+    # "Could not ask" is the answer that grants nothing.
+    monkeypatch.setattr("app.core.entitlement.licence_check",
+                        lambda key, **kw: ("unreachable", {}), raising=False)
     monkeypatch.setattr("app.core.entitlement.verify_against_worker",
                         lambda _key: True, raising=False)
 

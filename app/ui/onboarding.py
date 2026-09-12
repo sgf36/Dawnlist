@@ -1112,9 +1112,14 @@ class OnboardingWizard(QWidget):
 
     def _restore(self) -> None:
         """Apple requires Restore to be reachable. The panel owns the actual
-        StoreKit call; this only makes sure the user can get to it."""
+        StoreKit call; this only makes sure the user can get to it.
+
+        It looked up `restore`, which on the subscribe panel is the Restore
+        BUTTON. A QPushButton is not callable, so the menu item only ever
+        turned the page, and nothing was restored.
+        """
         self._show_step(STEP_ENTITLEMENT)
-        restore = getattr(self.entitlement, "restore", None)
+        restore = getattr(self.entitlement, "restore_purchases", None)
         if callable(restore):
             restore()
 

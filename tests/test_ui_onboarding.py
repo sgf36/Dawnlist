@@ -557,6 +557,43 @@ def test_the_subscription_step_never_traps_anyone(qapp, monkeypatch):
     w.close()
 
 
+def test_restore_from_the_menu_actually_restores(qapp):
+    """The wizard looked up `restore`, which on the subscribe panel is the
+    Restore BUTTON rather than a method, so the menu item only turned the
+    page."""
+    from app.ui.onboarding import STEP_ENTITLEMENT, OnboardingWizard
+    from app.ui.settings import StoreKitEvents, SubscribePanel
+
+    class SK:
+        def __init__(self):
+            self.restores = 0
+
+        def available(self):
+            return True
+
+        def can_make_payments(self):
+            return True
+
+        def price(self):
+            return "$79.00"
+
+        def has_product(self):
+            return True
+
+        def restore(self):
+            self.restores += 1
+            return None
+
+    sk = SK()
+    panel = SubscribePanel(storekit=sk, events=StoreKitEvents())
+    w = OnboardingWizard(extract=lambda p: ([], []), sample=lambda: items(1),
+                         entitlement_panel=panel)
+    w.menu.restore_requested.emit()
+    assert w.stack.currentIndex() == STEP_ENTITLEMENT
+    assert sk.restores == 1, "the menu turned the page and restored nothing"
+    w.close()
+
+
 def test_a_build_with_no_variant_flag_shows_no_purchase_panel():
     """Guessing is worse than showing nothing: a Windows key box on a Mac
     build is the exact shape guideline 3.1.1 forbids."""

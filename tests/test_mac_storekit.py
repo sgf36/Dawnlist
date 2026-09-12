@@ -19,13 +19,6 @@ from app.core import mac_storekit
 from app.core.mac_storekit import Outcome
 
 
-def collect(fn, *args):
-    """Run a callback-taking entry point and return the single Result."""
-    got = []
-    fn(got.append, *args)
-    assert len(got) == 1, f"expected exactly one callback, got {len(got)}"
-    return got[0]
-
 
 # -- it is safe to import and call from anywhere -----------------------------
 
@@ -60,22 +53,22 @@ def test_price_is_none_rather_than_a_guess():
 
 # -- every purchase path refuses, and says so ---------------------------------
 
+# A refusal is RETURNED now rather than passed to a callback: the answer to a
+# purchase that did start arrives through the one observer's signal, so only
+# "could not start" is the caller's to hear directly. `refresh_receipt` is
+# gone, with its test — nothing waits for a receipt file once the Worker
+# confirms the transaction id with Apple.
+
 def test_purchase_refuses_instead_of_raising():
-    result = collect(mac_storekit.purchase)
+    result = mac_storekit.purchase()
     assert result.outcome is Outcome.UNAVAILABLE
     assert result.detail, "a refusal with no reason is not actionable"
 
 
 def test_restore_refuses_instead_of_raising():
-    result = collect(mac_storekit.restore)
+    result = mac_storekit.restore()
     assert result.outcome is Outcome.UNAVAILABLE
     assert result.detail
-
-
-def test_refresh_receipt_reports_false_rather_than_raising():
-    got = []
-    mac_storekit.refresh_receipt(got.append)
-    assert got == [False]
 
 
 # -- the variant gate, which is the part that must never regress --------------

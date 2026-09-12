@@ -104,7 +104,8 @@ def test_the_method_follows_urllibs_own_rule():
 @pytest.mark.parametrize("module,attr", [
     ("app.core.entitlement", "licence_details"),
     ("app.core.entitlement", "redeem_override_code"),
-    ("app.core.entitlement", "exchange_mac_receipt"),
+    # Was `exchange_mac_receipt`, which posted to a route that did not exist.
+    ("app.core.entitlement", "exchange_apple"),
     ("app.core.admin", "_request"),
 ])
 def test_every_worker_caller_still_exists(module, attr):

@@ -48,8 +48,10 @@ def get() -> str | None:
 
 
 def store(key: str) -> None:
-    import keyring
-    keyring.set_password(SERVICE, ACCOUNT, key.strip())
+    """Save the key. Raises `KeyringUnavailable` when the store refuses, so the
+    screen can say the key was NOT saved instead of reporting it verified."""
+    from app.core.credentials import write
+    write(SERVICE, ACCOUNT, key.strip())
 
 
 def forget() -> None:
@@ -85,12 +87,43 @@ def verify(key: str, *, client_factory=None) -> tuple[bool, str]:
         client = client_factory(api_key=key)
         models = [m.id for m in client.models.list(limit=3)]
     except Exception as exc:  # noqa: BLE001
-        name = type(exc).__name__
-        if "Authentication" in name or "401" in str(exc):
-            return False, "Anthropic rejected that key."
-        return False, f"Could not reach Anthropic to check the key ({name})."
+        return False, _refusal_message(exc)
 
     return True, f"Verified — {len(models)} models available."
+
+
+def _refusal_message(exc: BaseException) -> str:
+    """Words for WHY the check failed, because each cause has a different fix.
+
+    Everything used to be "rejected" or "could not reach". A key with no
+    credit behind it read as a network fault, and one blocked by its
+    workspace read as a typo — so people re-pasted a key that was never wrong,
+    or waited for a connection that was never down.
+
+    Matched by class name and status rather than `isinstance`, so a fake
+    client in a test and every SDK version classify alike.
+    """
+    from app.i18n import tr
+
+    name = type(exc).__name__
+    status = getattr(exc, "status_code", None)
+    text = str(exc).lower()
+
+    # Before the status checks: Anthropic reports an empty balance as a 400
+    # (and has used 402 and 403), and it is the one refusal where the key is
+    # right and the account needs money.
+    if "credit balance" in text or "billing" in text or status == 402:
+        return tr("key.billing")
+    if name == "AuthenticationError" or status == 401 or "401" in text:
+        return tr("key.rejected")
+    if name == "PermissionDeniedError" or status == 403:
+        return tr("key.forbidden")
+    if name == "RateLimitError" or status == 429:
+        return tr("key.rate_limited")
+    if (name in ("APIConnectionError", "APITimeoutError")
+            or isinstance(exc, (ConnectionError, TimeoutError))):
+        return tr("key.unreachable")
+    return tr("key.unexpected", name=name)
 
 
 def require() -> str:

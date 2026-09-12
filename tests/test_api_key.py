@@ -83,6 +83,86 @@ def test_unreachable_is_distinguished_from_rejected():
     assert "could not reach" in offline.lower()
 
 
+def _raising(exc):
+    def factory(**kw):
+        class C:
+            class models:
+                @staticmethod
+                def list(limit=3):
+                    raise exc
+        return C()
+    return factory
+
+
+def _named(name, status=None, message="refused"):
+    cls = type(name, (Exception,), {"status_code": status})
+    return cls(message)
+
+
+CAUSES = {
+    "auth": _named("AuthenticationError", 401, "invalid x-api-key"),
+    "permission": _named("PermissionDeniedError", 403, "not allowed"),
+    "billing": _named("BadRequestError", 400,
+                      "Your credit balance is too low to access the Anthropic API"),
+    "rate": _named("RateLimitError", 429, "rate_limit_error"),
+    "connection": _named("APIConnectionError", None, "Connection error."),
+}
+
+
+@pytest.mark.parametrize("cause,expected", [
+    ("auth", "rejected"),
+    ("permission", "permission"),
+    ("billing", "credit"),
+    ("rate", "limiting"),
+    ("connection", "could not reach"),
+])
+def test_each_cause_is_named_so_the_fix_is_obvious(cause, expected):
+    """A key with no credit read as a network fault, and a workspace block
+    read as a typo."""
+    ok, msg = api_key.verify("sk-ant-api03-" + "x" * 40,
+                             client_factory=_raising(CAUSES[cause]))
+    assert not ok
+    assert expected in msg.lower()
+
+
+def test_the_five_causes_never_share_a_message():
+    messages = {cause: api_key.verify("sk-ant-api03-" + "x" * 40,
+                                      client_factory=_raising(exc))[1]
+                for cause, exc in CAUSES.items()}
+    assert len(set(messages.values())) == len(messages), messages
+
+
+def test_the_real_sdk_errors_are_classified_too():
+    """Named fakes prove the mapping; this proves the SDK's own classes carry
+    the names and statuses it relies on."""
+    anthropic = pytest.importorskip("anthropic")
+    # The SDK's own transport module: httpx2 in the pinned release, httpx in
+    # older ones. Taken from whichever the installed SDK was built on.
+    try:
+        import httpx2 as httpx
+    except ImportError:
+        httpx = pytest.importorskip("httpx")
+
+    def status_error(cls, code, body_message):
+        request = httpx.Request("GET", "https://api.anthropic.com/v1/models")
+        response = httpx.Response(code, request=request)
+        return cls(body_message, response=response, body=None)
+
+    cases = [
+        (status_error(anthropic.AuthenticationError, 401, "invalid x-api-key"), "rejected"),
+        (status_error(anthropic.PermissionDeniedError, 403, "forbidden"), "permission"),
+        (status_error(anthropic.BadRequestError, 400,
+                      "Your credit balance is too low"), "credit"),
+        (status_error(anthropic.RateLimitError, 429, "slow down"), "limiting"),
+        (anthropic.APIConnectionError(request=httpx.Request(
+            "GET", "https://api.anthropic.com/v1/models")), "could not reach"),
+    ]
+    for exc, expected in cases:
+        _ok, msg = api_key.verify("sk-ant-api03-" + "x" * 40,
+                                  client_factory=_raising(exc))
+        assert expected in msg.lower(), (type(exc).__name__, msg)
+
+
 def test_an_empty_key_is_refused_without_a_call():
     def explode(**kw):
         raise AssertionError("must not call the API for an empty key")

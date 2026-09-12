@@ -53,6 +53,8 @@ have looked correct and returned None forever, which is indistinguishable from
 from __future__ import annotations
 
 import json
+import re
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -73,6 +75,14 @@ CHECK_INTERVAL_SECONDS = 24 * 60 * 60
 #: misconfigured host serving a large page cannot be read into memory.
 MAX_MANIFEST_BYTES = 64 * 1024
 
+#: The only host a download link may point at. The manifest arrives over TLS
+#: from this site, but a manifest naming another host — a bad deploy, a typo,
+#: an edited file — would put somebody else's binary behind a Dawnlist prompt.
+#: "https://" alone allowed any host at all.
+DOWNLOAD_HOST = "dawnlist.spencerfields.com"
+
+_SHA256 = re.compile(r"[0-9a-fA-F]{64}")
+
 
 @dataclass(frozen=True)
 class Update:
@@ -80,6 +90,30 @@ class Update:
     version: str
     url: str
     notes_url: str | None = None
+    #: The published SHA-256, lower-case hex, shown in the prompt so the person
+    #: can check the file they downloaded against it. None when not published.
+    sha256: str | None = None
+    #: The download's size in bytes, when the manifest states one.
+    size: int | None = None
+
+
+def _on_download_host(url: str) -> bool:
+    """https, the exact host, the default port and no user-info.
+
+    Parsed rather than matched on a prefix: `https://dawnlist.spencerfields.com@x`
+    and `https://dawnlist.spencerfields.com.x` both START with the right text
+    and go somewhere else.
+    """
+    from urllib.parse import urlsplit
+
+    try:
+        parts = urlsplit(url)
+        port = parts.port
+    except ValueError:
+        return False
+    return (parts.scheme == "https" and parts.hostname == DOWNLOAD_HOST
+            and parts.username is None and parts.password is None
+            and port in (None, 443))
 
 
 def parse_version(text: str) -> tuple[int, ...] | None:
@@ -180,6 +214,10 @@ def check(*, current: str | None = None, url: str = MANIFEST_URL,
     """
     if variant() != "direct":
         return None
+    # The manifest describes the WINDOWS download (windows.json). A direct
+    # build anywhere else would be offered a Windows zip as its update.
+    if sys.platform != "win32":
+        return None
 
     now = time.time() if now is None else now
     path = state_path or _state_path()
@@ -196,13 +234,25 @@ def check(*, current: str | None = None, url: str = MANIFEST_URL,
     if not isinstance(version, str) or not isinstance(download, str):
         return None
     # An http:// download would be a signed artefact fetched over a channel
-    # that can be rewritten in flight. The whole point of signing it is lost.
-    if not download.startswith("https://"):
+    # that can be rewritten in flight, and any other host is not ours.
+    if not _on_download_host(download):
         return None
     if not is_newer(version, current or marketing_version()):
         return None
 
+    digest = manifest.get("sha256")
+    if digest is not None:
+        # Refused, not dropped: a malformed checksum would be shown as the
+        # thing to verify the download against.
+        if not (isinstance(digest, str) and _SHA256.fullmatch(digest)):
+            return None
+        digest = digest.lower()
+    size = manifest.get("size")
+    if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
+        size = None
+
     notes = manifest.get("notes_url")
     return Update(version=version, url=download,
                   notes_url=notes if isinstance(notes, str)
-                  and notes.startswith("https://") else None)
+                  and notes.startswith("https://") else None,
+                  sha256=digest, size=size)

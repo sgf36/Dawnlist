@@ -11,6 +11,17 @@ import urllib.error
 import pytest
 
 from app.core import admin
+from app.core import entitlement
+
+#: Captured at import, before conftest pins `licence_check` so no screen
+#: reaches the live Worker. These tests run the real transport over fake
+#: openers, which is their whole point.
+REAL_LICENCE_CHECK = entitlement.licence_check
+
+
+@pytest.fixture(autouse=True)
+def real_licence_transport(monkeypatch):
+    monkeypatch.setattr(entitlement, "licence_check", REAL_LICENCE_CHECK)
 
 
 def opener_for(payload, status=200):
