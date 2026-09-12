@@ -1091,3 +1091,40 @@ def test_an_empty_first_fetch_is_retried_without_asking(qapp, monkeypatch,
     assert asked == [], "asked about discarding decisions that do not exist"
     assert len(w.calibration._widgets) == 10
     w.close()
+
+
+def test_setup_fits_the_screen_it_opens_on_and_keeps_its_buttons(qapp,
+                                                                 monkeypatch):
+    """It opened at a fixed 900x780. The Store's stated minimum screen is
+    1366x768, and its working area is shorter still — so setup opened taller
+    than the desktop with Back and Next below the bottom edge."""
+    from PySide6.QtCore import QRect
+
+    small = QRect(0, 0, 1366, 728)          # 768 less a taskbar
+    w = a_wizard(monkeypatch, terms_accepted=True)
+    placed = w.fit_to_screen(small)
+
+    assert w.width() <= int(small.width() * 0.9)
+    assert w.height() <= int(small.height() * 0.9)
+    assert placed.center().x() == small.center().x() or abs(
+        placed.center().x() - small.center().x()) <= 2, "centred on the screen"
+
+    w.show()
+    for _ in range(4):
+        qapp.processEvents()
+    assert w.btn_next.isVisible() and w.btn_back.isVisible()
+    bottom = w.btn_next.mapTo(w, w.btn_next.rect().bottomLeft()).y()
+    assert bottom <= w.height(), (
+        f"the navigation is {bottom - w.height()}px below the window")
+    w.close()
+
+
+def test_a_large_screen_does_not_get_a_stretched_window(qapp, monkeypatch):
+    """POSITIVE CONTROL: the cap is a ceiling, not a size."""
+    from PySide6.QtCore import QRect
+    from app.ui.onboarding import PREFERRED_SIZE
+
+    w = a_wizard(monkeypatch, terms_accepted=True)
+    w.fit_to_screen(QRect(0, 0, 3840, 2160))
+    assert (w.width(), w.height()) == PREFERRED_SIZE
+    w.close()

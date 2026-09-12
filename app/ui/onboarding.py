@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QGuiApplication
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFrame, QHBoxLayout,
                                QLabel,
                                QLineEdit, QListWidget, QListWidgetItem,
@@ -1203,6 +1203,10 @@ STEP_CALIBRATION = 6
 FIRST_STEP = STEP_TERMS
 LAST_STEP = STEP_CALIBRATION
 
+#: What setup opens at where the screen has room for it. Capped against the
+#: actual screen by `OnboardingWizard.fit_to_screen`.
+PREFERRED_SIZE = (900, 780)
+
 
 class OnboardingWizard(QWidget):
     """Ingest, then the gate.
@@ -1307,7 +1311,16 @@ class OnboardingWizard(QWidget):
         # least one of them switched on to fetch anything at all.
         self.stack.addWidget(self.searches)
         self.stack.addWidget(self.calibration)
-        layout.addWidget(self.stack, 1)
+        # THE STACK SCROLLS, THE NAVIGATION DOES NOT. Qt enforces a page's
+        # minimum height on the window that holds it, so on a short screen the
+        # window grew past the desktop and took Back and Next below the bottom
+        # edge with it — leaving a wizard that could not be advanced at all.
+        # Inside a scroll area the window may be shorter than its tallest step.
+        frame = QScrollArea()
+        frame.setWidgetResizable(True)
+        frame.setFrameShape(QFrame.NoFrame)
+        frame.setWidget(self.stack)
+        layout.addWidget(frame, 1)
 
         nav = QHBoxLayout()
         nav.setContentsMargins(16, 0, 16, 16)
@@ -1354,6 +1367,31 @@ class OnboardingWizard(QWidget):
         self.btn_back.clicked.connect(self._back)
         self.calibration.finished.connect(self._finish)
         self._show_step(STEP_INGEST if terms_accepted else STEP_TERMS)
+
+    def fit_to_screen(self, available=None):
+        """Size and centre the window against the screen it is opening on.
+
+        It opened at a fixed 900x780. The Microsoft Store's stated minimum
+        screen is 1366x768, whose WORKING area is shorter still once the
+        taskbar is taken out — so on the commonest small laptop setup opened
+        taller than the desktop, with its foot and both navigation buttons
+        below the edge of the screen and no way to reach them.
+
+        90% rather than the whole working area: a window flush against every
+        edge has nowhere for its own frame and reads as broken.
+        """
+        if available is None:
+            screen = self.screen() or QGuiApplication.primaryScreen()
+            if screen is None:            # no display at all: leave it alone
+                return None
+            available = screen.availableGeometry()
+
+        width = min(PREFERRED_SIZE[0], int(available.width() * 0.9))
+        height = min(PREFERRED_SIZE[1], int(available.height() * 0.9))
+        self.resize(width, height)
+        self.move(available.x() + (available.width() - width) // 2,
+                  available.y() + (available.height() - height) // 2)
+        return self.geometry()
 
     def _on_files(self, paths) -> None:
         """MERGED, not replaced. Dropping a second batch used to discard the

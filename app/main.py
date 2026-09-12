@@ -2148,7 +2148,9 @@ def _launch_onboarding(app, conn) -> int:
         _offer_update(window)
 
     wizard = build_onboarding(conn, on_finished=show_the_shortlist)
-    wizard.resize(900, 780)
+    # Sized against the screen rather than at a fixed 900x780, which is taller
+    # than the working area of a 1366x768 laptop — the Store's stated minimum.
+    wizard.fit_to_screen()
     wizard.show()
     return app.exec()
 
