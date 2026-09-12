@@ -18,8 +18,23 @@ If `npx` fails with `ENOENT ... _cacache ... Invalid response body`, that is a
 corrupt npm download cache, not Cloudflare and not authentication. `npm cache
 verify`, then re-run.
 
-**Never pass SQL with `--command`.** Wrangler's logs record whole command lines,
-so a licence key typed inline lands on disk. Every statement below is in a file.
+**Never pass a licence key, or any other credential, with `--command`.**
+Wrangler's logs record whole command lines, so anything typed inline lands on
+disk. Every statement that names a key is in a file.
+
+**But run the `SELECT`s with `--command`, not `--file`.** `--file` goes through
+D1's import endpoint, which reports only "N queries, N rows written" and
+DISCARDS the rows a `SELECT` returns. Measured 2026-09-12: a file containing an
+`UPDATE` and a verifying `SELECT` printed the summary and nothing else, so the
+change was made and could not be confirmed. The pre-checks below therefore go on
+the command line — none of them names a key, so none of them is a credential in
+a log.
+
+**A failure on the import endpoint is about the credential TYPE, not its
+permissions.** `Authentication error [code: 10000]` on `/d1/database/.../import`
+was returned to a Super Administrator holding `d1 (write)`: an OAuth login is
+refused there. Set a scoped API token in `CLOUDFLARE_API_TOKEN` (Account → D1 →
+Edit) and every `--file` below works. Reading the scope list proves nothing.
 
 ---
 
