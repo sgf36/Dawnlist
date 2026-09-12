@@ -1156,6 +1156,39 @@ CALIBRATION_SAMPLE = 10
 #: every one of those rows was paid for, by every new user.
 CALIBRATION_FETCH = 15
 
+#: How many are screened and assessed to produce a sample of ten.
+#:
+#: WIDER THAN THE SAMPLE ON PURPOSE, and that is a deliberate cost: the ten put
+#: to the user are chosen to span the app's own verdicts (`worth_calibrating`),
+#: and a pool of exactly ten cannot be spread — it is whatever arrived. The
+#: extra assessments are paid once, during setup, and buy the difference
+#: between a gate that teaches the brief something and a screen of ten obvious
+#: rejections the user clicks through.
+CALIBRATION_POOL = 14
+
+
+def spread_candidates(jobs):
+    """Drop the near-duplicates before anything is paid for.
+
+    The same two rules the sample itself applies — at most two per employer,
+    never two of the same normalised title — but applied to raw postings, where
+    they save an assessment rather than a slot.
+    """
+    from app.onboarding.calibration import MAX_PER_COMPANY, normalised_title
+
+    kept, companies, titles = [], {}, set()
+    for job in jobs:
+        company = (job.company or "").strip().casefold()
+        title = normalised_title(job.title)
+        if company and companies.get(company, 0) >= MAX_PER_COMPANY:
+            continue
+        if title and title in titles:
+            continue
+        kept.append(job)
+        companies[company] = companies.get(company, 0) + 1
+        titles.add(title)
+    return kept
+
 #: The search label the stored calibration run is filed under. It is not the
 #: name of a saved search, so the run moves no search's delta mark: a few
 #: postings drawn across all the searches is not a reading of any one
@@ -1183,9 +1216,10 @@ def calibration_sample(conn, *, provider=None, send=None):
     a true sentence describing a quiet market, shown to somebody whose actual
     problem was that nothing had been subscribed to.
     """
-    from app.core.screen import screen_all
+    from app.core.screen import Tier, screen_all
     from app.intelligence.assess import job_ref
-    from app.onboarding.calibration import CalibrationItem, CalibrationSample
+    from app.onboarding.calibration import (CalibrationItem, CalibrationSample,
+                                            worth_calibrating)
 
     jobs = []
     no_feed = None
@@ -1220,7 +1254,10 @@ def calibration_sample(conn, *, provider=None, send=None):
                     if j.provider_job_id not in
                     {x.provider_job_id for x in jobs})
 
-    jobs = jobs[:CALIBRATION_SAMPLE]
+    # Near-duplicates are dropped BEFORE anything is assessed, because each one
+    # would be paid for and would then take a slot teaching what the posting
+    # beside it already taught.
+    jobs = spread_candidates(jobs)[:CALIBRATION_POOL]
     if not jobs:
         return CalibrationSample([], no_feed=no_feed)
 
@@ -1269,6 +1306,14 @@ def calibration_sample(conn, *, provider=None, send=None):
     items = []
     for result in outcome.screen.results:
         job = result.job
+        if result.tier in (Tier.UNSUPPORTED_TITLE, Tier.KILL_FAMILY):
+            # Removed on the TITLE or the EMPLOYER, before the description was
+            # read. The brief never judged it, so there is no verdict of the
+            # app's for the user to correct — asking them to is asking them to
+            # argue with a rule they cannot see from here. A posting the screen
+            # read and found nothing in is different, and still shown: that is
+            # the over-reaching-rule case the gate exists to surface.
+            continue
         shown = dict(job_key=f"{job.provider}:{job.provider_job_id}",
                      title=job.title, company=job.company,
                      description=job.description_text)
@@ -1288,7 +1333,9 @@ def calibration_sample(conn, *, provider=None, send=None):
                 **shown, app_verdict="rejected",
                 app_reason=(result.reason
                             or tr("onboarding.screened_out_before_reading"))))
-    return CalibrationSample(items, no_feed=no_feed)
+    # Chosen across the app's own verdicts rather than taken in fetch order:
+    # a sample nobody can disagree with transfers no judgement at all.
+    return CalibrationSample(worth_calibrating(items), no_feed=no_feed)
 
 
 def morning_run(conn, *, provider=None, send=None, today: date | None = None):

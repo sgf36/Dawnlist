@@ -21,6 +21,7 @@ weekly afterwards, because every override is a sentence the brief is missing.
 """
 from __future__ import annotations
 
+import re
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -41,6 +42,77 @@ MIN_DECIDED = 8
 #: still a pass — the brief may simply be good — but it is reported, because
 #: unanimous agreement on ten postings more often means the sample was too easy.
 LOW_SIGNAL_THRESHOLD = 1
+
+#: Postings from any one employer. Ten roles at one hotel group teaches the
+#: brief a single rule, badly, and spends every slot in the sample doing it.
+MAX_PER_COMPANY = 2
+
+
+def normalised_title(title: str) -> str:
+    """A title stripped to what makes two postings the same job.
+
+    Case and punctuation only: "Asset Manager", "asset manager" and "Asset
+    Manager (London)" would each take a slot in a ten-posting sample and teach
+    the brief the same thing three times.
+    """
+    return " ".join(re.sub(r"[^a-z0-9 ]+", " ", (title or "").lower()).split())
+
+
+def worth_calibrating(items, *, size: int = SAMPLE_SIZE):
+    """Choose the postings actually put to the user, from a larger pool.
+
+    WHY NOT THE FIRST TEN THAT ARRIVED. The gate exists to transfer judgement,
+    and it only does that where the user can DISAGREE with something. A sample
+    the app is obviously right about ten times over teaches the brief nothing —
+    which `low_signal` already reports after the fact, having spent the user's
+    half hour finding out.
+
+    So the sample is drawn ACROSS the app's own verdicts, round by round: a
+    strong fit, a possible, a rejection, and again. That puts the decision
+    boundary in front of the user, which is the only place their judgement is
+    worth more than the brief's.
+
+    Two structural rules go with it, both of which exist because a feed returns
+    clusters: at most `MAX_PER_COMPANY` from one employer, and never two
+    postings with the same normalised title.
+
+    A LOPSIDED POOL PRODUCES A SHORT SAMPLE, deliberately. Ten near-identical
+    roles at one company cannot teach the brief ten things, and padding the
+    sample back to ten with them would hide that behind a full-looking screen.
+    The gate already knows what to do with a short sample: it says so and lets
+    the user finish (`sample_unavailable`).
+    """
+    buckets: dict[str, list] = {}
+    for item in items:
+        buckets.setdefault(item.app_verdict, []).append(item)
+
+    chosen: list = []
+    companies: dict[str, int] = {}
+    titles: set[str] = set()
+    # Round-robin over the buckets in the order they first appeared, so the
+    # result is deterministic and does not depend on dict ordering luck.
+    queues = list(buckets.values())
+    while len(chosen) < size and any(queues):
+        progressed = False
+        for queue in queues:
+            if len(chosen) >= size:
+                break
+            while queue:
+                item = queue.pop(0)
+                company = (item.company or "").strip().casefold()
+                title = normalised_title(item.title)
+                if companies.get(company, 0) >= MAX_PER_COMPANY and company:
+                    continue
+                if title and title in titles:
+                    continue
+                chosen.append(item)
+                companies[company] = companies.get(company, 0) + 1
+                titles.add(title)
+                progressed = True
+                break
+        if not progressed:
+            break
+    return chosen
 
 
 @dataclass

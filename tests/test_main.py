@@ -78,9 +78,9 @@ class Stub(FeedProvider):
         return 0
 
 
-def job(jid, title="Head of Strategy"):
+def job(jid, title="Head of Strategy", company="Acme"):
     return Job(provider="theirstack", provider_job_id=jid, title=title,
-               company="Acme", description_text="A strategy role.")
+               company=company, description_text="A strategy role.")
 
 
 def strong_send(request):
@@ -269,7 +269,8 @@ def test_the_calibration_sample_is_kept_so_the_first_run_does_not_buy_it_again(
     from app.main import calibration_sample
 
     _calibration_setup(conn, monkeypatch, tmp_path)
-    sample = [job(str(100 + i)) for i in range(10)]
+    sample = [job(str(100 + i), title=f"Head of Strategy {i}",
+                  company=f"Employer {i}") for i in range(10)]
     items = calibration_sample(conn, provider=Stub(ok(sample)), send=strong_send)
     assert len(items) == 10
 
@@ -294,7 +295,8 @@ def test_a_calibration_posting_nobody_judged_is_not_called_rejected(
     from app.main import calibration_sample
 
     _calibration_setup(conn, monkeypatch, tmp_path)
-    sample = [job(str(300 + i)) for i in range(10)]
+    sample = [job(str(300 + i), title=f"Head of Strategy {i}",
+                  company=f"Employer {i}") for i in range(10)]
 
     def judges_half(request):
         payload = strong_send(request)

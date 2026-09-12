@@ -335,14 +335,28 @@ def test_a_revision_asks_again(conn, monkeypatch):
     assert terms.is_accepted(conn) and not terms.has_changed_since_acceptance(conn)
 
 
-def test_the_recorded_date_is_the_one_on_the_published_page():
-    """The constant is what the user is shown and what decides who is asked
-    again. If it drifts from the page, people are recorded as having accepted
-    terms they were never shown."""
-    import re
+def test_the_recorded_date_is_a_real_date_and_says_where_it_comes_from():
+    """The constant is what the user is shown, what is stored as the version
+    they agreed to, and what decides whether they are asked again. If it drifts
+    from the published page, people are recorded as having accepted terms they
+    were never shown — so the requirement lives beside the constant, where
+    whoever revises terms.html will meet it, and this fails if either the
+    value or that explanation goes missing.
+    """
+    import datetime
+    import inspect
 
-    from app.onboarding.terms import TERMS_LAST_UPDATED
-    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", TERMS_LAST_UPDATED)
+    from app.onboarding import terms
+
+    assert datetime.date.fromisoformat(terms.TERMS_LAST_UPDATED)
+
+    source = inspect.getsource(terms)
+    line = source.index("TERMS_LAST_UPDATED =")
+    preamble = source[:line]
+    assert "terms.html" in preamble, (
+        "nothing beside the constant says which page it must match")
+    assert "published page" in preamble, (
+        "nothing beside the constant says it must equal the published date")
 
 
 def test_a_run_will_not_start_until_the_terms_are_agreed(conn, monkeypatch):
@@ -389,3 +403,100 @@ def test_dragging_postings_in_does_not_skip_the_terms(conn, tmp_path, monkeypatc
 
     with pytest.raises(NotConfigured, match="terms"):
         ingest_alerts(conn, [path])
+
+
+# ---------------------------------------------------------------------------
+# What the sample is made of
+#
+# The gate transfers judgement, and it can only do that where the user is able
+# to DISAGREE. A sample everyone agrees with ten times over teaches the brief
+# nothing — `low_signal` reports that after the fact, having already spent the
+# user's half hour finding out.
+# ---------------------------------------------------------------------------
+
+def candidate(key, *, verdict="rejected", company="Acme", title=None):
+    return CalibrationItem(job_key=key, title=title or f"Role {key}",
+                           company=company, description="d",
+                           app_verdict=verdict, app_reason="because")
+
+
+def lopsided_pool():
+    """What a feed actually returns: one employer dominating, one verdict
+    dominating, and a couple of near-duplicate titles."""
+    pool = [candidate(f"acme-{i}", company="Acme Hotels",
+                      title=f"Night Auditor {i}") for i in range(9)]
+    pool += [candidate("dup-1", company="Meridian", title="Asset Manager"),
+             candidate("dup-2", company="Oakmere", title="asset manager!"),
+             candidate("strong-1", verdict="strong", company="Calderwood",
+                       title="Head of Commercial Strategy"),
+             candidate("possible-1", verdict="possible", company="Thornfield",
+                       title="Director of Asset Management")]
+    return pool
+
+
+def test_the_sample_spans_the_app_s_verdicts_rather_than_one_of_them():
+    from app.onboarding.calibration import worth_calibrating
+
+    pool = lopsided_pool()
+    # POSITIVE CONTROL, and the reason this test can fail: taken in the order
+    # they arrived, the first ten are nine rejections at one employer plus one
+    # more — which is what shipped, and what this assertion forbids.
+    naive = pool[:10]
+    assert len({i.app_verdict for i in naive}) == 1
+    assert sum(1 for i in naive if i.company == "Acme Hotels") == 9
+
+    chosen = worth_calibrating(pool)
+    assert len({i.app_verdict for i in chosen}) >= 3, (
+        "nothing on this screen to disagree with")
+
+
+def test_no_employer_takes_more_than_two_slots():
+    from app.onboarding.calibration import MAX_PER_COMPANY, worth_calibrating
+
+    chosen = worth_calibrating(lopsided_pool())
+    counts = {}
+    for item in chosen:
+        counts[item.company] = counts.get(item.company, 0) + 1
+    assert max(counts.values()) <= MAX_PER_COMPANY, counts
+
+
+def test_the_same_title_twice_is_one_slot():
+    """Near-duplicates teach the brief the same thing and cost a slot each."""
+    from app.onboarding.calibration import worth_calibrating
+
+    chosen = worth_calibrating(lopsided_pool())
+    titles = [i.title.lower().strip("!") for i in chosen]
+    assert titles.count("asset manager") <= 1, titles
+
+
+def test_a_pool_with_nothing_to_learn_from_makes_a_short_sample_not_a_fake_one():
+    """Padding it back to ten would hide a useless sample behind a full-looking
+    screen. The gate already says what a short sample means and lets the user
+    finish."""
+    from app.onboarding.calibration import CalibrationResult, worth_calibrating
+
+    clones = [candidate(str(i), company="Acme", title="Night Auditor")
+              for i in range(12)]
+    chosen = worth_calibrating(clones)
+    assert len(chosen) == 1
+    assert CalibrationResult(items=chosen).sample_unavailable
+
+
+def test_a_healthy_pool_still_fills_the_sample():
+    """POSITIVE CONTROL: the rules bite only on a lopsided pool."""
+    from app.onboarding.calibration import SAMPLE_SIZE, worth_calibrating
+
+    healthy = [candidate(str(i), company=f"Employer {i}",
+                         title=f"Asset Manager {i}",
+                         verdict=["strong", "possible", "rejected"][i % 3])
+               for i in range(12)]
+    assert len(worth_calibrating(healthy)) == SAMPLE_SIZE
+
+
+def test_titles_differing_only_in_punctuation_are_the_same_title():
+    from app.onboarding.calibration import normalised_title
+
+    assert normalised_title("Asset Manager (London)") == normalised_title(
+        "asset manager, london")
+    assert normalised_title("Head of Strategy") != normalised_title(
+        "Head of Revenue")

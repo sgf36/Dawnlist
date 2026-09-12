@@ -992,8 +992,11 @@ def test_the_calibration_sample_is_a_real_pull(conn, monkeypatch):
     from app.main import CALIBRATION_SAMPLE, calibration_sample, save_query
 
     save_query(conn, "strategy", ["strategy"], countries=["GB"])
+    # One employer each, and distinct titles: ten roles at one company is a
+    # sample the gate now refuses to build, because it teaches one rule ten
+    # times over (see `worth_calibrating`).
     jobs = [Job(provider="theirstack", provider_job_id=str(i),
-                title=f"Head of Strategy {i}", company="Acme",
+                title=f"Head of Strategy {i}", company=f"Employer {i}",
                 description_text="Strategy work.")
             for i in range(CALIBRATION_SAMPLE)]
 
@@ -1039,6 +1042,35 @@ def test_a_screened_out_posting_still_reaches_the_gate(conn):
     items = calibration_sample(conn, provider=Stub(jobs), send=verdicts("strong"))
     titles = {i.title for i in items}
     assert "Night Auditor" in titles, "the screened-out row was hidden"
+
+
+def test_a_posting_killed_on_its_title_never_reaches_the_gate(conn):
+    """The screen removed it WITHOUT reading the description, so the brief
+    never judged it and there is no verdict of the app's for the user to
+    correct. Asking them to is asking them to argue with a rule they cannot
+    see from this screen."""
+    from app.main import calibration_sample, save_query, save_rule_term
+
+    save_query(conn, "strategy", ["strategy"], countries=["GB"])
+    save_rule_term(conn, "strong_terms", "strategy")
+    save_rule_term(conn, "unsupported_titles", "night auditor")
+    jobs = [Job(provider="theirstack", provider_job_id="a",
+                title="Head of Strategy", company="Acme",
+                description_text="Strategy."),
+            Job(provider="theirstack", provider_job_id="n",
+                title="Night Auditor", company="Beta Hotels",
+                description_text="Front desk."),
+            Job(provider="theirstack", provider_job_id="p",
+                title="Porter", company="Gamma Hotels",
+                description_text="Luggage.")]
+
+    items = calibration_sample(conn, provider=Stub(jobs), send=verdicts("strong"))
+    titles = {i.title for i in items}
+    assert "Night Auditor" not in titles, "killed on the title, never read"
+    # POSITIVE CONTROL: the posting the screen READ and found nothing in is
+    # still shown — that is the over-reaching-rule case the gate exists for.
+    assert "Porter" in titles
+    assert "Head of Strategy" in titles
 
 
 # -- onboarding without a feed credential (the beta blocker) ----------------
