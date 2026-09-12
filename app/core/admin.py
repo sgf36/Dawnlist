@@ -152,3 +152,59 @@ def is_admin(key: str, *, opener=None) -> bool:
 
     detail = licence_details(key, opener=opener)
     return bool(detail) and detail is not False and detail.get("role") == "admin"
+
+
+# ---------------------------------------------------------------------------
+# Mac App Store offer codes
+# ---------------------------------------------------------------------------
+#
+# These are NOT Dawnlist's own codes and nothing here can mint one. An offer
+# code exists only once Apple has minted it, which needs an App Store Connect
+# key that deliberately lives outside this application — `tools/asc_offer_codes.py`
+# and `migrations/011-apple-offer-codes.sql` both say why.
+#
+# What the console does is the half that is safe to do from anywhere: see what
+# is left, hand one to a named person, and take one out of circulation. That is
+# also the half that has to work on Windows, because the person handing codes
+# to Mac testers does not have a Mac.
+
+def apple_codes(key: str, *, state: str = "all", opener=None) -> dict:
+    """The offer-code ledger: `codes` and a per-batch summary in `batches`.
+
+    `state` is 'all', 'free', 'assigned' or 'void'. Unknown values are treated
+    as 'all' by the server rather than refused, because a filter nobody
+    recognises should show everything rather than an empty screen that looks
+    like there are no codes left.
+    """
+    return _request(key, f"/admin/apple-codes?state={state}", opener=opener)
+
+
+def assign_apple_code(key: str, *, assigned_to: str, note: str = "",
+                      batch: str = "", opener=None) -> dict:
+    """Take the oldest unassigned code and record who it went to.
+
+    The SERVER chooses which code, in one statement, so two consoles open at
+    once cannot hand the same string to two people. Nothing here picks a code
+    and then claims it — that shape is the bug.
+    """
+    assigned_to = (assigned_to or "").strip()
+    if not assigned_to:
+        # Refused before a round trip, as `issue_code` refuses an empty note:
+        # a code nobody is recorded against cannot be accounted for later.
+        raise AdminError("Say who this code is going to.")
+    return _request(key, "/admin/apple-codes/assign", method="POST",
+                    body={"assigned_to": assigned_to, "note": note,
+                          "batch": batch}, opener=opener)
+
+
+def void_apple_code(key: str, code: str, *, opener=None) -> dict:
+    """Stop handing this code out from here.
+
+    IT REMAINS REDEEMABLE AT APPLE. There is no API to withdraw a minted
+    one-time code, so this is local bookkeeping and the caller must say so —
+    the server returns `still_redeemable_at_apple` for exactly that reason. A
+    screen that reported this as "revoked" would be telling its user the one
+    thing that is not true.
+    """
+    return _request(key, "/admin/apple-codes/void", method="POST",
+                    body={"code": (code or "").strip().upper()}, opener=opener)
