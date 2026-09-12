@@ -623,3 +623,66 @@ def test_a_build_with_no_variant_flag_shows_no_purchase_panel():
         assert onboarding_entitlement_panel() is None
     finally:
         bv.variant = real
+
+
+# ---------------------------------------------------------------------------
+# The interview step cannot be walked past empty
+#
+# Next was enabled from the moment the step was reached, so setup could be
+# finished having drafted nothing: calibration then recorded the placeholder
+# "# Fit brief" as the document every later verdict is scored against.
+# ---------------------------------------------------------------------------
+
+def a_wizard(monkeypatch, **kwargs):
+    from app.core import api_key
+    from app.ui.onboarding import OnboardingWizard
+
+    monkeypatch.setattr(api_key, "get", lambda: "sk-ant-stored")
+    kwargs.setdefault("extract", lambda p: (["cv.docx"], []))
+    kwargs.setdefault("sample", lambda: items(1))
+    return OnboardingWizard(**kwargs)
+
+
+def test_next_needs_both_documents_on_the_interview_step(qapp, monkeypatch):
+    from app.ui.onboarding import STEP_INTERVIEW
+
+    w = a_wizard(monkeypatch, drafter=lambda c, a: ("F", "B", []))
+    w._show_step(STEP_INTERVIEW)
+    assert not w.btn_next.isEnabled(), "nothing has been drafted or written"
+
+    w.interview.factsheet.setPlainText("Acme Hotels, 2019 to 2023.")
+    assert not w.btn_next.isEnabled(), "a factsheet alone is not the brief"
+
+    w.interview.brief.setPlainText("Hotel asset management in London.")
+    assert w.btn_next.isEnabled(), "written by hand counts — a failed draft "\
+        "must not be a wall"
+    w.close()
+
+
+def test_next_is_off_while_the_draft_is_still_running(qapp, monkeypatch, settle):
+    """Leaving mid-draft records the empty boxes on screen and throws away the
+    answer the user is paying for."""
+    from app.ui.onboarding import STEP_INTERVIEW
+
+    w = a_wizard(monkeypatch, drafter=lambda c, a: ("FACTS", "BRIEF", []))
+    w._show_step(STEP_INTERVIEW)
+    w.interview.factsheet.setPlainText("typed earlier")
+    w.interview.brief.setPlainText("typed earlier")
+    assert w.btn_next.isEnabled(), "positive control"
+
+    w.interview.run_draft(["cv.docx"])
+    assert not w.btn_next.isEnabled(), "left mid-draft"
+    settle(lambda: not w.interview.drafting, what="the draft")
+    assert w.btn_next.isEnabled(), "and available again once it lands"
+    w.close()
+
+
+def test_drafting_with_no_cvs_says_so_rather_than_doing_nothing(qapp):
+    """The one primary button on the screen did nothing at all, and the user
+    could not see that it was waiting on files they never added."""
+    from app.ui.onboarding import InterviewPage
+
+    page = InterviewPage(drafter=lambda c, a: ("F", "B", []))
+    page.run_draft()
+    assert "Add your CVs first" in page.status.text()
+    page.close()

@@ -501,9 +501,16 @@ class InterviewPage(QWidget):
     """
 
     drafted = Signal()
+    #: Anything that changes whether this step is finished: the documents, and
+    #: whether a draft is currently running. The wizard's Next reads it, so a
+    #: step whose documents are empty cannot be walked past.
+    changed = Signal()
 
     def __init__(self, *, drafter=None, titler=None, parent=None):
         super().__init__(parent)
+        #: True while a draft is on a worker thread. Leaving mid-draft would
+        #: record the empty documents on screen and throw away the answer.
+        self.drafting = False
         #: `titler(text, brief) -> plan`, where `plan.titles` is the list of
         #: search titles. Injected like the drafter so this widget
         #: neither holds a key nor knows what a model is.
@@ -625,6 +632,9 @@ class InterviewPage(QWidget):
             column.addWidget(label)
             editor = QPlainTextEdit()
             editor.setObjectName("docEditor")
+            # Typing one in by hand counts: a failed draft must leave the step
+            # completable, or a model outage becomes a wall.
+            editor.textChanged.connect(self.changed)
             column.addWidget(editor, 1)
             setattr(self, attr, editor)
             split.addLayout(column, 1)
@@ -654,11 +664,17 @@ QPlainTextEdit#aimBox {
         """
         if corpus is not None:
             self._corpus = corpus
-        if self._corpus is None:
+        if not self._corpus:
+            # SAY SO. Pressing the one primary button on the screen and having
+            # nothing at all happen reads as a broken app; the user cannot see
+            # that the step is waiting on files they never added.
+            self.status.setText(tr("onboarding.draft_no_cvs"))
             return
 
+        self.drafting = True
         self.btn_draft.setEnabled(False)
         self.status.setText(tr("onboarding.drafting"))
+        self.changed.emit()
 
         # OFF THE UI THREAD. This reads a corpus of CVs and then calls
         # Anthropic, which is tens of seconds. It used to run here, inline,
@@ -679,6 +695,7 @@ QPlainTextEdit#aimBox {
 
     def _draft_done(self, result) -> None:
         """Back on the UI thread, with (factsheet, brief, questions)."""
+        self.drafting = False
         self.btn_draft.setEnabled(True)
         factsheet, brief, questions = result
         self.factsheet.setPlainText(factsheet)
@@ -691,12 +708,15 @@ QPlainTextEdit#aimBox {
         self.request_titles()
         self.status.setText(tr("onboarding.drafted"))
         self.drafted.emit()
+        self.changed.emit()
 
     def _draft_error(self, exc) -> None:
         """The user can still write their own; a failed draft must not be a
         dead end, and it must not look like an empty one either."""
+        self.drafting = False
         self.btn_draft.setEnabled(True)
         self.status.setText(tr("onboarding.draft_failed", reason=str(exc)[:200]))
+        self.changed.emit()
 
     def _show_questions(self, questions: list[str]) -> None:
         """One row per question: the question, and a box to answer it in."""
@@ -968,6 +988,10 @@ class OnboardingWizard(QWidget):
         #: `where() -> str`, the place the seeded searches look ("" if none).
         self._where = where
         self._corpus = None
+        #: The files that were READ, as opposed to the ones dropped. Next on
+        #: the first step asks this: a drop of nothing but scans leaves the
+        #: later steps with no text to work on.
+        self._names: list[str] = []
 
         self.setWindowTitle(tr("onboarding.title"))
         layout = QVBoxLayout(self)
@@ -1036,7 +1060,8 @@ class OnboardingWizard(QWidget):
         self.setStyleSheet(ONBOARDING_STYLESHEET)
 
         self.ingest.files_added.connect(self._on_files)
-        self.keys.key_changed.connect(self._on_key)
+        self.keys.key_changed.connect(lambda _present: self._refresh_next())
+        self.interview.changed.connect(self._refresh_next)
         # Subscribe from the menu goes to the step that already does it,
         # rather than opening a second copy of the same panel somewhere else.
         self.menu.subscribe_requested.connect(
@@ -1045,25 +1070,23 @@ class OnboardingWizard(QWidget):
         # The subscribe panel reports its own outcome; the wizard only needs to
         # stop offering the step once it has succeeded.
         if hasattr(self.entitlement, "entitlement_changed"):
+            # Subscribing re-asks the current step whether Next is available —
+            # it does NOT enable it. Enabling unconditionally is how a user who
+            # opened this panel from the ⋯ menu walked out of it past the CV
+            # and key steps they had not done.
             self.entitlement.entitlement_changed.connect(
-                lambda _ok: self.btn_next.setEnabled(True))
+                lambda _ok: self._refresh_next())
         self.btn_next.clicked.connect(self._next)
         self.btn_back.clicked.connect(self._back)
         self.calibration.finished.connect(self._finish)
         self._show_step(0)
 
-    def _on_key(self, present: bool) -> None:
-        if self.stack.currentIndex() == STEP_KEY:
-            self.btn_next.setEnabled(present)
-
     def _on_files(self, paths) -> None:
         names, warnings = self._extract(paths)
         self._corpus = paths
+        self._names = list(names)
         self.ingest.show_corpus(names, warnings)
-        # Warnings never block: an unreadable file is the user's to fix or
-        # ignore, and refusing to continue over one would strand someone whose
-        # only copy of an old CV is a scan.
-        self.btn_next.setEnabled(bool(names))
+        self._refresh_next()
 
     def _show_step(self, index: int) -> None:
         self.stack.setCurrentIndex(index)
@@ -1072,20 +1095,46 @@ class OnboardingWizard(QWidget):
         # there — two buttons that mean different things is how people click
         # the wrong one.
         self.btn_next.setVisible(index < LAST_STEP)
-        if index in (STEP_ENTITLEMENT, STEP_SEARCHES):
-            # NEITHER OF THESE BLOCKS, and for the same reason.
-            #
-            # Requiring the subscription here would trap someone who wants to
-            # look before they pay, and the app is deliberately useful without
-            # it — the board, the brief and everything already on the machine
-            # stay open; it is the live feed that is bought. Requiring a ticked
-            # search would trap someone whose suggestions are all wrong.
-            self.btn_next.setEnabled(True)
+        self._refresh_next()
+
+    def _refresh_next(self) -> None:
+        """Whether Next is available, asked of the step the user is ON.
+
+        ONE PLACE, because the gates used to be set from four — a step change,
+        a key change, a file drop, and a subscription — and each wrote the
+        button directly. Any of them could therefore enable Next for a step
+        whose own condition was unmet, and one did: subscribing from the ⋯ menu
+        enabled Next unconditionally, so the user walked out of the panel past
+        whichever step they had opened it from.
+        """
+        self.btn_next.setEnabled(self._can_leave(self.stack.currentIndex()))
+
+    def _can_leave(self, index: int) -> bool:
+        if index == STEP_INGEST:
+            # Warnings never block: an unreadable file is the user's to fix or
+            # ignore, and refusing to continue over one would strand someone
+            # whose only copy of an old CV is a scan. Something readable must
+            # have arrived, though — the next steps have nothing to work on.
+            return bool(self._names)
         if index == STEP_KEY:
-            # Cannot leave the key step without a key: the next screen spends
-            # money on the user's account, and an app with no key is inert.
+            # Cannot leave without a key: the next screen spends money on the
+            # user's account, and an app with no key is inert.
             from app.core import api_key
-            self.btn_next.setEnabled(bool(api_key.get()))
+            return bool(api_key.get())
+        if index == STEP_INTERVIEW:
+            # BOTH DOCUMENTS, AND NO DRAFT IN FLIGHT. Setup could otherwise be
+            # finished with nothing written: calibration then recorded the
+            # placeholder "# Fit brief" as the brief every later verdict is
+            # scored against, and leaving mid-draft threw the answer away.
+            return self.interview.has_content and not self.interview.drafting
+        # NEITHER THE SUBSCRIPTION NOR THE SEARCHES BLOCK, for the same reason.
+        #
+        # Requiring the subscription here would trap someone who wants to look
+        # before they pay, and the app is deliberately useful without it — the
+        # board, the brief and everything already on the machine stay open; it
+        # is the live feed that is bought. Requiring a ticked search would trap
+        # someone whose suggestions are all wrong.
+        return True
 
     def _next(self) -> None:
         index = self.stack.currentIndex()

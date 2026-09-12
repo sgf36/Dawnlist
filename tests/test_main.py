@@ -15,6 +15,15 @@ from app.main import (NotConfigured, load_queries, load_rules, main,
 TUE = date(2026, 9, 8)
 
 
+@pytest.fixture(scope="module")
+def qapp():
+    """The windowed tests below build real widgets; Qt needs an application
+    object before any of them exists."""
+    pytest.importorskip("PySide6")
+    from PySide6.QtWidgets import QApplication
+    yield QApplication.instance() or QApplication([])
+
+
 @pytest.fixture()
 def dbfile(tmp_path):
     return tmp_path / "t.sqlite3"
@@ -623,3 +632,100 @@ def test_the_exclusion_list_is_bounded(tmp_path):
     # come back, so those are the ones worth excluding.
     assert str(10_000 + RECENT_HELD_IDS + 249) in q.exclude_job_ids
     assert "10000" not in q.exclude_job_ids
+
+
+# ---------------------------------------------------------------------------
+# Finishing setup, and what "finished" means
+#
+# It meant "calibrated", and calibration is SKIPPED by design whenever no feed
+# answers. So every user whose sample never arrived was returned to the first
+# screen of setup on every launch, with their CVs, aim, factsheet and brief all
+# already stored and none of it reachable. Setup was the only screen they had.
+# ---------------------------------------------------------------------------
+
+def test_a_finished_setup_reaches_the_shortlist_even_uncalibrated(dbfile,
+                                                                  monkeypatch):
+    import app.main as main_mod
+    from app.onboarding.calibration import is_calibrated
+    from app.onboarding.state import mark_setup_finished
+
+    c = db.connect(dbfile)
+    db.migrate(c)
+    mark_setup_finished(c)
+    assert not is_calibrated(c), "the point of the case: never calibrated"
+
+    routed = []
+    monkeypatch.setattr(main_mod, "_launch_onboarding",
+                        lambda app, conn: routed.append("onboarding") or 0)
+    monkeypatch.setattr(main_mod, "_offer_update", lambda window: None)
+    monkeypatch.setattr("PySide6.QtWidgets.QApplication.exec", lambda self: 0)
+    main_mod._launch_ui(c, open_board=False)
+    assert routed == [], "sent back through setup with everything already saved"
+    c.close()
+
+
+def test_an_install_calibrated_before_the_flag_existed_is_not_sent_back(dbfile,
+                                                                       monkeypatch):
+    """POSITIVE CONTROL from the other side: the row is new, so every existing
+    user's database lacks it. Treating that as unfinished would push everybody
+    back into setup on the first launch after an update."""
+    import app.main as main_mod
+    from app.onboarding.state import is_setup_finished
+
+    c = db.connect(dbfile)
+    db.migrate(c)
+    c.execute("INSERT INTO settings(key, value) "
+              "VALUES('calibration_passed_at','2026-09-06T00:00:00+00:00')")
+    c.commit()
+    assert is_setup_finished(c)
+
+    routed = []
+    monkeypatch.setattr(main_mod, "_launch_onboarding",
+                        lambda app, conn: routed.append("onboarding") or 0)
+    monkeypatch.setattr(main_mod, "_offer_update", lambda window: None)
+    monkeypatch.setattr("PySide6.QtWidgets.QApplication.exec", lambda self: 0)
+    main_mod._launch_ui(c, open_board=False)
+    assert routed == []
+    c.close()
+
+
+def test_finishing_setup_opens_the_shortlist_rather_than_quitting(conn, qapp):
+    """The wizard closed, no window was left, and the process exited — so the
+    first thing a user saw on finishing setup was Dawnlist vanishing."""
+    from app.onboarding.calibration import CalibrationResult
+    from app.onboarding.interview import save_document
+    from app.onboarding.state import is_setup_finished
+    from app.main import build_onboarding
+
+    save_document(conn, "fit_brief", "Hotel asset management in London.")
+    opened = []
+    wizard = build_onboarding(conn, on_finished=lambda: opened.append(True))
+    wizard.completed.emit(CalibrationResult(items=[]))   # nothing to calibrate
+
+    assert opened == [True], "nothing was opened to replace the wizard"
+    assert is_setup_finished(conn), "and the user would be sent round again"
+    wizard.close()
+
+
+def test_finishing_with_no_brief_records_nothing_and_says_so(conn, qapp,
+                                                             monkeypatch):
+    """It used to fall back to the literal "# Fit brief", which was then
+    recorded as the document every later verdict is scored against."""
+    from app.onboarding.calibration import CalibrationResult
+    from app.onboarding.state import is_setup_finished
+    from app.main import build_onboarding, load_document
+    from app.ui.onboarding import STEP_INTERVIEW
+
+    shown = []
+    monkeypatch.setattr("PySide6.QtWidgets.QMessageBox.warning",
+                        lambda *a, **k: shown.append(a[2]))
+    opened = []
+    wizard = build_onboarding(conn, on_finished=lambda: opened.append(True))
+    wizard.completed.emit(CalibrationResult(items=[]))
+
+    assert shown and "no fit brief" in shown[0]
+    assert not is_setup_finished(conn)
+    assert opened == [], "setup is not over while there is nothing to run on"
+    assert wizard.stack.currentIndex() == STEP_INTERVIEW, "sent where the fix is"
+    assert "# Fit brief" not in load_document(conn, "fit_brief")
+    wizard.close()

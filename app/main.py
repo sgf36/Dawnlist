@@ -1927,15 +1927,21 @@ def _doctor(conn) -> int:
     return 0 if shipped else 1
 
 
-def _launch_onboarding(app, conn) -> int:
-    """The setup flow. Opened automatically when the gate has not been passed.
+def build_onboarding(conn, *, on_finished=None):
+    """The setup flow, wired but NOT shown. Returns the wizard.
 
-    Routing here rather than to an empty shortlist is the honest thing to show
-    a new user: the shortlist would be empty anyway, and an empty screen with
-    no explanation reads as a broken app rather than an unfinished setup.
+    Separated from `_launch_onboarding` because two callers need a wizard with
+    no event loop wrapped round it: finishing setup has to open the shortlist
+    in THIS process, and calibration has to stay reachable afterwards from a
+    window that is already running. Anything ending in `app.exec()` can do
+    neither.
+
+    `on_finished()` is called when the user leaves the last screen, after
+    whatever could be recorded has been recorded.
     """
     from app.onboarding.calibration import complete_calibration
     from app.onboarding.extract import extract_corpus
+    from app.onboarding.state import mark_setup_finished
     from app.ui.onboarding import OnboardingWizard
 
     start_storekit()
@@ -2037,19 +2043,67 @@ def _launch_onboarding(app, conn) -> int:
                                   brief=brief, send=send_if_configured(conn))
 
     def finished(result):
-        brief = load_document(conn, "fit_brief") or "# Fit brief"
-        if result.sample_unavailable:
-            # Nothing to record. `complete_calibration` would raise, which is
-            # correct — a calibration against no postings is not one — but the
-            # user must still be able to finish and start the app. It runs on a
-            # later morning, once a search is switched on.
-            wizard.close()
+        brief = load_document(conn, "fit_brief")
+        if not brief.strip():
+            # REFUSED, rather than papered over. This read `or "# Fit brief"`,
+            # so a user who reached the gate with nothing written had that
+            # heading recorded as their brief — and every later verdict was
+            # scored against a document of three words, with the calibration
+            # gate marked passed on top of it.
+            from PySide6.QtWidgets import QMessageBox
+
+            from app.ui.onboarding import STEP_INTERVIEW
+            QMessageBox.warning(wizard, tr("onboarding.title"),
+                                tr("onboarding.no_brief_yet"))
+            wizard._show_step(STEP_INTERVIEW)
             return
-        complete_calibration(conn, brief, result)
+        if not result.sample_unavailable:
+            # A short sample is not a calibration and is never recorded as one
+            # — `complete_calibration` refuses it. The user still leaves setup;
+            # see `CalibrationResult.can_finish`.
+            complete_calibration(conn, brief, result)
+
+        # SETUP IS FINISHED WHETHER OR NOT CALIBRATION WAS, and the two are
+        # recorded separately for exactly that reason: the launch path asked
+        # `is_calibrated`, so anybody whose sample never arrived was sent back
+        # to the first screen of setup on every launch, for ever.
+        mark_setup_finished(conn)
+        # The next window FIRST. Closing the wizard while it is the only one
+        # open ends the event loop, and the process exits instead of showing
+        # the shortlist the user has just spent half an hour producing.
+        if on_finished is not None:
+            on_finished()
         wizard.close()
 
     wizard.documents_ready.connect(save_documents)
     wizard.completed.connect(finished)
+    return wizard
+
+
+def _launch_onboarding(app, conn) -> int:
+    """Setup, and then the shortlist, in one process.
+
+    Routing a new user here rather than to an empty shortlist is the honest
+    thing to show: the shortlist would be empty anyway, and an empty screen
+    with no explanation reads as a broken app rather than an unfinished setup.
+
+    FINISHING USED TO END THE PROCESS. The wizard closed, no window was left,
+    `app.exec()` returned, and the application vanished — so the first thing a
+    user saw on completing setup was Dawnlist quitting, and they had to start
+    it again to see any of what they had produced.
+    """
+    # Held, because this closure is the only reference to the window: a
+    # QWidget nobody holds is collected as soon as the callback returns, and
+    # it disappears as fast as it appeared.
+    opened = []
+
+    def show_the_shortlist():
+        window = _main_window(conn, open_board=False)
+        opened.append(window)
+        window.show()
+        _offer_update(window)
+
+    wizard = build_onboarding(conn, on_finished=show_the_shortlist)
     wizard.resize(900, 780)
     wizard.show()
     return app.exec()
@@ -2221,23 +2275,17 @@ def _added_alerts(window, conn, paths) -> None:
                 incomplete_note=note)
 
 
-def _launch_ui(conn, *, open_board: bool) -> int:
-    from PySide6.QtWidgets import QApplication
+def _main_window(conn, *, open_board: bool):
+    """The board or the shortlist, loaded and wired. Never shown here.
 
-    from app.onboarding.calibration import is_calibrated
+    Pulled out of `_launch_ui` so the end of setup can open the very same
+    window in the same process, instead of leaving the user with nothing on
+    screen and an application they have to start again.
+    """
     from app.ui.adapter import connect_window, latest_run_id, rows_from_db
     from app.ui.board import BoardWindow
     from app.ui.board_adapter import board_rows, connect_board
     from app.ui.review import ReviewWindow
-
-    app = QApplication.instance() or QApplication(sys.argv)
-    from app.ui.branding import apply_icon
-    apply_icon(app)
-
-    if not is_calibrated(conn) and not open_board:
-        return _launch_onboarding(app, conn)
-
-    start_storekit()
 
     if open_board:
         window = BoardWindow()
@@ -2278,6 +2326,30 @@ def _launch_ui(conn, *, open_board: bool) -> int:
         window.load(rows_from_db(conn), _stored_funnel(conn, run_id),
                     notes=_screen_drift_notes(conn, run_id))
 
+    return window
+
+
+def _launch_ui(conn, *, open_board: bool) -> int:
+    from PySide6.QtWidgets import QApplication
+
+    from app.onboarding.state import is_setup_finished
+
+    app = QApplication.instance() or QApplication(sys.argv)
+    from app.ui.branding import apply_icon
+    apply_icon(app)
+
+    # SETUP FINISHED, not calibration passed. Calibration is skipped by design
+    # whenever no feed answers (`CalibrationResult.can_finish`), so asking
+    # `is_calibrated` here sent every such user back to the start of setup on
+    # every launch — they could never reach their own shortlist at all.
+    if not open_board and not is_setup_finished(conn):
+        return _launch_onboarding(app, conn)
+
+    # Setup asks for this on its first screen, so reaching it here means the
+    # terms have been revised since — or that this install predates the step.
+    start_storekit()
+
+    window = _main_window(conn, open_board=open_board)
     window.show()
     _offer_update(window)
     return app.exec()
