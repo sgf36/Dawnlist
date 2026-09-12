@@ -574,6 +574,13 @@ class SettingsWindow(QWidget):
         layout.addWidget(self._admin_divider)
         layout.addWidget(self.admin)
 
+        # Shown and hidden with the console above it, by the same server
+        # answer. On EVERY build: the person handing offer codes to Mac
+        # testers is the one who does not have a Mac.
+        self.offers = AppleOfferPanel()
+        self.offers.hide()
+        layout.addWidget(self.offers)
+
         # Always shown, on every build. Two obligations meet here.
         layout.addWidget(_divider())
         layout.addWidget(DataTermsPanel())
@@ -637,6 +644,12 @@ class SettingsWindow(QWidget):
                 self._admin_divider.show()
                 self.admin.show()
                 self.admin.refresh()
+                # Same server answer, same moment: an administrator who
+                # could see one console and not the other would think the
+                # offer codes were a Mac-only screen, which is exactly
+                # backwards.
+                self.offers.show()
+                self.offers.refresh()
 
         self._admin_task = run_in_background(
             lambda: ask(key),
@@ -1018,6 +1031,330 @@ class AdminPanel(QWidget):
 
         self._run(work, lambda codes: self._listed(
             codes, tr("settings.admin_revoked", code=code)))
+
+
+class AppleOfferPanel(QWidget):
+    """Hand out the Mac subscription's App Store offer codes.
+
+    WHY THIS SCREEN EXISTS AT ALL. Dawnlist's own override codes were removed
+    from the Mac build under App Store guideline 3.1.1, so nothing in the macOS
+    app can redeem anything. An App Store offer code is the only way to give
+    somebody free access to the Mac subscription — not one option among
+    several.
+
+    AND WHY IT MATTERS THAT IT IS HERE. The person handing codes to Mac testers
+    does not necessarily have a Mac. This panel is a client of the Worker like
+    the rest of the console, so it works on whichever build is running; the
+    codes it gives out are redeemed on the recipient's machine, not this one.
+
+    NOTHING HERE MINTS A CODE. Minting needs an App Store Connect key, which
+    carries App Manager rights over the whole app and deliberately lives
+    outside this application — `tools/asc_offer_codes.py` mints and uploads,
+    and this assigns what is already there. When the list is empty the answer
+    is to mint more, and the screen says so rather than showing nothing.
+    """
+
+    def __init__(self, *, key_source=None, api=None, confirm=None, parent=None):
+        super().__init__(parent)
+        from app.core import admin as admin_api
+        from app.core import entitlement
+
+        self._api = api or admin_api
+        self._key_source = key_source or entitlement.stored_licence
+        self._confirm = confirm or self._ask_before_voiding
+        self._codes: list[dict] = []
+        self._people: list[dict] = []
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+
+        heading = QLabel(tr("settings.offer_heading"))
+        heading.setObjectName("stepHeading")
+        layout.addWidget(heading)
+
+        body = QLabel(reflow(tr("settings.offer_body")))
+        body.setObjectName("stepBody")
+        body.setWordWrap(True)
+        layout.addWidget(body)
+
+        form = QHBoxLayout()
+        form.setSpacing(6)
+        self.who = QLineEdit()
+        self.who.setPlaceholderText(tr("settings.offer_who_placeholder"))
+        form.addWidget(self.who, 2)
+
+        self.note = QLineEdit()
+        self.note.setPlaceholderText(tr("settings.offer_note_placeholder"))
+        form.addWidget(self.note, 2)
+
+        self.btn_assign = QPushButton(tr("settings.offer_assign"))
+        self.btn_assign.setObjectName("primary")
+        form.addWidget(self.btn_assign)
+        layout.addLayout(form)
+
+        self.result = QLabel()
+        self.result.setWordWrap(True)
+        # Selectable, because the whole point of this screen is to get a code
+        # out of it and into a message. A code you cannot copy is one you
+        # retype wrongly, and a mistyped offer code is indistinguishable from
+        # a broken app to whoever you sent it to.
+        self.result.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        layout.addWidget(self.result)
+
+        self.codes = QListWidget()
+        self.codes.setMaximumHeight(160)
+        layout.addWidget(self.codes)
+
+        row = QHBoxLayout()
+        self.btn_refresh = QPushButton(tr("settings.offer_refresh"))
+        self.btn_void = QPushButton(tr("settings.offer_void"))
+        row.addWidget(self.btn_refresh)
+        row.addWidget(self.btn_void)
+        row.addStretch(1)
+        layout.addLayout(row)
+
+        # --- who redeemed, and who keeps it afterwards ----------------------
+        #
+        # A SECOND LIST, not a column on the first. The ledger above is who was
+        # GIVEN a code; this is who redeemed one. They are different sets — a
+        # code can be handed out and never used — and showing them as one
+        # screen would invite comping somebody who has not turned up yet.
+        layout.addWidget(_divider())
+
+        people = QLabel(tr("settings.offer_people_heading"))
+        people.setObjectName("stepHeading")
+        layout.addWidget(people)
+
+        people_body = QLabel(reflow(tr("settings.offer_people_body")))
+        people_body.setObjectName("stepBody")
+        people_body.setWordWrap(True)
+        layout.addWidget(people_body)
+
+        self.people = QListWidget()
+        self.people.setMaximumHeight(140)
+        layout.addWidget(self.people)
+
+        people_row = QHBoxLayout()
+        self.btn_comp = QPushButton(tr("settings.offer_comp_on"))
+        self.btn_comp.setObjectName("primary")
+        people_row.addWidget(self.btn_comp)
+        people_row.addStretch(1)
+        layout.addLayout(people_row)
+
+        self.people_result = QLabel()
+        self.people_result.setWordWrap(True)
+        layout.addWidget(self.people_result)
+
+        self.btn_comp.clicked.connect(self._toggle_comp)
+        self.people.currentRowChanged.connect(self._people_changed)
+
+        self.btn_assign.clicked.connect(self._assign)
+        self.btn_refresh.clicked.connect(self.refresh)
+        self.btn_void.clicked.connect(self._void)
+
+    # -- helpers -----------------------------------------------------------
+    def _ask_before_voiding(self, code: str) -> bool:
+        """The confirmation says what voiding does NOT do.
+
+        Apple has no API to withdraw a minted one-time code. Someone reading
+        "void" reasonably expects the code to stop working, and it does not —
+        it only stops being handed out from here. Saying that at the moment of
+        the decision is the only place it helps.
+        """
+        from PySide6.QtWidgets import QMessageBox
+
+        answer = QMessageBox.question(
+            self, tr("settings.offer_confirm_void_title"),
+            tr("settings.offer_confirm_void", code=code),
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        return answer == QMessageBox.Yes
+
+    def _key(self):
+        return self._key_source()
+
+    def _busy(self, on: bool) -> None:
+        for button in (self.btn_assign, self.btn_refresh, self.btn_void,
+                       self.btn_comp):
+            button.setEnabled(not on)
+
+    def _run(self, work, done) -> None:
+        self._busy(True)
+        self._task = run_in_background(work, on_done=done,
+                                       on_error=self._failed)
+
+    def _failed(self, exc) -> None:
+        self._busy(False)
+        self.result.setText(str(exc))
+
+    def _describe(self, row: dict) -> str:
+        code = row.get("code", "")
+        batch = row.get("batch", "")
+        if row.get("void"):
+            return tr("settings.offer_row_void", code=code, batch=batch)
+        if row.get("assigned_at"):
+            return tr("settings.offer_row_assigned", code=code, batch=batch,
+                      who=row.get("assigned_to") or "")
+        return tr("settings.offer_row_free", code=code, batch=batch)
+
+    def _listed(self, payload, message: str = "") -> None:
+        self._busy(False)
+        self._codes = list(payload.get("codes", []))
+        self.codes.clear()
+        for row in self._codes:
+            self.codes.addItem(self._describe(row))
+
+        free = sum(1 for r in self._codes
+                   if not r.get("void") and not r.get("assigned_at"))
+        if message:
+            self.result.setText(message)
+        elif not self._codes:
+            # An empty ledger is not an error and must not read as one. The
+            # fix is a mint, which happens somewhere else entirely, so the
+            # screen names it.
+            self.result.setText(tr("settings.offer_empty"))
+        else:
+            self.result.setText(tr("settings.offer_left", n=free))
+
+    def refresh(self) -> None:
+        key = self._key()
+        if not key:
+            self.result.setText(tr("settings.admin_no_licence"))
+            return
+        api = self._api
+
+        def then_people(payload):
+            self._listed(payload)
+            self.refresh_people()
+
+        self._run(lambda: api.apple_codes(key), then_people)
+
+    # -- who keeps it after Apple stops paying attention --------------------
+    def _describe_person(self, row: dict) -> str:
+        offer = row.get("offer_identifier") or tr("settings.offer_person_paid")
+        state = (tr("settings.offer_person_comped") if row.get("comp")
+                 else tr("settings.offer_person_normal"))
+        return tr("settings.offer_row_person", licence=row.get("licence", ""),
+                  offer=offer, state=state)
+
+    def _people_changed(self, index: int) -> None:
+        """The button says what pressing it will do, and goes dead when it
+        would do nothing.
+
+        `comp_eligible` comes from the SERVER, computed from the offer Apple
+        recorded. Deriving it here as well would be a second copy of the rule,
+        and the day the two disagree the button is enabled for something the
+        server refuses — which reads as a broken console rather than a
+        deliberate refusal.
+        """
+        if index < 0 or index >= len(self._people):
+            self.btn_comp.setEnabled(False)
+            self.btn_comp.setText(tr("settings.offer_comp_on"))
+            return
+        row = self._people[index]
+        comped = bool(row.get("comp"))
+        self.btn_comp.setText(tr("settings.offer_comp_off") if comped
+                              else tr("settings.offer_comp_on"))
+        # Switching OFF is always allowed. Only granting is gated, so a
+        # customer who cannot be comped can still be un-comped if somebody
+        # managed it before the gate existed.
+        self.btn_comp.setEnabled(comped or bool(row.get("comp_eligible")))
+        if not comped and not row.get("comp_eligible"):
+            self.people_result.setText(tr("settings.offer_comp_not_eligible"))
+
+    def _listed_people(self, payload, message: str = "") -> None:
+        self._busy(False)
+        self._people = list(payload.get("subscribers", []))
+        self.people.clear()
+        for row in self._people:
+            self.people.addItem(self._describe_person(row))
+        if message:
+            self.people_result.setText(message)
+        elif not self._people:
+            self.people_result.setText(tr("settings.offer_nobody"))
+        self._people_changed(self.people.currentRow())
+
+    def _toggle_comp(self) -> None:
+        key = self._key()
+        if not key:
+            self.people_result.setText(tr("settings.admin_no_licence"))
+            return
+        index = self.people.currentRow()
+        if index < 0 or index >= len(self._people):
+            self.people_result.setText(tr("settings.offer_pick_person"))
+            return
+        row = self._people[index]
+        txn, comp = row.get("original_transaction_id", ""), not row.get("comp")
+        api = self._api
+
+        def done(_):
+            self._run(lambda: api.apple_subscribers(key),
+                      lambda payload: self._listed_people(
+                          payload,
+                          tr("settings.offer_comp_done_on") if comp
+                          else tr("settings.offer_comp_done_off")))
+
+        self._run(
+            lambda: api.set_apple_comp(key, original_transaction_id=txn, comp=comp),
+            done)
+
+    def refresh_people(self) -> None:
+        key = self._key()
+        if not key:
+            self.people_result.setText(tr("settings.admin_no_licence"))
+            return
+        api = self._api
+        self._run(lambda: api.apple_subscribers(key), self._listed_people)
+
+
+    def _assign(self) -> None:
+        key = self._key()
+        if not key:
+            self.result.setText(tr("settings.admin_no_licence"))
+            return
+        who = self.who.text().strip()
+        if not who:
+            # Refused here as well as at the server, so the message arrives
+            # without a round trip and next to the box it is about.
+            self.result.setText(tr("settings.offer_who_required"))
+            return
+        api, note = self._api, self.note.text().strip()
+
+        def done(row):
+            self.who.clear()
+            self.note.clear()
+            # The code is shown in full and stays on screen: this is the one
+            # moment it can be copied, and re-reading the list will not show
+            # it any more clearly.
+            self._run(lambda: api.apple_codes(key),
+                      lambda payload: self._listed(
+                          payload,
+                          tr("settings.offer_assigned",
+                             code=row.get("code", ""), who=row.get("assigned_to", ""))))
+
+        self._run(lambda: api.assign_apple_code(key, assigned_to=who, note=note),
+                  done)
+
+    def _void(self) -> None:
+        key = self._key()
+        if not key:
+            self.result.setText(tr("settings.admin_no_licence"))
+            return
+        index = self.codes.currentRow()
+        if index < 0 or index >= len(self._codes):
+            self.result.setText(tr("settings.offer_pick_one"))
+            return
+        code = self._codes[index].get("code", "")
+        if not self._confirm(code):
+            return
+        api = self._api
+
+        def done(_):
+            self._run(lambda: api.apple_codes(key),
+                      lambda payload: self._listed(
+                          payload, tr("settings.offer_voided", code=code)))
+
+        self._run(lambda: api.void_apple_code(key, code), done)
 
 
 class StoreKitEvents(QObject):

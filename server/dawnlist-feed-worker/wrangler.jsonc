@@ -25,7 +25,15 @@
     // identifiers, committed so a mismatch is findable: a wrong value refuses
     // every Mac subscriber with `wrong_bundle` or `wrong_product`.
     "APPLE_BUNDLE_ID": "com.spencerfields.dawnlist",
-    "APPLE_PRODUCT_ID": "com.spencerfields.dawnlist.monthly"
+    "APPLE_PRODUCT_ID": "com.spencerfields.dawnlist.monthly",
+    // Which App Store offers may be comped, by the NAME Apple puts in a
+    // signed transaction as offerIdentifier. Comma-separated. A subscription
+    // that began with one of these may be kept alive past Apple's free period
+    // by an administrator; one that began any other way never can, which is
+    // what stops a lapsed paying customer being comped by mistake.
+    // Not a secret: it is a list of offer names, and it is here rather than in
+    // code so a new comp tier is a config change and not a deploy of logic.
+    "APPLE_COMP_OFFERS": "Dawnlist Comps"
 
     // PADDLE_PRICE_GLOBAL is deliberately ABSENT. The Global plan is not sold
     // until its 2,500/day ceiling has been measured against a real

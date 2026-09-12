@@ -241,5 +241,39 @@ CREATE TABLE IF NOT EXISTS apple_transactions (
     status                  TEXT NOT NULL,
     expires_at              TEXT,
     created_at              TEXT NOT NULL,
-    updated_at              TEXT NOT NULL
+    updated_at              TEXT NOT NULL,
+    -- Comp access (migration 012). offer_identifier is read from the
+    -- transaction Apple SIGNED and names the offer the subscription began
+    -- with; comp is an administrator deliberate act. Both are required before
+    -- /v1/apple keeps answering past Apple free period, so a paying customer
+    -- whose subscription lapsed can never qualify. offer_type is recorded and
+    -- nothing depends on it: its value for an offer-code redemption is
+    -- unconfirmed, and a guard resting on a guess is not a guard.
+    offer_identifier        TEXT,
+    offer_type              INTEGER,
+    comp                    INTEGER NOT NULL DEFAULT 0
+);
+
+-- Mac App Store offer codes (migration 011). Minted in App Store Connect on a
+-- machine holding the Apple key and uploaded here as strings only — the
+-- migration says why that separation is not negotiable. There is deliberately
+-- no per-code "redeemed" column; redemptions are counted per batch, because a
+-- transaction names the OFFER and never the individual code.
+CREATE TABLE IF NOT EXISTS apple_offer_codes (
+    code        TEXT PRIMARY KEY,
+    batch       TEXT NOT NULL,
+    added_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    assigned_to TEXT,
+    assigned_at TEXT,
+    note        TEXT,
+    void        INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS apple_offer_codes_free
+    ON apple_offer_codes (void, assigned_at, added_at);
+
+CREATE TABLE IF NOT EXISTS apple_offer_batches (
+    batch       TEXT PRIMARY KEY,
+    offer_id    TEXT,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    redemptions INTEGER NOT NULL DEFAULT 0
 );

@@ -67,7 +67,7 @@ SELECT UPPER(REPLACE(REPLACE(code, '-', ''), ' ', '')) AS n, COUNT(*)
   FROM codes GROUP BY n HAVING COUNT(*) > 1;
 ```
 
-## 2. Migrations 003 to 007, and 009, 010
+## 2. Migrations 003 to 007, and 009 to 012
 
 `001-plans.sql` and `002-code-plans.sql` are ALREADY APPLIED — by `d1 execute`
 on 2026-09-08. They are listed here so that nobody reading "apply every file in
@@ -85,6 +85,8 @@ npx wrangler d1 execute dawnlist --remote --file migrations/006-licence-delivery
 npx wrangler d1 execute dawnlist --remote --file migrations/007-normalised-codes.sql
 npx wrangler d1 execute dawnlist --remote --file migrations/009-admin-audit.sql
 npx wrangler d1 execute dawnlist --remote --file migrations/010-apple-transactions.sql
+npx wrangler d1 execute dawnlist --remote --file migrations/011-apple-offer-codes.sql
+npx wrangler d1 execute dawnlist --remote --file migrations/012-apple-comp.sql
 ```
 
 **Do not use `wrangler d1 migrations apply`.** It tracks its own state in a
@@ -93,6 +95,12 @@ table this database does not have, and would try to run 001 and 002 again.
 006 and 007 add columns, and SQLite has no `ADD COLUMN IF NOT EXISTS`, so a
 second run stops at "duplicate column name" and changes nothing. That is a safe
 failure, not a broken database.
+
+011 creates two tables and is safe to re-run. It is the ledger behind the
+console's Mac offer codes, and it holds no Apple credential: codes are minted
+on a machine with the App Store Connect key by `tools/asc_offer_codes.py` and
+only the resulting strings are uploaded. The migration says why that split is
+not negotiable.
 
 ## 3. The secrets, before the deploy
 
@@ -140,6 +148,12 @@ npx wrangler secret put APPLE_IAP_KEY_ID
 npx wrangler secret put APPLE_IAP_ISSUER_ID
 npx wrangler secret put APPLE_IAP_PRIVATE_KEY
 ```
+
+`APPLE_COMP_OFFERS` is a plain var too, and names which offers may be comped:
+a subscription that began with one of those offers may be kept alive past
+Apple's free period by an administrator, and one that began any other way never
+can. 012 adds the columns it reads. Changing the list is a var change, not a
+deploy of new logic.
 
 `APPLE_BUNDLE_ID` and `APPLE_PRODUCT_ID` are already plain vars in
 `wrangler.jsonc` and need nothing.

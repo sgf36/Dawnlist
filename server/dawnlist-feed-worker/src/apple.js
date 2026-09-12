@@ -181,8 +181,39 @@ function iso(ms) {
  * licence, splitting the customer's usage across two keys with nothing showing
  * it; a foreign key would force exactly that order.
  */
-async function settle(env, { originalTransactionId, entitled, status, expiresAt,
-                             environment }) {
+/**
+ * Which offers may be comped, from `wrangler.jsonc` rather than from code.
+ *
+ * A name, not an id, because that is what Apple puts in the signed transaction
+ * as `offerIdentifier`. Configured rather than hard-coded so a new comp tier
+ * is a var change and not a deploy of new logic — and so this file never has
+ * to be read to find out which offers are treated specially.
+ */
+function compOffers(env) {
+  return String(env.APPLE_COMP_OFFERS || '')
+    .split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+/**
+ * May this transaction be comped at all?
+ *
+ * THE EVIDENCE GATE. `offerIdentifier` comes out of the payload Apple signed,
+ * so it cannot be set by anyone here, and a subscription somebody PAID for
+ * carries no comp offer on it. That is what makes it impossible to comp a
+ * paying customer by mistake: not a rule we remembered to write, but a fact
+ * that is absent from their transaction.
+ *
+ * An administrator's `comp` flag is the second gate and is checked separately.
+ * Either alone grants nothing.
+ */
+export function compEligible(env, row) {
+  const offers = compOffers(env);
+  return Boolean(row && row.offer_identifier
+                 && offers.includes(row.offer_identifier));
+}
+
+export async function settle(env, { originalTransactionId, entitled, status, expiresAt,
+                             environment, offerIdentifier, offerType }) {
   const now = new Date().toISOString();
   const id = String(originalTransactionId);
 
@@ -190,8 +221,42 @@ async function settle(env, { originalTransactionId, entitled, status, expiresAt,
     // A refusal updates a licence that already exists and creates nothing: a
     // licence minted for a lapsed subscription is a licence nobody paid for.
     const mapped = await env.DB.prepare(
-      'SELECT licence_key FROM apple_transactions WHERE original_transaction_id = ?1'
+      `SELECT licence_key, offer_identifier, comp FROM apple_transactions
+        WHERE original_transaction_id = ?1`
     ).bind(id).first();
+
+    // COMP: Apple has stopped saying yes, and this person never paid, and
+    // somebody deliberately said they should keep the app. All three, or none
+    // of this happens. `compEligible` reads the offer out of the transaction
+    // Apple signed, so a customer who bought a subscription cannot reach here
+    // however the flag is set.
+    if (mapped && mapped.comp && compEligible(env, mapped)) {
+      await env.DB.prepare(
+        `UPDATE apple_transactions SET status = ?1, expires_at = ?2, updated_at = ?3
+          WHERE original_transaction_id = ?4`
+      ).bind(status, expiresAt, now, id).run();
+      // The LICENCE keeps no expiry, which is the whole point: Apple's free
+      // period ended and this one does not. Revoking it is what ends it, and
+      // that is a decision made here rather than by Apple.
+      const licence = await env.DB.prepare(
+        `UPDATE licences SET status = 'active', expires_at = NULL
+          -- 'refunded' is the one status comp must not override: Apple
+          -- returned the customer their money, and reviving the licence would
+          -- be giving the product away to somebody who asked for it back.
+          -- ('revoked' is NOT a licence status - the schema allows active,
+          -- expired, refunded and suspended - so a guard written against it
+          -- would never have fired.)
+          WHERE licence_key = ?1 AND status <> 'refunded'
+        RETURNING licence_key`
+      ).bind(mapped.licence_key).all();
+      if ((licence.results || []).length) {
+        return json({ ok: true, licence_key: mapped.licence_key,
+                      expires_at: null, status: 'comp',
+                      original_transaction_id: id });
+      }
+      // Revoked beats comp. Falling through returns the ordinary refusal.
+    }
+
     if (mapped) {
       await env.DB.prepare(
         `UPDATE apple_transactions SET status = ?1, expires_at = ?2, updated_at = ?3
@@ -211,14 +276,22 @@ async function settle(env, { originalTransactionId, entitled, status, expiresAt,
   await env.DB.prepare(
     `INSERT INTO apple_transactions (original_transaction_id, licence_key,
                                      environment, status, expires_at,
-                                     created_at, updated_at)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)
+                                     created_at, updated_at,
+                                     offer_identifier, offer_type)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6, ?7, ?8)
      ON CONFLICT(original_transaction_id) DO UPDATE SET
        environment = excluded.environment,
        status      = excluded.status,
        expires_at  = excluded.expires_at,
-       updated_at  = excluded.updated_at`
-  ).bind(id, newLicenceKey(), environment, status, expiresAt, now).run();
+       updated_at  = excluded.updated_at,
+       -- Recorded on every settle, not only the first. A subscription that
+       -- began on a comp offer and was later paid for stops carrying one, and
+       -- the gate must follow that rather than remember the old answer.
+       offer_identifier = excluded.offer_identifier,
+       offer_type       = excluded.offer_type`
+  ).bind(id, newLicenceKey(), environment, status, expiresAt, now,
+         offerIdentifier || null,
+         Number.isInteger(offerType) ? offerType : null).run();
 
   const { licence_key: licenceKey } = await env.DB.prepare(
     'SELECT licence_key FROM apple_transactions WHERE original_transaction_id = ?1'
@@ -335,6 +408,12 @@ async function byTransaction(env, transactionId) {
     originalTransactionId: txn.originalTransactionId || item.originalTransactionId,
     entitled, status, expiresAt: iso(expiresMs),
     environment: txn.environment || environment,
+    // Straight out of the payload Apple signed. `offerIdentifier` names the
+    // offer this subscription began with and is the only thing a comp may be
+    // granted on; `offerType` is recorded beside it and nothing reads it,
+    // because its value for an offer-code redemption is unconfirmed.
+    offerIdentifier: txn.offerIdentifier,
+    offerType: txn.offerType,
   });
 }
 
