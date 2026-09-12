@@ -313,3 +313,125 @@ def test_the_anthropic_floor_is_a_release_that_has_output_config():
     """0.76.0 was measured to have no output_config parameter anywhere;
     0.77.0 has it on create and on stream."""
     assert _floor("anthropic") >= (0, 77, 0)
+
+
+# ---------------------------------------------------------------------------
+# The lock files CI installs, against the floors a person wrote
+# ---------------------------------------------------------------------------
+
+#: input -> the hashed lock compiled from it.
+LOCKS = {
+    "requirements.txt": "requirements.lock.txt",
+    "requirements-dev.txt": "requirements-dev.lock.txt",
+    "requirements-audit.txt": "requirements-audit.lock.txt",
+}
+
+FLOOR = re.compile("([A-Za-z0-9._-]+)>=([0-9][0-9A-Za-z.]*)")
+PIN = re.compile("([A-Za-z0-9._-]+)==([0-9][^ ;]*)")
+
+
+def _normalise(name: str) -> str:
+    return re.sub("[-_.]+", "-", name).lower()
+
+
+def _version(text: str) -> tuple[int, ...]:
+    """Enough of a version to compare two of them. A non-numeric segment ends
+    the comparison rather than inventing an ordering for it."""
+    parts = []
+    for segment in text.split("."):
+        digits = re.match("[0-9]+", segment)
+        if not digits:
+            break
+        parts.append(int(digits.group()))
+    return tuple(parts)
+
+
+def _floors(rel: str) -> dict[str, str]:
+    floors = {}
+    for line in (ROOT / rel).read_text(encoding="utf-8").splitlines():
+        line = line.split("#")[0].strip()
+        if not line or line.startswith("-r"):
+            continue
+        found = FLOOR.match(line)
+        assert found, f"{rel} states {line!r}, which is not a floor"
+        floors[_normalise(found.group(1))] = found.group(2)
+    return floors
+
+
+def _pins(rel: str) -> dict[str, str]:
+    pins = {}
+    for line in (ROOT / rel).read_text(encoding="utf-8").splitlines():
+        found = PIN.match(line)
+        if found:
+            pins[_normalise(found.group(1))] = found.group(2)
+    return pins
+
+
+@pytest.mark.parametrize("source,lock", sorted(LOCKS.items()))
+def test_every_floor_is_pinned_in_the_lock_beside_it(source, lock):
+    """A lock nobody recompiled after an edit installs the OLD set, and says
+    nothing: the run is green and the package CI builds is not the one the
+    input file describes."""
+    floors = _floors(source)
+    assert floors, f"nothing parsed out of {source} — suspect the parser"
+    missing = sorted(set(floors) - set(_pins(lock)))
+    assert not missing, (
+        f"{lock} does not pin {missing}. Recompile it — the command is in the "
+        f"header of {source}.")
+
+
+@pytest.mark.parametrize("source,lock", sorted(LOCKS.items()))
+def test_every_pin_satisfies_the_floor_that_was_chosen(source, lock):
+    """The floors are load-bearing — anthropic>=0.77.0 is the release that
+    accepts output_config — so a lock below one installs a build that cannot
+    work, on every runner at once."""
+    pins = _pins(lock)
+    for name, floor in _floors(source).items():
+        assert _version(pins[name]) >= _version(floor), (
+            f"{lock} pins {name}=={pins[name]}, below the {floor} that "
+            f"{source} asks for")
+
+
+def _unhashed(lines: list[str]) -> tuple[list[str], int]:
+    """The pins carrying no hash, and how many pins were read at all."""
+    offenders, seen = [], 0
+    for index, line in enumerate(lines):
+        if not PIN.match(line):
+            continue
+        seen += 1
+        block = [line]
+        for following in lines[index + 1:]:
+            if not following.startswith(" "):
+                break
+            block.append(following)
+        if not any("--hash=" in item for item in block):
+            offenders.append(line)
+    return offenders, seen
+
+
+def test_the_hash_check_can_see_a_pin_with_no_hash():
+    """The control. Every assertion below is that a list came back empty, and
+    an empty list is what a broken reader returns too."""
+    offenders, seen = _unhashed(["pytest==8.0.0", "colorama==0.4.6 ; sys_platform == 'win32'",
+                                 "    --hash=sha256:beef"])
+    assert seen == 2 and offenders == ["pytest==8.0.0"]
+
+
+@pytest.mark.parametrize("lock", sorted(LOCKS.values()))
+def test_every_pin_in_a_lock_carries_a_hash(lock):
+    """pip refuses a --require-hashes install whose file has an unhashed
+    requirement. This fails the same build a runner would, in a second rather
+    than a queue slot on three operating systems."""
+    offenders, seen = _unhashed(
+        (ROOT / lock).read_text(encoding="utf-8").splitlines())
+    assert not offenders, f"{lock}: {offenders}"
+    assert seen > 5, f"{lock} barely parsed: {seen} pins"
+
+
+def test_dependabot_watches_both_things_that_cannot_update_themselves():
+    """A hashed lock and a SHA-pinned action are both deliberately frozen, so
+    a published fix reaches neither without somebody opening a pull request."""
+    config = yaml.safe_load(
+        (ROOT / ".github" / "dependabot.yml").read_text(encoding="utf-8"))
+    watched = {entry["package-ecosystem"] for entry in config["updates"]}
+    assert {"pip", "github-actions"} <= watched

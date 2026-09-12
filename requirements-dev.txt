@@ -1,3 +1,10 @@
+# CI installs requirements-dev.lock.txt. Regenerate it after any edit:
+#
+#   uv pip compile requirements-dev.txt --universal --python-version 3.12 \
+#       --generate-hashes --no-annotate -o requirements-dev.lock.txt
+#
+# See requirements.txt for why the lock is universal rather than per-platform.
+
 -r requirements.txt
 pytest>=8.0.0
 pyinstaller>=6.0.0

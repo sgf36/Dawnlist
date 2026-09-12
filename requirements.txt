@@ -1,3 +1,23 @@
+# WHAT CI INSTALLS IS requirements.lock.txt, NOT THIS FILE.
+#
+# This one states the floors a person chose and why. The lock beside it pins
+# every package and every transitive dependency with hashes, so a build
+# installs the same bytes on every runner and a compromised release cannot
+# reach a signing job. Regenerate it after ANY edit here:
+#
+#   uv pip compile requirements.txt --universal --python-version 3.12 \
+#       --generate-hashes --no-annotate -o requirements.lock.txt
+#
+# --universal because the three platforms need one file: a lock resolved on
+# Windows omits PyObjC entirely, and `pip install --require-hashes` would then
+# build a Mac App Store package whose purchase path cannot import StoreKit —
+# which is the failure the PyObjC entries below were added to end. 3.12 is the
+# interpreter the build jobs use; the resolution is identical on 3.14, which
+# the test job uses.
+#
+# tests/test_release_workflow.py fails if a floor here is not satisfied by the
+# lock, so a raised floor cannot be forgotten.
+
 PySide6>=6.7.0
 
 # 0.77.0 IS THE FIRST RELEASE THAT ACCEPTS `output_config`, and every request

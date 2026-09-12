@@ -1,0 +1,3 @@
+# The vulnerability scanner CI runs against the lock files, pinned like
+# everything else so the audit job installs nothing ad hoc.
+pip-audit>=2.10.0
