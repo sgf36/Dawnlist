@@ -365,7 +365,7 @@ jobs:
 
       # -------------------------------------------------------------- artefacts
       - name: Upload
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: dawnlist-${{ matrix.os }}-${{ matrix.variant }}${{ steps.label.outputs.suffix }}
           # `error` only when a package is genuinely expected. Both Windows
@@ -455,7 +455,7 @@ jobs:
               sys.exit("no screenshots were rendered")
           PY
 
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: mac-screenshots
           path: dist/mac-screenshots
@@ -495,7 +495,7 @@ jobs:
       - name: Render the purchase screen
         run: python tools/render_subscribe.py --price '$79.00' --out dist/review
 
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: subscription-review
           path: dist/review/*.png
@@ -610,7 +610,7 @@ jobs:
 
           security delete-keychain "$KEYCHAIN"
 
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4  # v5.0.0
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         if: always()
         with:
           name: mas-pkg
