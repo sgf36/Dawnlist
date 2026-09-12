@@ -1,0 +1,4 @@
+{
+  "name": "Dawnlist mjesečna pretplata",
+  "description": "Otključava Dawnlistov dnevni popis poslova, procjene oglasa i nacrte poruka na mjesec dana. Obnavlja se mjesečno do otkazivanja. I dalje je potreban vlastiti Anthropic API ključ."
+}

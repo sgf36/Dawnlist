@@ -560,6 +560,19 @@ class SettingsWindow(QWidget):
             layout.addWidget(_divider())
             layout.addWidget(self.subscribe)
 
+        # AND THE THIRD TILL. A `store_iap` build sells the Microsoft Store's
+        # own subscription, because Paddle declined the Dawnlist domain on
+        # 2026-09-11 and an appeal is open. Exactly one of the three purchase
+        # panels is ever laid out: a key box on `store`/`direct`, Apple's on
+        # `mas`, this on `store_iap`. Two at once would offer a customer two
+        # ways to pay for the same thing.
+        self.shows_store_subscribe = build == "store_iap"
+        self.store_subscribe = (StoreSubscribePanel()
+                                if self.shows_store_subscribe else None)
+        if self.store_subscribe is not None:
+            layout.addWidget(_divider())
+            layout.addWidget(self.store_subscribe)
+
         # THE ADMIN CONSOLE, on every build and hidden by default.
         #
         # Revealed only when the SERVER says this licence is an administrator,
@@ -1355,6 +1368,133 @@ class AppleOfferPanel(QWidget):
                           payload, tr("settings.offer_voided", code=code)))
 
         self._run(lambda: api.void_apple_code(key, code), done)
+
+
+class StoreSubscribePanel(QWidget):
+    """Buy the subscription, on a Microsoft Store build that bills through it.
+
+    THE THIRD OF THREE, AND ONLY ONE IS EVER SHOWN. A `store` or `direct` build
+    shows `LicencePanel`, a box to paste a Paddle key into. A `mas` build shows
+    `SubscribePanel`, because Apple forbids the key. A `store_iap` build shows
+    this — the Microsoft Store's own subscription — because Paddle declined the
+    Dawnlist domain on 2026-09-11 and an appeal is open.
+
+    WITHOUT THIS, THE `store_iap` BUILD CANNOT BE BOUGHT AT ALL. Every other
+    piece existed — the Store licence could be read, a proof minted, the Worker
+    could verify it — and nothing called `RequestPurchaseAsync`. A customer
+    would install a free app, be told it needs a subscription, and find no way
+    to start one. That is the same hole the Mac build had before
+    `SubscribePanel`, arrived at from the opposite direction.
+
+    THE PRICE IS ASKED OF THE STORE, NEVER HARDCODED. Microsoft sells in every
+    market the add-on is available in and formats the price for the customer's
+    region. A price written here would be wrong almost everywhere and would
+    differ from what the customer is actually charged.
+
+    ALREADY-OWNED IS A SUCCESS. Microsoft answers `AlreadyPurchased` when this
+    account already holds the add-on — a reinstall, or a second machine. A
+    screen that reported that as an error would tell somebody who has paid that
+    their payment did not work. There is no separate Restore button on Windows
+    for the same reason: the entitlement follows the Microsoft account, so
+    pressing Subscribe is what a restore looks like here.
+    """
+
+    entitlement_changed = Signal(bool)
+
+    def __init__(self, *, store=None, parent=None):
+        super().__init__(parent)
+        from app.core import msstore
+
+        self._store = store or msstore
+        self._task = None
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
+
+        heading = QLabel(tr("settings.subscribe_heading"))
+        heading.setObjectName("stepHeading")
+        layout.addWidget(heading)
+
+        self.detail = QLabel(reflow(tr("settings.store_subscribe_loading")))
+        self.detail.setObjectName("stepBody")
+        self.detail.setWordWrap(True)
+        layout.addWidget(self.detail)
+
+        row = QHBoxLayout()
+        self.btn_subscribe = QPushButton(tr("settings.subscribe_button"))
+        self.btn_subscribe.setObjectName("primary")
+        # Disabled until the Store has told us what it costs. A Subscribe
+        # button pressed before the price is known opens a dialog quoting a
+        # figure the screen never showed, which is the shape of an accidental
+        # purchase.
+        self.btn_subscribe.setEnabled(False)
+        row.addWidget(self.btn_subscribe)
+        row.addStretch(1)
+        layout.addLayout(row)
+
+        self.result = QLabel()
+        self.result.setWordWrap(True)
+        layout.addWidget(self.result)
+
+        terms = QLabel(tr("settings.store_subscribe_terms"))
+        terms.setObjectName("stepBody")
+        terms.setWordWrap(True)
+        terms.setOpenExternalLinks(True)
+        layout.addWidget(terms)
+
+        self.btn_subscribe.clicked.connect(self._subscribe)
+        self.refresh()
+
+    # -- helpers -----------------------------------------------------------
+    def _run(self, work, done) -> None:
+        """Off the UI thread. A Store call opens a system dialog and blocks for
+        as long as the customer takes to decide, which on the UI thread is the
+        window going "(Not Responding)" mid-purchase."""
+        self.btn_subscribe.setEnabled(False)
+        self._task = run_in_background(work, on_done=done, on_error=self._failed)
+
+    def _failed(self, exc) -> None:
+        # The Store being unreachable is NOT "you are not subscribed". Saying
+        # so would tell a paying customer they never bought anything.
+        self.detail.setText(reflow(tr("settings.store_subscribe_unavailable")))
+        self.btn_subscribe.setEnabled(False)
+        self.result.setText(str(exc))
+
+    def refresh(self) -> None:
+        store = self._store
+
+        def shown(offer):
+            if not offer.available:
+                self.detail.setText(reflow(tr("settings.store_subscribe_unavailable_market")))
+                self.btn_subscribe.setEnabled(False)
+                return
+            self.detail.setText(reflow(tr(
+                "settings.store_subscribe_detail",
+                title=offer.title or tr("settings.store_subscribe_fallback_title"),
+                price=offer.price)))
+            self.btn_subscribe.setEnabled(True)
+
+        self._run(store.offer, shown)
+
+    def _subscribe(self) -> None:
+        store = self._store
+
+        def done(status):
+            self.btn_subscribe.setEnabled(True)
+            # Already-owned folded into success, deliberately: see the class
+            # docstring. Cancelled says nothing at all, because closing a
+            # dialog is a decision and not a failure to report back.
+            if status in ("succeeded", "already"):
+                self.result.setText(tr("settings.subscribe_done"))
+                self.entitlement_changed.emit(True)
+                return
+            if status == "cancelled":
+                self.result.setText("")
+                return
+            self.result.setText(tr("settings.store_subscribe_failed"))
+
+        self._run(store.purchase, done)
 
 
 class StoreKitEvents(QObject):

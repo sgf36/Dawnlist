@@ -1,0 +1,4 @@
+{
+  "name": "Dawnlist Monatsabo",
+  "description": "Schaltet einen Monat lang Dawnlists Job-Feed, Anzeigenbewertungen und Nachrichtenentwürfe frei. Verlängert sich monatlich bis zur Kündigung. Eigener Anthropic-API-Schlüssel nötig."
+}

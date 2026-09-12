@@ -1,0 +1,4 @@
+{
+  "name": "Dawnlist månadsprenumeration",
+  "description": "Låser upp Dawnlists dagliga jobbflöde, bedömningar av jobbannonser och meddelandeutkast i en månad. Förnyas varje månad tills den sägs upp. Du behöver fortfarande en egen Anthropic API-nyckel."
+}
