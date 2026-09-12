@@ -768,3 +768,167 @@ def test_the_standalone_gate_agrees_only_once_the_box_is_ticked(qapp):
     gate.btn_accept.click()
     assert agreed == [True]
     gate.close()
+
+
+# ---------------------------------------------------------------------------
+# Adding CVs: by button as well as by drag, merged rather than replaced, and
+# read off the UI thread
+# ---------------------------------------------------------------------------
+
+def test_files_can_be_chosen_without_dragging_anything(qapp):
+    """Drag and drop needs the file manager and the window visible at once,
+    which rules out a maximised window, a remote session, and anyone who
+    cannot drag."""
+    from app.ui.onboarding import IngestPage
+
+    page = IngestPage(picker=lambda parent, title, filt: ["/tmp/cv-2019.docx"])
+    added = []
+    page.files_added.connect(added.append)
+    page.btn_choose.click()
+    assert [p.name for p in added[0]] == ["cv-2019.docx"]
+    page.close()
+
+
+def test_the_file_dialog_offers_exactly_what_can_be_read(qapp):
+    """A dialog offering a type the extractor refuses is a trap the user walks
+    into one file at a time."""
+    from app.onboarding.extract import SUPPORTED_SUFFIXES
+    from app.ui.onboarding import _cv_file_filter
+
+    shown = _cv_file_filter()
+    for suffix in SUPPORTED_SUFFIXES:
+        assert "*" + suffix in shown
+    assert "*.doc " not in shown and not shown.endswith("*.doc)")
+
+
+def test_a_second_batch_is_added_to_the_first(qapp, monkeypatch, settle):
+    """Dropping again used to replace, so somebody adding their old CVs a
+    folder at a time lost everything before — which is what the guidance on
+    this very screen asks them to do."""
+    from pathlib import Path
+
+    read = []
+
+    def extract(paths):
+        read.append(list(paths))
+        return [Path(p).name for p in paths], []
+
+    w = a_wizard(monkeypatch, extract=extract)
+    w._on_files([Path("/cvs/one.docx")])
+    settle(lambda: not w._reading, what="the first read")
+    w._on_files([Path("/cvs/two.docx")])
+    settle(lambda: not w._reading, what="the second read")
+
+    assert [p.name for p in w._paths] == ["one.docx", "two.docx"]
+    assert [Path(p).name for p in read[-1]] == ["one.docx", "two.docx"], (
+        "the whole set is re-read, so 'only one CV version' stops being said")
+    assert w.ingest.files.count() == 2
+    w.close()
+
+
+def test_the_same_file_twice_is_one_file(qapp, monkeypatch, settle):
+    from pathlib import Path
+
+    w = a_wizard(monkeypatch,
+                 extract=lambda paths: ([Path(p).name for p in paths], []))
+    w._on_files([Path("/cvs/CV.docx")])
+    settle(lambda: not w._reading, what="the read")
+    w._on_files([Path("/cvs/CV.docx")])
+    settle(lambda: not w._reading, what="the re-read")
+    assert len(w._paths) == 1, "the corpus would hold it twice over"
+    w.close()
+
+
+def test_a_file_added_by_mistake_can_be_taken_out(qapp, monkeypatch, settle):
+    """The wrong Jones, or a colleague's CV. Without this the only way out is
+    to start setup again."""
+    from pathlib import Path
+
+    w = a_wizard(monkeypatch, terms_accepted=True,
+                 extract=lambda paths: ([Path(p).name for p in paths], []))
+    w._on_files([Path("/cvs/mine.docx"), Path("/cvs/someone-else.docx")])
+    settle(lambda: not w._reading, what="the read")
+    assert w.btn_next.isEnabled(), "positive control"
+
+    w._on_files_removed([Path("/cvs/someone-else.docx")])
+    settle(lambda: not w._reading, what="the re-read")
+    assert [p.name for p in w._paths] == ["mine.docx"]
+
+    w._on_files_removed([Path("/cvs/mine.docx")])
+    settle(lambda: not w._reading, what="the final read")
+    assert not w.btn_next.isEnabled(), "nothing left to work on"
+    w.close()
+
+
+def test_reading_the_files_does_not_happen_on_the_ui_thread(qapp, monkeypatch,
+                                                            settle):
+    """It opens and parses every file added. Inline, the window stopped
+    answering the OS for the whole of it — which Store Policy 10.4.2 forbids."""
+    import threading
+    from pathlib import Path
+
+    ui_thread = threading.current_thread().ident
+    where = []
+
+    def extract(paths):
+        where.append(threading.current_thread().ident)
+        return [Path(p).name for p in paths], []
+
+    w = a_wizard(monkeypatch, terms_accepted=True, extract=extract)
+    w._on_files([Path("/cvs/one.docx")])
+    assert w.ingest.status.text(), "the screen must say it is reading"
+    assert not w.btn_next.isEnabled(), "and not let the step be left mid-read"
+    settle(lambda: not w._reading, what="the read")
+
+    assert where and where[0] != ui_thread
+    assert w.btn_next.isEnabled()
+    assert not w.ingest.status.text()
+    w.close()
+
+
+def test_fetching_the_calibration_sample_does_not_happen_on_the_ui_thread(
+        qapp, monkeypatch, settle):
+    """A request per switched-on search and an assessment of everything that
+    comes back — the slowest thing in setup, and it ran on the UI thread."""
+    import threading
+
+    from app.ui.onboarding import STEP_CALIBRATION, STEP_SEARCHES
+
+    ui_thread = threading.current_thread().ident
+    where = []
+
+    def sample():
+        where.append(threading.current_thread().ident)
+        return items(10)
+
+    w = a_wizard(monkeypatch, sample=sample)
+    w.stack.setCurrentIndex(STEP_SEARCHES)
+    w._next()
+
+    assert w.stack.currentIndex() == STEP_CALIBRATION
+    assert "Fetching" in w.calibration.blockers_label.text()
+    assert not w.btn_back.isEnabled(), "Back mid-fetch lands the answer nowhere"
+    settle(lambda: not w._sampling, what="the fetch")
+
+    assert where and where[0] != ui_thread
+    assert len(w.calibration._widgets) == 10
+    assert w.btn_back.isEnabled()
+    w.close()
+
+
+def test_a_fetch_that_fails_is_shown_and_does_not_trap_anyone(qapp, monkeypatch,
+                                                              settle):
+    from app.ui.onboarding import STEP_SEARCHES
+
+    def boom():
+        raise RuntimeError("the feed returned HTTP 502")
+
+    w = a_wizard(monkeypatch, sample=boom)
+    w.stack.setCurrentIndex(STEP_SEARCHES)
+    w._next()
+    settle(lambda: not w._sampling, what="the failed fetch")
+
+    assert "502" in w.calibration.blockers_label.text()
+    assert w.calibration.btn_finish.isEnabled(), (
+        "nothing on this screen for the user to act on, so they may leave")
+    w.close()

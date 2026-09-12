@@ -1977,6 +1977,10 @@ def build_onboarding(conn, *, on_finished=None):
         result = extract_corpus(list(paths))
         return [d.name for d in result.corpus.documents], result.warnings
 
+    # The database FILE, not the connection: `sample` below runs on a worker
+    # thread, and a sqlite connection belongs to the thread that opened it.
+    db_file = conn.execute("PRAGMA database_list").fetchone()[2]
+
     def sample():
         """The postings to calibrate against — a real pull, or nothing.
 
@@ -1985,8 +1989,19 @@ def build_onboarding(conn, *, on_finished=None):
         impossible to complete. Returning a short list is now handled by the
         gate, which names it as a setup failure instead of asking for eight
         decisions out of one.
+
+        RUNS ON A WORKER THREAD, so it opens its own connection. Reusing the
+        one the UI thread opened raises ProgrammingError inside the worker,
+        which arrives as a failed fetch rather than as the bug it is. An
+        in-memory database has no file to reopen and only tests have one.
         """
-        return calibration_sample(conn)
+        if not db_file:
+            return calibration_sample(conn)
+        worker = db.connect(db_file)
+        try:
+            return calibration_sample(worker)
+        finally:
+            worker.close()
 
     def drafter(paths, aim=""):
         """CVs in, factsheet and brief out, on the user's own key.

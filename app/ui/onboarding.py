@@ -20,7 +20,8 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFrame, QHBoxLayout,
                                QLabel,
-                               QLineEdit, QListWidget, QPushButton,
+                               QLineEdit, QListWidget, QListWidgetItem,
+                               QPushButton,
                                QPlainTextEdit, QRadioButton, QScrollArea, QSizePolicy,
                                QSplitter, QStackedWidget, QTextBrowser,
                                QVBoxLayout, QWidget)
@@ -60,6 +61,18 @@ def app_verdict_label(value: str | None) -> str:
     if not value:
         return ""
     return tr(f"onboarding.app.{value}")
+
+
+def _same_file(path) -> str:
+    """One spelling of a path, so the same file added twice is one file.
+
+    Case-folded via `normcase` because Windows treats CV.docx and cv.docx as
+    the same document and would otherwise read it twice — which also doubles
+    it in the corpus the factsheet is drafted from.
+    """
+    import os
+
+    return os.path.normcase(os.path.abspath(str(path)))
 
 
 def reflow(text: str) -> str:
@@ -216,13 +229,44 @@ class DropZone(QFrame):
             event.acceptProposedAction()
 
 
+def _cv_file_filter() -> str:
+    """Built from the suffixes the extractor accepts, so the dialog cannot
+    offer a type that is refused on the next line."""
+    from app.onboarding.extract import SUPPORTED_SUFFIXES
+
+    patterns = " ".join(sorted("*" + suffix for suffix in SUPPORTED_SUFFIXES))
+    return f"{tr('onboarding.choose_files_filter')} ({patterns})"
+
+
+def _choose_files(parent, title: str, file_filter: str) -> list[str]:
+    from PySide6.QtWidgets import QFileDialog
+
+    chosen, _selected_filter = QFileDialog.getOpenFileNames(
+        parent, title, "", file_filter)
+    return list(chosen)
+
+
 class IngestPage(QWidget):
-    """Step one: the CV corpus."""
+    """Step one: the CV corpus.
+
+    DRAG AND DROP WAS THE ONLY WAY IN. That is fine until it is not: a file
+    manager and the window have to be visible at once, which rules out a
+    maximised window, a remote session and anyone who cannot drag. The button
+    is the same gesture without the dexterity.
+
+    Files ACCUMULATE. Dropping a second batch used to replace the first, so
+    somebody adding their old CVs one folder at a time silently lost the ones
+    before — and the guidance above the drop zone asks for exactly that.
+    """
 
     files_added = Signal(list)
+    files_removed = Signal(list)
 
-    def __init__(self, parent=None):
+    def __init__(self, *, picker=None, parent=None):
         super().__init__(parent)
+        #: `picker(parent, title, filter) -> [paths]`, injected so a test can
+        #: choose files without a modal dialog nobody is there to dismiss.
+        self._picker = picker or _choose_files
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
@@ -243,8 +287,28 @@ class IngestPage(QWidget):
         self.drop.files_dropped.connect(self.files_added)
         layout.addWidget(self.drop)
 
+        buttons = QHBoxLayout()
+        self.btn_choose = QPushButton(tr("onboarding.choose_files"))
+        self.btn_choose.setObjectName("secondary")
+        self.btn_choose.clicked.connect(self._choose)
+        self.btn_remove = QPushButton(tr("onboarding.remove_file"))
+        self.btn_remove.setObjectName("secondary")
+        self.btn_remove.setEnabled(False)
+        self.btn_remove.clicked.connect(self._remove)
+        buttons.addWidget(self.btn_choose)
+        buttons.addWidget(self.btn_remove)
+        buttons.addStretch(1)
+        self.status = QLabel()
+        self.status.setObjectName("stepBody")
+        buttons.addWidget(self.status)
+        layout.addLayout(buttons)
+
         self.files = QListWidget()
         self.files.setMaximumHeight(140)
+        self.files.setSelectionMode(QListWidget.ExtendedSelection)
+        self.files.itemSelectionChanged.connect(
+            lambda: self.btn_remove.setEnabled(
+                bool(self.files.selectedItems())))
         layout.addWidget(self.files)
 
         self.warnings = QFrame()
@@ -260,15 +324,56 @@ class IngestPage(QWidget):
         layout.addStretch(1)
         self.setStyleSheet(ONBOARDING_STYLESHEET)
 
-    def show_corpus(self, names: list[str], warnings: list[str]) -> None:
+    def _choose(self) -> None:
+        chosen = self._picker(self, tr("onboarding.choose_files_title"),
+                              _cv_file_filter())
+        if chosen:
+            self.files_added.emit([Path(c) for c in chosen])
+
+    def _remove(self) -> None:
+        """A file added by mistake — the wrong Jones, a colleague's CV — must
+        be removable, or the only way out is to start setup again."""
+        removed = [item.data(Qt.UserRole) for item in self.files.selectedItems()]
+        if removed:
+            self.files_removed.emit([Path(r) for r in removed])
+
+    def set_files(self, paths) -> None:
+        """The files the user has added, readable or not.
+
+        Everything dropped is listed, because the row is also how a file is
+        removed and an unreadable one is exactly what somebody wants to take
+        out. Which of them could be READ is reported in the warnings.
+        """
         self.files.clear()
-        self.files.addItems(names)
+        for path in paths:
+            item = QListWidgetItem(Path(path).name)
+            item.setData(Qt.UserRole, str(path))
+            item.setToolTip(str(path))
+            self.files.addItem(item)
+
+    def set_reading(self, reading: bool) -> None:
+        """Reading a corpus of CVs takes seconds and runs on a worker thread,
+        so the screen has to say it is happening — and must not accept another
+        batch while the first is still being read."""
+        self.status.setText(tr("onboarding.reading_files") if reading else "")
+        self.btn_choose.setEnabled(not reading)
+        self.drop.setAcceptDrops(not reading)
+
+    def show_warnings(self, warnings: list[str]) -> None:
         if warnings:
             # Named files, so the user knows WHICH document was not read.
             self.warnings_label.setText("• " + "\n• ".join(warnings))
             self.warnings.show()
         else:
             self.warnings.hide()
+
+    def show_corpus(self, names: list[str], warnings: list[str]) -> None:
+        """Names only, for callers that hold no paths — the render tools and
+        the tests. The wizard uses `set_files`, which keeps the path on each
+        row so that row can be removed."""
+        self.files.clear()
+        self.files.addItems(names)
+        self.show_warnings(warnings)
 
 
 @dataclass
@@ -343,16 +448,44 @@ class CalibrationPage(QWidget):
         self.setStyleSheet(ONBOARDING_STYLESHEET)
 
     # -- population --------------------------------------------------------
-    def load(self, items: list[CalibrationItem]) -> None:
-        # `no_feed` rides on the sample itself (see CalibrationSample), so a
-        # caller that hands over a plain list — every test, and the render
-        # tools — behaves exactly as before.
-        self._no_feed = getattr(items, "no_feed", None)
+    def set_loading(self) -> None:
+        """Fetching live postings takes a round trip per search and then an
+        assessment of every one of them. It runs on a worker thread, so this is
+        the screen saying so rather than the window going grey."""
+        self._clear_cards()
+        self._no_feed = None
+        self.blockers.setObjectName("blockers")
+        self.blockers_label.setText(tr("onboarding.calibration_fetching"))
+        self.blockers.style().unpolish(self.blockers)
+        self.blockers.style().polish(self.blockers)
+        self.btn_finish.setEnabled(False)
+
+    def load_failed(self, reason: str) -> None:
+        """The fetch itself broke. SHOWN, never swallowed into an empty list
+        that reads as a quiet market — and the user still leaves setup, because
+        there is nothing on this screen for them to act on."""
+        self._clear_cards()
+        self._no_feed = None
+        self.blockers.setObjectName("blockers")
+        self.blockers_label.setText(
+            tr("onboarding.calibration_failed", reason=reason))
+        self.blockers.style().unpolish(self.blockers)
+        self.blockers.style().polish(self.blockers)
+        self.btn_finish.setEnabled(True)
+
+    def _clear_cards(self) -> None:
         while self._holder_layout.count():
             entry = self._holder_layout.takeAt(0)
             if entry.widget():
                 entry.widget().deleteLater()
         self._widgets.clear()
+
+    def load(self, items: list[CalibrationItem]) -> None:
+        # `no_feed` rides on the sample itself (see CalibrationSample), so a
+        # caller that hands over a plain list — every test, and the render
+        # tools — behaves exactly as before.
+        self._no_feed = getattr(items, "no_feed", None)
+        self._clear_cards()
 
         for item in items:
             self._holder_layout.addWidget(self._card(item))
@@ -1104,6 +1237,13 @@ class OnboardingWizard(QWidget):
         #: the first step asks this: a drop of nothing but scans leaves the
         #: later steps with no text to work on.
         self._names: list[str] = []
+        #: Every file the user has added, in the order they added them.
+        self._paths: list[Path] = []
+        #: Slow work in flight. Both block the step they belong to: leaving
+        #: mid-read or mid-fetch lands the answer on a screen nobody is on.
+        self._sampling = False
+        self._extract_task = None
+        self._sample_task = None
 
         self.setWindowTitle(tr("onboarding.title"))
         layout = QVBoxLayout(self)
@@ -1175,6 +1315,7 @@ class OnboardingWizard(QWidget):
 
         self.terms.changed.connect(self._refresh_next)
         self.ingest.files_added.connect(self._on_files)
+        self.ingest.files_removed.connect(self._on_files_removed)
         self.keys.key_changed.connect(lambda _present: self._refresh_next())
         self.interview.changed.connect(self._refresh_next)
         # Subscribe from the menu goes to the step that already does it,
@@ -1197,15 +1338,76 @@ class OnboardingWizard(QWidget):
         self._show_step(STEP_INGEST if terms_accepted else STEP_TERMS)
 
     def _on_files(self, paths) -> None:
-        names, warnings = self._extract(paths)
-        self._corpus = paths
-        self._names = list(names)
-        self.ingest.show_corpus(names, warnings)
+        """MERGED, not replaced. Dropping a second batch used to discard the
+        first, so somebody adding old CVs a folder at a time lost everything
+        before — which is precisely what the guidance on this screen asks for.
+        """
+        known = {_same_file(p) for p in self._paths}
+        for path in paths:
+            if _same_file(path) not in known:
+                known.add(_same_file(path))
+                self._paths.append(Path(path))
+        self._read_files()
+
+    def _on_files_removed(self, paths) -> None:
+        dropped = {_same_file(p) for p in paths}
+        self._paths = [p for p in self._paths if _same_file(p) not in dropped]
+        self._read_files()
+
+    def _read_files(self) -> None:
+        """Read the whole set, off the UI thread.
+
+        OFF THE UI THREAD because this opens and parses every file the user has
+        added: a PDF of any size, a .docx unpacked, each one a disk read. It
+        ran inline on the drop, so the window stopped answering the OS for the
+        length of it — "(Not Responding)", which Store Policy 10.4.2 forbids.
+
+        The whole set is re-read rather than the new files alone, because the
+        corpus warnings are about the set: "only one CV version" stops being
+        true when a second arrives, and would otherwise stay on screen.
+        """
+        self.ingest.set_files(self._paths)
+        if not self._paths:
+            self._corpus = None
+            self._names = []
+            self.ingest.show_warnings([])
+            self._refresh_next()
+            return
+
+        paths = list(self._paths)
+        self.ingest.set_reading(True)
         self._refresh_next()
+        extract = self._extract
+        self._extract_task = run_in_background(
+            lambda: extract(paths),
+            on_done=self._files_read,
+            on_error=self._files_unreadable)
+
+    def _files_read(self, result) -> None:
+        names, warnings = result
+        self._corpus = list(self._paths)
+        self._names = list(names)
+        self.ingest.set_reading(False)
+        self.ingest.show_warnings(warnings)
+        self._refresh_next()
+
+    def _files_unreadable(self, exc) -> None:
+        """A failure in the reader itself, as opposed to a file it could not
+        read. Shown rather than swallowed: silence here looks like a drop that
+        never registered, and the user simply drops the files again."""
+        self._names = []
+        self.ingest.set_reading(False)
+        self.ingest.show_warnings(
+            [tr("onboarding.files_unreadable", reason=str(exc)[:200])])
+        self._refresh_next()
+
+    @property
+    def _reading(self) -> bool:
+        return bool(self.ingest.status.text())
 
     def _show_step(self, index: int) -> None:
         self.stack.setCurrentIndex(index)
-        self.btn_back.setEnabled(index > STEP_INGEST)
+        self.btn_back.setEnabled(index > FIRST_STEP and not self._sampling)
         # The gate has its own Finish button, so the wizard's Next is hidden
         # there — two buttons that mean different things is how people click
         # the wrong one.
@@ -1232,8 +1434,10 @@ class OnboardingWizard(QWidget):
             # Warnings never block: an unreadable file is the user's to fix or
             # ignore, and refusing to continue over one would strand someone
             # whose only copy of an old CV is a scan. Something readable must
-            # have arrived, though — the next steps have nothing to work on.
-            return bool(self._names)
+            # have arrived, though — the next steps have nothing to work on —
+            # and not while the reader is still running, or the step is left
+            # with a corpus that is still being built.
+            return bool(self._names) and not self._reading
         if index == STEP_KEY:
             # Cannot leave without a key: the next screen spends money on the
             # user's account, and an app with no key is inert.
@@ -1294,8 +1498,45 @@ class OnboardingWizard(QWidget):
                         # to fix it; stopping setup here would strand the user.
                         pass
             # Only now is there anything to fetch with.
-            self.calibration.load(self._sample())
-            self._show_step(STEP_CALIBRATION)
+            self._fetch_sample()
+
+    def _fetch_sample(self) -> None:
+        """Fetch and assess the calibration postings, off the UI thread.
+
+        This is the slowest thing in setup by a wide margin — a request per
+        switched-on search, then an assessment of everything that comes back —
+        and it ran on the UI thread, so the last click of setup froze the
+        window for the whole of it with no indication anything was happening.
+        """
+        self._show_step(STEP_CALIBRATION)
+        self.calibration.set_loading()
+        self._sampling = True
+        self._refresh_nav()
+        sample = self._sample
+        self._sample_task = run_in_background(
+            sample, on_done=self._sample_ready, on_error=self._sample_failed)
+
+    def _sample_ready(self, items) -> None:
+        self._sampling = False
+        self.calibration.load(items)
+        self._refresh_nav()
+
+    def _sample_failed(self, exc) -> None:
+        self._sampling = False
+        self.calibration.load_failed(str(exc)[:200])
+        self._refresh_nav()
+
+    def _refresh_nav(self) -> None:
+        """Back and Next while something slow is running.
+
+        Back during a fetch would return the user to a screen whose answer is
+        still in flight, and the result would then land on top of whatever they
+        did next.
+        """
+        busy = self._sampling
+        self.btn_back.setEnabled(
+            self.stack.currentIndex() > FIRST_STEP and not busy)
+        self._refresh_next()
 
     def _restore(self) -> None:
         """Apple requires Restore to be reachable. The panel owns the actual
