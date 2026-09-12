@@ -158,8 +158,13 @@ def verify_bundle() -> None:
     # they were never given.
     present = [name for name, flag in VARIANT_FLAGS.items()
                if (bundled_resources / flag).exists()]
-    if present == ["store"]:
-        print("  variant: store")
+    # BOTH Store variants are legitimate MSIX sources, and they are different
+    # products at the till: `store` bills through Paddle, `store_iap` through
+    # the Microsoft Store's own subscription. Which one this is gets PRINTED,
+    # because the package is the only place the difference is visible and a
+    # build log is where somebody looks when the wrong one reached a customer.
+    if len(present) == 1 and present[0] in ("store", "store_iap"):
+        print(f"  variant: {present[0]}")
     elif not present:
         fail("no build-variant flag in the bundle. Run "
              "`python tools/set_build_variant.py store` and rebuild — the "
@@ -169,10 +174,11 @@ def verify_bundle() -> None:
              f"bundle. Run `python tools/set_build_variant.py store`, which "
              f"deletes the others, and rebuild.")
     else:
-        fail(f"this is the {present[0].upper()} build, not the store build. "
-             f"An MSIX cut from it would gate a Store purchase behind a "
-             f"licence key. Run `python tools/set_build_variant.py store` "
-             f"and rebuild.")
+        fail(f"this is the {present[0].upper()} build, and an MSIX is a Store "
+             f"artefact. One cut from it would ask a paying customer for a "
+             f"licence key they were never given. Run `python "
+             f"tools/set_build_variant.py store` — or `store_iap` for the "
+             f"Microsoft-billed build — and rebuild.")
 
 
 def stamp_version(manifest: Path) -> None:

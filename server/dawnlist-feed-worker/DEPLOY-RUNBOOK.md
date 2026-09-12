@@ -67,7 +67,7 @@ SELECT UPPER(REPLACE(REPLACE(code, '-', ''), ' ', '')) AS n, COUNT(*)
   FROM codes GROUP BY n HAVING COUNT(*) > 1;
 ```
 
-## 2. Migrations 003 to 007, and 009 to 012
+## 2. Migrations 003 to 007, and 009 to 013
 
 `001-plans.sql` and `002-code-plans.sql` are ALREADY APPLIED — by `d1 execute`
 on 2026-09-08. They are listed here so that nobody reading "apply every file in
@@ -87,6 +87,7 @@ npx wrangler d1 execute dawnlist --remote --file migrations/009-admin-audit.sql
 npx wrangler d1 execute dawnlist --remote --file migrations/010-apple-transactions.sql
 npx wrangler d1 execute dawnlist --remote --file migrations/011-apple-offer-codes.sql
 npx wrangler d1 execute dawnlist --remote --file migrations/012-apple-comp.sql
+npx wrangler d1 execute dawnlist --remote --file migrations/013-microsoft-transactions.sql
 ```
 
 **Do not use `wrangler d1 migrations apply`.** It tracks its own state in a
@@ -148,6 +149,33 @@ npx wrangler secret put APPLE_IAP_KEY_ID
 npx wrangler secret put APPLE_IAP_ISSUER_ID
 npx wrangler secret put APPLE_IAP_PRIVATE_KEY
 ```
+
+`MS_PRODUCT_ID` is a plain var — it is the Store ID printed on the listing
+page. The other three are SECRETS, including the two that are only identifiers:
+this repository is public, and a tenant id published in it names the directory
+to anyone looking for one to phish.
+
+```
+npx wrangler secret put MS_TENANT_ID
+npx wrangler secret put MS_CLIENT_ID
+npx wrangler secret put MS_CLIENT_SECRET
+```
+
+`Set-DawnlistAzureSecrets.ps1` in the home folder does all three with one
+prompt each.
+
+They verify a Microsoft Store subscription through Microsoft's collections API,
+for the `store_iap` build. Paddle declined the Dawnlist domain on 2026-09-11
+and an appeal is open, so the Store sells its own subscription ALONGSIDE Paddle
+rather than instead of it — both tills stay built and provable. 013 adds the
+table. Unlike the App Store Connect key, this credential reads Store
+collections and nothing else: it cannot touch the listing, pricing or a build,
+which is why it may live here at all. Setup steps are in
+`DAWNLIST-AZURE-AD-SETUP.md`.
+
+**Without these, `/v1/microsoft` answers 503 `microsoft_not_configured`** and
+every `store_iap` customer runs on grace until it lapses. They paid; they get
+nothing.
 
 `APPLE_COMP_OFFERS` is a plain var too, and names which offers may be comped:
 a subscription that began with one of those offers may be kept alive past

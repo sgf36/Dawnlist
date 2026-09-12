@@ -280,7 +280,8 @@ def verify_against_worker(key: str) -> bool | Refused | None:
 
 
 def check(conn: sqlite3.Connection, *, verifier=None,
-          now: datetime | None = None, apple_exchanger=None) -> Entitlement:
+          now: datetime | None = None, apple_exchanger=None,
+          ms_exchanger=None) -> Entitlement:
     now = now or _now()
     build = variant()
 
@@ -289,7 +290,7 @@ def check(conn: sqlite3.Connection, *, verifier=None,
     # 3.1.1 forbids; treating it as a Mac would ask a Windows customer for an
     # Apple subscription. So it refuses, and says the COPY is broken rather
     # than that nobody paid.
-    if build not in ("store", "direct", "mas"):
+    if build not in ("store", "store_iap", "direct", "mas"):
         return Entitlement(False, "", tr("entitlement.no_variant", variant=build))
 
     # --- Mac App Store: Apple's commerce, with the same three outcomes -----
@@ -300,6 +301,23 @@ def check(conn: sqlite3.Connection, *, verifier=None,
     # the subscription is bought inside it.
     if build == "mas":
         return _check_mac(conn, now, apple_exchanger or exchange_and_cache)
+
+    # --- Microsoft Store, its own till -------------------------------------
+    #
+    # SAME STOREFRONT AS `store`, DIFFERENT COMMERCE. Paddle declined the
+    # Dawnlist domain on 2026-09-11 and an appeal is open; until it resolves
+    # the Store sells its own subscription. This is a separate variant rather
+    # than a change to `store` so that both tills stay compiled and tested,
+    # and so switching back is a packaging flag rather than a revert.
+    #
+    # Entitled by the WORKER, not by what this process reads from the Store.
+    # The local add-on licence is enough to decide what the window shows and
+    # is not evidence anyone can act on: a patched build could report anything,
+    # and the feed is metered per licence. So the same three outcomes as every
+    # other variant — licence, refused, or could-not-ask — and grace absorbs
+    # only the last.
+    if build == "store_iap":
+        return _check_ms_store(conn, now, ms_exchanger or ms_exchange_and_cache)
 
     # --- Windows, BOTH the Store and direct download: a Paddle licence ----
     #
@@ -720,3 +738,127 @@ def _redeem_message(error: str | None) -> str:
         "code_spent": "That code has already been used the maximum number of times.",
         "too_many_attempts": "Too many attempts from this connection. Try again tomorrow.",
     }.get(error or "", "That code could not be redeemed.")
+
+
+# ---------------------------------------------------------------------------
+# Microsoft Store commerce, for the `store_iap` variant
+# ---------------------------------------------------------------------------
+
+#: Where the Store licence lands, beside the Apple one. A separate account so a
+#: machine that has run both builds keeps them apart; one overwriting the other
+#: is a customer told they never bought anything.
+MS_ACCOUNT = "microsoft"
+
+
+def ms_cache() -> dict:
+    """The last licence the Worker issued for this Store subscription."""
+    raw = credentials.read(LICENCE_SERVICE, MS_ACCOUNT)
+    if not raw:
+        return {}
+    try:
+        return json.loads(raw)
+    except ValueError:
+        # A corrupt cache is a cache we do not have. Not fatal: the next
+        # exchange rewrites it, and refusing here would lock somebody out over
+        # a file we can simply ignore.
+        return {}
+
+
+def write_ms_cache(cache: dict) -> None:
+    credentials.write(LICENCE_SERVICE, MS_ACCOUNT, json.dumps(cache))
+
+
+def ms_exchange_and_cache(*, base: str | None = None, opener=None) -> AppleExchange:
+    """Ask the Worker to turn a Store purchase into a licence.
+
+    Deliberately reuses `AppleExchange` rather than defining a parallel shape.
+    The four outcomes are identical — `licence`, `refused`, `unreachable`,
+    `none` — and every caller downstream already knows how to read them. A
+    second near-identical dataclass is two places to fix the next time an
+    outcome is added, and they drift.
+
+    THE PROOF IS A COLLECTIONS KEY, NEVER THE LOCAL LICENCE. `msstore.local_state`
+    is what the window reads; it is not sent here and must not be. A patched
+    build can say anything about its own licence, and the feed is metered per
+    Worker licence, so the server has to verify with Microsoft rather than
+    believe this process.
+    """
+    from app.core import msstore
+
+    try:
+        key = msstore.collections_key()
+    except msstore.StoreUnavailable:
+        # Could not ASK. Not a refusal — see `msstore.StoreUnavailable`.
+        return AppleExchange("unreachable")
+    if not key:
+        return AppleExchange("none")
+
+    request = build_request((base or WORKER_BASE).rstrip("/") + "/v1/microsoft",
+                            data=json.dumps({"collectionsKey": key}).encode(),
+                            method="POST",
+                            headers={"Content-Type": "application/json"})
+    try:
+        with (opener or urllib.request.urlopen)(request, timeout=30) as response:
+            body = json.loads(response.read().decode())
+    except urllib.error.HTTPError as exc:
+        payload = _json_body(exc)
+        if exc.code == 403 and payload.get("error") in APPLE_REFUSALS:
+            return AppleExchange("refused", status=str(payload.get("status") or ""),
+                                 error=str(payload["error"]),
+                                 expires_at=payload.get("expires_at"))
+        return AppleExchange("unreachable", error=str(payload.get("error") or exc.code))
+    except Exception:  # noqa: BLE001
+        return AppleExchange("unreachable")
+
+    licence_key = body.get("licence_key")
+    if not licence_key:
+        return AppleExchange("none")
+
+    saved = True
+    try:
+        write_ms_cache({"licence_key": licence_key,
+                        "expires_at": body.get("expires_at")})
+    except KeyringUnavailable:
+        # The answer is still good for this run; it just will not survive a
+        # restart. Reported rather than swallowed, because a subscriber who
+        # silently re-verifies on every launch is a support ticket nobody can
+        # explain.
+        saved = False
+
+    return AppleExchange("licence", licence_key=licence_key,
+                         expires_at=body.get("expires_at"),
+                         status=str(body.get("status") or ""), saved=saved)
+
+
+def _check_ms_store(conn, now, exchanger) -> Entitlement:
+    """The Store's own subscription, with the same grace every variant gets.
+
+    Structured to match `_check_mac` line for line on purpose: the two
+    storefronts differ in how a purchase is proved and in nothing else, and a
+    reader comparing them should find the difference in one place rather than
+    in the shape of the function.
+    """
+    result = exchanger()
+
+    if result.outcome == "licence":
+        _stamp(conn, result.licence_key, "store_iap", now)
+        return Entitlement(True, "store_iap", "Microsoft Store subscription confirmed")
+
+    # Checked BEFORE grace, exactly as on the other two. Grace absorbs an
+    # outage, never the Store saying the subscription lapsed.
+    if result.outcome == "refused":
+        return Entitlement(False, "", tr("entitlement.ms_lapsed"))
+    if result.outcome == "none":
+        return Entitlement(False, "", tr("entitlement.ms_not_subscribed"))
+
+    # Measured against the licence the Worker last issued, so the stamp cannot
+    # carry any other key through the outage.
+    kept = ms_cache().get("licence_key")
+    elapsed = _grace_elapsed(conn, kept, now) if kept else None
+    if elapsed is not None:
+        return Entitlement(
+            True, "grace",
+            f"subscription last confirmed {elapsed} day(s) ago; running on a "
+            f"cached licence for up to {GRACE_DAYS - elapsed} more")
+    return Entitlement(False, "", tr("entitlement.ms_unreachable"),
+                       unverifiable=True)
