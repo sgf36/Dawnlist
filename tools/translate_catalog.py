@@ -37,6 +37,14 @@ PLACEHOLDER = re.compile(r"\{(\w+)\}")
 
 MODEL = "claude-sonnet-5"
 
+#: Thinking tokens are spent out of THIS budget before a single character of
+#: JSON is emitted. At 16000 two catalogues (pa, kn) spent 10095 of it
+#: thinking and stopped mid-object, and the truncated JSON surfaced as
+#: "unparseable response" — which reads as a model failure rather than a
+#: budget the caller set too low. Large enough that the whole catalogue plus
+#: whatever thinking precedes it fits, for every script.
+MAX_TOKENS = 64000
+
 PROMPT = """\
 Translate this software UI catalogue into {language} ({code}).
 
@@ -118,10 +126,14 @@ def verify(english: dict, translated: dict) -> list[str]:
     return problems
 
 
-def translate(client, language: str, code: str, keys: dict) -> dict | None:
-    """One request. Returns the catalogue, or None if it did not verify."""
-    resp = client.messages.create(
-        model=MODEL, max_tokens=16000,
+def translate(client, language: str, code: str,
+              keys: dict) -> tuple[dict | None, str]:
+    """One request. Returns (catalogue, "") or (None, why it cannot be used)."""
+    # Streamed, not because anything reads the tokens as they arrive, but
+    # because the SDK refuses a non-streaming request whose budget could take
+    # it past ten minutes — and MAX_TOKENS is comfortably past that.
+    with client.messages.stream(
+        model=MODEL, max_tokens=MAX_TOKENS,
         messages=[{"role": "user", "content": PROMPT.format(
             language=language, code=code, notes=context_for(keys),
             catalogue=json.dumps(keys, ensure_ascii=False, indent=2))}],
@@ -134,12 +146,25 @@ def translate(client, language: str, code: str, keys: dict) -> dict | None:
                 "additionalProperties": False,
             },
         }},
-    )
+    ) as stream:
+        resp = stream.get_final_message()
     text = "".join(b.text for b in resp.content if b.type == "text")
     try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        return None
+        translated = json.loads(text)
+    except json.JSONDecodeError as e:
+        # Say which of the two it is. A response cut off at the budget is the
+        # caller's fault and is fixed by raising MAX_TOKENS; anything else is
+        # the model's, and raising the budget will not help.
+        if getattr(resp, "stop_reason", None) == "max_tokens":
+            return None, (f"response stopped at the {MAX_TOKENS}-token output "
+                          "limit, so the JSON is truncated — raise MAX_TOKENS")
+        return None, f"unparseable response ({e})"
+    problems = verify(keys, translated)
+    if problems:
+        # Never write a broken catalogue. A missing file falls back to English
+        # cleanly; a corrupt one fails in front of the user.
+        return None, "; ".join(problems)
+    return translated, ""
 
 
 def fill(english: dict, wanted: set | None, *, dry_run: bool) -> int:
@@ -175,13 +200,9 @@ def fill(english: dict, wanted: set | None, *, dry_run: bool) -> int:
 
     failures = []
     for code, (name, existing, missing) in behind.items():
-        translated = translate(client, name, code, missing)
+        translated, problem = translate(client, name, code, missing)
         if translated is None:
-            failures.append(f"{code}: unparseable response")
-            continue
-        problems = verify(missing, translated)
-        if problems:
-            failures.append(f"{code}: " + "; ".join(problems))
+            failures.append(f"{code}: {problem}")
             continue
         existing.update(translated)
         # Written back in the SOURCE's key order, so a diff between two
@@ -237,35 +258,11 @@ def main() -> int:
 
     failures = []
     for code, name in targets:
-        prompt = PROMPT.format(language=name, code=code,
-                               notes=context_for(english),
-                               catalogue=json.dumps(english, ensure_ascii=False,
-                                                    indent=2))
-        resp = client.messages.create(
-            model=MODEL, max_tokens=16000,
-            messages=[{"role": "user", "content": prompt}],
-            output_config={"format": {
-                "type": "json_schema",
-                "schema": {
-                    "type": "object",
-                    "properties": {k: {"type": "string"} for k in english},
-                    "required": list(english),
-                    "additionalProperties": False,
-                },
-            }},
-        )
-        text = "".join(b.text for b in resp.content if b.type == "text")
-        try:
-            translated = json.loads(text)
-        except json.JSONDecodeError as e:
-            failures.append(f"{code}: unparseable response ({e})")
-            continue
-
-        problems = verify(english, translated)
-        if problems:
-            # Never write a broken catalogue. A missing file falls back to
-            # English cleanly; a corrupt one fails in front of the user.
-            failures.append(f"{code}: " + "; ".join(problems))
+        # The same request the --fill path makes, so a fix to either budget,
+        # verification or error reporting reaches both.
+        translated, problem = translate(client, name, code, english)
+        if translated is None:
+            failures.append(f"{code}: {problem}")
             continue
 
         (LOCALES / f"{code}.json").write_text(
