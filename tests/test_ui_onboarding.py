@@ -932,3 +932,162 @@ def test_a_fetch_that_fails_is_shown_and_does_not_trap_anyone(qapp, monkeypatch,
     assert w.calibration.btn_finish.isEnabled(), (
         "nothing on this screen for the user to act on, so they may leave")
     w.close()
+
+
+# ---------------------------------------------------------------------------
+# Subscribing from the ⋯ menu, and not paying twice for the same postings
+# ---------------------------------------------------------------------------
+
+def test_subscribing_from_the_menu_returns_to_where_it_was_opened(qapp,
+                                                                  monkeypatch):
+    """It was a plain jump to the subscribe step, and Next from there goes on
+    to the interview — so somebody who opened the menu from the CV screen
+    walked out past both the CVs and the key."""
+    from PySide6.QtWidgets import QLabel
+
+    from app.ui.onboarding import (STEP_ENTITLEMENT, STEP_INGEST, STEP_KEY,
+                                   STEP_INTERVIEW)
+
+    w = a_wizard(monkeypatch, terms_accepted=True,
+                 entitlement_panel=QLabel("subscribe"))
+    assert w.stack.currentIndex() == STEP_INGEST
+
+    w.menu.subscribe_requested.emit()
+    assert w.stack.currentIndex() == STEP_ENTITLEMENT
+    w._next()
+    assert w.stack.currentIndex() == STEP_INGEST, (
+        "walked forward past the CVs and the key")
+
+    # And from the key step, back to the key step — not onward.
+    w._show_step(STEP_KEY)
+    w.menu.subscribe_requested.emit()
+    w._back()
+    assert w.stack.currentIndex() == STEP_KEY
+
+    # POSITIVE CONTROL: reached in the ordinary way, the subscribe step still
+    # leads to the interview.
+    w._show_step(STEP_ENTITLEMENT)
+    w._next()
+    assert w.stack.currentIndex() == STEP_INTERVIEW
+    w.close()
+
+
+def test_subscribing_does_not_enable_next_on_a_step_that_is_not_done(qapp,
+                                                                     monkeypatch):
+    """The panel's own signal used to enable Next unconditionally."""
+    from app.core import api_key
+    from app.ui.onboarding import STEP_KEY
+
+    w = a_wizard(monkeypatch, terms_accepted=True)
+    monkeypatch.setattr(api_key, "get", lambda: None)
+    w._show_step(STEP_KEY)
+    assert not w.btn_next.isEnabled(), "positive control"
+
+    if hasattr(w.entitlement, "entitlement_changed"):
+        w.entitlement.entitlement_changed.emit(True)
+    w._refresh_next()
+    assert not w.btn_next.isEnabled(), "an app with no key is still inert"
+    w.close()
+
+
+def test_going_back_and_forward_does_not_buy_the_postings_again(qapp,
+                                                                monkeypatch,
+                                                                settle):
+    """Every posting a fetch returns is paid for, and the user's decisions on
+    the ones already fetched were thrown away with them."""
+    from app.ui.onboarding import STEP_SEARCHES
+
+    fetches = []
+
+    def sample():
+        fetches.append(1)
+        return items(10)
+
+    w = a_wizard(monkeypatch, terms_accepted=True, sample=sample,
+                 searches=lambda: [("hotels", ["hotels"], True)],
+                 set_search=lambda label, on: None)
+    w.searches.load(w._searches())
+    w.stack.setCurrentIndex(STEP_SEARCHES)
+    w._next()
+    settle(lambda: not w._sampling, what="the first fetch")
+    assert len(fetches) == 1
+
+    choose(w.calibration, 0, "strong")
+    type_sentence(w.calibration, 0, "Operational real estate is in scope.")
+
+    w._back()
+    assert w.stack.currentIndex() == STEP_SEARCHES
+    w._next()
+    assert len(fetches) == 1, "the same rows were bought a second time"
+    assert w.calibration._widgets[0].item.brief_sentence == (
+        "Operational real estate is in scope."), "the correction was discarded"
+    w.close()
+
+
+def test_switching_a_different_search_on_asks_before_discarding(qapp,
+                                                                monkeypatch,
+                                                                settle):
+    from app.ui.onboarding import STEP_CALIBRATION, STEP_SEARCHES
+
+    fetches = []
+    answers = []
+
+    def sample():
+        fetches.append(1)
+        return items(10)
+
+    w = a_wizard(monkeypatch, terms_accepted=True, sample=sample,
+                 confirm=lambda: answers.pop(0),
+                 searches=lambda: [("hotels", ["hotels"], True),
+                                   ("asset management", ["asset"], False)],
+                 set_search=lambda label, on: None)
+    w.searches.load(w._searches())
+    w.stack.setCurrentIndex(STEP_SEARCHES)
+    w._next()
+    settle(lambda: not w._sampling, what="the first fetch")
+    choose(w.calibration, 0, "strong")
+
+    # Switch a second search on, then decline the re-fetch.
+    w._back()
+    w.searches._rows[1][1].setChecked(True)
+    answers.append(False)
+    w._next()
+    assert len(fetches) == 1, "fetched despite the user saying no"
+    assert w.stack.currentIndex() == STEP_CALIBRATION
+    assert w.calibration._widgets[0].item.decided, "their answers survived"
+
+    # Ask again and accept: now it fetches.
+    w._back()
+    answers.append(True)
+    w._next()
+    settle(lambda: not w._sampling, what="the second fetch")
+    assert len(fetches) == 2
+    w.close()
+
+
+def test_an_empty_first_fetch_is_retried_without_asking(qapp, monkeypatch,
+                                                        settle):
+    """Nothing was bought and nothing was decided, so there is nothing to
+    confirm — and somebody who has just subscribed from the ⋯ menu is exactly
+    who arrives here."""
+    from app.ui.onboarding import STEP_SEARCHES
+
+    results = [[], items(10)]
+    asked = []
+
+    w = a_wizard(monkeypatch, terms_accepted=True,
+                 sample=lambda: results.pop(0),
+                 confirm=lambda: asked.append(True) or True,
+                 searches=lambda: [("hotels", ["hotels"], True)],
+                 set_search=lambda label, on: None)
+    w.searches.load(w._searches())
+    w.stack.setCurrentIndex(STEP_SEARCHES)
+    w._next()
+    settle(lambda: not w._sampling, what="the empty fetch")
+
+    w._back()
+    w._next()
+    settle(lambda: not w._sampling, what="the retry")
+    assert asked == [], "asked about discarding decisions that do not exist"
+    assert len(w.calibration._widgets) == 10
+    w.close()

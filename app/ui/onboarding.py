@@ -28,7 +28,8 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFrame, QHBoxLayout,
 
 from app.i18n import tr
 from app.ui.background import run_in_background
-from app.onboarding.calibration import CalibrationItem, CalibrationResult
+from app.onboarding.calibration import (MIN_DECIDED, CalibrationItem,
+                                        CalibrationResult)
 from app.onboarding.interview import ingest_guidance
 from app.ui.review import CREAM, GOLD, GOLD_DEEP, INK, TEAL, TEAL_LIFTED
 
@@ -579,6 +580,12 @@ class CalibrationPage(QWidget):
 
         if refresh:
             self._refresh()
+
+    @property
+    def has_decisions(self) -> bool:
+        """Anything on this screen the user would lose if it were reloaded."""
+        return any(w.item.decided or w.item.brief_sentence.strip()
+                   for w in self._widgets)
 
     def result(self) -> CalibrationResult:
         return CalibrationResult(items=[w.item for w in self._widgets],
@@ -1213,7 +1220,7 @@ class OnboardingWizard(QWidget):
     def __init__(self, *, extract, sample, drafter=None, titler=None,
                  searches=None, set_search=None, entitlement_panel=None,
                  where=None, accept_terms=None, terms_accepted=False,
-                 parent=None):
+                 confirm=None, parent=None):
         """`extract(paths) -> (names, warnings)` and `sample() -> [items]` are
         injected, so the wizard neither reads disks nor calls a model itself.
 
@@ -1232,6 +1239,9 @@ class OnboardingWizard(QWidget):
         #: Called once, when the user leaves the terms step having agreed.
         #: Injected so this widget records nothing itself.
         self._accept_terms = accept_terms
+        #: `confirm() -> bool`, asked before anything the user cannot undo.
+        #: Injected so a test never waits on a modal nobody is there to close.
+        self._confirm = confirm
         self._corpus = None
         #: The files that were READ, as opposed to the ones dropped. Next on
         #: the first step asks this: a drop of nothing but scans leaves the
@@ -1244,6 +1254,15 @@ class OnboardingWizard(QWidget):
         self._sampling = False
         self._extract_task = None
         self._sample_task = None
+        #: The switched-on searches the postings on the gate were fetched for,
+        #: and the postings themselves. Going Back and forward again used to
+        #: re-fetch — paying a second time for the same rows and discarding
+        #: every decision the user had made on them.
+        self._sample_key = None
+        self._sample_items = None
+        #: Where the ⋯ menu was opened from, so Next out of the subscribe panel
+        #: returns there rather than jumping forward past unfinished steps.
+        self._return_to = None
 
         self.setWindowTitle(tr("onboarding.title"))
         layout = QVBoxLayout(self)
@@ -1320,8 +1339,7 @@ class OnboardingWizard(QWidget):
         self.interview.changed.connect(self._refresh_next)
         # Subscribe from the menu goes to the step that already does it,
         # rather than opening a second copy of the same panel somewhere else.
-        self.menu.subscribe_requested.connect(
-            lambda: self._show_step(STEP_ENTITLEMENT))
+        self.menu.subscribe_requested.connect(self._detour_to_entitlement)
         self.menu.restore_requested.connect(self._restore)
         # The subscribe panel reports its own outcome; the wizard only needs to
         # stop offering the step once it has succeeded.
@@ -1460,7 +1478,12 @@ class OnboardingWizard(QWidget):
 
     def _next(self) -> None:
         index = self.stack.currentIndex()
-        if index == STEP_TERMS:
+        if self._return_to is not None and index == STEP_ENTITLEMENT:
+            # A detour from the ⋯ menu ends where it started, whatever step
+            # that was — and the gates on that step still apply.
+            self._show_step(self._return_to)
+            self._return_to = None
+        elif index == STEP_TERMS:
             # Recorded on leaving the step rather than on the tick, so the
             # record follows the deliberate action and not a stray click.
             if self._accept_terms is not None:
@@ -1498,9 +1521,64 @@ class OnboardingWizard(QWidget):
                         # to fix it; stopping setup here would strand the user.
                         pass
             # Only now is there anything to fetch with.
-            self._fetch_sample()
+            self._go_to_calibration()
 
-    def _fetch_sample(self) -> None:
+    def _searches_key(self):
+        """What the sample depends on: the searches that are switched ON.
+
+        Nothing else changes which postings come back, so nothing else is
+        grounds for spending money on a second fetch.
+        """
+        return tuple(sorted(label for label, on in self.searches.selections()
+                            if on))
+
+    def _go_to_calibration(self) -> None:
+        """Back then Next used to re-fetch — buying the same rows twice and
+        throwing away every decision the user had made on them."""
+        key = self._searches_key()
+        held = self._sample_items
+
+        if held is not None and len(held) < MIN_DECIDED:
+            # The last fetch produced nothing usable — no feed, or an error —
+            # so nothing was bought and there is nothing to lose. Somebody who
+            # has just subscribed from the ⋯ menu is exactly who gets here, and
+            # this is checked BEFORE the key, or an unchanged search list would
+            # hold them on an empty gate for ever.
+            self._fetch_sample(key)
+            return
+
+        if held is not None and self._sample_key == key:
+            # Same searches, postings already paid for: show them as they are.
+            self._show_step(STEP_CALIBRATION)
+            return
+
+        if self.calibration.has_decisions and not self._ask_before_discarding():
+            self._show_step(STEP_CALIBRATION)
+            return
+
+        self._fetch_sample(key)
+
+    def _ask_before_discarding(self) -> bool:
+        """Say what a new fetch costs before it is spent, not after."""
+        if self._confirm is not None:
+            return self._confirm()
+
+        from PySide6.QtWidgets import QMessageBox
+
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Question)
+        box.setWindowTitle(tr("onboarding.title"))
+        box.setText(reflow(tr("onboarding.discard_sample")))
+        refetch = box.addButton(tr("onboarding.discard_sample_refetch"),
+                                QMessageBox.AcceptRole)
+        keep = box.addButton(tr("onboarding.discard_sample_keep"),
+                             QMessageBox.RejectRole)
+        # The cheap, reversible answer is the default one.
+        box.setDefaultButton(keep)
+        box.exec()
+        return box.clickedButton() is refetch
+
+    def _fetch_sample(self, key=None) -> None:
         """Fetch and assess the calibration postings, off the UI thread.
 
         This is the slowest thing in setup by a wide margin — a request per
@@ -1510,6 +1588,8 @@ class OnboardingWizard(QWidget):
         """
         self._show_step(STEP_CALIBRATION)
         self.calibration.set_loading()
+        self._sample_key = key
+        self._sample_items = None
         self._sampling = True
         self._refresh_nav()
         sample = self._sample
@@ -1518,11 +1598,15 @@ class OnboardingWizard(QWidget):
 
     def _sample_ready(self, items) -> None:
         self._sampling = False
+        self._sample_items = items
         self.calibration.load(items)
         self._refresh_nav()
 
     def _sample_failed(self, exc) -> None:
         self._sampling = False
+        # Nothing was bought, so the next attempt is free: an empty holder
+        # rather than None, which is what "fetched and got nothing" looks like.
+        self._sample_items = []
         self.calibration.load_failed(str(exc)[:200])
         self._refresh_nav()
 
@@ -1538,6 +1622,20 @@ class OnboardingWizard(QWidget):
             self.stack.currentIndex() > FIRST_STEP and not busy)
         self._refresh_next()
 
+    def _detour_to_entitlement(self) -> None:
+        """Subscribe from the ⋯ menu, and come back to where you were.
+
+        It used to be a plain jump to the subscribe step, and Next from there
+        goes on to the interview — so somebody who opened the menu from the CV
+        screen or the key screen walked out past both, arriving at the draft
+        with no CVs to draft from and no key to draft with. Where they came
+        from is remembered instead.
+        """
+        current = self.stack.currentIndex()
+        if current != STEP_ENTITLEMENT:
+            self._return_to = current
+        self._show_step(STEP_ENTITLEMENT)
+
     def _restore(self) -> None:
         """Apple requires Restore to be reachable. The panel owns the actual
         StoreKit call; this only makes sure the user can get to it.
@@ -1552,6 +1650,12 @@ class OnboardingWizard(QWidget):
             restore()
 
     def _back(self) -> None:
+        if (self._return_to is not None
+                and self.stack.currentIndex() == STEP_ENTITLEMENT):
+            # Back out of a detour is the same journey as Next out of it.
+            self._show_step(self._return_to)
+            self._return_to = None
+            return
         self._show_step(max(FIRST_STEP, self.stack.currentIndex() - 1))
 
     def _finish(self) -> None:
