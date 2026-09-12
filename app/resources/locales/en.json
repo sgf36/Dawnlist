@@ -110,7 +110,7 @@
   "onboarding.blocker_short_sample": "Dawnlist could not fetch enough live postings to calibrate against — {count} of the {needed} it needs. That is a setup problem rather than anything you have done: check a search is switched on and the feed is reachable, then try again.",
   "onboarding.brief_label": "Fit brief — what gets surfaced",
   "onboarding.calibration_body": "Here are ten live postings, with what Dawnlist made of each one. Correct anything it got wrong. Where you disagree, tell it what sentence would have got it right — that sentence goes into your brief, so the same mistake is not made in the next run.",
-  "onboarding.calibration_failed": "Dawnlist could not fetch postings to calibrate against: {reason} You can finish setting up; calibration will happen on a morning when it can read the feed.",
+  "onboarding.calibration_failed": "Dawnlist could not fetch postings to calibrate against: {reason} You can finish setting up; calibration will happen on a later run, once it can read the feed.",
   "onboarding.calibration_fetching": "Fetching live postings and reading them against your brief. This takes a minute or so.",
   "onboarding.calibration_heading": "Before the first run",
   "onboarding.calibration_no_feed": "Dawnlist has no job feed to read yet, because there is no subscription or access code on this computer. You can finish setting up; calibration will happen once you have one.",

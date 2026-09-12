@@ -352,6 +352,13 @@ def test_the_launched_window_offers_run_now_after_the_run_time(tmp_path, monkeyp
     c.commit()
     # Midnight, so the run time has passed whenever this test runs.
     schedule.save_run_time(c, time(0, 0))
+    # The launch path checks both before it opens a window at all: an
+    # unfinished setup goes back to the wizard, unagreed terms to the terms
+    # gate, and this test is about neither.
+    from app.onboarding import terms
+    from app.onboarding.state import mark_setup_finished
+    mark_setup_finished(c)
+    terms.record_acceptance(c)
 
     shown = []
     monkeypatch.setattr(main_mod, "_offer_update", shown.append)

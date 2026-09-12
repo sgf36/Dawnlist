@@ -156,6 +156,13 @@ def test_the_launch_path_goes_to_the_tray_only_when_there_is_one(tmp_path, monke
     c.execute("INSERT INTO settings(key, value) "
               "VALUES('calibration_passed_at','2026-09-06T00:00:00+00:00')")
     c.commit()
+    # The launch path checks both before it opens a window at all: an
+    # unfinished setup goes back to the wizard, unagreed terms to the terms
+    # gate, and this test is about neither.
+    from app.onboarding import terms
+    from app.onboarding.state import mark_setup_finished
+    mark_setup_finished(c)
+    terms.record_acceptance(c)
     monkeypatch.setattr("PySide6.QtWidgets.QApplication.exec", lambda self: 0)
     offered = []
     monkeypatch.setattr(main_mod, "_offer_update", offered.append)

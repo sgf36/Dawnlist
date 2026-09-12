@@ -1,5 +1,6 @@
 """One door into a run, and a report the window can put into words."""
 import threading
+from datetime import datetime, timezone
 
 import pytest
 
@@ -209,3 +210,32 @@ def test_run_once_says_nothing_about_a_limit_it_did_not_hit(tmp_path, monkeypatc
     code, out = _cli(tmp_path, monkeypatch, Stub(ok([job("a")])), capsys)
     assert code == 0
     assert "DAILY LIMIT" not in out
+
+
+def test_terms_not_agreed_gives_one_answer_the_user_can_act_on(conn, monkeypatch):
+    """Two gates gate the run — the terms and the day's timing — and they must
+    not each answer as though they were the last word.
+
+    The timing rule only decides WHEN to attempt; every refusal comes from the
+    one ordered sequence inside `morning_run`. So a user who has not agreed the
+    terms gets the terms sentence, not a generic failure and not silence.
+    """
+    from app.core.run_report import report_from_error
+    from app.main import run_daily_search
+    from app.onboarding import terms
+    from app.ui.scheduler import describe_report
+
+    seed(conn)
+    no_real_key(monkeypatch)
+    conn.execute("DELETE FROM settings WHERE key=?", (terms.ACCEPTED_VERSION_KEY,))
+    conn.commit()
+    assert not terms.is_accepted(conn)
+
+    with pytest.raises(NotConfigured) as refused:
+        run_daily_search(conn, provider=Stub(ok([job("a")])))
+
+    report = report_from_error(refused.value)
+    assert report.kind == NOT_CONFIGURED
+    said = describe_report(report, now=datetime.now(timezone.utc))
+    assert "terms have not been agreed" in said
+    assert "could not start" in said
