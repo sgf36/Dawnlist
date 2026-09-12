@@ -209,3 +209,75 @@ def _locale_does_not_leak():
     before = current_locale()
     yield
     set_locale(before)
+
+
+# ---------------------------------------------------------------------------
+# The suite never reaches the machine's own credential store
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(autouse=True, scope="session")
+def _no_real_credential_store():
+    """Point `keyring` at a store that holds nothing, for the whole session.
+
+    On 2026-09-12 four CI jobs on the scheduling branch failed together and the
+    cause was one thing: three tests patched a function the merged code no
+    longer called, so the real path ran and asked `api_key.require()` for a
+    key. On a development machine that reaches the real credential store, finds
+    the developer's own Anthropic key and succeeds; on a runner there is no
+    such key, so the same tests fail. "It passes locally" was therefore not evidence
+    of anything for any test that can touch a credential.
+
+    The second consequence is worse than a red build. A test handed a live key
+    can build a real transport and bill the developer for a suite run.
+
+    The BACKEND is replaced rather than `PYTHON_KEYRING_BACKEND` being set and
+    hoped for: that variable is read when keyring first resolves a backend,
+    which may already have happened by the time a fixture runs. It is exported
+    too, for the handful of tests that spawn a subprocess.
+
+    THERE IS DELIBERATELY NO OPT-IN TO THE REAL STORE. A test that needs a
+    working credential store needs a FAKE one, not the developer's — use
+    `fake_keyring` below, or patch `keyring.get_password` directly the way
+    `test_credentials.py` does.
+    """
+    import os
+
+    import keyring
+    from keyring.backends.null import Keyring as NullKeyring
+
+    previous = keyring.get_keyring()
+    keyring.set_keyring(NullKeyring())
+    os.environ["PYTHON_KEYRING_BACKEND"] = "keyring.backends.null.Keyring"
+    yield
+    keyring.set_keyring(previous)
+
+
+@pytest.fixture
+def fake_keyring():
+    """An in-memory credential store, for a test that needs saving to work.
+
+    Yields the dict behind it, so a test can seed an entry or read back what a
+    save wrote without going near the machine's own store.
+    """
+    import keyring
+    from keyring.backend import KeyringBackend
+
+    entries: dict[tuple[str, str], str] = {}
+
+    class _InMemory(KeyringBackend):
+        # Never chosen automatically; this backend is only ever installed here.
+        priority = 1
+
+        def get_password(self, service, username):
+            return entries.get((service, username))
+
+        def set_password(self, service, username, password):
+            entries[(service, username)] = password
+
+        def delete_password(self, service, username):
+            entries.pop((service, username), None)
+
+    previous = keyring.get_keyring()
+    keyring.set_keyring(_InMemory())
+    yield entries
+    keyring.set_keyring(previous)
