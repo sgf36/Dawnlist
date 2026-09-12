@@ -38,6 +38,21 @@ def refused(message="Daily refresh cap reached (3)"):
     return FetchResult(jobs=[], error=message, refusal="refresh_cap")
 
 
+def no_real_key(monkeypatch):
+    """Give the run a transport without asking the machine for a key.
+
+    A run builds its own: `anthropic_transport(api_key.require())`. Patching
+    `build_send` covered neither, so these tests passed on a developer's
+    computer — where a key sits in the credential store — and failed on every
+    runner, which is a test whose result depends on whose machine it is.
+    """
+    import app.core.api_key as api_key
+    import app.intelligence.assess as assess
+
+    monkeypatch.setattr(api_key, "require", lambda: "sk-ant-test")
+    monkeypatch.setattr(assess, "anthropic_transport", lambda key: strong_send)
+
+
 @pytest.fixture()
 def conn(tmp_path):
     c = db.connect(tmp_path / "t.sqlite3")
@@ -139,7 +154,7 @@ def test_the_worker_opens_its_own_connection(tmp_path, monkeypatch):
     db.migrate(ui_conn)
     seed(ui_conn)
     monkeypatch.setattr(main_mod, "build_provider", lambda c: Stub(ok([job("a")])))
-    monkeypatch.setattr(main_mod, "build_send", lambda c: strong_send)
+    no_real_key(monkeypatch)
 
     results = {}
 
@@ -179,7 +194,7 @@ def _cli(tmp_path, monkeypatch, provider, capsys):
     seed(c)
     c.close()
     monkeypatch.setattr(main_mod, "build_provider", lambda conn: provider)
-    monkeypatch.setattr(main_mod, "build_send", lambda conn: strong_send)
+    no_real_key(monkeypatch)
     code = main(["--run-once", "--db", str(path)])
     return code, capsys.readouterr().out
 
