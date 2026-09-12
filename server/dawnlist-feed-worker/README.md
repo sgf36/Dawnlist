@@ -22,6 +22,8 @@ database created from it needs none of them — applying one would stop at
 
 ### The existing database — migrations, never schema.sql
 
+**For the live database, follow `DEPLOY-RUNBOOK.md` rather than this section.** Three of its steps are ordered for reasons filename order does not carry: 008 has to be followed immediately by the deploy, 007's backfill has to be re-run after it, and the Apple secrets have to be in place before /v1/apple serves a single request.
+
 Apply each file in `migrations/` that the database has not had, **in filename
 order, once each, before deploying the code that needs it**:
 
