@@ -697,3 +697,67 @@ def test_an_unreachable_service_does_not_read_as_a_bad_code(monkeypatch):
 
     with pytest.raises(entitlement.NotEntitled, match="Could not reach"):
         entitlement.redeem_override_code("DL-ABC", opener=opener)
+
+
+# ---------------------------------------------------------------------------
+# store_iap honours a Dawnlist licence, or override codes stop working
+# ---------------------------------------------------------------------------
+
+def _store_iap(monkeypatch):
+    monkeypatch.setattr("app.core.build_variant.variant", lambda: "store_iap",
+                        raising=False)
+    monkeypatch.setattr("app.core.entitlement.variant", lambda: "store_iap",
+                        raising=False)
+
+
+def test_an_override_code_still_works_on_the_store_iap_build(conn, monkeypatch):
+    """The failure this prevents is silent: the code redeems, the Worker issues
+    a licence, and the app ignores it and asks for a Store subscription. Nothing
+    reports an error, and the person holding the comp simply cannot get in."""
+    _store_iap(monkeypatch)
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-COMPED-0001")
+    monkeypatch.setattr(ent, "licence_check",
+                        lambda key, **kw: ("ok", {"ok": True, "granted_by_code": True,
+                                                  "purchased": False}))
+    asked = []
+    result = ent.check(conn, ms_exchanger=lambda: asked.append(1) or None)
+    assert result.entitled
+    assert result.source == "licence"
+    assert not asked, "the Store must not be asked when a licence already answers"
+
+
+def test_a_purchased_key_is_honoured_too_unlike_the_mac(conn, monkeypatch):
+    """Guideline 3.1.1 forbids unlocking a MAC build with a key bought
+    elsewhere. Microsoft has no such rule, so an existing Paddle customer keeps
+    working if this variant ever reaches them."""
+    _store_iap(monkeypatch)
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-PADDLE-0001")
+    monkeypatch.setattr(ent, "licence_check",
+                        lambda key, **kw: ("ok", {"ok": True, "granted_by_code": False,
+                                                  "purchased": True}))
+    assert ent.check(conn).entitled
+
+
+def test_a_refused_licence_falls_through_to_the_store(conn, monkeypatch):
+    """Somebody whose comp was withdrawn may well have subscribed since.
+    Refusing here would hide a subscription they are paying for.
+
+    NOTE this test passes with or without the licence check above it - with no
+    check at all the Store is asked anyway. It is not evidence for that change;
+    it guards the over-correction, where somebody later makes a refused licence
+    terminal and locks out everyone who was once comped."""
+    _store_iap(monkeypatch)
+    monkeypatch.setattr(ent, "read_licence", lambda: "DAWN-WITHDRAWN-01")
+    monkeypatch.setattr(ent, "licence_check",
+                        lambda key, **kw: ("ok", {"ok": False}))
+    asked = []
+
+    def exchanger():
+        asked.append(1)
+        return ent.AppleExchange("licence", licence_key="DAWN-FROM-STORE",
+                                         expires_at=None)
+
+    result = ent.check(conn, ms_exchanger=exchanger)
+    assert asked, "a refused licence must not stop the Store being asked"
+    assert result.entitled
+    assert result.source == "store_iap"
