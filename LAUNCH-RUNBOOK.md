@@ -12,12 +12,24 @@ same command, this file is the order to do it in and that one is the why.
 
 ## What ships, and what does not
 
+**Corrected 2026-09-12.** The table named 1.0.0 artefacts and said "ready to
+submit" for the Store listing that is live, while offering a direct macOS
+`.dmg` that has not been published since the decision of 2026-09-08. A status
+table nobody trusts is worse than none, because the next person reads it anyway.
+
 | Surface | State | Artefact |
 |---|---|---|
-| Microsoft Store (Windows) | Ready to submit | `dist/Dawnlist.msix` |
-| Direct download, Windows | Ready to submit | `dist/Dawnlist-windows-1.0.0.zip` |
-| Direct download, macOS | Ready to submit | `dist/Dawnlist-1.0.0.dmg` |
+| Microsoft Store (Windows) | **Live**, 1.1.0 | `dist/Dawnlist.msix`, built and signed by CI |
+| Direct download, Windows | Built and signed; hosting folder unsettled — see Step 6a | `dist/Dawnlist-windows-<version>.zip` and its `.sha256` |
 | **Mac App Store** | **In App Review** — StoreKit subscription; `/v1/apple` inert until its Apple secrets are set (below) | uploaded by the `mas` CI leg |
+| Direct download, macOS | **Not published, by decision of 2026-09-08** | — |
+
+**macOS ships through the Mac App Store only.** The `.dmg` is not a lesser
+product and the toolchain still builds one — `packaging/build_macos.py
+--variant direct`, or a `workflow_dispatch` with `macos_direct` — but nothing
+publishes it, so CI no longer signs and notarises one on every push. Two
+storefronts for one platform means two review queues, two support paths and two
+answers to "where do I get it".
 
 **The Mac App Store build sells the subscription through StoreKit.** Entitlement
 comes from Apple and never from a key (guideline 3.1.1): the app sends the
@@ -50,9 +62,9 @@ confirmed: subscribers run on grace or are told the service is unreachable.
    Mac build returning a licence — a 503 means a secret is missing, a 502
    `apple_auth_failed` means the key, issuer or `.p8` is wrong.
 
-macOS buyers are properly served by the notarised `.dmg`, which is outside
-Apple's commerce rules entirely and keeps 100% of revenue less Paddle. It is
-the same application, not a lesser one.
+**The open question is no longer packaging but TERMS.** A Mac subscriber is
+bound by Apple's standard EULA and not by Dawnlist's, which Step 7 explains and
+which wants settling before approval rather than after.
 
 ---
 
@@ -245,6 +257,24 @@ that was deliberately removed is pure exposure.
 
 ```bash
 npx wrangler secret delete ANTHROPIC_API_KEY
+```
+
+**Run the Worker's tests before deploying, every time.** They take about a
+second, they need no account, and they cover the caps, the entitlement and the
+Paddle webhook — the three things a bad deploy breaks silently, because a
+Worker that answers 200 with the wrong allowance looks healthy from `/health`.
+CI runs them on every push; a deploy from a laptop is the one path that skips
+them.
+
+```powershell
+Push-Location C:\Users\SpencerFields\dawnlist\server\dawnlist-feed-worker
+node --test test/*.test.mjs
+Pop-Location
+```
+
+Only then:
+
+```bash
 npx wrangler deploy
 curl https://dawnlist-feed-worker.sgf36.workers.dev/health
 ```
@@ -371,8 +401,14 @@ value was stored, not that it was the right one:
 > imported the certificate, validated the notarisation credentials against
 > Apple, signed 15 nested binaries plus the bundle, verified the signature,
 > built the `.dmg`, notarised it (submission `d50f9f9a-f515-4a6f-a781-
-> e7f6f4837f45`) and stapled the ticket — in 2m58s. All three artefacts now
-> exist on every run.
+> e7f6f4837f45`) and stapled the ticket — in 2m58s. The macOS credentials
+> therefore work and are not in doubt.
+>
+> **The .dmg is no longer built on every run** (2026-09-12), because macOS
+> ships through the Mac App Store and nothing published it. Two artefacts come
+> off a push now; the .dmg needs the `macos_direct` input. The certificate and
+> the notarisation credentials are still what that run uses, so nothing here
+> is dead.
 >
 > **Only Windows direct-download signing is outstanding**, and only the
 > federated credential and the `AZURE_SIGNING_READY` variable — the three
@@ -477,20 +513,44 @@ that names the wrong cause:
 **I cannot do this step and will not ask for the values.** Certificates and
 passwords go from you into GitHub directly.
 
-### 5c. Then push
+### 5c. One environment only you can create
 
-Push to `main`. One run produces:
+The `mas` job names a GitHub environment called **`app-store`**, and GitHub
+creates it unprotected the first time the job runs. Protecting it is the point,
+and it is a repository setting rather than anything in the workflow:
 
-- `dawnlist-windows-latest-store` — the signed MSIX
+> Settings → Environments → `app-store` → **Deployment branches: selected
+> branches, `master`** and, if you want a hand on the release, **Required
+> reviewers: yourself**.
+
+The workflow already refuses to sign or upload off `master`. The environment is
+what makes that refusal survive somebody editing the workflow on a branch,
+which anyone who can push one can do.
+
+### 5d. Then push
+
+Push to **`master`** — not `main`; the signing conditions and the Azure
+federated credential both name `master` literally. One run produces:
+
+- `dawnlist-windows-latest-store` — the MSIX, signed with the throwaway
+  certificate the Store re-signs over
 - `dawnlist-windows-latest-direct` — the signed ZIP and its `.sha256`
-- `dawnlist-macos-latest-direct` — the notarised `.dmg`
 
-The `worker` job runs the Cloudflare test suite, which CI was not running at
-all until today.
+**No `.dmg`, deliberately** — macOS ships through the Mac App Store, so that
+leg only runs its bundle guards. To get one anyway, run the workflow by hand
+with the `macos_direct` input ticked, from `master`.
+
+The Mac App Store `.pkg` is likewise a `workflow_dispatch`, in the `mas` job,
+which now waits for the Worker tests and the whole build matrix first.
+
+**An artefact from anywhere but `master` is named for its event and commit** —
+`dawnlist-windows-latest-store-pull_request-1a2b3c4` — and the MSIX inside it
+is renamed to match. Nothing signed comes off a branch, so a plain name is the
+only kind worth publishing.
 
 ---
 
-## Step 5c — Prove the shipped client can reach the live service
+## Step 5e — Prove the shipped client can reach the live service
 
 **Run this before every release. It costs nothing.**
 
