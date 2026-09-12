@@ -203,7 +203,7 @@ def prepare_drafts(conn: sqlite3.Connection, items: list[DueItem], *,
     # Invariant 13: an output cannot exist without the run that produced it.
     # The FK is what makes an unregistered draft impossible, and it was never
     # exercised because nothing opened a run around the writing.
-    with db.run(conn) as run:
+    with db.run(conn, kind=db.OUTREACH) as run:
         for item in items:
             report.due.append(item)
             if not item.actionable:

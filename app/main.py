@@ -1101,6 +1101,9 @@ def ingest_alerts(conn, paths, *, send=None, today: date | None = None):
         gates=[permanent_reject_gate(rejected_keys(conn)),
                posted_within_gate(DEFAULT_POSTED_WITHIN_DAYS, today=today)],
         already_seen=seen,
+        # Dropped files, not a sweep: no refresh of the feed was spent, so an
+        # import must not stand in for the day's search.
+        kind=db.ALERTS,
     )
     persist(conn, outcome)
     db.prune_seen(conn)
@@ -1281,7 +1284,7 @@ def calibration_sample(conn, *, provider=None, send=None):
     outcome = run_morning(
         conn, AlertProvider(jobs), [SearchQuery(label=CALIBRATION_LABEL)],
         rules, fit_brief=brief, factsheet=factsheet, send=send,
-        kind="calibration")
+        kind=db.CALIBRATION)
 
     class NotAssessed(CalibrationItem):
         """A screened-in posting the model never judged. Its "verdict" is an

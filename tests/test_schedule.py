@@ -262,7 +262,7 @@ def conn(tmp_path):
     c.close()
 
 
-def add_run(conn, started_at, *, status="complete", kind="sweep"):
+def add_run(conn, started_at, *, status="complete", kind=db.SWEEP):
     conn.execute("INSERT INTO runs(started_at, status, kind) VALUES(?,?,?)",
                  (started_at, status, kind))
     conn.commit()
@@ -278,16 +278,32 @@ def test_a_search_started_today_counts(conn):
 def test_a_draft_run_today_is_not_the_daily_search(conn):
     """Drafting follow-ups at 06:50 must not cancel the 07:00 search."""
     now = at(2026, 9, 11, 9, 0)
-    add_run(conn, "2026-09-11T05:50:00+00:00", kind=None)
+    add_run(conn, "2026-09-11T05:50:00+00:00", kind=db.OUTREACH)
     assert not run_started_today(conn, now, london)
 
 
-def test_a_run_in_progress_counts_before_it_is_tagged(conn):
-    """`morning_run` tags its row when it ends. Another copy of the app must
-    not start a second run while the first is still fetching."""
+def test_neither_is_the_calibration_sample(conn):
+    """It sweeps postings, but it is the setup step rather than the day's
+    search — and it happens while the user is watching."""
     now = at(2026, 9, 11, 9, 0)
-    add_run(conn, "2026-09-11T07:58:00+00:00", status="running", kind=None)
+    add_run(conn, "2026-09-11T08:30:00+00:00", kind=db.CALIBRATION)
+    assert not run_started_today(conn, now, london)
+
+
+def test_a_search_still_running_counts(conn):
+    """It is tagged when its row opens, so another copy of the app can see it
+    and must not start a second one over the top of it."""
+    now = at(2026, 9, 11, 9, 0)
+    add_run(conn, "2026-09-11T07:58:00+00:00", status="running", kind=db.SWEEP)
     assert run_started_today(conn, now, london)
+
+
+def test_but_an_outreach_run_in_progress_does_not(conn):
+    """The positive control for the one above: `running` is not what counts."""
+    now = at(2026, 9, 11, 9, 0)
+    add_run(conn, "2026-09-11T08:58:00+00:00", status="running",
+            kind=db.OUTREACH)
+    assert not run_started_today(conn, now, london)
 
 
 def test_yesterdays_search_does_not_count_today(conn):

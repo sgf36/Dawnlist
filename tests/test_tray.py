@@ -172,3 +172,22 @@ def test_the_launch_path_goes_to_the_tray_only_when_there_is_one(tmp_path, monke
     main_mod._launch_ui(c, open_board=False, background=True)
     assert len(offered) == 1, "a tray: stays hidden, and asks nothing"
     c.close()
+
+
+def test_a_filter_outliving_its_window_stays_out_of_the_way(qapp, conn):
+    """Qt goes on calling a filter whose C++ object has gone, and the raise
+    lands wherever the event loop happens to be — it surfaced in an unrelated
+    window's constructor, several tests away from the tray."""
+    from PySide6.QtGui import QCloseEvent
+
+    schedule.save_flag(conn, schedule.KEEP_RUNNING_KEY, True)
+    window, tray, quits, messages = presence(conn)
+    window.show()
+    assert tray.eventFilter(window, QCloseEvent()) is True, (
+        "while its window is alive the filter still decides the close")
+
+    assert tray.eventFilter(QWidget(), QCloseEvent()) is False, (
+        "another window's close is not this tray's to decide")
+
+    del tray._window                         # every attribute destroyed
+    assert tray.eventFilter(QWidget(), QCloseEvent()) is False

@@ -97,8 +97,15 @@ class TrayPresence(QObject):
         return True
 
     def eventFilter(self, watched, event):  # noqa: N802 - Qt naming
-        if watched is self._window and event.type() == QEvent.Type.Close:
-            return self._closing(event)
+        try:
+            window = self._window
+            if window is not None and watched is window                     and event.type() == QEvent.Type.Close:
+                return self._closing(event)
+        except (AttributeError, RuntimeError):
+            # Called after this object, its window or the event itself was
+            # destroyed. There is no close left to decide, and raising here
+            # would surface in an unrelated window's constructor.
+            return False
         return False
 
     def _closing(self, event) -> bool:

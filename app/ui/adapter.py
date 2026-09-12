@@ -19,6 +19,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
+from app.core.db import ALERTS, SWEEP
 from app.core.dedup import recover_stranded
 from app.core.pipeline import RunOutcome
 from app.core.screen import Verdict
@@ -193,33 +194,25 @@ def connect_window(window, conn: sqlite3.Connection) -> None:
 
 
 def latest_run_id(conn: sqlite3.Connection) -> int | None:
-    """The most recent daily search, whatever it swept — or failing that, the
-    most recent run that swept anything.
+    """The most recent run whose postings the user is meant to work through: a
+    daily search, or a job-alert import.
 
-    Deliberately not MAX(id): a run row is opened by any run that produces
-    outputs, an outreach run included, and those sweep no jobs. Taking the
-    newest row regardless would empty the review window every time the user
-    drafted their outreach — the shortlist would vanish for no visible reason.
+    Deliberately not MAX(id): a `runs` row is opened by anything that produces
+    output — an outreach run, the calibration sample — so taking the newest row
+    regardless would empty the review window every time the user drafted their
+    outreach, and would show a new user the setup sample as though it were the
+    morning's shortlist.
 
-    Nor `swept > 0` alone any longer (PIPELINE-P6). A search whose fetch failed
-    sweeps nothing, so that rule skipped straight past it to yesterday's run,
-    and the window showed an older shortlist as though it were today's with no
-    sign that this morning had gone wrong. A daily search is now recognised by
-    its `kind`, and chosen however little it found, so its status is what the
-    window reports. Undecided postings from before it still arrive, marked as
-    carried forward. `swept > 0` remains for job-alert imports and for rows
-    written before `kind` existed.
+    Nor `swept > 0` any longer (PIPELINE-P6). A search whose fetch failed
+    sweeps nothing, so that rule skipped past it to the run before and the
+    window showed an older shortlist as though it were today's, with nothing
+    saying the morning had gone wrong. The run is chosen by what it was FOR,
+    however little it found, so its status is what the window reports.
+    Undecided postings from earlier runs still arrive, marked as carried
+    forward.
     """
-    from app.core.schedule import SWEEP
-
-    row = conn.execute(
-        "SELECT MAX(id) AS id FROM runs WHERE kind = ? OR swept > 0",
-        (SWEEP,)).fetchone()
-    if row and row["id"] is not None:
-        return row["id"]
-    # No run has swept yet: fall back to the newest, so a first run that
-    # fetched nothing still shows its (empty) result rather than nothing at all.
-    row = conn.execute("SELECT MAX(id) AS id FROM runs").fetchone()
+    row = conn.execute("SELECT MAX(id) AS id FROM runs WHERE kind IN (?, ?)",
+                       (SWEEP, ALERTS)).fetchone()
     return row["id"] if row and row["id"] is not None else None
 
 

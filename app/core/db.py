@@ -405,8 +405,22 @@ class RunIncomplete(RuntimeError):
     """Raised when a run is finished without the likely set being exhausted."""
 
 
+#: What a `runs` row was for, written when the row is OPENED rather than when
+#: the run ends: the schedule asks "has a search started today?" while a run is
+#: still going, and a row tagged afterwards is untagged for exactly as long as
+#: the run takes.
+#:
+#: Every kind is named here because only SWEEP may stand in for the day's
+#: scheduled search. Drafting outreach at 06:50 must not cancel the 07:00 run,
+#: and it did: `outreach/run.py` called `db.run(conn)` and took the default.
+SWEEP = "sweep"
+OUTREACH = "outreach"
+ALERTS = "alerts"
+CALIBRATION = "calibration"
+
+
 @contextmanager
-def run(conn: sqlite3.Connection, kind: str = "sweep") -> Iterator["Run"]:
+def run(conn: sqlite3.Connection, kind: str = SWEEP) -> Iterator["Run"]:
     """Open a run. On any exception the run is recorded as failed, never lost.
 
     spec 6.2/6.4: a crash, a context exhaustion or an empty fetch is named as

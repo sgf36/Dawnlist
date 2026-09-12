@@ -39,6 +39,11 @@ import sqlite3
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Callable, Iterable
 
+# The daily search's own kind, as `db.run` writes it. Imported rather than
+# repeated: a second spelling of "sweep" here would go unnoticed until the day
+# the scheduler stopped recognising the runs it had started itself.
+from app.core.db import SWEEP
+
 #: Early enough that the shortlist is waiting before a working day starts,
 #: late enough that a laptop left asleep overnight has usually been opened.
 DEFAULT_RUN_TIME = time(7, 0)
@@ -57,11 +62,6 @@ TRAY_NOTICE_KEY = "tray_notice_shown"
 #: The local date the automatic run last claimed. Shared by every running copy
 #: through the database, so two copies left open cannot both run at 07:00.
 SCHEDULED_CLAIM_KEY = "scheduled_run_claimed_on"
-
-#: The value `morning_run` writes to `runs.kind`. Outreach and job-alert runs
-#: also open a `runs` row, and neither is the daily search: counting them would
-#: let drafting the morning's follow-ups at 06:50 cancel the 07:00 run.
-SWEEP = "sweep"
 
 ToLocal = Callable[[datetime], datetime]
 
@@ -210,28 +210,27 @@ def run_started_today(conn: sqlite3.Connection, now: datetime,
                       to_local: ToLocal = system_local) -> bool:
     """A daily search started on the user's current local date.
 
-    A row still `running` counts whatever its kind: `morning_run` tags its row
-    only once the run ends, and a run another copy is part-way through must not
-    be offered again here. Only rows from the last two UTC days are read,
-    which covers every offset from UTC-12 to UTC+14.
+    A run still `running` counts: it is tagged when its row is opened, so a
+    search another copy of the app is part-way through is already visible here
+    and must not be offered again. Only rows from the last two UTC days are
+    read, which covers every offset from UTC-12 to UTC+14.
     """
     since = (now.astimezone(timezone.utc) - timedelta(days=2)).isoformat(
         timespec="seconds")
     rows = conn.execute(
-        "SELECT started_at FROM runs WHERE started_at >= ? "
-        "AND (kind = ? OR status = 'running')", (since, SWEEP)).fetchall()
+        "SELECT started_at FROM runs WHERE started_at >= ? AND kind = ?",
+        (since, SWEEP)).fetchall()
     return started_on((r[0] for r in rows), now.date(), to_local)
 
 
 def last_search_started_at(conn: sqlite3.Connection) -> str | None:
     """When the most recent search started, for the "Last run" line.
 
-    Untagged rows that swept something count too, so an install upgraded this
-    morning does not claim it has never run until its first tagged search.
+    Searches only. A calibration sample or an outreach run is not something the
+    line is reporting, and neither is what the next one will be compared against.
     """
     row = conn.execute(
-        "SELECT started_at FROM runs WHERE kind = ? "
-        "OR (kind IS NULL AND swept > 0) ORDER BY id DESC LIMIT 1",
+        "SELECT started_at FROM runs WHERE kind = ? ORDER BY id DESC LIMIT 1",
         (SWEEP,)).fetchone()
     return row[0] if row else None
 
