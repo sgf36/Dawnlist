@@ -69,9 +69,12 @@ const getTicket = async (db, over = {}) => {
   return { status: res.status, out: await res.json() };
 };
 
-const item = (status = 'Active', endDate = '2027-01-01T00:00:00Z') => ({
-  productId: PRODUCT, status, endDate,
-  beneficiary: { identityValue: 'customer-one' },
+/* The v6 CollectionItemContractV6 shape, from Microsoft's documentation. It has
+   NO `beneficiary` and NO `id`: the old fake invented a `beneficiary` the real
+   API never sends, which is how the unstable customer identity passed. */
+const item = (status = 'Active', endDate = '2099-01-01T00:00:00Z', itemId = 'item-one') => ({
+  productId: PRODUCT, productType: 'Durable', status, endDate, itemId,
+  skuId: '0010', ownershipType: 'OwnedByBeneficiary', localTicketReference: 'dawnlist',
 });
 
 console.log('the service ticket');
@@ -148,10 +151,44 @@ await test('a resubscription is not refused on the stale row', async () => {
   /* A customer who cancelled and came back has BOTH rows. Refusing on the
      expired one would lock out somebody who has just paid again. */
   const db = makeD1();
-  mockMicrosoft({ collections: { items: [item('Expired', '2026-01-01T00:00:00Z'),
-                                          item('Active')] } });
+  mockMicrosoft({ collections: { items: [item('Expired', '2026-01-01T00:00:00Z', 'old-item'),
+                                          item('Active', '2099-01-01T00:00:00Z', 'new-item')] } });
   const { status } = await post(db, { collectionsKey: KEY });
   assert.strictEqual(status, 200);
+});
+
+await test('the query is the shape Microsoft documents', async () => {
+  const db = makeD1();
+  const calls = mockMicrosoft({ collections: { items: [item()] } });
+  await post(db, { collectionsKey: KEY });
+  const query = calls.find((c) => c.url.includes('collections/query'));
+  const body = JSON.parse(String(query.init.body));
+  assert.deepStrictEqual(body.beneficiaries[0].identityType, 'b2b',
+    'identityType, camel case: the lower-case spelling is not the one the API documents');
+  assert.strictEqual(body.beneficiaries[0].identityValue, KEY);
+  assert.ok(body.beneficiaries[0].localTicketReference, 'required by the API');
+  assert.deepStrictEqual(body.productTypes, ['Durable'],
+    'productTypes is REQUIRED; a subscription add-on is a Durable product');
+  assert.ok(!('productSkuIds' in body) || body.productSkuIds.every((p) => p.skuId),
+    'a ProductSkuId without skuId is incomplete');
+});
+
+await test('a fresh Store ID key for the same customer is the same licence', async () => {
+  /* The app mints a new key on every check and a key lasts 30 days. Keying
+     the customer on it created a new licence row every time. */
+  const db = makeD1();
+  mockMicrosoft({ collections: { items: [item()] } });
+  const first = await post(db, { collectionsKey: 'key-minted-monday' });
+  const second = await post(db, { collectionsKey: 'key-minted-tuesday' });
+  assert.strictEqual(first.out.licence_key, second.out.licence_key);
+  assert.strictEqual(db.query('SELECT COUNT(*) AS n FROM licences')[0].n, 1);
+});
+
+await test('Active with an end date already past is not a running subscription', async () => {
+  const db = makeD1();
+  mockMicrosoft({ collections: { items: [item('Active', '2020-01-01T00:00:00Z')] } });
+  const { status } = await post(db, { collectionsKey: KEY });
+  assert.strictEqual(status, 403);
 });
 
 console.log('configuration and refusal, kept apart');
