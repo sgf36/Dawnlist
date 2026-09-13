@@ -201,6 +201,8 @@
   "rules.strong_help": "Sinal em qualquer lugar — título, empresa ou descrição. Uma vaga que corresponda a um destes é sempre enviada para avaliação.",
   "rules.unsupported": "Nunca me mostrar",
   "rules.unsupported_help": "Termos de título que excluem uma vaga independentemente da qualidade do empregador. Verificados primeiro, e comparados com todas as vagas que você seguiu antes de serem aceites.",
+  "run.calibrate_now": "Calibrar agora",
+  "run.calibration_needed": "O Dawnlist ainda não foi calibrado, pelo que a pesquisa diária não será executada. A calibração demora alguns minutos: o Dawnlist mostra-lhe dez ofertas reais, você corrige o que estiver errado e o seu briefing aprende com as diferenças.",
   "run.done": "A execução de hoje terminou e a shortlist está atualizada.",
   "run.error": "A execução foi interrompida com um erro: {reason}",
   "run.failed_status": "A última execução falhou: {note}",

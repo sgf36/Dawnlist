@@ -201,6 +201,8 @@
   "rules.strong_help": "Herhangi bir yerde — başlık, şirket veya açıklamada — geçen sinyal. Bunlardan biriyle eşleşen bir ilan her zaman değerlendirmeye gönderilir.",
   "rules.unsupported": "Bana asla gösterme",
   "rules.unsupported_help": "İşveren ne kadar iyi olursa olsun bir ilanı eleyen başlık terimleri. İlk olarak kontrol edilir ve kabul edilmeden önce peşinden gittiğiniz her pozisyonla karşılaştırılır.",
+  "run.calibrate_now": "Şimdi kalibre et",
+  "run.calibration_needed": "Dawnlist henüz kalibre edilmedi, bu nedenle günlük arama çalıştırılmayacak. Kalibrasyon birkaç dakika sürer: Dawnlist size on canlı ilan gösterir, hatalı bulduklarınızı düzeltirsiniz ve özetiniz bu farklardan öğrenir.",
   "run.done": "Bugünkü çalıştırma tamamlandı ve kısa liste güncel.",
   "run.error": "Çalıştırma bir hatayla durdu: {reason}",
   "run.failed_status": "Son çalıştırma başarısız oldu: {note}",

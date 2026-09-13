@@ -201,6 +201,8 @@
   "rules.strong_help": "Semnal oriunde — titlu, companie sau descriere. Un anunț care corespunde unuia dintre acești termeni este trimis întotdeauna spre evaluare.",
   "rules.unsupported": "Nu-mi arăta niciodată",
   "rules.unsupported_help": "Termeni din titlu care exclud un anunț, indiferent cât de bun este angajatorul. Se verifică primii, și în raport cu fiecare post pentru care ați aplicat înainte de a fi acceptați.",
+  "run.calibrate_now": "Calibrează acum",
+  "run.calibration_needed": "Dawnlist nu a fost încă calibrat, așa că această căutare zilnică nu va rula. Calibrarea durează câteva minute: Dawnlist îți arată zece anunțuri active, tu corectezi ce a interpretat greșit, iar profilul tău învață din diferență.",
   "run.done": "Rularea de azi s-a încheiat, iar lista scurtă este actualizată.",
   "run.error": "Rularea s-a oprit cu o eroare: {reason}",
   "run.failed_status": "Ultima rulare a eșuat: {note}",

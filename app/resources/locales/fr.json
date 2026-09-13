@@ -201,6 +201,8 @@
   "rules.strong_help": "Signal n'importe où — titre, entreprise ou description. Une offre correspondant à l'un de ces termes est toujours envoyée pour évaluation.",
   "rules.unsupported": "Ne jamais me montrer",
   "rules.unsupported_help": "Termes de titre qui excluent une offre, quel que soit l'employeur. Vérifiés en premier, et comparés à chaque poste que vous avez poursuivi avant d'être acceptés.",
+  "run.calibrate_now": "Calibrer maintenant",
+  "run.calibration_needed": "Dawnlist n'a pas encore été calibré, la recherche quotidienne ne sera donc pas exécutée. La calibration ne prend que quelques minutes : Dawnlist vous présente dix offres réelles, vous corrigez ce qu'il a mal évalué, et votre brief apprend de ces écarts.",
   "run.done": "L'exécution du jour est terminée et la présélection est à jour.",
   "run.error": "L'exécution s'est arrêtée avec une erreur : {reason}",
   "run.failed_status": "La dernière exécution a échoué : {note}",

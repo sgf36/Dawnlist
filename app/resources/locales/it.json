@@ -201,6 +201,8 @@
   "rules.strong_help": "Segnale ovunque: titolo, azienda o descrizione. Un annuncio che corrisponde a uno di questi viene sempre inviato per la valutazione.",
   "rules.unsupported": "Non mostrarmi mai",
   "rules.unsupported_help": "Termini nel titolo che escludono un annuncio indipendentemente dalla qualità del datore di lavoro. Controllati per primi, e confrontati con ogni ruolo che hai perseguito prima di essere accettati.",
+  "run.calibrate_now": "Calibra ora",
+  "run.calibration_needed": "Dawnlist non è ancora stato calibrato, quindi la ricerca giornaliera non verrà eseguita. La calibrazione richiede pochi minuti: Dawnlist ti mostra dieci annunci in tempo reale, tu correggi ciò che ha valutato in modo errato e il tuo profilo apprende dalla differenza.",
   "run.done": "La ricerca di oggi è terminata e la shortlist è aggiornata.",
   "run.error": "La ricerca si è interrotta con un errore: {reason}",
   "run.failed_status": "L'ultima ricerca non è riuscita: {note}",

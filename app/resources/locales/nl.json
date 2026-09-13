@@ -201,6 +201,8 @@
   "rules.strong_help": "Signaal overal — titel, bedrijf of omschrijving. Een vacature die hiermee overeenkomt wordt altijd ter beoordeling verzonden.",
   "rules.unsupported": "Nooit tonen",
   "rules.unsupported_help": "Titeltermen die een vacature uitsluiten, hoe goed de werkgever ook is. Wordt als eerste gecontroleerd, en getoetst aan elke functie die u eerder heeft nagestreefd voordat deze wordt geaccepteerd.",
+  "run.calibrate_now": "Nu kalibreren",
+  "run.calibration_needed": "Dawnlist is nog niet gekalibreerd, dus de dagelijkse zoekopdracht wordt niet uitgevoerd. Kalibreren duurt enkele minuten: Dawnlist toont u tien actuele vacatures, u corrigeert wat er niet klopt, en uw briefing leert van het verschil.",
   "run.done": "De run van vandaag is voltooid en de shortlist is bijgewerkt.",
   "run.error": "De run is gestopt met een fout: {reason}",
   "run.failed_status": "De laatste run is mislukt: {note}",

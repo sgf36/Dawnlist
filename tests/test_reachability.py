@@ -133,3 +133,53 @@ def test_restarting_setup_forgets_only_the_setup_markers(tmp_path):
     assert not state.is_setup_finished(conn)
     left = {r["key"] for r in conn.execute("SELECT key FROM settings")}
     assert {"locale", "run_time"} <= left, "the user's own choices stay"
+
+
+def test_an_uncalibrated_user_is_told_and_offered_calibration(qapp, tmp_path):
+    """Setup can finish without calibrating -- normal before subscribing -- and
+    every daily run then refuses. Until 2026-09-13 nothing on the shortlist
+    said so or led back to calibration."""
+    from app import main
+    from app.core import db
+    from app.i18n import tr
+    from app.onboarding import calibration, state
+    from app.ui.review import ReviewWindow
+
+    conn = db.connect(tmp_path / "d.sqlite3")
+    db.migrate(conn)
+    state.mark_setup_finished(conn)
+    assert main._calibration_needed(conn)
+
+    window = ReviewWindow()
+    window.set_calibration_needed(main._calibration_needed(conn))
+    assert window.btn_calibrate.isVisibleTo(window)
+    assert window.calibration_note.text() == tr("run.calibration_needed")
+    asked = []
+    window.calibrate_requested.connect(lambda: asked.append(True))
+    window.btn_calibrate.click()
+    assert asked == [True]
+
+    conn.execute("INSERT INTO settings(key, value) VALUES(?, 'x')",
+                 (calibration.CALIBRATION_KEY,))
+    conn.commit()
+    assert not main._calibration_needed(conn)
+    window.set_calibration_needed(False)
+    assert not window.btn_calibrate.isVisibleTo(window)
+
+
+def test_calibration_opens_setup_one_click_from_the_gate(qapp, tmp_path, monkeypatch):
+    from app import main
+    from app.core import db
+    from app.onboarding import state, terms
+    from app.ui.onboarding import STEP_SEARCHES
+    from app.ui.review import ReviewWindow
+
+    conn = db.connect(tmp_path / "d.sqlite3")
+    db.migrate(conn)
+    terms.record_acceptance(conn)
+    state.mark_setup_finished(conn)
+    window = ReviewWindow()
+    main._open_calibration(window, conn)
+    wizard = main._HELD_WINDOWS[-1]
+    assert wizard.stack.currentIndex() == STEP_SEARCHES
+    wizard.close()

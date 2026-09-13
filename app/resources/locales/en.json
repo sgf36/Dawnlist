@@ -201,6 +201,8 @@
   "rules.strong_help": "Signal anywhere — title, company or description. A posting matching one of these is always sent to be assessed.",
   "rules.unsupported": "Never show me",
   "rules.unsupported_help": "Title terms that rule a posting out however good the employer. Checked first, and against every role you have pursued before it is accepted.",
+  "run.calibrate_now": "Calibrate now",
+  "run.calibration_needed": "Dawnlist has not been calibrated yet, so the daily search will not run. Calibrating takes a few minutes: Dawnlist shows you ten live postings, you correct what it got wrong, and your brief learns from the difference.",
   "run.done": "Today's run has finished and the shortlist is up to date.",
   "run.error": "The run stopped with an error: {reason}",
   "run.failed_status": "The last run failed: {note}",

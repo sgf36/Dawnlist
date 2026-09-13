@@ -201,6 +201,8 @@
   "rules.strong_help": "Signal bilo gdje — u naslovu, tvrtki ili opisu. Oglas koji odgovara jednom od ovih uvijek se šalje na procjenu.",
   "rules.unsupported": "Nikad mi ne prikazuj",
   "rules.unsupported_help": "Pojmovi u naslovu koji isključuju oglas bez obzira koliko je poslodavac dobar. Provjerava se prvo, i to u odnosu na svaku ulogu koju ste pratili prije nego što se prihvati.",
+  "run.calibrate_now": "Kalibriraj sada",
+  "run.calibration_needed": "Dawnlist još nije kalibriran, pa dnevna pretraga neće biti pokrenuta. Kalibracija traje nekoliko minuta: Dawnlist vam prikazuje deset aktualnih oglasa, vi ispravljate ono što je pogrešno procijenio, a vaš brief uči na temelju te razlike.",
   "run.done": "Današnje pokretanje je završeno i uži izbor je ažuriran.",
   "run.error": "Pokretanje je zaustavljeno zbog pogreške: {reason}",
   "run.failed_status": "Posljednje pokretanje nije uspjelo: {note}",

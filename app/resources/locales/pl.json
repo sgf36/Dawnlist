@@ -201,6 +201,8 @@
   "rules.strong_help": "Sygnał w dowolnym miejscu — tytule, nazwie firmy lub opisie. Oferta pasująca do jednej z tych reguł zawsze trafia do oceny.",
   "rules.unsupported": "Nigdy nie pokazuj",
   "rules.unsupported_help": "Terminy w tytule, które wykluczają ofertę niezależnie od jakości pracodawcy. Sprawdzane jako pierwsze oraz w odniesieniu do każdej wcześniej rozważanej oferty, zanim zostanie zaakceptowana.",
+  "run.calibrate_now": "Kalibruj teraz",
+  "run.calibration_needed": "Dawnlist nie został jeszcze skalibrowany, dlatego codzienne wyszukiwanie się nie uruchomi. Kalibracja zajmuje kilka minut: Dawnlist pokazuje dziesięć aktualnych ofert, Ty poprawiasz to, co zostało źle rozpoznane, a Twoje briefy uczą się na podstawie tych różnic.",
   "run.done": "Dzisiejsze uruchomienie zakończyło się, a lista wyników jest aktualna.",
   "run.error": "Uruchomienie zatrzymało się z powodu błędu: {reason}",
   "run.failed_status": "Ostatnie uruchomienie nie powiodło się: {note}",

@@ -201,6 +201,8 @@
   "rules.strong_help": "Calaamad meel kasta — cinwaanka, shirkadda ama sharraxaadda. Shaqo la mid ah mid ka mid ah kuwan waxaa mar walba loo diraa in la qiimeeyo.",
   "rules.unsupported": "Waligeed ha i tusin",
   "rules.unsupported_help": "Ereyo cinwaan ah oo ka reeba shaqo si kastoo shaqo-bixiyuhu wanaagsan yahay. Waxaa la hubiyaa marka hore, iyo iyadoo lagu barbardhigayo dhammaan jagooyinka aad raacday ka hor inta aan la aqbalin.",
+  "run.calibrate_now": "Hadda kalibraadi",
+  "run.calibration_needed": "Dawnlist weli lama kalibraadin, sidaas darteed raadinta maalinlaha ah ma socon doonto. Kalibraadintu waxay qaadataa dhowr daqiiqo: Dawnlist wuxuu ku tusayaa toban shaqo oo hadda banaan, waad saxeysaa waxa uu qaldamay, oo warqadaada gaaban way ka baranaysaa farqiga.",
   "run.done": "Hawlgalka maanta wuu dhammaaday, liiska koobanina waa la cusbooneysiiyay.",
   "run.error": "Hawlgalku wuxuu ku joogsaday khalad: {reason}",
   "run.failed_status": "Hawlgalkii ugu dambeeyay wuu fashilmay: {note}",

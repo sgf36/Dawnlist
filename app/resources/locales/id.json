@@ -201,6 +201,8 @@
   "rules.strong_help": "Sinyal di mana saja — judul, perusahaan, atau deskripsi. Lowongan yang cocok dengan salah satu istilah ini selalu dikirim untuk dinilai.",
   "rules.unsupported": "Jangan pernah tampilkan",
   "rules.unsupported_help": "Istilah judul yang menyingkirkan lowongan apa pun terlepas dari sebaik apa pemberi kerjanya. Diperiksa lebih dulu, dan dicocokkan dengan setiap peran yang pernah Anda lamar sebelum diterima.",
+  "run.calibrate_now": "Kalibrasi sekarang",
+  "run.calibration_needed": "Dawnlist belum dikalibrasi, sehingga pencarian harian tidak akan berjalan. Kalibrasi hanya membutuhkan beberapa menit: Dawnlist menampilkan sepuluh lowongan aktif, Anda mengoreksi yang kurang tepat, dan ringkasan Anda akan belajar dari koreksi tersebut.",
   "run.done": "Run hari ini telah selesai dan daftar pilihan sudah diperbarui.",
   "run.error": "Run berhenti karena kesalahan: {reason}",
   "run.failed_status": "Run terakhir gagal: {note}",

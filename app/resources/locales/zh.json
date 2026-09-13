@@ -201,6 +201,8 @@
   "rules.strong_help": "出现在任意位置均可——职位名称、公司名称或描述内容。凡符合以下任一条件的职位公告，都会被送去评估。",
   "rules.unsupported": "永不显示",
   "rules.unsupported_help": "这些职位名称中的关键词会直接淘汰该公告，无论雇主条件多好。系统会最先检查这些条件，并在采纳前与您曾申请过的所有职位进行核对。",
+  "run.calibrate_now": "立即校准",
+  "run.calibration_needed": "Dawnlist 尚未完成校准,因此每日搜索暂不会运行。校准仅需几分钟:Dawnlist 会向您展示十条实时职位信息,您可对其中的误判进行更正,系统会据此优化您的检索简报。",
   "run.done": "今天的运行已完成，候选清单已是最新。",
   "run.error": "运行因错误而停止：{reason}",
   "run.failed_status": "上次运行失败：{note}",

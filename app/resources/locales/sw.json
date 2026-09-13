@@ -201,6 +201,8 @@
   "rules.strong_help": "Ishara popote — kichwa, kampuni au maelezo. Tangazo linalolingana na moja ya haya daima hutumwa kutathminiwa.",
   "rules.unsupported": "Usinionyeshe kamwe",
   "rules.unsupported_help": "Maneno ya kichwa yanayoondoa tangazo bila kujali jinsi mwajiri alivyo mzuri. Yanakaguliwa kwanza, na dhidi ya kila nafasi uliyoifuatilia kabla ya kukubaliwa.",
+  "run.calibrate_now": "Sawazisha sasa",
+  "run.calibration_needed": "Dawnlist bado haijasawazishwa, hivyo utafutaji wa kila siku hautaendeshwa. Kusawazisha huchukua dakika chache: Dawnlist itakuonyesha nafasi kumi za kazi zilizopo, wewe urekebishe pale ilipokosea, na muhtasari wako utajifunza kutokana na tofauti hiyo.",
   "run.done": "Utafutaji wa leo umekamilika na orodha fupi imesasishwa.",
   "run.error": "Utafutaji umesimama kutokana na hitilafu: {reason}",
   "run.failed_status": "Utafutaji wa mwisho umeshindwa: {note}",

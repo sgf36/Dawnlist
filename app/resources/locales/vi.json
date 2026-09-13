@@ -201,6 +201,8 @@
   "rules.strong_help": "Tín hiệu ở bất kỳ đâu — tiêu đề, công ty hoặc mô tả. Một tin tuyển dụng khớp với một trong các mục này sẽ luôn được gửi để đánh giá.",
   "rules.unsupported": "Không bao giờ hiển thị cho tôi",
   "rules.unsupported_help": "Các thuật ngữ trong tiêu đề loại bỏ một tin tuyển dụng dù nhà tuyển dụng có tốt đến đâu. Được kiểm tra đầu tiên, và đối chiếu với mọi vị trí bạn đã theo đuổi trước khi được chấp nhận.",
+  "run.calibrate_now": "Hiệu chỉnh ngay",
+  "run.calibration_needed": "Dawnlist chưa được hiệu chỉnh, vì vậy tìm kiếm hằng ngày sẽ không chạy. Việc hiệu chỉnh chỉ mất vài phút: Dawnlist sẽ hiển thị cho bạn mười tin tuyển dụng thực tế, bạn sửa lại những chỗ chưa đúng, và bản tóm tắt của bạn sẽ học hỏi từ những khác biệt đó.",
   "run.done": "Lượt chạy hôm nay đã hoàn tất và danh sách rút gọn đã được cập nhật.",
   "run.error": "Lượt chạy đã dừng do lỗi: {reason}",
   "run.failed_status": "Lượt chạy gần nhất đã thất bại: {note}",

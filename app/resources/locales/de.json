@@ -201,6 +201,8 @@
   "rules.strong_help": "Signal überall – Titel, Unternehmen oder Beschreibung. Eine passende Stellenanzeige wird immer zur Bewertung gesendet.",
   "rules.unsupported": "Niemals anzeigen",
   "rules.unsupported_help": "Titelbegriffe, die eine Stellenanzeige ausschließen, unabhängig davon, wie gut der Arbeitgeber ist. Wird zuerst geprüft, und gegen jede zuvor verfolgte Stelle, bevor sie akzeptiert wird.",
+  "run.calibrate_now": "Jetzt kalibrieren",
+  "run.calibration_needed": "Dawnlist wurde noch nicht kalibriert, weshalb die tägliche Suche nicht ausgeführt wird. Die Kalibrierung dauert nur wenige Minuten: Dawnlist zeigt Ihnen zehn aktuelle Stellenanzeigen, Sie korrigieren die falsch bewerteten, und Ihr Suchprofil lernt aus den Unterschieden.",
   "run.done": "Der heutige Lauf ist abgeschlossen, die Shortlist ist aktuell.",
   "run.error": "Der Lauf wurde mit einem Fehler abgebrochen: {reason}",
   "run.failed_status": "Der letzte Lauf ist fehlgeschlagen: {note}",
