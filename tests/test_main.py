@@ -98,13 +98,13 @@ def ok(jobs):
 # -- configuration gates ----------------------------------------------------
 def test_a_run_without_a_brief_is_refused_loudly(conn):
     seed(conn, brief="")
-    with pytest.raises(NotConfigured, match="No fit brief"):
+    with pytest.raises(NotConfigured, match="no fit brief"):
         morning_run(conn, provider=Stub(ok([job("a")])), send=strong_send)
 
 
 def test_a_run_without_queries_is_refused(conn):
     seed(conn, queries=False)
-    with pytest.raises(NotConfigured, match="No saved queries"):
+    with pytest.raises(NotConfigured, match="No searches are switched on"):
         morning_run(conn, provider=Stub(ok([job("a")])), send=strong_send)
 
 
@@ -470,7 +470,7 @@ def test_an_uncalibrated_run_is_refused_at_the_door(conn):
     and the handoff is explicit: no daily runs before calibration.
     """
     seed(conn, calibrated=False)
-    with pytest.raises(NotConfigured, match="Calibration has not been completed"):
+    with pytest.raises(NotConfigured, match="not been calibrated"):
         morning_run(conn, provider=Stub(ok([job("a")])), send=strong_send)
 
 
@@ -480,7 +480,7 @@ def test_run_once_exits_two_when_uncalibrated(dbfile, capsys):
     seed(c, calibrated=False)
     c.close()
     assert main(["--run-once", "--db", str(dbfile)]) == 2
-    assert "Calibration" in capsys.readouterr().err
+    assert "calibrated" in capsys.readouterr().err
 
 
 def test_doctor_reports_the_locale_catalogues(dbfile, capsys):

@@ -139,7 +139,8 @@ def test_an_unknown_posting_is_named(conn, cvfolder, monkeypatch):
     monkeypatch.setattr("app.core.entitlement.require", lambda c: None)
     with pytest.raises(NotConfigured) as exc:
         apply_run(conn, "pasted:nope", send=lambda r: "x")
-    assert "nope" in str(exc.value)
+    from app.i18n import tr
+    assert str(exc.value) == tr("refusal.no_posting")
 
 
 def test_a_pack_is_produced_and_written(conn, advert, cvfolder, tmp_path,
