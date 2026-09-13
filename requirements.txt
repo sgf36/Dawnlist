@@ -107,3 +107,9 @@ winrt-runtime>=2.0 ; sys_platform == "win32"
 winrt-Windows.Foundation>=2.0 ; sys_platform == "win32"
 winrt-Windows.ApplicationModel>=2.0 ; sys_platform == "win32"
 winrt-Windows.ApplicationModel.Activation>=2.0 ; sys_platform == "win32"
+# THE STORE-BILLED BUILD'S ENTIRE PURCHASE PATH. `app/core/msstore.py` imports
+# `winrt.windows.services.store`, and until 2026-09-13 nothing installed it, so
+# on the live Microsoft Store build every Store call raised ImportError, was
+# reported as StoreUnavailable, and Subscribe could never work. The suite could
+# not see it: nothing tested msstore against the real module. Found by audit.
+winrt-Windows.Services.Store>=2.0 ; sys_platform == "win32"

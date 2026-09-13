@@ -1494,7 +1494,15 @@ class StoreSubscribePanel(QWidget):
                 return
             self.result.setText(tr("settings.store_subscribe_failed"))
 
-        self._run(store.purchase, done)
+        # STARTED HERE, ON THE UI THREAD, WITH THIS WINDOW AS OWNER; waited for
+        # off it. Microsoft requires the first and the window needs the
+        # second — see `msstore.start_purchase`.
+        try:
+            operation = store.start_purchase(int(self.window().winId()))
+        except Exception as exc:  # noqa: BLE001 - reported, never raised into Qt
+            self._failed(exc)
+            return
+        self._run(lambda: store.finish_purchase(operation), done)
 
 
 class StoreKitEvents(QObject):

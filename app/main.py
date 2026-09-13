@@ -796,6 +796,43 @@ def build_provider(conn):
             return ManagedProvider(cache["licence_key"])
         raise NotConfigured(tr("entitlement.mac_unreachable"))
 
+    if build == "store_iap":
+        # THE MICROSOFT STORE-BILLED BUILD. A Store purchase is exchanged at
+        # the Worker for a licence kept in its OWN credential slot
+        # (`ms_cache`), not the Paddle slot `stored_licence` reads. Without
+        # this branch a paying Store subscriber passed `check()` at the door
+        # and was then refused here with advice to enter a licence key they
+        # were never sent — found by audit on 2026-09-13, on the live build.
+        #
+        # Any Dawnlist licence is still honoured first, exactly as
+        # `_check_ms_store` does: Microsoft permits third-party commerce, so
+        # codes, comps and an existing Paddle key keep working here, which is
+        # the deliberate difference from the Mac branch above.
+        from app.core.credentials import KeyringUnavailable
+        from app.core.entitlement import ms_cache, ms_exchange_and_cache
+        from app.feed.managed import ManagedProvider
+        from app.i18n import tr
+
+        licence = stored_licence()
+        if licence:
+            return ManagedProvider(licence)
+        result = ms_exchange_and_cache()
+        if result.outcome == "licence":
+            return ManagedProvider(result.licence_key)
+        if result.outcome == "refused":
+            raise NotConfigured(tr("entitlement.ms_lapsed"))
+        if result.outcome == "none":
+            raise NotConfigured(tr("entitlement.ms_not_subscribed"))
+        try:
+            kept = ms_cache().get("licence_key")
+        except KeyringUnavailable:
+            raise NotConfigured(tr("entitlement.keyring_unavailable")) from None
+        if kept:
+            # The Store or the Worker could not be asked. The licence issued
+            # last time is still the Worker's to honour or refuse at the feed.
+            return ManagedProvider(kept)
+        raise NotConfigured(tr("entitlement.ms_unreachable"))
+
     licence = stored_licence()
     if licence:
         from app.feed.managed import ManagedProvider
@@ -974,6 +1011,11 @@ def onboarding_entitlement_panel():
     if build in ("store", "direct"):
         from app.ui.settings import LicencePanel
         return LicencePanel()
+    if build == "store_iap":
+        # The Microsoft Store's own subscription. Missing until 2026-09-13, so
+        # the live Store build finished setup without ever offering a purchase.
+        from app.ui.settings import StoreSubscribePanel
+        return StoreSubscribePanel()
     return None
 
 
