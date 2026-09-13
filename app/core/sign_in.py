@@ -77,7 +77,9 @@ def mechanism(build: str, platform: str | None = None) -> str | None:
     platform = platform or sys.platform
     windows = platform.startswith("win")
     mac = platform == "darwin"
-    if build == "store" and windows:
+    # BOTH Store builds ship the same AppxManifest StartupTask; the till is
+    # the only difference between them.
+    if build in ("store", "store_iap") and windows:
         return "store"
     if build == "mas" and mac:
         return "mac"

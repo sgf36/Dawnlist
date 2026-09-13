@@ -82,8 +82,15 @@ class LocalState:
     asked: bool = True
 
 
-def _context():
+def _context(hwnd: int | None = None):
     """A `StoreContext` for this process, or raise `StoreUnavailable`.
+
+    `hwnd` OWNS ANY DIALOG THE CONTEXT SHOWS. Microsoft: a Win32 desktop app
+    "must configure the StoreContext object to specify which application window
+    is the owner window for modal dialogs", or it "will return inaccurate data
+    or errors" (learn.microsoft.com, in-app purchases and trials, "Using the
+    StoreContext class with the Desktop Bridge"). The purchase passes it; calls
+    that show no UI do not need one.
 
     Imported inside the function rather than at module scope so that importing
     this module on macOS, on a direct build, or in a test collection run does
@@ -97,13 +104,21 @@ def _context():
         raise StoreUnavailable(f"Windows.Services.Store unavailable: {exc}") from exc
 
     try:
-        return StoreContext.get_default()
+        context = StoreContext.get_default()
     except Exception as exc:  # noqa: BLE001
         # The usual cause is no package identity: a direct-download build, or
         # running from source. Said plainly, because "the Store refused" sends
         # somebody looking at their Microsoft account.
         raise StoreUnavailable(
             f"no Store context — is this running from an MSIX? ({exc})") from exc
+    if hwnd:
+        try:
+            from winrt.runtime.interop import initialize_with_window
+            initialize_with_window(context, int(hwnd))
+        except Exception as exc:  # noqa: BLE001
+            raise StoreUnavailable(
+                f"could not give the Store its owner window: {exc}") from exc
+    return context
 
 
 def local_state(*, context=None) -> LocalState:
@@ -218,8 +233,33 @@ PURCHASE_STATUS = {
 }
 
 
-def purchase(*, context=None) -> str:
-    """Ask the Store to sell the subscription. Returns a PURCHASE_STATUS value.
+def start_purchase(hwnd: int, *, context=None):
+    """Open the Store's purchase dialog. CALL THIS ON THE UI THREAD.
+
+    Returns the pending operation for `finish_purchase` to wait on elsewhere.
+
+    SPLIT IN TWO BECAUSE MICROSOFT REQUIRES BOTH HALVES TO BE DIFFERENT THREADS.
+    `RequestPurchaseAsync` "must be called on the UI thread"; from any other it
+    fails with 0x80070578, ERROR_INVALID_WINDOW_HANDLE, which is also what a
+    desktop app gets when it has not given the context an owner window
+    (learn.microsoft.com, StoreContext.RequestPurchaseAsync, Remarks). But the
+    dialog then waits for as long as the customer takes, and waiting for it on
+    the UI thread freezes the window. So the call starts here, on the UI
+    thread, with the window handle; the waiting happens in `finish_purchase`,
+    on a worker. A WinRT async operation may be waited on from any thread.
+
+    Until 2026-09-13 one function did both on a worker thread with no owner
+    window, which Microsoft documents as failing — found by audit.
+    """
+    ctx = context or _context(hwnd)
+    try:
+        return ctx.request_purchase_async(ADD_ON_STORE_ID)
+    except Exception as exc:  # noqa: BLE001
+        raise StoreUnavailable(f"the purchase could not be started: {exc}") from exc
+
+
+def finish_purchase(operation) -> str:
+    """Wait for the purchase dialog's answer. FOR A WORKER THREAD.
 
     ALREADY-OWNED IS NOT A FAILURE. Microsoft returns `AlreadyPurchased` when
     the customer holds the add-on on this account — after a reinstall, or on a
@@ -231,10 +271,9 @@ def purchase(*, context=None) -> str:
     saying "purchase failed" to somebody who chose not to buy is both wrong and
     faintly insulting.
     """
-    ctx = context or _context()
     try:
-        result = ctx.request_purchase_async(ADD_ON_STORE_ID).get()
+        result = operation.get()
     except Exception as exc:  # noqa: BLE001
-        raise StoreUnavailable(f"the purchase could not be started: {exc}") from exc
+        raise StoreUnavailable(f"the purchase did not complete: {exc}") from exc
     status = getattr(result, "status", None)
     return PURCHASE_STATUS.get(int(status) if status is not None else -1, "unknown")

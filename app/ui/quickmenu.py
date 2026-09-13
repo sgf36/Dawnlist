@@ -71,6 +71,10 @@ def populate(menu: QMenu, *, build: str, on_language, on_subscribe,
         menu.addAction(tr("menu.restore"), on_restore)
     elif build in ("store", "direct"):
         menu.addAction(tr("menu.licence"), on_subscribe)
+    elif build == "store_iap":
+        # The Store subscription. No Restore: the entitlement follows the
+        # Microsoft account, so pressing Subscribe IS the restore there.
+        menu.addAction(tr("menu.subscribe"), on_subscribe)
 
     menu.addSeparator()
     menu.addAction(tr("menu.settings"), on_settings)
