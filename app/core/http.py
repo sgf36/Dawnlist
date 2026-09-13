@@ -39,9 +39,47 @@ may construct a `urllib.request.Request` except this module.
 """
 from __future__ import annotations
 
+import sys
 import urllib.request
 
 from app.version import marketing_version
+
+
+def use_system_trust(platform: str = sys.platform) -> bool:
+    """Verify HTTPS through the operating system's trust store, on macOS.
+
+    WITHOUT THIS NO HTTPS REQUEST FROM THE MAC APP COULD SUCCEED. The
+    python.org macOS interpreter that PyInstaller bundles has its own OpenSSL
+    and no certificate store, and a frozen bundle has no certifi file, so
+    urllib fails certificate verification immediately. Measured on the cloud
+    Mac against build 173 on 2026-09-13: the /v1/apple exchange failed in under
+    a second and the bundle contained no .pem file at all, so a sandbox
+    purchase Apple had already completed could never become a licence. The
+    failure is documented upstream (pyinstaller/pyinstaller#7229).
+
+    `truststore.inject_into_ssl()` makes every `ssl` context verify through the
+    macOS Security framework, which is what Safari trusts, and ships no
+    certificate file that could go stale. It is meant for applications rather
+    than libraries, which is exactly what this is.
+
+    macOS only. Windows Python already reads the Windows certificate store, and
+    the Store build works there; changing its trust path would be risk for no
+    gain. Returns whether injection happened, so a test can tell.
+    """
+    if platform != "darwin":
+        return False
+    try:
+        import truststore
+        truststore.inject_into_ssl()
+    except Exception:  # noqa: BLE001 - never stop the app starting; the
+        # request that then fails reports its own error.
+        return False
+    return True
+
+
+# At import: every module that makes a request imports this one for
+# `build_request`, so no request can be built before trust is in place.
+use_system_trust()
 
 #: Identifies the client to anything that logs or filters by agent. Never the
 #: urllib default — see the module docstring.

@@ -592,8 +592,11 @@ def exchange_apple(*, original_transaction_id: str | None = None,
                 original_transaction_id=body.get("original_transaction_id"))
         return AppleExchange("unreachable",
                              error=str(body.get("error") or f"http_{exc.code}"))
-    except Exception:  # noqa: BLE001 - an outage is not a refusal
-        return AppleExchange("unreachable")
+    except Exception as exc:  # noqa: BLE001 - an outage is not a refusal
+        # NAMED, because an unnamed "unreachable" hid a certificate failure for
+        # a whole evening: build 173's trace said only `error=`.
+        return AppleExchange("unreachable",
+                             error=f"{type(exc).__name__}: {exc}"[:200])
 
     if not isinstance(body, dict) or not body.get("licence_key"):
         return AppleExchange("unreachable", error="no_licence_in_reply")
