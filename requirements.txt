@@ -33,6 +33,16 @@ PySide6>=6.7.0
 # that cannot make a single working call.
 anthropic>=0.77.0
 keyring>=24.0.0
+
+# TLS ON THE MAC. The python.org macOS interpreter that PyInstaller bundles
+# carries its own OpenSSL with NO certificate store, and a frozen app has no
+# certifi file either, so every urllib HTTPS call fails verification at once.
+# Measured on the cloud Mac, build 173 (2026-09-13): the /v1/apple exchange
+# failed in under a second, the bundle contained no .pem at all, and the
+# sandbox purchase could never become a licence. Documented upstream in
+# pyinstaller/pyinstaller#7229. truststore verifies through the macOS Security
+# framework instead, so there is no certificate file to ship or to go stale.
+truststore>=0.10.0
 platformdirs>=4.0.0
 openpyxl>=3.1.0
 
