@@ -60,8 +60,11 @@ class DawnlistTransactionObserver(NSObject):
     """The one transaction observer. Owns `hub`, and decides nothing itself."""
 
     def paymentQueue_updatedTransactions_(self, queue, transactions):
+        import threading
+
         from app.core.mac_storekit import _trace
-        _trace(f"observer called: updatedTransactions x{len(transactions or [])}")
+        _trace(f"observer called: updatedTransactions x{len(transactions or [])} "
+               f"main_thread={threading.current_thread() is threading.main_thread()}")
         self.hub.transactions_updated(queue, list(transactions or []))
 
     def paymentQueueRestoreCompletedTransactionsFinished_(self, queue):

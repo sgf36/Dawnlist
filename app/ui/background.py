@@ -111,6 +111,20 @@ def run_in_background(fn: Callable[[], Any], *,
                       on_error: Callable[[BaseException], None]) -> _Task:
     """Run `fn` on a worker thread. Returns the task — KEEP A REFERENCE."""
     task = _Task(fn)
+    # CALLED FROM A THREAD QT DOES NOT RUN, the answer went nowhere. The
+    # signals object belongs to the thread that creates it, and a queued
+    # signal is delivered by THAT thread's event loop — which a StoreKit
+    # callback thread does not have. So the work ran and its result was
+    # queued to a loop that never turns. Measured on the cloud Mac, build 170:
+    # Apple delivered a PURCHASED transaction to the observer, the Worker
+    # exchange was started from that callback, and no answer ever came back,
+    # so the transaction was never finished and was redelivered at every
+    # launch. Moving the object to the application's thread first makes the
+    # UI thread deliver the answer wherever the call came from.
+    from PySide6.QtCore import QCoreApplication, QThread
+    app = QCoreApplication.instance()
+    if app is not None and QThread.currentThread() != app.thread():
+        task.signals.moveToThread(app.thread())
     # Python owns the task, never the pool: a pool that deletes the C++ object
     # when `run()` returns leaves a live Python wrapper pointing at freed memory.
     task.setAutoDelete(False)
