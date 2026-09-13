@@ -435,6 +435,7 @@ class TransactionHub:
         self.exchanging.add(oid)
 
         def ask():
+            _trace("asking the Worker")
             try:
                 return self.exchange(oid)
             except Exception:  # noqa: BLE001 - could not ask is not a refusal
