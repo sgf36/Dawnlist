@@ -49,12 +49,21 @@ period, and a refusal says WHICH of the two happened.
 """
 from __future__ import annotations
 
+import json
 import sqlite3
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
+# `credentials`, `json`, `urllib` and `build_request` are used by the Microsoft
+# Store functions and were never imported: the whole Store-billed path raised
+# NameError the first time it ran, which no test did. `tests/test_no_undefined_names.py`
+# now fails on any name used and never defined, anywhere in the app.
+from app.core import credentials
 from app.core.build_variant import variant
 from app.core.credentials import KeyringUnavailable
+from app.core.http import build_request
 from app.i18n import tr
 
 #: How long a verified licence is honoured without re-checking. Long enough to
@@ -771,6 +780,19 @@ def write_ms_cache(cache: dict) -> None:
     credentials.write(LICENCE_SERVICE, MS_ACCOUNT, json.dumps(cache))
 
 
+def _ms_service_ticket(*, base: str | None = None, opener=None) -> str | None:
+    """The Entra ID ticket the Store needs to mint a Store ID key, or None."""
+    request = build_request((base or WORKER_BASE).rstrip("/") + "/v1/microsoft/ticket",
+                            method="GET")
+    try:
+        with (opener or urllib.request.urlopen)(request, timeout=30) as response:
+            body = json.loads(response.read().decode())
+    except Exception:  # noqa: BLE001 - could not ask; never a refusal
+        return None
+    ticket = body.get("ticket") if isinstance(body, dict) else None
+    return str(ticket) if ticket else None
+
+
 def ms_exchange_and_cache(*, base: str | None = None, opener=None) -> AppleExchange:
     """Ask the Worker to turn a Store purchase into a licence.
 
@@ -788,8 +810,20 @@ def ms_exchange_and_cache(*, base: str | None = None, opener=None) -> AppleExcha
     """
     from app.core import msstore
 
+    # THE SERVICE TICKET FIRST. `GetCustomerCollectionsIdAsync` requires an
+    # Entra ID token with the audience .../b2b/keys/create/collections, issued
+    # by the publisher's service ("Pass the Entra ID access token ... from your
+    # service to your client app", learn.microsoft.com, Manage product
+    # entitlements from a service, step 4). The Worker has minted exactly that
+    # at /v1/microsoft/ticket since it was built; nothing here asked for it,
+    # and an empty ticket produces no Store ID key -- so no Store subscriber
+    # could ever have been confirmed. Found by audit, 2026-09-13.
+    ticket = _ms_service_ticket(base=base, opener=opener)
+    if ticket is None:
+        return AppleExchange("unreachable", error="no_service_ticket")
+
     try:
-        key = msstore.collections_key()
+        key = msstore.collections_key(service_ticket=ticket)
     except msstore.StoreUnavailable:
         # Could not ASK. Not a refusal — see `msstore.StoreUnavailable`.
         return AppleExchange("unreachable")

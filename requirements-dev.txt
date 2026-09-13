@@ -7,6 +7,11 @@
 
 -r requirements.txt
 pytest>=8.0.0
+# Undefined names. The Microsoft Store purchase path used `json`, `urllib`,
+# `credentials` and `build_request` without importing them and raised NameError
+# the first time it ran on the shipped build; tests/test_no_undefined_names.py
+# runs this over app/ so that cannot ship again.
+pyflakes>=3.2.0
 pyinstaller>=6.0.0
 
 # tests/test_release_workflow.py reads .github/workflows/build.yml and checks

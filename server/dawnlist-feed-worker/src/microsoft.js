@@ -121,6 +121,18 @@ export async function handleTicket(env, { fetcher = fetch } = {}) {
 const ENTITLED = new Set(['Active', 'ActivePendingCancellation']);
 
 /**
+ * Active AND not past its end date. With validityType 'All' Microsoft returns
+ * expired items too, and a status is the Store's summary while the end date is
+ * the fact; a row that says Active with an end date behind us is not a
+ * running subscription.
+ */
+const entitledNow = (item, now = Date.now()) => {
+  if (!ENTITLED.has(item?.status)) return false;
+  const end = Date.parse(item?.endDate || '');
+  return Number.isNaN(end) || end > now;
+};
+
+/**
  * Step 3: the Store ID key, exchanged for a licence.
  */
 export async function handleMicrosoft(request, env, { fetcher = fetch } = {}) {
@@ -150,11 +162,21 @@ export async function handleMicrosoft(request, env, { fetcher = fetch } = {}) {
       method: 'POST',
       headers: { authorization: `Bearer ${token}`,
                  'content-type': 'application/json' },
+      // THE SHAPE MICROSOFT DOCUMENTS, checked field by field against
+      // learn.microsoft.com/windows/uwp/monetize/query-for-products on
+      // 2026-09-13. The earlier body sent `identitytype` (the API names it
+      // identityType), omitted `productTypes`, which is REQUIRED, and sent
+      // `productSkuIds` without the `skuId` each entry requires -- any of which
+      // can make the query refuse every customer. The product is filtered
+      // below instead of by `productSkuIds`, so no SKU id has to be guessed.
+      // Subscription add-ons are Durable products: Microsoft's own
+      // StoreServices library reads RecurrenceData off these same items.
       body: JSON.stringify({
         maxPageSize: 100,
-        beneficiaries: [{ identitytype: 'b2b', identityValue: key,
-                          localTicketReference: '' }],
-        productSkuIds: [{ productId: env.MS_PRODUCT_ID }],
+        beneficiaries: [{ identityType: 'b2b', identityValue: key,
+                          localTicketReference: 'dawnlist' }],
+        productTypes: ['Durable'],
+        validityType: 'All',
       }),
     });
     if (res.status === 401 || res.status === 403) {
@@ -195,10 +217,17 @@ export async function handleMicrosoft(request, env, { fetcher = fetch } = {}) {
   // The most generous row wins when a customer has more than one — a
   // resubscription leaves the old row in place, and refusing on the stale one
   // would lock out somebody who has just paid again.
-  const live = mine.find((item) => ENTITLED.has(item?.status)) || mine[0];
-  const userId = String(live?.beneficiary?.identityValue || live?.id || key).slice(0, 200);
+  const live = mine.find(entitledNow) || mine[0];
+  // WHO THE CUSTOMER IS, STABLY. The v6 item has no `beneficiary` and no `id`,
+  // so the old expression always fell through to the Store ID key -- which the
+  // app mints afresh on every check and which expires after 30 days. Every
+  // check therefore created a NEW licence row: one customer, many licences,
+  // caps counted per row, and a lapse that could never find the licence it
+  // should expire. `itemId` is Microsoft's identifier for this item among
+  // the products this user owns.
+  const userId = String(live?.itemId || live?.orderId || key).slice(0, 200);
 
-  if (!ENTITLED.has(live?.status)) {
+  if (!entitledNow(live)) {
     return settleMicrosoft(env, {
       userId, entitled: false, status: String(live?.status || 'Unknown'),
       expiresAt: live?.endDate || null, productId: env.MS_PRODUCT_ID,
