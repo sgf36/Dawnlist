@@ -285,6 +285,13 @@ class FunnelBar(QFrame):
 class ReviewWindow(QMainWindow):
     decided = Signal(str, str)          # (job_id, decision)
     settings_requested = Signal()
+    #: Open the board. Until 2026-09-13 the board could be reached ONLY with
+    #: the `--board` command-line flag, so on every shipped build a posting
+    #: marked Pursue went somewhere the user could never open again.
+    board_requested = Signal()
+    #: Back to the first screen of setup. Asked for after a user was left with
+    #: no way to redo setup short of deleting the app's data by hand.
+    restart_setup_requested = Signal()
     #: The same three things the setup wizard offers, on the window a user
     #: spends every morning in. Language was previously unreachable anywhere.
     language_chosen = Signal(str)
@@ -317,7 +324,7 @@ class ReviewWindow(QMainWindow):
         # refuses it has already told the user the wrong thing.
         self.setAcceptDrops(True)
 
-        self.act_settings = QAction(tr("settings.title"), self)
+        self.act_settings = QAction(tr("menu.settings"), self)
         self.act_settings.setMenuRole(QAction.MenuRole.PreferencesRole)
         self.act_settings.triggered.connect(self.settings_requested)
         app_menu = self.menuBar().addMenu(tr("menu.app"))
@@ -331,8 +338,12 @@ class ReviewWindow(QMainWindow):
                  on_language=self.language_chosen.emit,
                  on_subscribe=self.subscribe_requested.emit,
                  on_restore=self.restore_requested.emit,
-                 on_settings=self.settings_requested.emit)
-        app_menu.addAction(self.act_settings)
+                 on_settings=self.settings_requested.emit,
+                 settings_action=self.act_settings,
+                 on_restart_setup=self.restart_setup_requested.emit)
+        self.act_board = QAction(tr("menu.board"), self)
+        self.act_board.triggered.connect(self.board_requested)
+        app_menu.insertAction(app_menu.actions()[0], self.act_board)
 
         #: The factsheet and CV text, joined. Set by whoever opens the window.
         #:
@@ -382,10 +393,22 @@ class ReviewWindow(QMainWindow):
         self.btn_run_now.hide()
         self.btn_run_now.setEnabled(False)
         self.btn_run_now.clicked.connect(self.run_now_requested)
+        # VISIBLE, not only in the menu. On Windows the menu bar is a single
+        # plain word that does not look like a menu, and a user on this screen
+        # could not see how to reach Settings (reported 2026-09-13). The board
+        # is the other half of the app and had no way in at all.
+        self.btn_board = QPushButton(tr("menu.board"))
+        self.btn_board.setObjectName("secondaryButton")
+        self.btn_board.clicked.connect(self.board_requested)
+        self.btn_settings = QPushButton(tr("menu.settings"))
+        self.btn_settings.setObjectName("secondaryButton")
+        self.btn_settings.clicked.connect(self.settings_requested)
         run_row.addWidget(self.last_run)
         run_row.addWidget(self.run_busy)
         run_row.addWidget(self.run_progress)
         run_row.addStretch(1)
+        run_row.addWidget(self.btn_board)
+        run_row.addWidget(self.btn_settings)
         run_row.addWidget(self.btn_run_now)
         outer.addLayout(run_row)
 

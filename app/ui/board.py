@@ -277,6 +277,10 @@ class BoardWindow(QWidget):
     #: user's own tokens, and a widget that could spend money by itself is
     #: exactly the boundary the rest of this class exists to keep.
     application_requested = Signal(str, bool)   # (opportunity_id, want_brief)
+    #: Draft every follow-up the cadence says is due. The drafting existed and
+    #: was reachable only as `--draft` on a command line, while every store
+    #: listing said Dawnlist "drafts your follow-ups". Found by audit.
+    drafts_requested = Signal()
     #: The employer answered. (opportunity_id, positive, stage) — `stage` is
     #: the Stage value to advance to and is meaningless when `positive` is
     #: false, because a negative determination has exactly one destination.
@@ -296,7 +300,14 @@ class BoardWindow(QWidget):
         outer.setSpacing(10)
 
         self.audit = AuditBanner()
-        outer.addWidget(self.audit)
+        top = QHBoxLayout()
+        top.addWidget(self.audit, 1)
+        self.btn_drafts = QPushButton(tr("board.draft_followups"))
+        self.btn_drafts.setObjectName("primary")
+        self.btn_drafts.setToolTip(tr("draft.never_sends"))
+        self.btn_drafts.clicked.connect(self.drafts_requested)
+        top.addWidget(self.btn_drafts)
+        outer.addLayout(top)
 
         self.tree = QTreeWidget()
         self.tree.setObjectName("boardTree")

@@ -2460,20 +2460,46 @@ def _write_application(window, conn, opportunity_id: str,
     from app.core.entitlement import NotEntitled
     from app.i18n import tr
 
+    from app.ui.background import run_in_background
+
+    # OFF THE UI THREAD. This writes a CV, a letter and optionally a brief on
+    # the user's own key, which takes tens of seconds; it used to run on the UI
+    # thread under a wait cursor, so the window stopped answering for all of
+    # it -- "(Not Responding)" on Windows, which Microsoft Store policy 10.4.2
+    # names. A connection of its own, because sqlite connections belong to the
+    # thread that opened them. Found by audit, 2026-09-13.
+    path = database_path(conn)
+
+    def work():
+        worker_conn = db.connect(path)
+        try:
+            return apply_for_opportunity(worker_conn, opportunity_id,
+                                         want_brief=want_brief)
+        finally:
+            worker_conn.close()
+
+    def failed(exc):
+        QApplication.restoreOverrideCursor()
+        if isinstance(exc, (NotConfigured, KeyProblem, NotEntitled)):
+            QMessageBox.warning(window, tr("board.write_application"), str(exc))
+        else:
+            QMessageBox.warning(window, tr("board.write_application"),
+                                f"{type(exc).__name__}: {exc}")
+
+    def done(pack):
+        QApplication.restoreOverrideCursor()
+        _application_written(window, pack)
+
     QApplication.setOverrideCursor(Qt.WaitCursor)
-    try:
-        pack = apply_for_opportunity(conn, opportunity_id,
-                                     want_brief=want_brief)
-    except (NotConfigured, KeyProblem, NotEntitled) as exc:
-        QApplication.restoreOverrideCursor()
-        QMessageBox.warning(window, tr("board.write_application"), str(exc))
-        return
-    except Exception as exc:  # noqa: BLE001
-        QApplication.restoreOverrideCursor()
-        QMessageBox.warning(window, tr("board.write_application"),
-                            f"{type(exc).__name__}: {exc}")
-        return
-    QApplication.restoreOverrideCursor()
+    window._application_task = run_in_background(work, on_done=done,
+                                                 on_error=failed)
+
+
+def _application_written(window, pack) -> None:
+    from PySide6.QtWidgets import QMessageBox
+
+    from app.apply.run import summarise
+    from app.i18n import tr
 
     # Leads with what is missing rather than with what was produced, and names
     # the folder, because a document written somewhere the user cannot find is
@@ -2489,13 +2515,32 @@ def _added_alerts(window, conn, paths) -> None:
     Reloading is the point: a drop that silently changed the database and left
     the window showing the previous run would look like nothing happened.
     """
+    from app.ui.background import run_in_background
+
+    # OFF THE UI THREAD, for the same reason as the daily run: ingesting checks
+    # the subscription and assesses every posting on the user's key, and on
+    # the UI thread the window froze for the whole of it. Found by audit.
+    path = database_path(conn)
+
+    def work():
+        worker_conn = db.connect(path)
+        try:
+            return ingest_alerts(worker_conn, paths)
+        finally:
+            worker_conn.close()
+
+    def failed(exc):
+        window.funnel.set_counts({}, incomplete_note=str(exc)[:200])
+
+    window._alerts_task = run_in_background(
+        work, on_done=lambda result: _alerts_added(window, conn, result),
+        on_error=failed)
+
+
+def _alerts_added(window, conn, result) -> None:
     from app.ui.adapter import latest_run_id, rows_from_db
 
-    try:
-        outcome, problems = ingest_alerts(conn, paths)
-    except Exception as exc:  # noqa: BLE001
-        window.funnel.set_counts({}, incomplete_note=str(exc)[:200])
-        return
+    outcome, problems = result
 
     note = "; ".join(problems) if problems else ""
     if outcome is None:
@@ -2527,6 +2572,144 @@ def _wire_daily_run(window, conn, reload, *, tray_available=None):
     return controller, binding, tray
 
 
+#: Windows opened from another window. A top-level QWidget nobody holds is
+#: collected as soon as the callback that made it returns, and vanishes.
+_HELD_WINDOWS: list = []
+
+
+def _wire_board(board, conn) -> None:
+    """Everything a board window does, whichever route opened it."""
+    from app.ui.board_adapter import board_rows, connect_board
+
+    connect_board(board, conn)
+    board.application_requested.connect(
+        lambda oid, brief: _write_application(board, conn, oid, brief))
+    board.drafts_requested.connect(lambda: _draft_followups(board, conn))
+    rows, findings = board_rows(conn)
+    board.load(rows, findings)
+
+
+def _open_board(parent, conn):
+    """Open the board from the shortlist, or bring it forward if it is open.
+
+    Reloaded every time it is shown: a posting marked Pursue a moment ago
+    belongs on it, and a board showing yesterday's rows reads as a lost
+    decision.
+    """
+    from app.ui.board import BoardWindow
+    from app.ui.board_adapter import board_rows
+
+    board = getattr(parent, "_board", None)
+    if board is None:
+        board = BoardWindow()
+        _wire_board(board, conn)
+        parent._board = board
+    else:
+        rows, findings = board_rows(conn)
+        board.load(rows, findings)
+    board.show()
+    board.raise_()
+    board.activateWindow()
+    return board
+
+
+def _draft_followups(board, conn) -> None:
+    """Draft what is due, off the UI thread, and say where the drafts are.
+
+    Sends nothing. The drafts are .eml files the user opens and sends from
+    their own mail app, and the words say so every time.
+    """
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication, QMessageBox
+
+    from app.core.api_key import KeyProblem
+    from app.core.entitlement import NotEntitled
+    from app.i18n import tr
+    from app.ui.background import run_in_background
+    from app.ui.board_adapter import board_rows
+
+    path = database_path(conn)
+
+    def work():
+        worker_conn = db.connect(path)
+        try:
+            return outreach_run(worker_conn)
+        finally:
+            worker_conn.close()
+
+    def failed(exc):
+        QApplication.restoreOverrideCursor()
+        board.btn_drafts.setEnabled(True)
+        text = (str(exc) if isinstance(exc, (NotConfigured, KeyProblem, NotEntitled))
+                else f"{type(exc).__name__}: {exc}")
+        QMessageBox.warning(board, tr("board.draft_followups"), text)
+
+    def done(report):
+        QApplication.restoreOverrideCursor()
+        board.btn_drafts.setEnabled(True)
+        drafted = report.drafts.counts["drafted"]
+        text = (tr("board.drafts_done", count=drafted, folder=str(drafts_dir()))
+                if drafted else tr("board.drafts_none"))
+        QMessageBox.information(board, tr("board.draft_followups"), text)
+        rows, findings = board_rows(conn)
+        board.load(rows, findings)
+
+    board.btn_drafts.setEnabled(False)
+    QApplication.setOverrideCursor(Qt.WaitCursor)
+    board._drafts_task = run_in_background(work, on_done=done, on_error=failed)
+
+
+def restart_setup(conn) -> None:
+    """Forget that setup finished, so the next thing shown is its first screen.
+
+    Only the markers are cleared: finished, calibrated, the unfinished draft
+    and the terms acceptance, which setup asks for again as its first step.
+    The board, the shortlist, the Anthropic key and any subscription are left
+    alone: this redoes setup, it does not uninstall anything.
+    """
+    from app.onboarding import calibration, state, terms
+
+    for key in (state.SETUP_FINISHED_KEY, state.DRAFT_KEY,
+                calibration.CALIBRATION_KEY,
+                terms.ACCEPTED_VERSION_KEY, terms.ACCEPTED_AT_KEY):
+        conn.execute("DELETE FROM settings WHERE key=?", (key,))
+    conn.commit()
+
+
+def _restart_setup(window, conn) -> None:
+    from PySide6.QtWidgets import QMessageBox
+
+    from app.i18n import tr
+
+    answer = QMessageBox.question(window, tr("menu.restart_setup"),
+                                  tr("menu.restart_setup_confirm"))
+    if answer != QMessageBox.StandardButton.Yes:
+        return
+    restart_setup(conn)
+
+    def show_the_shortlist():
+        fresh = _main_window(conn, open_board=False)
+        _HELD_WINDOWS.append(fresh)
+        fresh.show()
+
+    wizard = build_onboarding(conn, on_finished=show_the_shortlist)
+    _HELD_WINDOWS.append(wizard)
+    wizard.fit_to_screen()
+    wizard.show()
+    board = getattr(window, "_board", None)
+    if board is not None:
+        board.close()
+    daily = getattr(window, "_daily_run", None)
+    if daily is not None and len(daily) > 2 and daily[2] is not None:
+        # The tray belongs to this window; left behind it would keep offering
+        # a run for a setup that is being redone.
+        hide = getattr(daily[2], "hide", None)
+        if callable(hide):
+            hide()
+    window.close()
+    window.deleteLater()
+
+
 def _main_window(conn, *, open_board: bool):
     """The board or the shortlist, loaded and wired. Never shown here.
 
@@ -2541,11 +2724,7 @@ def _main_window(conn, *, open_board: bool):
 
     if open_board:
         window = BoardWindow()
-        connect_board(window, conn)
-        window.application_requested.connect(
-            lambda oid, brief: _write_application(window, conn, oid, brief))
-        rows, findings = board_rows(conn)
-        window.load(rows, findings)
+        _wire_board(window, conn)
     else:
         window = ReviewWindow()
         # The factsheet and the CV corpus, so the detail pane can say what a
@@ -2557,6 +2736,8 @@ def _main_window(conn, *, open_board: bool):
         window.evidence = (load_document(conn, "factsheet") + "\n\n"
                            + load_cv_text()).strip()
         window.settings_requested.connect(lambda: open_settings(window, conn))
+        window.board_requested.connect(lambda: _open_board(window, conn))
+        window.restart_setup_requested.connect(lambda: _restart_setup(window, conn))
         # Language, subscription and Restore from the menu bar. The same three
         # the setup wizard offers, because a user who skipped past them there
         # has to be able to find them afterwards.

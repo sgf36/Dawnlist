@@ -40,7 +40,8 @@ from app.i18n import SUPPORTED_LOCALES, current_locale, tr
 
 
 def populate(menu: QMenu, *, build: str, on_language, on_subscribe,
-             on_restore, on_settings) -> None:
+             on_restore, on_settings, settings_action=None,
+             on_restart_setup=None) -> None:
     """Fill a menu with the same three things, wherever it is shown.
 
     The wizard has no menu bar and uses a "⋯" button; the main window has a
@@ -77,7 +78,16 @@ def populate(menu: QMenu, *, build: str, on_language, on_subscribe,
         menu.addAction(tr("menu.subscribe"), on_subscribe)
 
     menu.addSeparator()
-    menu.addAction(tr("menu.settings"), on_settings)
+    # ONE Settings entry. The main window passes its own QAction, which carries
+    # PreferencesRole so macOS can move it into the application menu; it used
+    # to be added AS WELL AS this one, and Windows showed "Settings" and
+    # "Dawnlist — settings" one under the other, both opening the same screen.
+    if settings_action is not None:
+        menu.addAction(settings_action)
+    else:
+        menu.addAction(tr("menu.settings"), on_settings)
+    if on_restart_setup is not None:
+        menu.addAction(tr("menu.restart_setup"), on_restart_setup)
 
 
 class QuickMenu(QPushButton):
