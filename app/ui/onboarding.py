@@ -1660,6 +1660,25 @@ class OnboardingWizard(QWidget):
         return tuple(sorted(label for label, on in self.searches.selections()
                             if on))
 
+    def open_for_calibration(self) -> None:
+        """Open on the searches step, one click from calibrating.
+
+        For somebody who finished setup without calibrating and comes back from
+        the shortlist to do it. The searches step rather than the gate itself:
+        arriving at the gate fetches and assesses postings on the user's key,
+        which should follow a deliberate Next, never the opening of a window.
+        Their documents are already saved, and `finished` reads them from the
+        database rather than from the empty pages of this wizard.
+        """
+        if self._searches is not None:
+            self.searches.load(
+                self._searches(),
+                where=self._where() if self._where is not None else None)
+        if self.stack.currentIndex() == STEP_TERMS:
+            self._resume_step = STEP_SEARCHES
+        else:
+            self._show_step(STEP_SEARCHES)
+
     def _go_to_calibration(self) -> None:
         """Back then Next used to re-fetch — buying the same rows twice and
         throwing away every decision the user had made on them."""

@@ -201,6 +201,8 @@
   "rules.strong_help": "Bárhol megjelenő jel – címben, cégnévben vagy leírásban. Az ezek egyikére illeszkedő hirdetés mindig elküldésre kerül értékelésre.",
   "rules.unsupported": "Soha ne mutasd",
   "rules.unsupported_help": "Olyan kifejezések a címben, amelyek kizárnak egy hirdetést, bármilyen jó is a munkáltató. Ez kerül ellenőrzésre elsőként, és minden korábban megpályázott pozícióval összevetésre, mielőtt elfogadásra kerülne.",
+  "run.calibrate_now": "Kalibrálás most",
+  "run.calibration_needed": "A Dawnlist még nincs kalibrálva, ezért a napi keresés nem fut le. A kalibrálás néhány percet vesz igénybe: a Dawnlist megmutat tíz élő hirdetést, Ön kijavítja a hibás találatokat, és a profilja tanul a különbségekből.",
   "run.done": "A mai futtatás befejeződött, a szűkített lista naprakész.",
   "run.error": "A futtatás hibával leállt: {reason}",
   "run.failed_status": "Az utolsó futtatás sikertelen volt: {note}",

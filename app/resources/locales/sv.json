@@ -201,6 +201,8 @@
   "rules.strong_help": "Signal var som helst — titel, företag eller beskrivning. En annons som matchar någon av dessa skickas alltid för bedömning.",
   "rules.unsupported": "Visa aldrig för mig",
   "rules.unsupported_help": "Titeltermer som utesluter en annons oavsett hur bra arbetsgivaren är. Kontrolleras först, och mot varje tjänst du har sökt innan den godkänns.",
+  "run.calibrate_now": "Kalibrera nu",
+  "run.calibration_needed": "Dawnlist har inte kalibrerats ännu, så den dagliga sökningen kommer inte att köras. Kalibreringen tar några minuter: Dawnlist visar dig tio aktuella annonser, du rättar det som är fel, och din brief lär sig av skillnaden.",
   "run.done": "Dagens körning är klar och urvalslistan är uppdaterad.",
   "run.error": "Körningen avbröts med ett fel: {reason}",
   "run.failed_status": "Den senaste körningen misslyckades: {note}",

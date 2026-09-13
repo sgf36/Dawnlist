@@ -201,6 +201,8 @@
   "rules.strong_help": "Sinyal ing ngendi wae — judhul, perusahaan, utawa katrangan. Lowongan sing cocog karo salah siji iki tansah dikirim kanggo diniai.",
   "rules.unsupported": "Aja tau ditampilake",
   "rules.unsupported_help": "Tembung judhul sing nyingkirake lowongan sanajan pemberi kerjane apik. Dicek dhisik, lan dicocogake karo saben peran sing wis dilamar sadurunge ditampa.",
+  "run.calibrate_now": "Kalibrasi sakniki",
+  "run.calibration_needed": "Dawnlist dereng dikalibrasi, mula pencarian saben dinten mboten badhe mlampah. Kalibrasi mbetahaken sawetawis menit: Dawnlist nampilaken sedasa lowongan langsung, panjenengan mbenerake sing kleru, lan brief panjenengan sinau saking bedanipun.",
   "run.done": "Run dinten menika sampun rampung lan daftar pilihan sampun anyar.",
   "run.error": "Run mandheg amargi wonten kalepatan: {reason}",
   "run.failed_status": "Run pungkasan gagal: {note}",

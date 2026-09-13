@@ -201,6 +201,8 @@
   "rules.strong_help": "Uphawu noma kuphi — esihlokweni, enkampanini noma encazelweni. Isaziso esifanele okukodwa kwalokhu sihlala sithunyelwa ukuze sihlolwe.",
   "rules.unsupported": "Ungangiboniseli neze",
   "rules.unsupported_help": "Amagama esihloko akhipha isaziso noma umqashi angakanani ukuba muhle. Ahlolwa kuqala, futhi amelene nawo wonke amasu owake wawafuna ngaphambi kokuba avunyelwe.",
+  "run.calibrate_now": "Linganisa manje",
+  "run.calibration_needed": "I-Dawnlist ayikalinganiswa okwamanje, ngakho-ke ukusesha kwansuku zonke ngeke kusebenze. Ukulinganisa kuthatha imizuzu embalwa: I-Dawnlist ikubonisa izikhangiso eziyishumi eziphilayo, uyalungisa lapho ithole khona iphutha, futhi ifusho lakho lifunda kulo mehluko.",
   "run.done": "Uhambo lwanamuhla luqedile futhi uhlu oluqoqiwe lusanda kwazi kabusha.",
   "run.error": "Uhambo luyeke ngephutha: {reason}",
   "run.failed_status": "Uhambo lokugcina lwehlulekile: {note}",

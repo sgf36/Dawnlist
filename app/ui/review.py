@@ -292,6 +292,10 @@ class ReviewWindow(QMainWindow):
     #: Back to the first screen of setup. Asked for after a user was left with
     #: no way to redo setup short of deleting the app's data by hand.
     restart_setup_requested = Signal()
+    #: Open setup at its searches step, to calibrate. Without this a user whose
+    #: setup finished uncalibrated -- normal before subscribing -- was refused
+    #: by every daily run with nothing on screen that could fix it.
+    calibrate_requested = Signal()
     #: The same three things the setup wizard offers, on the window a user
     #: spends every morning in. Language was previously unreachable anywhere.
     language_chosen = Signal(str)
@@ -397,6 +401,15 @@ class ReviewWindow(QMainWindow):
         # plain word that does not look like a menu, and a user on this screen
         # could not see how to reach Settings (reported 2026-09-13). The board
         # is the other half of the app and had no way in at all.
+        self.btn_calibrate = QPushButton(tr("run.calibrate_now"))
+        self.btn_calibrate.setObjectName("runNowButton")
+        self.btn_calibrate.clicked.connect(self.calibrate_requested)
+        self.btn_calibrate.hide()
+        self.calibration_note = QLabel()
+        self.calibration_note.setObjectName("runStatus")
+        self.calibration_note.setWordWrap(True)
+        self.calibration_note.setTextFormat(Qt.PlainText)
+        self.calibration_note.hide()
         self.btn_board = QPushButton(tr("menu.board"))
         self.btn_board.setObjectName("secondaryButton")
         self.btn_board.clicked.connect(self.board_requested)
@@ -407,10 +420,12 @@ class ReviewWindow(QMainWindow):
         run_row.addWidget(self.run_busy)
         run_row.addWidget(self.run_progress)
         run_row.addStretch(1)
+        run_row.addWidget(self.btn_calibrate)
         run_row.addWidget(self.btn_board)
         run_row.addWidget(self.btn_settings)
         run_row.addWidget(self.btn_run_now)
         outer.addLayout(run_row)
+        outer.addWidget(self.calibration_note)
 
         splitter = QSplitter(Qt.Horizontal)
 
@@ -504,6 +519,16 @@ class ReviewWindow(QMainWindow):
         # tall glyph (Arabic, Devanagari) stretches one row out of line.
         t.setUniformRowHeights(True)
         return t
+
+    def set_calibration_needed(self, needed: bool) -> None:
+        """Say that the daily search cannot run until calibration, and offer it.
+
+        A separate line from `run_status`, which reports what the last run did:
+        this is about what no run can do yet, and one would overwrite the other.
+        """
+        self.calibration_note.setText(tr("run.calibration_needed") if needed else "")
+        self.calibration_note.setVisible(needed)
+        self.btn_calibrate.setVisible(needed)
 
     def load(self, rows: list[ReviewRow], counts: dict[str, int], *,
              incomplete_note: str = "",

@@ -201,6 +201,8 @@
   "rules.strong_help": "Señal en cualquier parte: título, empresa o descripción. Una oferta que coincida con uno de estos se envía siempre para su evaluación.",
   "rules.unsupported": "No mostrarme nunca",
   "rules.unsupported_help": "Términos de título que descartan una oferta sin importar lo buena que sea la empresa. Se comprueban primero, y contra todo puesto que haya perseguido antes de aceptarse.",
+  "run.calibrate_now": "Calibrar ahora",
+  "run.calibration_needed": "Dawnlist aún no se ha calibrado, por lo que la búsqueda diaria no se ejecutará. Calibrar toma unos minutos: Dawnlist le muestra diez ofertas activas, usted corrige lo que se haya interpretado mal y su perfil de búsqueda aprende de la diferencia.",
   "run.done": "La ejecución de hoy ha terminado y la preselección está actualizada.",
   "run.error": "La ejecución se detuvo con un error: {reason}",
   "run.failed_status": "La última ejecución falló: {note}",

@@ -201,6 +201,8 @@
   "rules.strong_help": "Belgi istalgan joyda — sarlavha, kompaniya yoki tavsifda bo‘lishi mumkin. Shu shartlardan biriga mos e’lon har doim baholash uchun yuboriladi.",
   "rules.unsupported": "Hech qachon ko‘rsatilmasin",
   "rules.unsupported_help": "Ish beruvchi qanchalik yaxshi bo‘lmasin, e’lonni istisno qiladigan sarlavha so‘zlari. Birinchi bo‘lib tekshiriladi va qabul qilinishidan oldin siz murojaat qilgan barcha lavozimlar bilan solishtiriladi.",
+  "run.calibrate_now": "Hozir kalibrlash",
+  "run.calibration_needed": "Dawnlist hali kalibrlanmagan, shuning uchun kunlik qidiruv ishga tushmaydi. Kalibrlash bir necha daqiqa vaqt oladi: Dawnlist sizga o'nta joriy e'lonni ko'rsatadi, siz uning xatolarini to'g'irlaysiz va brifingingiz ushbu farqlardan o'rganadi.",
   "run.done": "Bugungi ishga tushirish tugadi va tanlovlar ro‘yxati yangilandi.",
   "run.error": "Ishga tushirish xato bilan to‘xtadi: {reason}",
   "run.failed_status": "Oxirgi ishga tushirish muvaffaqiyatsiz tugadi: {note}",

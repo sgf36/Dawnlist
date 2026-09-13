@@ -201,6 +201,8 @@
   "rules.strong_help": "Isyarat di mana-mana sahaja — tajuk, syarikat atau huraian. Iklan yang sepadan dengan salah satu daripada ini akan sentiasa dihantar untuk dinilai.",
   "rules.unsupported": "Jangan tunjukkan kepada saya",
   "rules.unsupported_help": "Istilah tajuk yang menyingkirkan sesuatu iklan tidak kira sebaik mana majikan tersebut. Disemak dahulu, dan dipadankan dengan setiap jawatan yang pernah anda ceburi sebelum diterima.",
+  "run.calibrate_now": "Tentukur sekarang",
+  "run.calibration_needed": "Dawnlist belum ditentukur lagi, jadi carian harian tidak akan dijalankan. Penentukuran mengambil masa beberapa minit: Dawnlist menunjukkan sepuluh iklan jawatan langsung kepada anda, anda betulkan mana yang tersalah, dan ringkasan anda belajar daripada perbezaan tersebut.",
   "run.done": "Larian hari ini telah selesai dan senarai pendek adalah terkini.",
   "run.error": "Larian terhenti dengan ralat: {reason}",
   "run.failed_status": "Larian terakhir gagal: {note}",

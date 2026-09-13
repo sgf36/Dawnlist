@@ -201,6 +201,8 @@
   "rules.strong_help": "Alama a ko'ina — taken, kamfani ko bayanin aiki. Sanarwar da ta yi daidai da ɗaya daga cikin waɗannan ana turo ta don a tantance ta koyaushe.",
   "rules.unsupported": "Kada ka taɓa nuna mini",
   "rules.unsupported_help": "Kalmomin taken da ke fitar da sanarwa ko da ma'aikacin yana da kyau. Ana bincika su tukuna, kuma da duk aikin da ka riga ka nema kafin a karɓa.",
+  "run.calibrate_now": "Daidaita yanzu",
+  "run.calibration_needed": "Ba a daidaita Dawnlist ba tukuna, don haka bincike na yau da kullum ba zai gudana ba. Daidaitawa yana ɗaukar 'yan mintuna kaɗan: Dawnlist zai nuna maka sanarwa goma na yanzu, ka gyara abin da ya yi kuskure, sai taƙaitaccen bayaninka ya koya daga bambancin.",
   "run.done": "An gama gudu na yau kuma jerin zaɓaɓɓu ya sabunta.",
   "run.error": "Gudun ya tsaya da kuskure: {reason}",
   "run.failed_status": "Gudun da ya gabata ya kasa: {note}",

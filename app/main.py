@@ -2710,6 +2710,25 @@ def _restart_setup(window, conn) -> None:
     window.deleteLater()
 
 
+def _calibration_needed(conn) -> bool:
+    """Setup finished, calibration did not, so every daily run will refuse."""
+    from app.onboarding.calibration import is_calibrated
+    from app.onboarding.state import is_setup_finished
+
+    return is_setup_finished(conn) and not is_calibrated(conn)
+
+
+def _open_calibration(window, conn) -> None:
+    def calibrated():
+        window.set_calibration_needed(_calibration_needed(conn))
+
+    wizard = build_onboarding(conn, on_finished=calibrated)
+    _HELD_WINDOWS.append(wizard)
+    wizard.open_for_calibration()
+    wizard.fit_to_screen()
+    wizard.show()
+
+
 def _main_window(conn, *, open_board: bool):
     """The board or the shortlist, loaded and wired. Never shown here.
 
@@ -2738,6 +2757,8 @@ def _main_window(conn, *, open_board: bool):
         window.settings_requested.connect(lambda: open_settings(window, conn))
         window.board_requested.connect(lambda: _open_board(window, conn))
         window.restart_setup_requested.connect(lambda: _restart_setup(window, conn))
+        window.calibrate_requested.connect(lambda: _open_calibration(window, conn))
+        window.set_calibration_needed(_calibration_needed(conn))
         # Language, subscription and Restore from the menu bar. The same three
         # the setup wizard offers, because a user who skipped past them there
         # has to be able to find them afterwards.

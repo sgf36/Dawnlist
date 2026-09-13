@@ -201,6 +201,8 @@
   "rules.strong_help": "Signál kdekoli – v názvu, u společnosti nebo v popisu. Nabídka odpovídající jednomu z těchto pravidel se vždy odešle k posouzení.",
   "rules.unsupported": "Nikdy mi nezobrazovat",
   "rules.unsupported_help": "Slova v názvu, která nabídku vyřadí bez ohledu na kvalitu zaměstnavatele. Kontrolují se jako první a porovnávají se se všemi pozicemi, o které jste se dříve ucházeli, než je pravidlo přijato.",
+  "run.calibrate_now": "Kalibrovat nyní",
+  "run.calibration_needed": "Dawnlist ještě nebyl kalibrován, proto se denní vyhledávání nespustí. Kalibrace zabere jen několik minut: Dawnlist vám zobrazí deset aktuálních nabídek, vy opravíte, co vyhodnotil chybně, a váš profil se z těchto rozdílů poučí.",
   "run.done": "Dnešní běh byl dokončen a užší výběr je aktuální.",
   "run.error": "Běh byl zastaven s chybou: {reason}",
   "run.failed_status": "Poslední běh selhal: {note}",
