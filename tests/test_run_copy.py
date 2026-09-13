@@ -60,6 +60,7 @@ def test_the_calibration_gate_no_longer_says_it_runs_daily():
     conn.commit()
     with pytest.raises(NotConfigured) as refused:
         morning_run(conn)
-    assert "before its first run" in str(refused.value)
+    from app.i18n import tr
+    assert str(refused.value) == tr("run.calibration_needed")
     assert "runs daily" not in str(refused.value)
     conn.close()

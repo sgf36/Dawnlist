@@ -836,7 +836,7 @@ def test_alerts_do_not_walk_round_the_calibration_gate(conn, tmp_path, monkeypat
     monkeypatch.setattr("app.core.entitlement.require", lambda c: None)
     path = tmp_path / "alert.eml"
     path.write_text(DIGEST, encoding="utf-8")
-    with pytest.raises(NotConfigured, match="[Cc]alibration"):
+    with pytest.raises(NotConfigured, match="[Cc]alibrat"):
         ingest_alerts(conn, [path], send=verdicts("strong"))
 
 

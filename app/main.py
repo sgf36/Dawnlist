@@ -865,10 +865,8 @@ def build_provider(conn):
         # Windows Store: the licence box IS shown (Microsoft permits
         # third-party commerce), so this is something the user can act on
         # rather than a fault to report.
-        raise NotConfigured(
-            "No licence key yet, so there is no job feed to read. Enter the "
-            "key from your subscription email in Settings. Your board, your "
-            "brief and everything already on this machine stay open.")
+        from app.i18n import tr
+        raise NotConfigured(tr("refusal.no_licence"))
 
     raise NotConfigured(
         "No licence key found. Enter the key from your purchase email in "
@@ -1101,13 +1099,11 @@ def ingest_alerts(conn, paths, *, send=None, today: date | None = None):
 
     brief = load_document(conn, "fit_brief")
     if not brief.strip():
-        raise NotConfigured(
-            "No fit brief yet. Run onboarding first — postings assessed "
-            "against an empty brief produce a shortlist built on nothing.")
+        from app.i18n import tr
+        raise NotConfigured(tr("refusal.no_brief"))
     if not is_calibrated(conn):
-        raise NotConfigured(
-            "Calibration has not been completed. Adding postings by hand does "
-            "not skip the step that transfers your judgement into the brief.")
+        from app.i18n import tr
+        raise NotConfigured(tr("run.calibration_needed"))
 
     from app.onboarding.terms import is_accepted as terms_accepted
     if not terms_accepted(conn):
@@ -1116,11 +1112,8 @@ def ingest_alerts(conn, paths, *, send=None, today: date | None = None):
         # own licence requires every subscriber to be bound by written terms
         # before any posting reaches them, so a run before that is a breach
         # rather than a discourtesy.
-        raise NotConfigured(
-            "Dawnlist's terms have not been agreed on this computer, or they "
-            "have changed since they were agreed. Open Dawnlist and read "
-            "them — the postings it fetches come from a supplier whose "
-            "licence requires it, so nothing is fetched until that is done.")
+        from app.i18n import tr
+        raise NotConfigured(tr("refusal.terms"))
 
     from app.core.entitlement import require as require_entitlement
     require_entitlement(conn)
@@ -1392,19 +1385,14 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
     brief = load_document(conn, "fit_brief")
     factsheet = load_document(conn, "factsheet")
     if not brief.strip():
-        raise NotConfigured(
-            "No fit brief yet. Run onboarding first — a run against an empty "
-            "brief produces a plausible shortlist built on nothing.")
+        from app.i18n import tr
+        raise NotConfigured(tr("refusal.no_brief"))
     if not is_calibrated(conn):
         # The gate is checked HERE, at the only door into a run, rather than in
         # the UI. A gate enforced in a screen is a gate the scheduled run walks
-        # straight past.
-        raise NotConfigured(
-            "Calibration has not been completed. The app must show you ~10 "
-            "live postings and have you correct its verdicts before its first "
-            "run — that is the step that transfers your judgement into the "
-            "brief, and without it the shortlist is a guess that looks like an "
-            "answer.")
+        # straight past. The shortlist offers Calibrate now for the same state.
+        from app.i18n import tr
+        raise NotConfigured(tr("run.calibration_needed"))
 
     from app.onboarding.terms import is_accepted as terms_accepted
     if not terms_accepted(conn):
@@ -1413,11 +1401,8 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
         # own licence requires every subscriber to be bound by written terms
         # before any posting reaches them, so a run before that is a breach
         # rather than a discourtesy.
-        raise NotConfigured(
-            "Dawnlist's terms have not been agreed on this computer, or they "
-            "have changed since they were agreed. Open Dawnlist and read "
-            "them — the postings it fetches come from a supplier whose "
-            "licence requires it, so nothing is fetched until that is done.")
+        from app.i18n import tr
+        raise NotConfigured(tr("refusal.terms"))
 
     # The entitlement gate sits HERE, next to the calibration gate, for the
     # same reason: a gate enforced in a screen is one the scheduled run walks
@@ -1431,15 +1416,13 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
         # Refused by name rather than skipped, because a skipped search is a
         # quiet morning nobody can explain. One entry in Settings fixes every
         # search at once.
-        raise NotConfigured(
-            "These searches are switched on but say nowhere to look, so they "
-            "would search the whole world: " + ", ".join(unscoped) + ". Open "
-            "Settings and set where you want to work; it applies to every "
-            "search at once.")
+        from app.i18n import tr
+        raise NotConfigured(tr("refusal.unscoped", searches=", ".join(unscoped)))
 
     queries = load_queries(conn)
     if not queries:
-        raise NotConfigured("No saved queries. Add at least one before running.")
+        from app.i18n import tr
+        raise NotConfigured(tr("refusal.no_searches"))
 
     # Every posting already STORED, not only the rolling seen window. That
     # window rolls off after 45 days, and a posting the feed still returned
@@ -1573,10 +1556,8 @@ def outreach_run(conn, *, send=None, today: date | None = None,
 
     factsheet = load_document(conn, "factsheet")
     if not factsheet.strip():
-        raise NotConfigured(
-            "No background factsheet yet. Run onboarding first — every factual "
-            "claim in a draft has to come from it, so without one a draft is "
-            "either empty or invented.")
+        from app.i18n import tr
+        raise NotConfigured(tr("refusal.no_factsheet"))
 
     from app.core.entitlement import require as require_entitlement
     require_entitlement(conn)
@@ -1590,6 +1571,48 @@ def outreach_run(conn, *, send=None, today: date | None = None,
         conn, items, folder=folder, factsheet=factsheet,
         voice=load_voice(conn), send=send or build_send(conn),
         locale=settings.get("locale", "en"), today=today)
+
+
+class NoCVs(NotConfigured):
+    """Write application has no CV to tailor. The board offers to choose some."""
+
+
+def keep_cvs(paths) -> list[Path]:
+    """Copy CV files into Dawnlist's own CV folder. Returns what was kept.
+
+    WITHOUT THIS WRITE APPLICATION FAILED FOR EVERY USER. Setup read the CVs
+    from wherever they were chosen and kept only the extracted text; `apply_run`
+    reads files from `cv_dir()`, and nothing ever put a file there. The refusal
+    then told people to put their CV in an app-data folder -- inside the
+    sandbox container, on a Mac. Found by audit, 2026-09-13.
+
+    COPIED WHILE THE FILE CAN STILL BE READ. The Mac App Store build may read a
+    user-chosen file only in the session it was chosen (the sandbox grants
+    files.user-selected.read-only and no bookmarks), so the copy has to happen
+    at the moment of choosing; a later attempt would be refused.
+    """
+    import shutil
+
+    from app.onboarding.extract import SUPPORTED_SUFFIXES
+
+    folder = cv_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    kept = []
+    for raw in paths:
+        source = Path(raw)
+        if (not source.is_file() or source.suffix.lower() not in SUPPORTED_SUFFIXES
+                or source.name.startswith("~$")):
+            continue
+        target = folder / source.name
+        if source.resolve() == target.resolve():
+            kept.append(target)
+            continue
+        try:
+            shutil.copyfile(source, target)
+        except OSError:
+            continue
+        kept.append(target)
+    return kept
 
 
 #: The user's own CV files, as FILES rather than a table.
@@ -1650,20 +1673,16 @@ def apply_run(conn, job_id: str, *, send=None, folder: Path | None = None,
 
     factsheet = load_document(conn, "factsheet")
     if not factsheet.strip():
-        raise NotConfigured(
-            "No background factsheet yet. Run onboarding first — every claim "
-            "in a tailored CV has to come from it, so without one the document "
-            "is either empty or invented.")
+        from app.i18n import tr
+        raise NotConfigured(tr("refusal.no_factsheet"))
 
     # The CV is the SOURCE document, not a generated one. A curriculum vitae
     # written from a factsheet alone is fluent and describes a career nobody
     # had; without the real one there is nothing honest to reorder.
     cv_text = load_cv_text()
     if not cv_text.strip():
-        raise NotConfigured(
-            f"No curriculum vitae found in {cv_dir()}. Put your CV there — a "
-            f"tailored CV reorders your own document, it does not write a new "
-            f"one, so without it there is nothing honest to work from.")
+        from app.i18n import tr
+        raise NoCVs(tr("refusal.no_cv"))
 
     from app.core.entitlement import require as require_entitlement
     require_entitlement(conn)
@@ -1673,7 +1692,8 @@ def apply_run(conn, job_id: str, *, send=None, folder: Path | None = None,
         "SELECT * FROM jobs WHERE provider=? AND provider_job_id=?",
         (provider, provider_job_id)).fetchone()
     if row is None:
-        raise NotConfigured(f"No posting {job_id!r} in the tracker.")
+        from app.i18n import tr
+        raise NotConfigured(tr("refusal.no_posting"))
 
     job = Job(
         provider=row["provider"], provider_job_id=row["provider_job_id"],
@@ -1703,10 +1723,8 @@ def apply_for_opportunity(conn, opportunity_id: str, *, want_brief: bool = False
              FROM opportunities o JOIN jobs j ON j.id = o.job_id
             WHERE o.id = ?""", (opportunity_id,)).fetchone()
     if row is None:
-        raise NotConfigured(
-            "That opportunity is not linked to a posting, so there is no "
-            "advert to write against. Applications are written from the "
-            "posting, never from the company name alone.")
+        from app.i18n import tr
+        raise NotConfigured(tr("refusal.no_linked_posting"))
     return apply_run(conn, f"{row['provider']}:{row['provider_job_id']}",
                      send=send, folder=folder, want_brief=want_brief)
 
@@ -2117,6 +2135,11 @@ def build_onboarding(conn, *, on_finished=None):
 
     def extract(paths):
         result = extract_corpus(list(paths))
+        # Kept NOW, while the chosen files are readable -- see `keep_cvs`.
+        # Only files that actually produced text, so an unreadable scan is not
+        # carried into every application.
+        readable = {d.name for d in result.corpus.documents}
+        keep_cvs([p for p in paths if Path(p).name in readable])
         return [d.name for d in result.corpus.documents], result.warnings
 
     # The database FILE, not the connection: `sample` below runs on a worker
@@ -2480,6 +2503,10 @@ def _write_application(window, conn, opportunity_id: str,
 
     def failed(exc):
         QApplication.restoreOverrideCursor()
+        if isinstance(exc, NoCVs):
+            if _choose_cvs(window, str(exc)):
+                _write_application(window, conn, opportunity_id, want_brief)
+            return
         if isinstance(exc, (NotConfigured, KeyProblem, NotEntitled)):
             QMessageBox.warning(window, tr("board.write_application"), str(exc))
         else:
@@ -2493,6 +2520,26 @@ def _write_application(window, conn, opportunity_id: str,
     QApplication.setOverrideCursor(Qt.WaitCursor)
     window._application_task = run_in_background(work, on_done=done,
                                                  on_error=failed)
+
+
+def _choose_cvs(window, reason: str) -> bool:
+    """Say why a CV is needed, let the user pick files, keep copies."""
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+    from app.i18n import tr
+
+    box = QMessageBox(window)
+    box.setWindowTitle(tr("board.write_application"))
+    box.setText(reason)
+    choose = box.addButton(tr("refusal.choose_cvs"), QMessageBox.AcceptRole)
+    box.addButton(QMessageBox.Cancel)
+    box.exec()
+    if box.clickedButton() is not choose:
+        return False
+    paths, _filter = QFileDialog.getOpenFileNames(
+        window, tr("refusal.choose_cvs"), "",
+        "CV (*.pdf *.docx *.txt *.md *.rtf)")
+    return bool(paths) and bool(keep_cvs(paths))
 
 
 def _application_written(window, pack) -> None:
