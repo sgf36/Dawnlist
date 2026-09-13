@@ -113,3 +113,11 @@ winrt-Windows.ApplicationModel.Activation>=2.0 ; sys_platform == "win32"
 # reported as StoreUnavailable, and Subscribe could never work. The suite could
 # not see it: nothing tested msstore against the real module. Found by audit.
 winrt-Windows.Services.Store>=2.0 ; sys_platform == "win32"
+# AND THE COLLECTIONS IT HANDS BACK. Every Store answer that is a list or a map
+# (the add-on query, the add-on licences) is a Windows.Foundation.Collections
+# type, which the projection imports only when it returns one. Missing, the
+# live 1.1.2 build showed "could not read the add-on: No module named
+# 'winrt.windows.foundation.collections'" (Spencer, 2026-09-13). The import
+# audit read only Python imports, and this one happens inside compiled code.
+# tests/test_winrt_projection_closure.py now makes those calls on Windows CI.
+winrt-Windows.Foundation.Collections>=2.0 ; sys_platform == "win32"

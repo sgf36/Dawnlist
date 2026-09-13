@@ -1012,8 +1012,10 @@ def onboarding_entitlement_panel():
     if build == "store_iap":
         # The Microsoft Store's own subscription. Missing until 2026-09-13, so
         # the live Store build finished setup without ever offering a purchase.
-        from app.ui.settings import StoreSubscribePanel
-        return StoreSubscribePanel()
+        # With a box for an access code or an existing licence beneath it: see
+        # `access_code_panel`.
+        from app.ui.settings import StoreEntitlementPanel
+        return StoreEntitlementPanel()
     return None
 
 
@@ -2748,11 +2750,11 @@ def _restart_setup(window, conn) -> None:
         board.close()
     daily = getattr(window, "_daily_run", None)
     if daily is not None and len(daily) > 2 and daily[2] is not None:
-        # The tray belongs to this window; left behind it would keep offering
-        # a run for a setup that is being redone.
-        hide = getattr(daily[2], "hide", None)
-        if callable(hide):
-            hide()
+        # Released BEFORE the close. The tray reads a close of its window as
+        # the user quitting, so closing first ended the whole application with
+        # setup on screen. Released, it also stops offering a run for a setup
+        # that is being redone.
+        daily[2].release()
     window.close()
     window.deleteLater()
 

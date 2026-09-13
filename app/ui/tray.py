@@ -59,6 +59,26 @@ class TrayPresence(QObject):
 
         window.installEventFilter(self)
 
+    def release(self) -> None:
+        """Stop speaking for this window, without deciding anything about quitting.
+
+        For a window being closed on purpose while the application carries on,
+        which today is Start setup again. Left watching, `_closing` read that
+        close as the user quitting and ended the process with setup on screen
+        (reported on the Microsoft Store build, 2026-09-13).
+
+        Quitting on the last window goes back to Qt: with only setup open,
+        closing setup should end the app exactly as it does on a first launch.
+        The window setup opens at the end brings its own tray, which takes
+        that decision back.
+        """
+        window, self._window = self._window, None
+        if window is not None:
+            window.removeEventFilter(self)
+        if self.icon is not None:
+            self.icon.hide()
+        QApplication.setQuitOnLastWindowClosed(True)
+
     @property
     def available(self) -> bool:
         return self.icon is not None

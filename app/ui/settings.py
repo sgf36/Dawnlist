@@ -255,7 +255,9 @@ class LicencePanel(QWidget):
     licence_changed = Signal(bool)
 
     def __init__(self, *, redeemer=None, storer=None, reader=None,
-                 checker=None, parent=None):
+                 checker=None, heading_key="settings.licence_heading",
+                 body_key="settings.licence_body",
+                 placeholder_key="settings.licence_placeholder", parent=None):
         super().__init__(parent)
         from app.core import entitlement
 
@@ -271,11 +273,11 @@ class LicencePanel(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
 
-        heading = QLabel(tr("settings.licence_heading"))
+        heading = QLabel(tr(heading_key))
         heading.setObjectName("stepHeading")
         layout.addWidget(heading)
 
-        body = QLabel(reflow(tr("settings.licence_body")))
+        body = QLabel(reflow(tr(body_key)))
         body.setObjectName("stepBody")
         body.setWordWrap(True)
         layout.addWidget(body)
@@ -295,7 +297,7 @@ class LicencePanel(QWidget):
         row.setSpacing(10)
         self.field = QLineEdit()
         self.field.setObjectName("sentence")
-        self.field.setPlaceholderText(tr("settings.licence_placeholder"))
+        self.field.setPlaceholderText(tr(placeholder_key))
         self.button = QPushButton(tr("settings.licence_save"))
         self.button.setObjectName("primary")
         self.button.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
@@ -410,6 +412,49 @@ class LicencePanel(QWidget):
         self.result.style().polish(self.result)
 
 
+def access_code_panel(**kwargs) -> "LicencePanel":
+    """The licence box, worded for a build that sells through the Microsoft Store.
+
+    THE MICROSOFT STORE BUILD HAD NO WAY TO ENTER A CODE OR A LICENCE. It shows
+    the Store's own subscription instead of the key box, and that left three
+    people with no way in: a friend or reviewer holding an access code, somebody
+    who already holds a Dawnlist licence, and the administrator, whose console
+    is revealed only for a licence saved on this computer. `build_provider`
+    honoured a saved licence on this build all along; nothing could save one.
+    Found by audit, 2026-09-13.
+
+    Same panel, same redeeming, different words: there is no purchase email on
+    this build, and a subscriber must not be told they need a key.
+    """
+    return LicencePanel(heading_key="settings.access_code_heading",
+                        body_key="settings.access_code_body",
+                        placeholder_key="settings.access_code_placeholder",
+                        **kwargs)
+
+
+class StoreEntitlementPanel(QWidget):
+    """The setup purchase step on the Microsoft Store build: subscribe, or a code.
+
+    One step holding both, because somebody with an access code reaches setup
+    exactly as a subscriber does, and calibration needs the feed either way.
+    """
+
+    entitlement_changed = Signal(bool)
+
+    def __init__(self, *, store_panel=None, code_panel=None, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        self.store = store_panel or StoreSubscribePanel()
+        self.code = code_panel or access_code_panel()
+        layout.addWidget(self.store)
+        layout.addWidget(_divider())
+        layout.addWidget(self.code)
+        self.store.entitlement_changed.connect(self.entitlement_changed.emit)
+        self.code.licence_changed.connect(self.entitlement_changed.emit)
+
+
 def _divider() -> QFrame:
     line = QFrame()
     line.setFrameShape(QFrame.HLine)
@@ -517,8 +562,9 @@ class SettingsWindow(QWidget):
             layout.addWidget(_divider())
             layout.addWidget(schedule)
 
-        self.licence = LicencePanel()
         build = variant if variant is not None else read_variant()
+        self.licence = (access_code_panel() if build == "store_iap"
+                        else LicencePanel())
         # ONLY Apple prohibits this, and the two stores are not the same.
         #
         # Apple's guideline 3.1.1 names licence keys as a mechanism an app may
@@ -535,11 +581,14 @@ class SettingsWindow(QWidget):
         # was made wrong and may well be a Mac build; offering it a key box is
         # the shape guideline 3.1.1 forbids, and guessing is worse than
         # showing nothing.
-        self.shows_licence = build in ("store", "direct")
-        if self.shows_licence:
+        self.shows_licence = build in ("store", "direct", "store_iap")
+        # On `store_iap` it sits below the Store's own subscription, worded
+        # for codes: see `access_code_panel`. Microsoft permits it; Apple does
+        # not, which is why `mas` stays out of this tuple.
+        if self.shows_licence and build != "store_iap":
             layout.addWidget(_divider())
             layout.addWidget(self.licence)
-        else:
+        elif not self.shows_licence:
             # Constructed but not laid out, so `window.licence` stays a stable
             # attribute for callers and tests rather than sometimes-missing.
             self.licence.hide()
@@ -565,13 +614,21 @@ class SettingsWindow(QWidget):
         # 2026-09-11 and an appeal is open. Exactly one of the three purchase
         # panels is ever laid out: a key box on `store`/`direct`, Apple's on
         # `mas`, this on `store_iap`. Two at once would offer a customer two
-        # ways to pay for the same thing.
+        # ways to pay for the same thing. The code box beneath it sells
+        # nothing: it redeems what somebody was already given.
         self.shows_store_subscribe = build == "store_iap"
         self.store_subscribe = (StoreSubscribePanel()
                                 if self.shows_store_subscribe else None)
         if self.store_subscribe is not None:
             layout.addWidget(_divider())
             layout.addWidget(self.store_subscribe)
+            layout.addWidget(_divider())
+            layout.addWidget(self.licence)
+
+        # A licence saved on this screen may be an administrator's. The check
+        # used to run once, when the screen first appeared, so a code redeemed
+        # here revealed nothing until Settings was closed and opened again.
+        self.licence.licence_changed.connect(self._licence_changed)
 
         # THE ADMIN CONSOLE, on every build and hidden by default.
         #
@@ -612,6 +669,10 @@ class SettingsWindow(QWidget):
         # lets the scroll cover the rest.
         self.setMinimumSize(760, 440)
         self.resize(1120, 700)
+
+    def _licence_changed(self, present: bool) -> None:
+        if present and self._admin_checked and self.admin.isHidden():
+            self._check_admin()
 
     def go_home(self) -> None:
         """Leave Settings for the window it was opened from.
