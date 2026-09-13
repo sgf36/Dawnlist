@@ -95,12 +95,23 @@ def test_a_refusal_is_never_softened_by_a_kept_store_licence(store_iap, monkeypa
 
 def test_setup_offers_the_store_purchase(monkeypatch, qapp):
     from app import main
-    from app.ui.settings import LicencePanel, StoreSubscribePanel, SubscribePanel
+    from app.ui.settings import (LicencePanel, StoreEntitlementPanel,
+                                 StoreSubscribePanel, SubscribePanel)
 
     monkeypatch.setattr("app.core.build_variant.variant", lambda: "store_iap")
     monkeypatch.setattr("app.core.msstore.offer",
                         lambda: type("O", (), {"available": False, "title": "", "price": ""})())
-    assert isinstance(main.onboarding_entitlement_panel(), StoreSubscribePanel)
+    panel = main.onboarding_entitlement_panel()
+    # The Store's subscription AND a box for a code: somebody given an access
+    # code reaches this step exactly as a subscriber does.
+    assert isinstance(panel, StoreEntitlementPanel)
+    assert isinstance(panel.store, StoreSubscribePanel)
+    assert isinstance(panel.code, LicencePanel)
+    seen = []
+    panel.entitlement_changed.connect(seen.append)
+    panel.code.licence_changed.emit(True)
+    panel.store.entitlement_changed.emit(True)
+    assert seen == [True, True], "either route must let setup move on"
     monkeypatch.setattr("app.core.build_variant.variant", lambda: "mas")
     assert isinstance(main.onboarding_entitlement_panel(), SubscribePanel)
     for build in ("store", "direct"):

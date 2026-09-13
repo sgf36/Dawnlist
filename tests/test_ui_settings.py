@@ -3,7 +3,7 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtWidgets import QApplication, QLabel  # noqa: E402
 
 from app.ui.settings import KeyPanel, LicencePanel, SettingsWindow, masked  # noqa: E402
 
@@ -408,6 +408,31 @@ def test_a_windows_store_build_DOES_show_the_licence_box(qapp):
 def test_a_direct_download_build_shows_the_licence_box(qapp):
     w = SettingsWindow(variant="direct")
     assert w.shows_licence
+    w.close()
+
+
+def test_the_microsoft_store_billed_build_takes_a_code_below_the_store_subscription(qapp):
+    """It had the Store's subscription and no box at all, so an access code,
+    an existing licence and the administrator's own licence had nowhere to go.
+    Worded for codes, because this build has no purchase email."""
+    from app.i18n import tr
+
+    w = SettingsWindow(variant="store_iap")
+    assert w.shows_licence and w.shows_store_subscribe
+    assert not w.licence.isHidden()
+    texts = [label.text() for label in w.licence.findChildren(QLabel)]
+    assert tr("settings.access_code_heading") in texts
+    assert tr("settings.licence_heading") not in texts
+    w.close()
+
+
+def test_a_licence_saved_in_settings_asks_again_whether_it_is_an_admin(qapp, monkeypatch):
+    asked = []
+    monkeypatch.setattr("app.core.entitlement.stored_licence", lambda: "DAWN-ADMIN")
+    w = SettingsWindow(variant="store_iap", is_admin=lambda key: asked.append(key) or False)
+    w._admin_checked = True          # the screen has already been shown once
+    w.licence.licence_changed.emit(True)
+    _wait_until(lambda: asked == ["DAWN-ADMIN"])
     w.close()
 
 
