@@ -47,7 +47,3 @@ def variant() -> str:
     if len(present) > 1:
         return "ambiguous"
     return present[0]
-
-
-def is_store_build() -> bool:
-    return variant() == "store"

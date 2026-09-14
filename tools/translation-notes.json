@@ -131,5 +131,15 @@
   "run.last_not_today": "{when} is a date and time already written in the user's own format. 'Run' means the once-a-day job search. The part after the dash says that search has not happened yet on the current day.",
   "run.limit_reached": "{count} is a whole number. {reset} is a clock time already in the user's own format. 'Refreshes' are fetches from the job feed, and the allowance resets at midnight UTC: keep 'UTC' as written, because the reset is NOT at local midnight.",
   "run.offer": "{time} is a clock time already in the user's own format. 'Run now' is the name of the button beside this text - use the same words you used for run.now.",
-  "tray.still_running": "A notification from the app's icon in the Windows notification area or the macOS menu bar. 'This icon' is the icon the notification comes from. 'Daily run' is the once-a-day job search."
+  "tray.still_running": "A notification from the app's icon in the Windows notification area or the macOS menu bar. 'This icon' is the icon the notification comes from. 'Daily run' is the once-a-day job search.",
+  "onboarding.history": "A button on the document-editing page. Opens a version history log showing past edits. NOT browsing history, NOT search history.",
+  "onboarding.profile_city_placeholder": "Placeholder text in a city text box. Keep 'London' exactly as written - the job feed only recognises English place names.",
+  "onboarding.profile_country_placeholder": "Placeholder in a country-code text box. Keep 'GB' exactly as written - it is an ISO 3166-1 alpha-2 code, not a word to translate.",
+  "onboarding.profile_exclude_placeholder": "Placeholder in an exclusion text box. Keep 'Deloitte, PwC' exactly as written - they are company names.",
+  "onboarding.profile_either": "A radio button choosing between two employment contract types: permanent or contract/interim. 'Either' means 'both are acceptable'. Not 'either' in a general logical sense.",
+  "onboarding.profile_permanent": "A radio button. An employment contract type: a permanent, ongoing position with no fixed end date. NOT 'permanent' as in immovable, forever, or indelible.",
+  "onboarding.profile_contract_only": "A radio button. An employment contract type: a fixed-term or interim engagement. NOT 'contract' as in a legal document to sign.",
+  "onboarding.profile_salary": "A label beside a number box. The minimum annual salary the user will consider. 'Floor' means the lowest acceptable amount, not a storey of a building.",
+  "onboarding.profile_seniority": "A label beside a dropdown. The career level the user is targeting. 'Band' means tier or level, not a musical group.",
+  "onboarding.draft_saved": "A brief flash confirmation shown after an auto-save. Keep the checkmark ✓ exactly. Very short - it must fit in a small label."
 }
