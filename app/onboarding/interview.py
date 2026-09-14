@@ -424,6 +424,37 @@ def open_questions(data: dict) -> list[str]:
     return list(data.get("open_questions", []))
 
 
+def _change_summary(old: str, new: str) -> str:
+    """A short human-readable summary of what changed between two bodies.
+
+    Line-level: counts added, removed, and changed lines. The summary fits on
+    one line and is stored in the database, so it is kept short rather than
+    exhaustive.
+    """
+    import difflib
+
+    old_lines = old.splitlines()
+    new_lines = new.splitlines()
+    matcher = difflib.SequenceMatcher(None, old_lines, new_lines)
+    added = removed = 0
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "insert":
+            added += j2 - j1
+        elif tag == "delete":
+            removed += i2 - i1
+        elif tag == "replace":
+            added += j2 - j1
+            removed += i2 - i1
+    if added == 0 and removed == 0:
+        return ""      # no change — caller can decide whether to save
+    parts = []
+    if added:
+        parts.append(f"+{added} line{'s' if added != 1 else ''}")
+    if removed:
+        parts.append(f"−{removed} line{'s' if removed != 1 else ''}")
+    return ", ".join(parts)
+
+
 def save_document(conn, kind: str, body: str) -> int:
     """Store a new version. Never updates in place.
 
@@ -432,13 +463,45 @@ def save_document(conn, kind: str, body: str) -> int:
     """
     from datetime import datetime, timezone
 
-    row = conn.execute(
-        "SELECT COALESCE(MAX(version), 0) v FROM documents WHERE kind=?",
+    prev = conn.execute(
+        "SELECT version, body FROM documents WHERE kind=? "
+        "ORDER BY version DESC LIMIT 1",
         (kind,)).fetchone()
-    version = row["v"] + 1
+    if prev is not None:
+        version = prev["version"] + 1
+        summary = _change_summary(prev["body"], body)
+        if not summary:
+            # Identical — no point storing a duplicate row.
+            return prev["version"]
+    else:
+        version = 1
+        summary = None      # first version: nothing to diff against
     conn.execute(
-        "INSERT INTO documents(kind, version, body, created_at) VALUES(?,?,?,?)",
+        "INSERT INTO documents(kind, version, body, created_at, change_summary)"
+        " VALUES(?,?,?,?,?)",
         (kind, version, body,
-         datetime.now(timezone.utc).isoformat(timespec="seconds")))
+         datetime.now(timezone.utc).isoformat(timespec="seconds"),
+         summary))
     conn.commit()
     return version
+
+
+@dataclass
+class DocumentVersion:
+    """One row of the change log."""
+    kind: str
+    version: int
+    created_at: str
+    change_summary: str | None
+
+
+def document_history(conn, kind: str) -> list[DocumentVersion]:
+    """Every saved version, newest first, with change summaries where known."""
+    rows = conn.execute(
+        "SELECT kind, version, created_at, change_summary "
+        "FROM documents WHERE kind=? ORDER BY version DESC",
+        (kind,)).fetchall()
+    return [DocumentVersion(kind=r["kind"], version=r["version"],
+                            created_at=r["created_at"],
+                            change_summary=r["change_summary"])
+            for r in rows]

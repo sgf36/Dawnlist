@@ -946,7 +946,8 @@ def start_storekit() -> bool:
                                 emit=storekit_events().finished.emit)
 
 
-def wire_quick_menu(source, conn, *, parent=None, on_subscribe=None) -> None:
+def wire_quick_menu(source, conn, *, parent=None, on_subscribe=None,
+                    on_restart_setup=None) -> None:
     """Give a ⋯ menu somewhere to send its three requests.
 
     `source` is whatever carries the signals — the QuickMenu button on the
@@ -974,6 +975,8 @@ def wire_quick_menu(source, conn, *, parent=None, on_subscribe=None) -> None:
         source.subscribe_requested.connect(on_subscribe)
     source.settings_requested.connect(
         lambda: open_settings(parent, conn))
+    if on_restart_setup is not None and hasattr(source, "restart_setup_requested"):
+        source.restart_setup_requested.connect(on_restart_setup)
 
 
 def onboarding_entitlement_panel():
@@ -2225,8 +2228,14 @@ def build_onboarding(conn, *, on_finished=None):
 
     # The ⋯ menu: language, subscription, restore. On the wizard as well as
     # the main window, because the person who needs all three most is the one
-    # who has not finished setting up.
-    wire_quick_menu(wizard.menu, conn, parent=wizard)
+    # who has not finished setting up. Restart setup is here too — previously
+    # the wizard's ⋯ did not pass it through, so users inside the wizard could
+    # not restart from the beginning.
+    def _restart_from_wizard():
+        _restart_setup(wizard, conn)
+
+    wire_quick_menu(wizard.menu, conn, parent=wizard,
+                    on_restart_setup=_restart_from_wizard)
 
     def save_documents(factsheet, brief):
         # Saved when the user leaves the interview, not when the model returns.
@@ -2237,6 +2246,9 @@ def build_onboarding(conn, *, on_finished=None):
             save_document(conn, "factsheet", factsheet)
         if brief.strip():
             save_document(conn, "fit_brief", brief)
+
+        # Documents have been saved — the History button is now meaningful.
+        wizard.interview.btn_history.show()
 
         # Seed searches from what the user said they were looking for, so a
         # new install has something to sweep rather than a run that refuses for
@@ -2291,8 +2303,33 @@ def build_onboarding(conn, *, on_finished=None):
             on_finished()
         wizard.close()
 
+    def save_profile_scope(parts):
+        from app.core.search_scope import SearchScope, save_scope as _save_scope
+        scope = SearchScope.from_parts(**parts)
+        if scope.is_set:
+            _save_scope(conn, scope)
+
+    def show_history():
+        from app.onboarding.interview import document_history
+        from app.ui.onboarding import _show_change_log
+        # Show both kinds, interleaved, newest first.
+        factsheet_h = document_history(conn, "factsheet")
+        brief_h = document_history(conn, "fit_brief")
+        combined = sorted(factsheet_h + brief_h,
+                          key=lambda v: v.created_at, reverse=True)
+        _show_change_log(combined, parent=wizard)
+        # Show the button once documents exist (it stays visible thereafter).
+        if combined:
+            wizard.interview.btn_history.show()
+
+    wizard.interview.history_requested.connect(show_history)
+    wizard.scope_ready.connect(save_profile_scope)
     wizard.documents_ready.connect(save_documents)
     wizard.completed.connect(finished)
+    # Show the History button immediately if documents were saved in a prior
+    # setup session (restarted setups, or a draft restored mid-interview).
+    if load_document(conn, "factsheet") or load_document(conn, "fit_brief"):
+        wizard.interview.btn_history.show()
     return wizard
 
 

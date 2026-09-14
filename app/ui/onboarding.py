@@ -18,12 +18,12 @@ from pathlib import Path
 
 from PySide6.QtCore import QTimer, Qt, Signal
 from PySide6.QtGui import QFont, QGuiApplication
-from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QFrame, QHBoxLayout,
-                               QLabel,
+from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QFrame,
+                               QHBoxLayout, QLabel,
                                QLineEdit, QListWidget, QListWidgetItem,
                                QPushButton,
                                QPlainTextEdit, QRadioButton, QScrollArea, QSizePolicy,
-                               QSplitter, QStackedWidget, QTextBrowser,
+                               QSpinBox, QSplitter, QStackedWidget, QTextBrowser,
                                QVBoxLayout, QWidget)
 
 from app.i18n import tr
@@ -626,8 +626,254 @@ class CalibrationPage(QWidget):
         self.changed.emit()
 
 
+# ---- Seniority choices for the profile step, ordered from the bottom up.
+# The indices are used in snapshot/restore, so appending is safe but
+# reordering is not.
+SENIORITY_LABELS = [
+    "Analyst / Junior",
+    "Senior Analyst / Associate",
+    "Senior Associate / Manager",
+    "Senior Manager / Lead / Principal",
+    "Head of (smaller org)",
+    "Director / Associate Director",
+    "VP / Senior Director / C-suite",
+]
+
+
+class ProfilePage(QWidget):
+    """The structured interview: fixed questions the model cannot skip.
+
+    THE STEP WHOSE ABSENCE CAUSED THE GREYED-OUT SEARCHES. Without it, the
+    location came from model extraction of free text, which silently returned
+    nothing when the aim box did not name a city. A search with no location
+    looks across the whole world and pays for every posting, so the searches
+    page disabled everything — and the user had no idea what went wrong.
+
+    Five questions, all short, all stored as structured data that feeds the
+    SearchScope and the model's brief-drafting context:
+
+      1. Where must the role be based? (city + country code)
+      2. What seniority band are you targeting? (dropdown)
+      3. Permanent, contract or either? (radio buttons)
+      4. Salary floor? (optional number, £/$/€)
+      5. Employers to exclude? (comma-separated text)
+
+    The aim box stays on the NEXT step for free-form intent that structured
+    fields cannot capture. This step captures what a form CAN capture, so the
+    model does not have to guess it from prose — and so the location is never
+    missing.
+    """
+
+    changed = Signal()
+
+    def __init__(self, *, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 8)
+        layout.setSpacing(14)
+
+        heading = QLabel(tr("onboarding.profile_heading"))
+        heading.setObjectName("stepHeading")
+        layout.addWidget(heading)
+
+        body = QLabel(reflow(tr("onboarding.profile_body")))
+        body.setObjectName("stepBody")
+        body.setWordWrap(True)
+        layout.addWidget(body)
+
+        # ---- 1. Location ----
+        loc_label = QLabel(tr("onboarding.profile_location"))
+        loc_label.setFont(self._bold())
+        layout.addWidget(loc_label)
+
+        loc_row = QHBoxLayout()
+        self.city = QLineEdit()
+        self.city.setPlaceholderText(tr("onboarding.profile_city_placeholder"))
+        self.city.textChanged.connect(lambda: self.changed.emit())
+        loc_row.addWidget(self.city, 2)
+
+        self.country = QLineEdit()
+        self.country.setPlaceholderText(
+            tr("onboarding.profile_country_placeholder"))
+        self.country.setMaximumWidth(80)
+        self.country.setMaxLength(2)
+        self.country.textChanged.connect(lambda: self.changed.emit())
+        loc_row.addWidget(self.country)
+        layout.addLayout(loc_row)
+
+        # ---- 2. Seniority ----
+        sen_label = QLabel(tr("onboarding.profile_seniority"))
+        sen_label.setFont(self._bold())
+        layout.addWidget(sen_label)
+
+        self.seniority = QComboBox()
+        self.seniority.addItem(tr("onboarding.profile_seniority_any"))
+        for label in SENIORITY_LABELS:
+            self.seniority.addItem(label)
+        self.seniority.currentIndexChanged.connect(lambda: self.changed.emit())
+        layout.addWidget(self.seniority)
+
+        # ---- 3. Contract type ----
+        contract_label = QLabel(tr("onboarding.profile_contract"))
+        contract_label.setFont(self._bold())
+        layout.addWidget(contract_label)
+
+        contract_row = QHBoxLayout()
+        self.contract_group = QButtonGroup(self)
+        self.contract_permanent = QRadioButton(
+            tr("onboarding.profile_permanent"))
+        self.contract_contract = QRadioButton(
+            tr("onboarding.profile_contract_only"))
+        self.contract_either = QRadioButton(
+            tr("onboarding.profile_either"))
+        self.contract_either.setChecked(True)
+        self.contract_group.addButton(self.contract_permanent, 0)
+        self.contract_group.addButton(self.contract_contract, 1)
+        self.contract_group.addButton(self.contract_either, 2)
+        self.contract_group.idClicked.connect(lambda: self.changed.emit())
+        contract_row.addWidget(self.contract_permanent)
+        contract_row.addWidget(self.contract_contract)
+        contract_row.addWidget(self.contract_either)
+        contract_row.addStretch(1)
+        layout.addLayout(contract_row)
+
+        # ---- 4. Salary floor ----
+        sal_label = QLabel(tr("onboarding.profile_salary"))
+        sal_label.setFont(self._bold())
+        layout.addWidget(sal_label)
+
+        sal_row = QHBoxLayout()
+        self.salary_currency = QComboBox()
+        self.salary_currency.addItems(["£", "$", "€"])
+        self.salary_currency.setMaximumWidth(60)
+        sal_row.addWidget(self.salary_currency)
+
+        self.salary_floor = QSpinBox()
+        self.salary_floor.setRange(0, 999_999)
+        self.salary_floor.setSingleStep(5000)
+        self.salary_floor.setSpecialValueText(
+            tr("onboarding.profile_salary_any"))
+        self.salary_floor.valueChanged.connect(lambda: self.changed.emit())
+        sal_row.addWidget(self.salary_floor, 1)
+        layout.addLayout(sal_row)
+
+        # ---- 5. Excluded employers ----
+        excl_label = QLabel(tr("onboarding.profile_exclude"))
+        excl_label.setFont(self._bold())
+        layout.addWidget(excl_label)
+
+        self.excluded = QLineEdit()
+        self.excluded.setPlaceholderText(
+            tr("onboarding.profile_exclude_placeholder"))
+        self.excluded.textChanged.connect(lambda: self.changed.emit())
+        layout.addWidget(self.excluded)
+
+        layout.addStretch(1)
+
+    @staticmethod
+    def _bold() -> QFont:
+        f = QFont()
+        f.setBold(True)
+        return f
+
+    @property
+    def has_location(self) -> bool:
+        """True when at least a valid country code is given.
+
+        Must match the same regex that SearchScope.from_parts uses, or the
+        gate passes but the scope is silently empty — reproducing the exact
+        greyed-out-searches bug this step was built to prevent.
+        """
+        return bool(re.match(r"^[A-Za-z]{2}$", self.country.text().strip()))
+
+    def snapshot(self) -> dict:
+        """Plain data for the draft save."""
+        return {
+            "city": self.city.text().strip(),
+            "country": self.country.text().strip().upper(),
+            "seniority_index": self.seniority.currentIndex(),
+            "contract_type": self.contract_group.checkedId(),
+            "salary_currency": self.salary_currency.currentText(),
+            "salary_floor": self.salary_floor.value(),
+            "excluded": self.excluded.text().strip(),
+        }
+
+    def restore(self, data: dict) -> None:
+        """Put back saved profile data."""
+        self.city.setText(data.get("city", ""))
+        self.country.setText(data.get("country", ""))
+        idx = data.get("seniority_index", 0)
+        if 0 <= idx < self.seniority.count():
+            self.seniority.setCurrentIndex(idx)
+        cid = data.get("contract_type", 2)
+        btn = self.contract_group.button(cid)
+        if btn is not None:
+            btn.setChecked(True)
+        cur = data.get("salary_currency", "£")
+        ci = self.salary_currency.findText(cur)
+        if ci >= 0:
+            self.salary_currency.setCurrentIndex(ci)
+        self.salary_floor.setValue(data.get("salary_floor", 0))
+        self.excluded.setText(data.get("excluded", ""))
+
+    def as_scope_parts(self) -> dict:
+        """The fields that feed SearchScope.from_parts."""
+        country = self.country.text().strip().upper()
+        city = self.city.text().strip()
+        contract = self.contract_group.checkedId()
+        excluded = [e.strip() for e in self.excluded.text().split(",")
+                    if e.strip()]
+        parts = {}
+        if country:
+            parts["countries"] = [country]
+        if city:
+            parts["cities"] = [city]
+        if contract == 0:
+            parts["employment_types"] = ["full_time"]
+        elif contract == 1:
+            parts["employment_types"] = ["contract"]
+        if excluded:
+            parts["exclude_companies"] = excluded
+        return parts
+
+    def as_context(self) -> str:
+        """A plain-English summary for the model's brief-drafting context.
+
+        Fed alongside the CVs so the model does not have to guess what the
+        user told us through structured fields.
+        """
+        lines = []
+        city = self.city.text().strip()
+        country = self.country.text().strip().upper()
+        if city and country:
+            lines.append(f"Location: {city}, {country}")
+        elif country:
+            lines.append(f"Location: {country}")
+
+        idx = self.seniority.currentIndex()
+        if idx > 0:
+            lines.append(f"Target seniority: {SENIORITY_LABELS[idx - 1]}")
+
+        contract = self.contract_group.checkedId()
+        if contract == 0:
+            lines.append("Contract type: permanent / full-time only")
+        elif contract == 1:
+            lines.append("Contract type: contract / interim only")
+
+        sal = self.salary_floor.value()
+        if sal > 0:
+            cur = self.salary_currency.currentText()
+            lines.append(f"Salary floor: {cur}{sal:,}")
+
+        excluded = self.excluded.text().strip()
+        if excluded:
+            lines.append(f"Excluded employers: {excluded}")
+
+        return "\n".join(lines) if lines else ""
+
+
 class InterviewPage(QWidget):
-    """Step three: the factsheet and the fit brief, drafted from the CVs.
+    """Step four: the factsheet and the fit brief, drafted from the CVs.
 
     The user CORRECTS a draft rather than composing from a blank page. That is
     the whole design: people under-report their own experience when asked to
@@ -645,6 +891,8 @@ class InterviewPage(QWidget):
     #: whether a draft is currently running. The wizard's Next reads it, so a
     #: step whose documents are empty cannot be walked past.
     changed = Signal()
+    #: The user clicked "History" — the host shows the change log.
+    history_requested = Signal()
 
     def __init__(self, *, drafter=None, titler=None, parent=None):
         super().__init__(parent)
@@ -698,6 +946,11 @@ class InterviewPage(QWidget):
         self.btn_draft.setObjectName("primary")
         self.btn_draft.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         row.addWidget(self.btn_draft)
+        self.btn_history = QPushButton(tr("onboarding.history"))
+        self.btn_history.setObjectName("secondary")
+        self.btn_history.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.btn_history.hide()   # shown once any version has been saved
+        row.addWidget(self.btn_history)
         self.status = QLabel()
         self.status.setObjectName("stepBody")
         row.addWidget(self.status, 1)
@@ -794,6 +1047,7 @@ QPlainTextEdit#aimBox {
 }
 """)
         self.btn_draft.clicked.connect(lambda: self.run_draft())
+        self.btn_history.clicked.connect(self.history_requested.emit)
 
     def run_draft(self, corpus=None) -> None:
         """Draft both documents. Failures are shown, never swallowed.
@@ -1224,6 +1478,42 @@ class TermsWindow(QWidget):
         self.btn_quit.clicked.connect(self.close)
 
 
+def _show_change_log(versions, *, parent=None) -> None:
+    """Pop a dialog listing saved document versions with change summaries.
+
+    `versions` is a list of DocumentVersion objects, newest first. The dialog
+    is informational — no editing, no restore.
+    """
+    from PySide6.QtWidgets import QDialog, QDialogButtonBox
+
+    dlg = QDialog(parent)
+    dlg.setWindowTitle(tr("onboarding.history_title"))
+    dlg.resize(520, 360)
+    lay = QVBoxLayout(dlg)
+
+    if not versions:
+        lay.addWidget(QLabel(tr("onboarding.history_empty")))
+    else:
+        text = QTextBrowser()
+        text.setOpenExternalLinks(False)
+        lines = []
+        for v in versions:
+            ts = v.created_at.replace("T", " ").replace("+00:00", " UTC")
+            summary = v.change_summary or tr("onboarding.history_initial")
+            kind_label = (tr("onboarding.factsheet_label")
+                          if v.kind == "factsheet"
+                          else tr("onboarding.brief_label"))
+            lines.append(f"<b>v{v.version}</b> — {ts}<br>"
+                         f"<small>{kind_label}: {summary}</small>")
+        text.setHtml("<br><br>".join(lines))
+        lay.addWidget(text, 1)
+
+    buttons = QDialogButtonBox(QDialogButtonBox.Close)
+    buttons.rejected.connect(dlg.reject)
+    lay.addWidget(buttons)
+    dlg.exec()
+
+
 #: The steps, by name. They were bare integers compared in four places
 #: (`index < 4`, `index == 3`, `index == 1`), which is fine until a step is
 #: inserted — and a step was: nothing in this wizard ever asked the user to
@@ -1237,9 +1527,10 @@ STEP_TERMS = 0
 STEP_INGEST = 1
 STEP_KEY = 2
 STEP_ENTITLEMENT = 3
-STEP_INTERVIEW = 4
-STEP_SEARCHES = 5
-STEP_CALIBRATION = 6
+STEP_PROFILE = 4
+STEP_INTERVIEW = 5
+STEP_SEARCHES = 6
+STEP_CALIBRATION = 7
 FIRST_STEP = STEP_TERMS
 LAST_STEP = STEP_CALIBRATION
 
@@ -1255,6 +1546,7 @@ STEP_NAMES = {
     STEP_INGEST: "ingest",
     STEP_KEY: "key",
     STEP_ENTITLEMENT: "entitlement",
+    STEP_PROFILE: "profile",
     STEP_INTERVIEW: "interview",
     STEP_SEARCHES: "searches",
     STEP_CALIBRATION: "calibration",
@@ -1264,6 +1556,7 @@ STEP_INDEX = {name: index for index, name in STEP_NAMES.items()}
 #: Long enough that typing does not write a row per keystroke, short enough
 #: that a crash costs a sentence rather than a session.
 SAVE_DELAY_MS = 800
+SAVE_INDICATOR_MS = 3000    # how long the "Saved ✓" stays visible
 
 
 class OnboardingWizard(QWidget):
@@ -1278,6 +1571,7 @@ class OnboardingWizard(QWidget):
 
     completed = Signal(object)          # CalibrationResult
     documents_ready = Signal(str, str)  # factsheet, brief
+    scope_ready = Signal(object)        # dict of profile scope parts
 
     def __init__(self, *, extract, sample, drafter=None, titler=None,
                  searches=None, set_search=None, entitlement_panel=None,
@@ -1369,6 +1663,7 @@ class OnboardingWizard(QWidget):
         # are the same question — what this app needs before it can work — and
         # before the interview, which is the first screen that spends money.
         self.entitlement = entitlement_panel or QWidget()
+        self.profile = ProfilePage()
         self.interview = InterviewPage(drafter=drafter, titler=titler)
         self.calibration = CalibrationPage()
         self.searches = SearchesPage()
@@ -1376,6 +1671,7 @@ class OnboardingWizard(QWidget):
         self.stack.addWidget(self.ingest)
         self.stack.addWidget(self.keys)
         self.stack.addWidget(self.entitlement)
+        self.stack.addWidget(self.profile)
         self.stack.addWidget(self.interview)
         # BETWEEN the interview and calibration, because the seeds are written
         # from the aim when the interview is left, and calibration needs at
@@ -1420,6 +1716,8 @@ class OnboardingWizard(QWidget):
         self.ingest.files_added.connect(self._on_files)
         self.ingest.files_removed.connect(self._on_files_removed)
         self.keys.key_changed.connect(lambda _present: self._refresh_next())
+        self.profile.changed.connect(self._touch)
+        self.profile.changed.connect(self._refresh_next)
         self.interview.changed.connect(self._refresh_next)
         # Subscribe from the menu goes to the step that already does it,
         # rather than opening a second copy of the same panel somewhere else.
@@ -1446,6 +1744,12 @@ class OnboardingWizard(QWidget):
         self._save_timer.setSingleShot(True)
         self._save_timer.setInterval(SAVE_DELAY_MS)
         self._save_timer.timeout.connect(self._save_now)
+        # The indicator timer clears the "Saved ✓" text after a few seconds,
+        # so it reads as a confirmation flash rather than a permanent label.
+        self._indicator_timer = QTimer(self)
+        self._indicator_timer.setSingleShot(True)
+        self._indicator_timer.setInterval(SAVE_INDICATOR_MS)
+        self._indicator_timer.timeout.connect(self._clear_save_indicator)
         self.interview.aim.textChanged.connect(self._touch)
         self.interview.changed.connect(self._touch)
         self.calibration.changed.connect(self._touch)
@@ -1586,6 +1890,10 @@ class OnboardingWizard(QWidget):
             # user's account, and an app with no key is inert.
             from app.core import api_key
             return bool(api_key.get())
+        if index == STEP_PROFILE:
+            # At least a country code — without it the searches page greys out
+            # every checkbox because SearchScope.is_set is False.
+            return self.profile.has_location
         if index == STEP_INTERVIEW:
             # BOTH DOCUMENTS, AND NO DRAFT IN FLIGHT. Setup could otherwise be
             # finished with nothing written: calibration then recorded the
@@ -1622,6 +1930,14 @@ class OnboardingWizard(QWidget):
         elif index == STEP_KEY:
             self._show_step(STEP_ENTITLEMENT)
         elif index == STEP_ENTITLEMENT:
+            self._show_step(STEP_PROFILE)
+        elif index == STEP_PROFILE:
+            # Save the structured profile into the search scope BEFORE the
+            # interview, so the searches page will find a location when it
+            # arrives. This is the step whose absence caused the greyed-out
+            # checkboxes: without it, the location came from model extraction
+            # of free text, which silently returned nothing.
+            self._save_profile_scope()
             self._show_step(STEP_INTERVIEW)
             # Hand over the corpus but do NOT draft: the aim box is above the
             # button for a reason, and drafting on arrival would spend the
@@ -1805,6 +2121,16 @@ class OnboardingWizard(QWidget):
             return
         self._show_step(max(FIRST_STEP, self.stack.currentIndex() - 1))
 
+    def _save_profile_scope(self) -> None:
+        """Emit the structured profile fields as scope parts.
+
+        Connected in `build_onboarding` to `save_scope(conn, …)`, so the DB
+        has a location before the searches page tries to describe it. The
+        wizard stays database-free: it knows the SHAPE of the data but never
+        the storage.
+        """
+        self.scope_ready.emit(self.profile.as_scope_parts())
+
     # -- what setup remembers ----------------------------------------------
     def _touch(self) -> None:
         """Something changed; write it shortly."""
@@ -1818,16 +2144,28 @@ class OnboardingWizard(QWidget):
         try:
             self._save_draft(self.draft())
             self._draft_failed = False
+            # Flash a confirmation on the interview page so the user can see
+            # their edits are being kept. Only while they are on that step —
+            # a status blinking on a page they have left is noise.
+            if self.stack.currentIndex() == STEP_INTERVIEW:
+                self.interview.status.setText(tr("onboarding.draft_saved"))
+                self._indicator_timer.start()
         except Exception:  # noqa: BLE001
             # A scratchpad that cannot be written must not take setup down with
             # it — but it must not pretend either, so closing says so.
             self._draft_failed = True
+
+    def _clear_save_indicator(self) -> None:
+        # Only clear if we wrote it — another status may have arrived since.
+        if self.interview.status.text() == tr("onboarding.draft_saved"):
+            self.interview.status.setText("")
 
     def draft(self) -> dict:
         """Everything unfinished, as plain data."""
         data = self.interview.snapshot()
         data["step"] = STEP_NAMES.get(self.stack.currentIndex(), "ingest")
         data["files"] = [str(path) for path in self._paths]
+        data["profile"] = self.profile.snapshot()
         if self._sample_items is not None:
             # The items from the SCREEN, which carry the user's verdicts and
             # sentences; `_sample_items` is only what arrived from the feed.
@@ -1848,6 +2186,8 @@ class OnboardingWizard(QWidget):
         self._restoring = True
         try:
             self.interview.restore(draft)
+            if "profile" in draft:
+                self.profile.restore(draft["profile"])
             self._paths = [Path(f) for f in draft.get("files") or []]
             self._restore_sample(draft)
             wanted = STEP_INDEX.get(draft.get("step"))

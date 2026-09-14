@@ -102,6 +102,7 @@ class QuickMenu(QPushButton):
     #: another Mac has already paid, and must not pay twice to prove it.
     restore_requested = Signal()
     settings_requested = Signal()
+    restart_setup_requested = Signal()
 
     def __init__(self, *, build: str | None = None, parent=None):
         super().__init__("⋯", parent)          # MIDLINE HORIZONTAL ELLIPSIS
@@ -120,5 +121,6 @@ class QuickMenu(QPushButton):
                  on_language=self.language_chosen.emit,
                  on_subscribe=self.subscribe_requested.emit,
                  on_restore=self.restore_requested.emit,
-                 on_settings=self.settings_requested.emit)
+                 on_settings=self.settings_requested.emit,
+                 on_restart_setup=self.restart_setup_requested.emit)
         menu.exec(self.mapToGlobal(self.rect().bottomLeft()))

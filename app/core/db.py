@@ -350,6 +350,13 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         # its own, and without this it could not be told from a morning sweep.
         "ALTER TABLE runs ADD COLUMN kind TEXT NOT NULL DEFAULT 'sweep'",
     )),
+    (5, (
+        # A one-line summary of what changed in each version, computed at save
+        # time from a diff against the previous body. NULL for the first version
+        # (which has nothing to diff against) and for rows that pre-date this
+        # column.
+        "ALTER TABLE documents ADD COLUMN change_summary TEXT",
+    )),
 )
 
 SCHEMA_VERSION = max(number for number, _ in MIGRATIONS)
