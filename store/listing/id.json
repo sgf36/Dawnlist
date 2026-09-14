@@ -18,5 +18,24 @@
     "CV dan pelacak Anda tetap berada di komputer Anda",
     "Satu langganan, seluruh aplikasi — feed lowongan sudah termasuk",
     "Menggunakan kunci Anthropic Anda sendiri — Anda yang memegangnya, Anda yang melihat pemakaiannya"
+  ],
+  "short_description": "Dawnlist membaca umpan lowongan setiap pagi, menilai setiap lowongan berdasarkan brief yang disusunnya bersama Anda dari CV Anda sendiri, dan memberikan daftar pendek berperingkat lengkap dengan alasannya. Lowongan yang ditolak tetap terlihat. Dawnlist menyusun draf tindak lanjut Anda dan tidak pernah mengirimkannya. Berjalan dengan kunci API Anthropic milik Anda sendiri.",
+  "release_notes": "Penyiapan kini menanyakan tentang Anda: langkah profil baru mencakup lokasi Anda, apakah Anda menginginkan posisi tetap atau kontrak, target gaji, dan tingkat senioritas Anda. Dawnlist menggunakan semua ini saat menilai lowongan berdasarkan brief Anda.\n\nAnda dapat memulai ulang panduan penyiapan kapan saja dari menu ⋯, sehingga perubahan keadaan tidak berarti harus mulai dari nol.\n\nHalaman wawancara kini menampilkan saat jawaban Anda sedang disimpan, sehingga Anda dapat melihat setiap jawaban tersimpan sambil Anda mengetik.\n\nPenyuntingan dokumen kini disertai catatan perubahan: Anda dapat melihat apa yang diubah dan kapan.\n\nLima puluh bahasa, diterjemahkan sepenuhnya — setiap layar, setiap label, setiap pesan.",
+  "screenshot_captions": [
+    "Daftar pendek Anda, dengan alasannya — dan penolakan tetap terlihat",
+    "Bila sebuah aturan terlalu jauh, Anda diberi tahu",
+    "Semua posisi yang Anda kejar, dan apa yang jatuh tempo berikutnya",
+    "Membaca CV Anda dan menunjukkan apa yang dipahaminya",
+    "Mempelajari penilaian Anda sebelum mulai bekerja",
+    "Penyaringan yang Anda kendalikan, dan menolak aturan yang akan menyembunyikan lowongan nyata"
+  ],
+  "search_terms": [
+    "cari kerja",
+    "pelacak lowongan kerja",
+    "lamaran kerja",
+    "pencarian karier",
+    "notifikasi lowongan",
+    "pelacak lamaran",
+    "berburu lowongan kerja"
   ]
 }

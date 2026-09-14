@@ -18,5 +18,24 @@
     "CV'leriniz ve takip listeniz sizin makinenizde kalır",
     "Tek abonelik, uygulamanın tamamı — iş ilanı akışı dahildir",
     "Kendi Anthropic anahtarınızı kullanır — anahtar sizde, kullanımı siz görürsünüz"
+  ],
+  "short_description": "Dawnlist her sabah iş ilanı akışlarını okur, her ilanı sizinle birlikte kendi özgeçmişlerinizden oluşturduğu brief'e göre değerlendirir ve gerekçeleri belirtilmiş, sıralanmış bir kısa liste sunar. Reddedilenler görünür kalır. Takip mesajlarınızın taslağını hazırlar ve onları asla göndermez. Kendi Anthropic API anahtarınızla çalışır.",
+  "release_notes": "Kurulum artık size dair sorular soruyor: yeni profil adımı konumunuzu, kadrolu mu yoksa sözleşmeli pozisyonlar mı istediğinizi, hedef maaşınızı ve kıdem seviyenizi kapsıyor. Dawnlist ilanları brief'inize göre değerlendirirken bunların tümünü kullanıyor.\n\nKurulum sihirbazını ⋯ menüsünden dilediğiniz zaman yeniden başlatabilirsiniz; koşullarınızın değişmesi sıfırdan başlamak anlamına gelmez.\n\nMülakat sayfası artık yanıtlarınızın kaydedildiğini gösteriyor; böylece yazdıkça her birinin saklandığını görebilirsiniz.\n\nBelge düzenlemeleri bir değişiklik kaydı taşıyor: neyin ne zaman değiştirildiğini görebilirsiniz.\n\nElli dil, tamamen çevrildi — her ekran, her etiket, her mesaj.",
+  "screenshot_captions": [
+    "Kısa listeniz, gerekçeleriyle — reddedilenler de görünür",
+    "Bir kural fazla ileri giderse size söyler",
+    "Peşinde olduğunuz her pozisyon ve sırada ne var",
+    "Özgeçmişlerinizi okur ve ne anladığını gösterir",
+    "Çalışmaya başlamadan önce ölçütlerinizi öğrenir",
+    "Tarama sizin denetiminizde; gerçek bir pozisyonu gizleyecek kuralı reddeder"
+  ],
+  "search_terms": [
+    "iş arama",
+    "iş takibi",
+    "iş başvuruları",
+    "kariyer arama",
+    "iş ilanı bildirimleri",
+    "başvuru takipçisi",
+    "iş arayışı"
   ]
 }

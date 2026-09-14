@@ -18,5 +18,24 @@
     "Os seus currículos e o seu registo ficam na sua máquina",
     "Uma subscrição, a aplicação inteira — o feed de empregos está incluído",
     "Usa a sua própria chave da Anthropic — a chave é sua, vê a utilização"
+  ],
+  "short_description": "O Dawnlist lê os feeds de vagas todas as manhãs, avalia cada anúncio face a um resumo que constrói consigo a partir dos seus próprios CVs e entrega-lhe uma lista restrita ordenada, com os motivos indicados. As rejeições permanecem visíveis. Redige os seus seguimentos e nunca os envia. Funciona com a sua própria chave de API da Anthropic.",
+  "release_notes": "A configuração passa a perguntar sobre si: um novo passo de perfil abrange a sua localização, se pretende funções permanentes ou por contrato, o salário pretendido e o seu nível de senioridade. O Dawnlist usa tudo isto ao avaliar os anúncios face ao seu resumo.\n\nPode reiniciar o assistente de configuração a qualquer momento a partir do menu ⋯, pelo que uma mudança de circunstâncias não obriga a começar do zero.\n\nA página da entrevista mostra agora quando as suas respostas estão a ser guardadas, para que veja que cada uma fica guardada à medida que escreve.\n\nAs edições de documentos passam a ter um registo de alterações: pode ver o que foi alterado e quando.\n\nCinquenta idiomas, totalmente traduzidos — todos os ecrãs, todas as etiquetas, todas as mensagens.",
+  "screenshot_captions": [
+    "A sua lista restrita, com os motivos — e as rejeições ainda visíveis",
+    "Quando uma regra vai longe demais, avisa-o",
+    "Cada vaga que está a seguir e o que se segue",
+    "Lê os seus CVs e mostra-lhe o que percebeu",
+    "Aprende o seu critério antes de arrancar",
+    "Triagem que você controla, e recusa uma regra que esconderia uma vaga real"
+  ],
+  "search_terms": [
+    "procura de emprego",
+    "gestor de vagas",
+    "candidaturas a emprego",
+    "procura de carreira",
+    "alertas de emprego",
+    "registo de candidaturas",
+    "busca de emprego"
   ]
 }

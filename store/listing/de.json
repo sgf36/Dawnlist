@@ -18,5 +18,24 @@
     "Ihre Lebensläufe und Ihre Nachverfolgung bleiben auf Ihrem Rechner",
     "Ein Abonnement, die ganze App — der Stellen-Feed ist enthalten",
     "Nutzt Ihren eigenen Anthropic-Schlüssel — Sie besitzen ihn, Sie sehen die Nutzung"
+  ],
+  "short_description": "Dawnlist liest jeden Morgen die Stellenbörsen, bewertet jede Anzeige anhand eines Anforderungsprofils, das es gemeinsam mit Ihnen aus Ihren eigenen Lebensläufen erstellt, und übergibt Ihnen eine Auswahlliste nach Rang – mit genannten Gründen. Absagen bleiben sichtbar. Es entwirft Ihre Nachfassnachrichten und versendet sie nie. Läuft mit Ihrem eigenen Anthropic-API-Schlüssel.",
+  "release_notes": "Die Einrichtung fragt jetzt nach Ihnen: Ein neuer Profilschritt erfasst Ihren Standort, ob Sie eine Festanstellung oder Vertragsarbeit suchen, Ihr Zielgehalt und Ihre Karrierestufe. Dawnlist berücksichtigt all das, wenn es Anzeigen anhand Ihres Anforderungsprofils bewertet.\n\nSie können den Einrichtungsassistenten jederzeit über das Menü ⋯ neu starten – veränderte Umstände bedeuten also nicht, von vorn anfangen zu müssen.\n\nDie Interviewseite zeigt jetzt an, wann Ihre Antworten gespeichert werden, sodass Sie beim Tippen sehen, dass jede erhalten bleibt.\n\nDokumentänderungen führen ein Änderungsprotokoll: Sie können sehen, was wann geändert wurde.\n\nFünfzig Sprachen, vollständig übersetzt – jeder Bildschirm, jede Bezeichnung, jede Meldung.",
+  "screenshot_captions": [
+    "Ihre Auswahlliste mit Gründen – Absagen bleiben sichtbar",
+    "Greift eine Regel zu weit, sagt es Ihnen das",
+    "Jede Stelle, die Sie verfolgen – und was als Nächstes fällig ist",
+    "Es liest Ihre Lebensläufe und zeigt, was es verstanden hat",
+    "Es lernt Ihr Urteil, bevor es läuft",
+    "Screening, das Sie steuern – und es weist Regeln ab, die echte Stellen verbergen"
+  ],
+  "search_terms": [
+    "Jobsuche",
+    "Job-Tracker",
+    "Bewerbungen",
+    "Karrieresuche",
+    "Job-Benachrichtigungen",
+    "Bewerbungsverwaltung",
+    "Stellensuche"
   ]
 }

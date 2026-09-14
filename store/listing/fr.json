@@ -18,5 +18,24 @@
     "Vos CV et votre suivi restent sur votre machine",
     "Un seul abonnement, toute l'application — le flux d'offres est inclus",
     "Utilise votre propre clé Anthropic — c'est vous qui la détenez et voyez la consommation"
+  ],
+  "short_description": "Dawnlist parcourt les offres d'emploi chaque matin, évalue chaque annonce au regard d'un brief qu'il construit avec vous à partir de vos propres CV, et vous remet une liste restreinte classée, avec les raisons énoncées. Les refus restent visibles. Il rédige vos relances et ne les envoie jamais. Fonctionne avec votre propre clé API Anthropic.",
+  "release_notes": "La configuration vous pose désormais des questions sur vous : une nouvelle étape de profil couvre votre localisation, votre préférence entre postes permanents ou missions, votre salaire cible et votre niveau d'expérience. Dawnlist tient compte de tout cela lorsqu'il évalue les annonces au regard de votre brief.\n\nVous pouvez relancer l'assistant de configuration à tout moment depuis le menu ⋯ : un changement de situation n'oblige donc pas à repartir de zéro.\n\nLa page d'entretien indique maintenant quand vos réponses sont enregistrées : vous voyez que chacune est conservée au fil de la saisie.\n\nLes modifications de documents sont accompagnées d'un journal des changements : vous pouvez voir ce qui a été modifié, et quand.\n\nCinquante langues, entièrement traduites — chaque écran, chaque libellé, chaque message.",
+  "screenshot_captions": [
+    "Votre liste restreinte, avec les raisons — et les refus toujours visibles",
+    "Quand une règle va trop loin, il vous le dit",
+    "Chaque poste que vous suivez, et la prochaine échéance",
+    "Il lit vos CV et vous montre ce qu'il a compris",
+    "Il apprend votre jugement avant de se lancer",
+    "Un filtrage que vous contrôlez : il refuse une règle qui masquerait un vrai poste"
+  ],
+  "search_terms": [
+    "recherche d'emploi",
+    "suivi des offres d'emploi",
+    "candidatures d'emploi",
+    "recherche de carrière",
+    "alertes emploi",
+    "suivi de candidatures",
+    "chercher un emploi"
   ]
 }
