@@ -165,6 +165,8 @@ class TheirStackProvider(FeedProvider):
             body["job_title_not"] = q.exclude_title_terms
         if q.exclude_companies:
             body["company_name_not"] = q.exclude_companies
+        if q.description_keywords:
+            body["job_description_contains_or"] = q.description_keywords
         # `cities` is NOT applied on this developer path: turning a city into
         # the feed's place ids lives in the Worker, so this adapter searches
         # the whole of each country.

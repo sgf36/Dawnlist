@@ -285,6 +285,8 @@
   "searches.add": "Tambah",
   "searches.added": "{label} sampun ditambahaken.",
   "searches.body": "Menika panelusuran-panelusuran ingkang dipun sapu ing run saben dinten Dawnlist, ingkang kelampahan ing wekdal run ingkang katata ing ngandhap kaca menika, sasuwene Dawnlist mlampah. Panelusuran ingkang kanyalakaken mbetahaken beaya saben dinten mlampah, amargi feed lowongan nagih miturut lowongan ingkang dipun asilaken — mula ingkang dipun usulaken Dawnlist saking katerangan sampeyan wiwitanipun kapateni ngantos sampeyan sampun maos.",
+  "searches.dk_label": "Cocogake uga tembung-tembung iki ing deskripsi lowongan (opsional)",
+  "searches.dk_placeholder": "Dipisahake koma, cth. asset management, portfolio strategy",
   "searches.heading": "Ingkang dipun-padosaken Dawnlist",
   "searches.needs_where": "{label} durung bisa diaktifake sadurunge panjenengan nemtokake ing ngendi pengin makarya. Tanpa lokasi, panelusuran bakal nggoleki ing sakindenging jagad.",
   "searches.needs_where_first": "Tentokake ing ngendi panjenengan pengin makarya sadurunge nambahake panelusuran. Tanpa lokasi, panelusuran bakal nggoleki ing sakindenging jagad.",

@@ -285,6 +285,8 @@
   "searches.add": "Hinzufügen",
   "searches.added": "„{label}“ hinzugefügt.",
   "searches.body": "Dies sind die Suchen, die im täglichen Lauf von Dawnlist durchsucht werden, der zur weiter unten auf diesem Bildschirm festgelegten Laufzeit stattfindet, solange Dawnlist läuft. Eine aktivierte Suche kostet an jedem Tag, an dem sie läuft, Geld, da der Job-Feed pro zurückgegebenem Stellenangebot abgerechnet wird — daher sind die von Dawnlist aus Ihren Angaben vorgeschlagenen Suchen zunächst deaktiviert, bis Sie sie geprüft haben.",
+  "searches.dk_label": "Diese Wörter auch in der Stellenbeschreibung abgleichen (optional)",
+  "searches.dk_placeholder": "Kommagetrennt, z. B. asset management, portfolio strategy",
   "searches.heading": "Wonach Dawnlist sucht",
   "searches.needs_where": "{label} kann erst aktiviert werden, wenn Sie festlegen, wo Sie arbeiten möchten. Ohne Standort würde die Suche die ganze Welt durchsuchen.",
   "searches.needs_where_first": "Legen Sie fest, wo Sie arbeiten möchten, bevor Sie eine Suche hinzufügen. Ohne Standort würde die Suche die ganze Welt durchsuchen.",

@@ -952,7 +952,7 @@ def test_seeded_searches_arrive_switched_off(conn):
     added = seed_queries_from_aim(
         conn, "Hotel asset management in London, and general management roles.")
     assert added >= 1
-    assert all(not on for _label, _titles, on in all_queries(conn))
+    assert all(not on for _label, _titles, _dk, on in all_queries(conn))
     assert load_queries(conn) == [], "a seed must not sweep until switched on"
 
 
@@ -976,6 +976,32 @@ def test_seeding_twice_does_not_duplicate(conn):
     before = len(all_queries(conn))
     seed_queries_from_aim(conn, aim)
     assert len(all_queries(conn)) == before
+
+
+def test_description_keywords_round_trip(conn):
+    """Description keywords are stored in params_json and loaded into SearchQuery."""
+    from app.main import all_queries, load_queries, save_query
+
+    save_query(conn, "hotel strategy", ["hotel strategy"], countries=["GB"],
+               description_keywords=["asset management", "portfolio strategy"])
+    rows = all_queries(conn)
+    assert len(rows) == 1
+    _label, _titles, dk, _on = rows[0]
+    assert dk == ["asset management", "portfolio strategy"]
+
+    queries = load_queries(conn)
+    assert len(queries) == 1
+    assert queries[0].description_keywords == ["asset management", "portfolio strategy"]
+
+
+def test_description_keywords_empty_by_default(conn):
+    """A search without description keywords loads with an empty list."""
+    from app.main import all_queries, load_queries, save_query
+
+    save_query(conn, "general manager", ["general manager"], countries=["GB"])
+    _label, _titles, dk, _on = all_queries(conn)[0]
+    assert dk == []
+    assert load_queries(conn)[0].description_keywords == []
 
 
 def test_a_search_can_be_removed(conn):
@@ -1229,7 +1255,7 @@ def test_breadth_is_allowed_when_it_is_deliberate(conn):
     from app.main import all_queries, save_query
     save_query(conn, "wide", ["general manager"],
                countries=["GB", "US", "FR", "DE", "ES", "IT", "NL", "AE"])
-    assert "wide" in [lbl for lbl, _t, _on in all_queries(conn)]
+    assert "wide" in [lbl for lbl, _t, _dk, _on in all_queries(conn)]
 
 
 def test_a_disabled_seed_needs_no_scope(conn):
@@ -1241,7 +1267,7 @@ def test_a_disabled_seed_needs_no_scope(conn):
     """
     from app.main import all_queries, save_query
     save_query(conn, "a candidate", ["asset manager"], enabled=False)
-    assert "a candidate" in [lbl for lbl, _t, _on in all_queries(conn)]
+    assert "a candidate" in [lbl for lbl, _t, _dk, _on in all_queries(conn)]
 
 
 def test_country_codes_are_normalised(conn):

@@ -121,3 +121,26 @@ def test_theirstack_gives_up_rather_than_raising(monkeypatch):
     status, payload = provider._call("/v1/jobs/search", {"limit": 1}, "POST")
     assert status is None
     assert "connection reset" in str(payload)
+
+
+def test_theirstack_body_maps_description_keywords():
+    """description_keywords becomes job_description_contains_or at the feed."""
+    from app.feed.theirstack import TheirStackProvider
+
+    provider = TheirStackProvider("TS-KEY")
+    q = SearchQuery(label="test", titles=["hotel strategy"],
+                    countries=["GB"],
+                    description_keywords=["asset management", "portfolio"])
+    body = provider._body(q, page=0, limit=100)
+    assert body["job_title_or"] == ["hotel strategy"]
+    assert body["job_description_contains_or"] == ["asset management", "portfolio"]
+
+
+def test_theirstack_body_omits_empty_description_keywords():
+    """An empty list must not send the key at all — it would confuse the feed."""
+    from app.feed.theirstack import TheirStackProvider
+
+    provider = TheirStackProvider("TS-KEY")
+    q = SearchQuery(label="test", titles=["general manager"], countries=["GB"])
+    body = provider._body(q, page=0, limit=100)
+    assert "job_description_contains_or" not in body

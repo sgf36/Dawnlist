@@ -285,6 +285,8 @@
   "searches.add": "Ku dar",
   "searches.added": "{label} waa lagu daray.",
   "searches.body": "Kuwani waa raadimaha lagu sameeyo hawlgalka maalinlaha ee Dawnlist, kaas oo dhaca waqtiga hawlgalka ee hoos loogu dejiyay shaashaddan, intuu Dawnlist shaqeynayo. Raadin la shidayna waxay lacag kharash gasho maalin kasta oo la hawlgaliyo, sababtoo ah feedhka shaqooyinku wuxuu ku kharash gaadhsiiyaa dhambaal kasta oo soo laabma — sidaas darteed kuwa Dawnlist ku talin uu ka soo qaatay waxaad u sheegtay waxay bilaabmaan iyagoo la damiyay ilaa aad akhrido.",
+  "searches.dk_label": "Sidoo kale u eeg ereyadaan sharraxaadda shaqada (ikhtiyaari)",
+  "searches.dk_placeholder": "Hakad kala saar, tusaale asset management, portfolio strategy",
   "searches.heading": "Waxa Dawnlist raadinayo",
   "searches.needs_where": "{label} lama shaqaysiin karo ilaa aad dejiso meesha aad rabto inaad ka shaqeyso. Haddii aan goob lahayn, wuxuu eegi lahaa dunida oo dhan.",
   "searches.needs_where_first": "Dejiso meesha aad rabto inaad ka shaqeyso ka hor inta aadan ku darin raadin. Haddii aan goob lahayn, wuxuu eegi lahaa dunida oo dhan.",

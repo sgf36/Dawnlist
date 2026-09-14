@@ -285,6 +285,8 @@
   "searches.add": "Dodaj",
   "searches.added": "Dodano {label}.",
   "searches.body": "To są wyszukiwania uwzględniane w codziennym uruchomieniu programu Dawnlist, które odbywa się o porze ustawionej niżej na tym ekranie, o ile Dawnlist jest uruchomiony. Włączone wyszukiwanie generuje koszt każdego dnia, w którym się odbywa, ponieważ kanał ofert nalicza opłatę za każde zwrócone ogłoszenie — dlatego te zaproponowane przez Dawnlist na podstawie Twoich informacji pozostają wyłączone, dopóki ich nie przejrzysz.",
+  "searches.dk_label": "Szukaj również tych słów w opisie stanowiska (opcjonalnie)",
+  "searches.dk_placeholder": "Oddzielone przecinkami, np. asset management, portfolio strategy",
   "searches.heading": "Czego szuka Dawnlist",
   "searches.needs_where": "Nie można włączyć wyszukiwania „{label}”, dopóki nie ustawisz, gdzie chcesz pracować. Bez podanej lokalizacji obejmowałoby cały świat.",
   "searches.needs_where_first": "Ustaw, gdzie chcesz pracować, zanim dodasz wyszukiwanie. Bez podanej lokalizacji obejmowałoby cały świat.",

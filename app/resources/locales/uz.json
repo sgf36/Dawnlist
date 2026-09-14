@@ -285,6 +285,8 @@
   "searches.add": "Qo‘shish",
   "searches.added": "{label} qo‘shildi.",
   "searches.body": "Bular Dawnlist ishlab turgan paytda, shu ekranning pastroq qismida belgilangan ishga tushirish vaqtida, kunlik ishga tushirishda skanerlanadigan qidiruvlar. Yoqilgan qidiruv ishlagan har kuni pul sarflaydi, chunki ish o‘rinlari lentasi qaytarilgan har bir e'lon uchun to‘lov oladi — shuning uchun Dawnlist siz bergan ma'lumotlar asosida taklif qilgan qidiruvlar siz ularni o‘qib chiqmaguningizcha o‘chirilgan holda qoladi.",
+  "searches.dk_label": "Ish tavsifida ham bu soʻzlarni qidirish (ixtiyoriy)",
+  "searches.dk_placeholder": "Vergul bilan ajratilgan, mas. asset management, portfolio strategy",
   "searches.heading": "Dawnlist nimalarni qidiradi",
   "searches.needs_where": "{label} qidiruvini yoqishdan oldin qayerda ishlamoqchi ekaningizni belgilashingiz kerak. Joylashuv ko‘rsatilmasa, u butun dunyo bo‘ylab qidiradi.",
   "searches.needs_where_first": "Qidiruv qo‘shishdan oldin qayerda ishlamoqchi ekaningizni belgilang. Joylashuv ko‘rsatilmasa, u butun dunyo bo‘ylab qidiradi.",

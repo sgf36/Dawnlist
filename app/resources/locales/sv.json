@@ -285,6 +285,8 @@
   "searches.add": "Lägg till",
   "searches.added": "{label} har lagts till.",
   "searches.body": "Detta är sökningarna som genomsöks i Dawnlists dagliga körning, som sker vid körningstiden längre ned på denna skärm, medan Dawnlist körs. En påslagen sökning kostar pengar varje dag den körs, eftersom jobbflödet fakturerar per returnerad annons — därför börjar de sökningar Dawnlist föreslog utifrån dina uppgifter avstängda tills du har läst igenom dem.",
+  "searches.dk_label": "Matcha även dessa ord i arbetsbeskrivningen (valfritt)",
+  "searches.dk_placeholder": "Kommaseparerade, t.ex. asset management, portfolio strategy",
   "searches.heading": "Vad Dawnlist letar efter",
   "searches.needs_where": "{label} kan inte aktiveras förrän du anger var du vill arbeta. Utan en plats skulle den söka i hela världen.",
   "searches.needs_where_first": "Ange var du vill arbeta innan du lägger till en sökning. Utan en plats skulle den söka i hela världen.",

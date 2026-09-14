@@ -285,6 +285,8 @@
   "searches.add": "Adaugă",
   "searches.added": "{label} a fost adăugat.",
   "searches.body": "Acestea sunt căutările incluse în rularea zilnică a Dawnlist, care are loc la ora de rulare stabilită mai jos pe acest ecran, cât timp Dawnlist rulează. O căutare activată costă bani în fiecare zi în care rulează, deoarece fluxul de locuri de muncă facturează per anunț returnat — de aceea cele sugerate de Dawnlist pe baza informațiilor tale pornesc dezactivate până când le citești.",
+  "searches.dk_label": "Potrivește și aceste cuvinte în descrierea postului (opțional)",
+  "searches.dk_placeholder": "Separate prin virgulă, de ex. asset management, portfolio strategy",
   "searches.heading": "Ce caută Dawnlist",
   "searches.needs_where": "{label} nu poate fi activată până când nu setați unde doriți să lucrați. Fără locație, ar căuta în întreaga lume.",
   "searches.needs_where_first": "Setați unde doriți să lucrați înainte de a adăuga o căutare. Fără locație, aceasta ar căuta în întreaga lume.",

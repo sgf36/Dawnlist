@@ -285,6 +285,8 @@
   "searches.add": "Ekle",
   "searches.added": "{label} eklendi.",
   "searches.body": "Bunlar, bu ekranda daha aşağıda ayarlanan çalıştırma saatinde, Dawnlist çalışırken günlük çalıştırmasında taranan aramalardır. Açık olan bir arama, çalıştığı her gün para maliyeti oluşturur, çünkü iş beslemesi döndürülen ilan başına ücretlendirir — bu nedenle Dawnlist'in sizin verdiğiniz bilgilerden önerdiği aramalar, siz onları okuyana kadar kapalı başlar.",
+  "searches.dk_label": "Bu kelimeleri iş tanımında da ara (isteğe bağlı)",
+  "searches.dk_placeholder": "Virgülle ayrılmış, ör. asset management, portfolio strategy",
   "searches.heading": "Dawnlist neleri arıyor",
   "searches.needs_where": "{label} etkinleştirilmeden önce nerede çalışmak istediğinizi belirlemeniz gerekir. Konum belirtilmezse tüm dünya taranır.",
   "searches.needs_where_first": "Arama eklemeden önce nerede çalışmak istediğinizi belirleyin. Konum belirtilmezse tüm dünya taranır.",

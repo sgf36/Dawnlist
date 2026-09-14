@@ -151,6 +151,7 @@ def load_queries(conn) -> list[SearchQuery]:
             discovered_since=since,
             exclude_job_ids=held,
             max_results=params.get("max_results", MAX_RESULTS_PER_SEARCH),
+            description_keywords=params.get("description_keywords", []),
         ))
     return out
 
@@ -354,7 +355,8 @@ def save_query(conn, label: str, titles: list[str], *,
                countries: list[str] | None = None,
                scope: SearchScope | None = None,
                enabled: bool = True,
-               posted_within_days: int = DEFAULT_POSTED_WITHIN_DAYS) -> None:
+               posted_within_days: int = DEFAULT_POSTED_WITHIN_DAYS,
+               description_keywords: list[str] | None = None) -> None:
     """Store one saved search.
 
     Nothing created a `queries` row before this. `load_queries` returned an
@@ -395,13 +397,17 @@ def save_query(conn, label: str, titles: list[str], *,
             "doubles how many of the postings you pay for are ones you would "
             "actually read. To search widely, list the countries you mean.")
 
+    params = {"titles": titles,
+              **scope.as_params(),
+              "posted_within_days": posted_within_days}
+    dk = [k.strip() for k in (description_keywords or []) if k.strip()]
+    if dk:
+        params["description_keywords"] = dk
     conn.execute(
         """INSERT INTO queries(label, params_json, enabled, created_at)
            VALUES(?,?,?,?)
            ON CONFLICT(label) DO UPDATE SET params_json = excluded.params_json""",
-        (label, json.dumps({"titles": titles,
-                            **scope.as_params(),
-                            "posted_within_days": posted_within_days}),
+        (label, json.dumps(params),
          int(enabled),
          datetime.now(timezone.utc).isoformat(timespec="seconds")))
     conn.commit()
@@ -451,26 +457,32 @@ def apply_scope(conn, scope: SearchScope) -> int:
     return len(rows)
 
 
-def save_new_search(conn, label: str, titles: list[str]) -> None:
+def save_new_search(conn, label: str, titles: list[str],
+                    description_keywords: list[str] | None = None) -> None:
     """A search added in Settings, on the install's own scope."""
     scope = load_scope(conn)
     if not scope.is_set:
         raise ValueError(tr("searches.needs_where_first"))
-    save_query(conn, label, titles, scope=scope)
+    save_query(conn, label, titles, scope=scope,
+               description_keywords=description_keywords)
 
 
-def all_queries(conn) -> list[tuple[str, list[str], bool]]:
+def all_queries(conn) -> list[tuple[str, list[str], list[str], bool]]:
     """Every saved search, enabled or not.
 
     `load_queries` returns only the enabled ones, because that is what a run
     should sweep — but the screen has to show the rest, or a search the user
     turned off looks like one the app lost.
+
+    Returns (label, titles, description_keywords, enabled).
     """
     out = []
     for row in conn.execute("SELECT label, params_json, enabled FROM queries "
                             "ORDER BY label"):
         params = json.loads(row["params_json"])
-        out.append((row["label"], params.get("titles", []), bool(row["enabled"])))
+        out.append((row["label"], params.get("titles", []),
+                    params.get("description_keywords", []),
+                    bool(row["enabled"])))
     return out
 
 
@@ -520,7 +532,7 @@ def seed_queries_from_aim(conn, aim: str, *, send=None, titles=None,
         if stored.is_set:
             scope = scope.with_location(stored)
 
-    existing = {label for label, _titles, _on in all_queries(conn)}
+    existing = {label for label, _titles, _dk, _on in all_queries(conn)}
     added = 0
     for phrase in titles:
         if phrase.lower() in {e.lower() for e in existing}:
@@ -2476,7 +2488,8 @@ def open_settings(parent=None, conn=None):
         when = _schedule_panel(conn)
         searches = SearchesPanel(
             loader=lambda: all_queries(conn),
-            saver=lambda label, titles: save_new_search(conn, label, titles),
+            saver=lambda label, titles, dk=None: save_new_search(
+                conn, label, titles, description_keywords=dk),
             forgetter=lambda label: forget_query(conn, label),
             enabler=lambda label, on: enable_query(conn, label, enabled=on),
             where_loader=lambda: load_scope(conn).describe(),

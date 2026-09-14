@@ -285,6 +285,8 @@
   "searches.add": "ጨምር",
   "searches.added": "{label} ታክሏል።",
   "searches.body": "እነዚህ Dawnlist በዕለታዊ ሩጫው ውስጥ የሚያካሂዳቸው ፍለጋዎች ናቸው፣ ይህም በዚህ ገፅ ውስጥ ከዚህ በታች በተቀመጠው የሩጫ ሰዓት ላይ፣ Dawnlist በስራ ላይ ሳለ ይካሄዳል። የበራ ፍለጋ በሚሰራበት በእያንዳንዱ ቀን ገንዘብ ያስወጣል፣ ምክንያቱም የስራ መረጃ መስመሩ በተመላሽ ማስታወቂያ ይከፍላል — ስለዚህ Dawnlist ከነገሩት ነገር ተነስቶ ያቀረባቸው እነዚያ እስኪያነቧቸው ድረስ ጠፍተው ይጀምራሉ።",
+  "searches.dk_label": "በሥራ መግለጫው ውስጥ እነዚህን ቃላት ደግሞ ያመሳስሉ (አማራጭ)",
+  "searches.dk_placeholder": "በኮማ ተለያይተው፣ ለምሳሌ asset management, portfolio strategy",
   "searches.heading": "ዳውንሊስት የሚፈልገው",
   "searches.needs_where": "{label} የት መስራት እንደሚፈልጉ እስኪያዘጋጁ ድረስ ማብራት አይችልም። ቦታ ከሌለው መላውን ዓለም ይቃኛል።",
   "searches.needs_where_first": "ፍለጋ ከመጨመርዎ በፊት የት መስራት እንደሚፈልጉ ያዘጋጁ። ቦታ ከሌለው መላውን ዓለም ይቃኛል።",

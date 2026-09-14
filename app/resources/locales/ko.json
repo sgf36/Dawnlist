@@ -285,6 +285,8 @@
   "searches.add": "추가",
   "searches.added": "{label} 항목을 추가했습니다.",
   "searches.body": "이 항목들은 이 화면 아래쪽에 설정된 실행 시간에, Dawnlist가 실행 중인 동안 매일 실행되는 검색에서 훑어집니다. 켜진 검색은 실행될 때마다 비용이 발생합니다. 채용 피드가 반환된 공고 건수에 따라 과금되기 때문입니다 — 그래서 사용자가 알려준 정보를 바탕으로 Dawnlist가 제안한 항목들은 검토하기 전까지 기본적으로 꺼져 있습니다.",
+  "searches.dk_label": "채용 설명에서 이 단어도 일치시키기 (선택 사항)",
+  "searches.dk_placeholder": "쉼표로 구분, 예: asset management, portfolio strategy",
   "searches.heading": "Dawnlist가 찾는 항목",
   "searches.needs_where": "{label}은 근무 지역을 설정하기 전에는 활성화할 수 없습니다. 위치가 없으면 전 세계를 대상으로 검색합니다.",
   "searches.needs_where_first": "검색을 추가하기 전에 근무 지역을 설정해 주세요. 위치가 없으면 전 세계를 대상으로 검색합니다.",

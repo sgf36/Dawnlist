@@ -285,6 +285,8 @@
   "searches.add": "Aggiungi",
   "searches.added": "{label} aggiunta.",
   "searches.body": "Queste sono le ricerche effettuate nella ricerca giornaliera di Dawnlist, che avviene all'orario impostato più in basso in questa schermata, mentre Dawnlist è in esecuzione. Una ricerca attiva comporta un costo ogni giorno in cui viene eseguita, perché il feed delle offerte addebita in base alle offerte restituite — quindi quelle suggerite da Dawnlist in base a quanto hai indicato partono disattivate finché non le hai esaminate.",
+  "searches.dk_label": "Cerca anche queste parole nella descrizione della posizione (facoltativo)",
+  "searches.dk_placeholder": "Separati da virgole, ad es. asset management, portfolio strategy",
   "searches.heading": "Cosa cerca Dawnlist",
   "searches.needs_where": "{label} non può essere attivata finché non imposti dove desideri lavorare. Senza una località, cercherebbe in tutto il mondo.",
   "searches.needs_where_first": "Imposta dove desideri lavorare prima di aggiungere una ricerca. Senza una località, cercherebbe in tutto il mondo.",
