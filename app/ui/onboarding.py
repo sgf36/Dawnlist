@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QFrame,
                                QLineEdit, QListWidget, QListWidgetItem,
                                QPushButton,
                                QPlainTextEdit, QRadioButton, QScrollArea, QSizePolicy,
-                               QSpinBox, QSplitter, QStackedWidget, QTextBrowser,
+                               QSpinBox, QStackedWidget, QTextBrowser,
                                QVBoxLayout, QWidget)
 
 from app.i18n import tr

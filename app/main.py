@@ -2082,8 +2082,6 @@ def _doctor(conn) -> int:
 
     from app.core import api_key as user_key
 
-    from app.core import api_key as user_key
-
     stored = user_key.get()
     print(f"anthropic key : {'present' if stored else 'MISSING'}")
     if not stored:
