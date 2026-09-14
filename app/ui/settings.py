@@ -37,7 +37,7 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout,
 from app.core import api_key
 from app.i18n import tr
 from app.ui.background import run_in_background
-from app.ui.onboarding import ONBOARDING_STYLESHEET, reflow
+from app.ui.onboarding import ONBOARDING_STYLESHEET, country_items, reflow
 from app.ui.review import CREAM, GOLD_DEEP, TEAL
 
 SETTINGS_STYLESHEET = ONBOARDING_STYLESHEET + f"""
@@ -2194,21 +2194,44 @@ class SearchesPanel(QWidget):
         # ONE PLACE FOR EVERY SEARCH, above the list. It is also the repair for
         # installs whose searches were switched on with no location: those are
         # refused at the run, and this is the single entry that fixes them all.
+        where_label = QLabel(tr("searches.where_label"))
+        layout.addWidget(where_label)
+
         where_row = QHBoxLayout()
         where_row.setSpacing(6)
-        where_row.addWidget(QLabel(tr("searches.where_label")))
-        self.where_field = QLineEdit()
-        self.where_field.setObjectName("sentence")
-        self.where_field.setPlaceholderText(tr("searches.where_placeholder"))
-        self.where_field.setText(self._where_load() or "")
-        self.where_field.returnPressed.connect(self.apply_where)
+
+        self.city_field = QLineEdit()
+        self.city_field.setObjectName("sentence")
+        self.city_field.setPlaceholderText(
+            tr("onboarding.profile_city_placeholder"))
+        self.city_field.returnPressed.connect(self.apply_where)
+        where_row.addWidget(self.city_field, 1)
+
+        self.country_field = QComboBox()
+        self.country_field.setEditable(True)
+        self.country_field.setInsertPolicy(QComboBox.NoInsert)
+        self.country_field.setMaximumWidth(240)
+        for code, display in country_items():
+            self.country_field.addItem(display, userData=code)
+        completer = self.country_field.completer()
+        if completer is not None:
+            completer.setFilterMode(Qt.MatchContains)
+            completer.setCaseSensitivity(Qt.CaseInsensitive)
+        self.country_field.setCurrentIndex(-1)
+        self.country_field.setPlaceholderText(
+            tr("onboarding.profile_country_placeholder"))
+        where_row.addWidget(self.country_field)
+
         self.btn_where = QPushButton(tr("searches.where_apply"))
         self.btn_where.setObjectName("secondary")
         self.btn_where.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.btn_where.clicked.connect(self.apply_where)
-        where_row.addWidget(self.where_field, 1)
         where_row.addWidget(self.btn_where)
         layout.addLayout(where_row)
+
+        # Pre-populate from the stored scope.  describe() returns "City, CC"
+        # or just "CC"; two-letter alpha entries are country codes.
+        self._populate_where(self._where_load() or "")
 
         self.result = QLabel()
         self.result.setWordWrap(True)
@@ -2276,15 +2299,53 @@ class SearchesPanel(QWidget):
         item = self.listing.currentItem()
         return item.data(Qt.UserRole) if item else (None, None)
 
+    def _country_code(self) -> str:
+        """The two-letter ISO code from the dropdown, or from raw typed text."""
+        data = self.country_field.currentData()
+        if data and isinstance(data, str) and len(data) == 2:
+            return data.upper()
+        text = self.country_field.currentText().strip()
+        if len(text) == 2 and text.isalpha():
+            return text.upper()
+        if " — " in text:
+            candidate = text.split(" — ")[0].strip()
+            if len(candidate) == 2 and candidate.isalpha():
+                return candidate.upper()
+        return ""
+
+    def _populate_where(self, where_text: str) -> None:
+        """Split a describe() string like 'London, GB' into the two fields."""
+        if not where_text:
+            return
+        parts = [p.strip() for p in where_text.split(",")]
+        cities: list[str] = []
+        country = ""
+        for part in parts:
+            if len(part) == 2 and part.isalpha():
+                country = part.upper()
+            elif part:
+                cities.append(part)
+        self.city_field.setText(", ".join(cities))
+        if country:
+            # Select the matching item in the dropdown, or set the text.
+            for i in range(self.country_field.count()):
+                if self.country_field.itemData(i) == country:
+                    self.country_field.setCurrentIndex(i)
+                    return
+            self.country_field.setCurrentText(country)
+
     def apply_where(self) -> None:
-        text = self.where_field.text().strip()
+        country = self._country_code()
+        city = self.city_field.text().strip()
+        parts = [p for p in (city, country) if p]
+        text = ", ".join(parts)
         try:
             self._where_save(text)
         except ValueError as exc:
             self._say(str(exc), ok=False)
             return
         shown = self._where_load() or text
-        self.where_field.setText(shown)
+        self._populate_where(shown)
         self._say(tr("searches.where_applied", where=shown), ok=True)
         self.refresh()
         self.changed.emit()

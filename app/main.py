@@ -2222,7 +2222,8 @@ def build_onboarding(conn, *, on_finished=None):
         searches=lambda: all_queries(conn),
         where=lambda: load_scope(conn).describe(),
         set_search=lambda label, enabled: enable_query(
-            conn, label, enabled=enabled))
+            conn, label, enabled=enabled),
+        save_search=lambda label: save_new_search(conn, label, [label]))
 
     # The ⋯ menu: language, subscription, restore. On the wizard as well as
     # the main window, because the person who needs all three most is the one

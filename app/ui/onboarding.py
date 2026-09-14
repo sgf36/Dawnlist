@@ -92,6 +92,29 @@ def reflow(text: str) -> str:
     return "\n\n".join(p for p in paragraphs if p).replace("**", "")
 
 
+def country_items():
+    """(code, 'CODE — Name') for every ISO 3166-1 alpha-2 territory Qt knows.
+
+    Used by the Profile step and the Settings location picker. Built from
+    QLocale so it stays current with the Qt release and never drifts from the
+    platform's own locale database.
+
+    Exported (no underscore) because ``settings.py`` imports it.
+    """
+    from PySide6.QtCore import QLocale
+    seen: set[str] = set()
+    items: list[tuple[str, str]] = []
+    for locale in QLocale.matchingLocales(
+            QLocale.AnyLanguage, QLocale.AnyScript, QLocale.AnyTerritory):
+        territory = locale.territory()
+        code = QLocale.territoryToCode(territory)
+        if code and len(code) == 2 and code not in seen:
+            seen.add(code)
+            name = QLocale.territoryToString(territory)
+            items.append((code, f"{code} — {name}"))
+    return sorted(items, key=lambda x: x[1])
+
+
 ONBOARDING_STYLESHEET = f"""
 QLabel#stepHeading {{
     font-size: 19px;
@@ -183,6 +206,16 @@ QLineEdit#sentence {{
     padding: 7px 9px;
 }}
 QLineEdit#sentence[needed="true"] {{ border: 1px solid {GOLD_DEEP}; }}
+QLineEdit:read-only {{
+    background: #f4f1ea;
+    color: #6b7480;
+    border: 1px solid #e2ddd5;
+}}
+QPlainTextEdit:read-only, QPlainTextEdit[readOnly="true"] {{
+    background: #f4f1ea;
+    color: #6b7480;
+    border: 1px solid #e2ddd5;
+}}
 QLabel#yourVerdict {{ color: #6b7480; }}
 QLabel#disagreement {{
     color: {GOLD_DEEP};
@@ -394,6 +427,7 @@ class CalibrationPage(QWidget):
 
     changed = Signal()
     finished = Signal()
+    review_searches = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -423,6 +457,15 @@ class CalibrationPage(QWidget):
         self.blockers_label.setWordWrap(True)
         bl.addWidget(self.blockers_label)
         layout.addWidget(self.blockers)
+
+        # "Review your searches" — shown only when calibration cannot proceed
+        # because of empty/insufficient sample, so the user has a way back
+        # instead of a dead end.
+        self._btn_review = QPushButton(tr("onboarding.calibration_review_btn"))
+        self._btn_review.setObjectName("secondary")
+        self._btn_review.clicked.connect(self.review_searches)
+        self._btn_review.hide()
+        layout.addWidget(self._btn_review)
 
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
@@ -603,15 +646,26 @@ class CalibrationPage(QWidget):
             # unpaid subscription sends the user to check searches that were
             # never the problem.
             self.blockers.setObjectName("blockers")
-            self.blockers_label.setText(
-                tr("onboarding.calibration_no_feed") if result.no_feed
-                else tr("onboarding.calibration_skipped"))
+            n = len(result.items)
+            if result.no_feed:
+                self.blockers_label.setText(
+                    tr("onboarding.calibration_no_feed"))
+            elif n == 0:
+                self.blockers_label.setText(
+                    tr("onboarding.calibration_skipped_zero"))
+            else:
+                self.blockers_label.setText(
+                    tr("onboarding.calibration_skipped_few", count=n,
+                       needed=MIN_DECIDED))
+            self._btn_review.show()
         elif reasons:
+            self._btn_review.hide()
             self.blockers.setObjectName("blockers")
             # Every reason at once. Revealing them one at a time makes a
             # five-minute step feel endless and trains people to guess.
             self.blockers_label.setText("• " + "\n• ".join(reasons))
         else:
+            self._btn_review.hide()
             self.blockers.setObjectName("blockersClear")
             text = tr("onboarding.ready")
             if result.low_signal:
@@ -629,6 +683,20 @@ class CalibrationPage(QWidget):
 # ---- Seniority choices for the profile step, ordered from the bottom up.
 # The indices are used in snapshot/restore, so appending is safe but
 # reordering is not.
+def _seniority_labels():
+    """Called at widget-build time so a locale switch re-reads the catalogue."""
+    return [
+        tr("onboarding.seniority.analyst"),
+        tr("onboarding.seniority.senior_analyst"),
+        tr("onboarding.seniority.manager"),
+        tr("onboarding.seniority.senior_manager"),
+        tr("onboarding.seniority.head_of"),
+        tr("onboarding.seniority.director"),
+        tr("onboarding.seniority.vp"),
+    ]
+
+# Kept for backward compatibility with snapshot/restore index mapping.
+# The ORDER must never change; append only.
 SENIORITY_LABELS = [
     "Analyst / Junior",
     "Senior Analyst / Associate",
@@ -692,14 +760,29 @@ class ProfilePage(QWidget):
         self.city.textChanged.connect(lambda: self.changed.emit())
         loc_row.addWidget(self.city, 2)
 
-        self.country = QLineEdit()
+        self.country = QComboBox()
+        self.country.setEditable(True)
+        self.country.setInsertPolicy(QComboBox.NoInsert)
+        self.country.setMaximumWidth(240)
+        for code, display in country_items():
+            self.country.addItem(display, userData=code)
+        # Type-to-filter: typing "uni" shows "GB — United Kingdom" etc.
+        completer = self.country.completer()
+        if completer is not None:
+            completer.setFilterMode(Qt.MatchContains)
+            completer.setCaseSensitivity(Qt.CaseInsensitive)
+        self.country.setCurrentIndex(-1)
         self.country.setPlaceholderText(
             tr("onboarding.profile_country_placeholder"))
-        self.country.setMaximumWidth(80)
-        self.country.setMaxLength(2)
-        self.country.textChanged.connect(lambda: self.changed.emit())
+        self.country.currentIndexChanged.connect(lambda: self.changed.emit())
+        self.country.lineEdit().textEdited.connect(lambda: self.changed.emit())
         loc_row.addWidget(self.country)
+
+        self._country_hint = QLabel()
+        self._country_hint.setStyleSheet("color:#b5533a; font-size:12px;")
+        self._country_hint.hide()
         layout.addLayout(loc_row)
+        layout.addWidget(self._country_hint)
 
         # ---- 2. Seniority ----
         sen_label = QLabel(tr("onboarding.profile_seniority"))
@@ -708,7 +791,7 @@ class ProfilePage(QWidget):
 
         self.seniority = QComboBox()
         self.seniority.addItem(tr("onboarding.profile_seniority_any"))
-        for label in SENIORITY_LABELS:
+        for label in _seniority_labels():
             self.seniority.addItem(label)
         self.seniority.currentIndexChanged.connect(lambda: self.changed.emit())
         layout.addWidget(self.seniority)
@@ -776,6 +859,22 @@ class ProfilePage(QWidget):
         f.setBold(True)
         return f
 
+    def _country_code(self) -> str:
+        """The two-letter ISO code from the dropdown, or from raw typed text."""
+        # Selected from the dropdown list — the stored userData is the code.
+        data = self.country.currentData()
+        if data and isinstance(data, str) and len(data) == 2:
+            return data.upper()
+        # Typed directly: might be "GB" or "GB — United Kingdom".
+        text = self.country.currentText().strip()
+        if re.match(r"^[A-Za-z]{2}$", text):
+            return text.upper()
+        if " — " in text:
+            candidate = text.split(" — ")[0].strip()
+            if re.match(r"^[A-Za-z]{2}$", candidate):
+                return candidate.upper()
+        return ""
+
     @property
     def has_location(self) -> bool:
         """True when at least a valid country code is given.
@@ -784,13 +883,22 @@ class ProfilePage(QWidget):
         gate passes but the scope is silently empty — reproducing the exact
         greyed-out-searches bug this step was built to prevent.
         """
-        return bool(re.match(r"^[A-Za-z]{2}$", self.country.text().strip()))
+        code = self._country_code()
+        valid = bool(code and re.match(r"^[A-Za-z]{2}$", code))
+        # Show or hide the validation hint.
+        if self.country.currentText().strip() and not valid:
+            self._country_hint.setText(
+                tr("onboarding.profile_country_hint"))
+            self._country_hint.show()
+        else:
+            self._country_hint.hide()
+        return valid
 
     def snapshot(self) -> dict:
         """Plain data for the draft save."""
         return {
             "city": self.city.text().strip(),
-            "country": self.country.text().strip().upper(),
+            "country": self._country_code(),
             "seniority_index": self.seniority.currentIndex(),
             "contract_type": self.contract_group.checkedId(),
             "salary_currency": self.salary_currency.currentText(),
@@ -801,7 +909,12 @@ class ProfilePage(QWidget):
     def restore(self, data: dict) -> None:
         """Put back saved profile data."""
         self.city.setText(data.get("city", ""))
-        self.country.setText(data.get("country", ""))
+        code = data.get("country", "")
+        idx = self.country.findData(code)
+        if idx >= 0:
+            self.country.setCurrentIndex(idx)
+        elif code:
+            self.country.setEditText(code)
         idx = data.get("seniority_index", 0)
         if 0 <= idx < self.seniority.count():
             self.seniority.setCurrentIndex(idx)
@@ -818,7 +931,7 @@ class ProfilePage(QWidget):
 
     def as_scope_parts(self) -> dict:
         """The fields that feed SearchScope.from_parts."""
-        country = self.country.text().strip().upper()
+        country = self._country_code()
         city = self.city.text().strip()
         contract = self.contract_group.checkedId()
         excluded = [e.strip() for e in self.excluded.text().split(",")
@@ -1012,6 +1125,9 @@ class InterviewPage(QWidget):
         #: None until the background call has returned.
         self.suggested_plan = None
         self._titles_task = None
+        #: Why the title suggestion failed, or None if it succeeded / not yet
+        #: attempted. Read by SearchesPage to show the right message.
+        self._titles_error: str | None = None
 
         split = QHBoxLayout()
         split.setSpacing(12)
@@ -1194,11 +1310,22 @@ QPlainTextEdit#aimBox {
         self._titles_task = run_in_background(
             lambda: titler(text, brief),
             on_done=self._titles_ready,
-            on_error=lambda _exc: None)   # a failed side errand stays silent
+            on_error=self._titles_failed)
 
     def _titles_ready(self, plan) -> None:
         self.suggested_plan = plan
         self.suggested_titles = list(getattr(plan, "titles", plan) or [])
+        self._titles_error = None
+
+    def _titles_failed(self, exc) -> None:
+        """The title suggestion failed. NOT swallowed: the searches step needs
+        to tell the user why there are no suggestions, and offer them a way to
+        add their own — instead of reading as 'you said nothing useful'."""
+        import logging
+        logging.getLogger(__name__).warning("title suggestion failed: %s", exc)
+        self.suggested_titles = []
+        self.suggested_plan = None
+        self._titles_error = str(exc)[:200]
 
     @staticmethod
     def _with_answers(factsheet: str, answered) -> str:
@@ -1310,7 +1437,17 @@ class SearchesPage(QWidget):
         body.setWordWrap(True)
         layout.addWidget(body)
 
+        # Titler failure banner — hidden until load() is told about an error.
+        self._error_banner = QLabel()
+        self._error_banner.setWordWrap(True)
+        self._error_banner.setStyleSheet(
+            f"background:{GOLD};color:{INK};padding:8px 12px;"
+            "border-radius:6px;font-size:13px;")
+        self._error_banner.hide()
+        layout.addWidget(self._error_banner)
+
         self._rows: list[tuple[str, QCheckBox]] = []
+        self._new_labels: list[str] = []
         self._where: str | None = None
         self._form = QVBoxLayout()
         self._form.setContentsMargins(0, 0, 0, 0)
@@ -1322,18 +1459,36 @@ class SearchesPage(QWidget):
         area.setWidgetResizable(True)
         layout.addWidget(area, 1)
 
+        # --- Add your own search ---
+        add_row = QHBoxLayout()
+        add_row.setSpacing(6)
+        self._add_field = QLineEdit()
+        self._add_field.setPlaceholderText(
+            tr("onboarding.searches_add_placeholder"))
+        self._add_field.returnPressed.connect(self._add_search)
+        add_row.addWidget(self._add_field, 1)
+        self._btn_add = QPushButton(tr("onboarding.searches_add_btn"))
+        self._btn_add.setObjectName("secondary")
+        self._btn_add.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self._btn_add.clicked.connect(self._add_search)
+        add_row.addWidget(self._btn_add)
+        layout.addLayout(add_row)
+
         self.note = QLabel()
         self.note.setObjectName("stepBody")
         self.note.setWordWrap(True)
         layout.addWidget(self.note)
 
-    def load(self, rows, where: str | None = None) -> None:
+    def load(self, rows, where: str | None = None,
+             titles_error: str | None = None) -> None:
         """`rows` is (label, titles, enabled), as `all_queries` returns.
 
         `where` is the place every search looks. Blank means setup found none,
         and then nothing here can be switched on: a search with no location
         looks across the whole world and pays for every posting it returns.
         None means the caller did not say, which only tests do.
+
+        `titles_error` is the reason the title suggestion failed, if it did.
         """
         while self._form.count():
             item = self._form.takeAt(0)
@@ -1341,8 +1496,18 @@ class SearchesPage(QWidget):
             if widget is not None:
                 widget.deleteLater()
         self._rows = []
+        self._new_labels = []
         self._where = where
         blocked = where is not None and not where.strip()
+
+        # Show titler failure banner if titles failed.
+        if titles_error and not rows:
+            self._error_banner.setText(
+                tr("onboarding.searches_titles_failed"))
+            self._error_banner.show()
+        else:
+            self._error_banner.hide()
+
         for label, _titles, enabled in rows:
             box = QCheckBox(label)
             box.setChecked(bool(enabled) and not blocked)
@@ -1354,6 +1519,35 @@ class SearchesPage(QWidget):
         # between the rows, and five searches spread down the whole window.
         self._form.addStretch(1)
         self._refresh()
+
+    def _add_search(self) -> None:
+        """Add a user-typed search to the checkbox list."""
+        text = self._add_field.text().strip()
+        if not text:
+            return
+        # No duplicates.
+        existing = {label.lower() for label, _box in self._rows}
+        if text.lower() in existing:
+            self._add_field.clear()
+            return
+        blocked = self._where is not None and not self._where.strip()
+        box = QCheckBox(text)
+        box.setChecked(not blocked)
+        box.setEnabled(not blocked)
+        box.stateChanged.connect(lambda *_: self._refresh())
+        # Insert before the stretch at the end.
+        stretch_idx = self._form.count() - 1
+        if stretch_idx < 0:
+            stretch_idx = 0
+        self._form.insertWidget(stretch_idx, box)
+        self._rows.append((text, box))
+        self._new_labels.append(text)
+        self._add_field.clear()
+        self._refresh()
+
+    def new_labels(self) -> list[str]:
+        """Labels added by the user (not from the titler), needing save_query."""
+        return list(self._new_labels)
 
     def selections(self) -> list[tuple[str, bool]]:
         return [(label, box.isChecked()) for label, box in self._rows]
@@ -1574,7 +1768,8 @@ class OnboardingWizard(QWidget):
     scope_ready = Signal(object)        # dict of profile scope parts
 
     def __init__(self, *, extract, sample, drafter=None, titler=None,
-                 searches=None, set_search=None, entitlement_panel=None,
+                 searches=None, set_search=None, save_search=None,
+                 entitlement_panel=None,
                  where=None, accept_terms=None, terms_accepted=False,
                  confirm=None, load_draft=None, save_draft=None, parent=None):
         """`extract(paths) -> (names, warnings)` and `sample() -> [items]` are
@@ -1584,12 +1779,17 @@ class OnboardingWizard(QWidget):
         `set_search(label, enabled)` are the same idea for the saved searches.
         Both default to None so existing callers and tests keep working; the
         step simply shows nothing to switch on.
+
+        `save_search(label)` persists a new search the user typed during
+        onboarding. Called before `set_search` so the search exists in the
+        database before it is enabled.
         """
         super().__init__(parent)
         self._extract = extract
         self._sample = sample
         self._searches = searches
         self._set_search = set_search
+        self._save_search = save_search
         #: `where() -> str`, the place the seeded searches look ("" if none).
         self._where = where
         #: Called once, when the user leaves the terms step having agreed.
@@ -1735,6 +1935,8 @@ class OnboardingWizard(QWidget):
         self.btn_next.clicked.connect(self._next)
         self.btn_back.clicked.connect(self._back)
         self.calibration.finished.connect(self._finish)
+        self.calibration.review_searches.connect(
+            lambda: self._show_step(STEP_SEARCHES))
 
         # SAVED AS THE USER GOES. Closing the window — or a crash, or a
         # machine going to sleep — used to lose the aim, both corrected
@@ -1952,9 +2154,20 @@ class OnboardingWizard(QWidget):
             if self._searches is not None:
                 self.searches.load(
                     self._searches(),
-                    where=self._where() if self._where is not None else None)
+                    where=self._where() if self._where is not None else None,
+                    titles_error=getattr(self.interview, '_titles_error', None))
             self._show_step(STEP_SEARCHES)
         elif index == STEP_SEARCHES:
+            # Persist any searches the user added during onboarding BEFORE
+            # trying to enable them — a search must exist in the database
+            # before set_search can toggle it.
+            if self._save_search is not None:
+                for label in self.searches.new_labels():
+                    try:
+                        self._save_search(label)
+                    except Exception:  # noqa: BLE001
+                        pass  # best-effort; the enable below will fail visibly
+            enable_failures: list[str] = []
             if self._set_search is not None:
                 for label, enabled in self.searches.selections():
                     try:
@@ -1963,7 +2176,12 @@ class OnboardingWizard(QWidget):
                         # Refused because the search has no location. Leaving
                         # it off is the right outcome, and Settings says how
                         # to fix it; stopping setup here would strand the user.
-                        pass
+                        if enabled:
+                            enable_failures.append(label)
+            if enable_failures:
+                import logging
+                logging.getLogger(__name__).warning(
+                    "could not enable searches: %s", enable_failures)
             # Only now is there anything to fetch with.
             self._go_to_calibration()
 
@@ -1989,7 +2207,8 @@ class OnboardingWizard(QWidget):
         if self._searches is not None:
             self.searches.load(
                 self._searches(),
-                where=self._where() if self._where is not None else None)
+                where=self._where() if self._where is not None else None,
+                titles_error=getattr(self.interview, '_titles_error', None))
         if self.stack.currentIndex() == STEP_TERMS:
             self._resume_step = STEP_SEARCHES
         else:

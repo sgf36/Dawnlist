@@ -820,7 +820,8 @@ def test_where_you_want_to_work_is_applied_to_every_search(qapp):
     saved = []
     panel = SearchesPanel(where_loader=lambda: saved[-1] if saved else "",
                           where_saver=saved.append)
-    panel.where_field.setText("London, GB")
+    panel.city_field.setText("London")
+    panel.country_field.setCurrentText("GB")
     panel.apply_where()
     assert saved == ["London, GB"]
     assert "London, GB" in panel.result.text()
@@ -834,7 +835,7 @@ def test_a_location_that_cannot_be_used_says_why(qapp):
         raise ValueError("Add the two-letter country code, for example: London, GB")
 
     panel = SearchesPanel(where_saver=refuse)
-    panel.where_field.setText("London")
+    panel.city_field.setText("London")
     panel.apply_where()
     assert "country code" in panel.result.text()
     panel.close()
