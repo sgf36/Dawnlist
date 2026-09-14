@@ -285,6 +285,8 @@
   "searches.add": "追加",
   "searches.added": "{label} を追加しました。",
   "searches.body": "これらは、この画面の下部で設定された実行時刻に、Dawnlistの起動中に行われるデイリー実行で対象となる検索です。有効にした検索は、実行されるたびに費用が発生します。求人フィードは返された求人情報数に応じて課金されるためです。そのため、入力内容をもとにDawnlistが提案した検索は、内容を確認するまで無効の状態で開始されます。",
+  "searches.dk_label": "求人説明文でもこれらの単語を検索する（任意）",
+  "searches.dk_placeholder": "カンマ区切り、例: asset management, portfolio strategy",
   "searches.heading": "Dawnlistが検索する条件",
   "searches.needs_where": "{label}は、希望の勤務地を設定するまで有効にできません。勤務地を指定しないと、世界中が対象になってしまいます。",
   "searches.needs_where_first": "検索を追加する前に、希望の勤務地を設定してください。勤務地を指定しないと、世界中が対象になってしまいます。",

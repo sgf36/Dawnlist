@@ -285,6 +285,8 @@
   "searches.add": "Ongeza",
   "searches.added": "Imeongeza {label}.",
   "searches.body": "Hizi ni utafutaji zinazofanyika katika utafutaji wa kila siku wa Dawnlist, unaofanyika kwa muda ulioainishwa chini zaidi ya skrini hii, wakati Dawnlist inaendeshwa. Utafutaji uliowashwa hugharimu pesa kila siku unapofanyika, kwa sababu mfumo wa kazi hutoza kwa kila chapisho linalorejeshwa — hivyo zile ambazo Dawnlist ilipendekeza kutokana na taarifa ulizotoa huanza zikiwa zimezimwa hadi utakapozisoma.",
+  "searches.dk_label": "Linganisha pia maneno haya katika maelezo ya kazi (si lazima)",
+  "searches.dk_placeholder": "Yaliyotenganishwa kwa koma, mfano asset management, portfolio strategy",
   "searches.heading": "Dawnlist inatafuta nini",
   "searches.needs_where": "{label} haiwezi kuwezeshwa hadi utakapoweka mahali unapotaka kufanya kazi. Bila mahali, itaangalia dunia nzima.",
   "searches.needs_where_first": "Weka mahali unapotaka kufanya kazi kabla ya kuongeza utafutaji. Bila mahali, itaangalia dunia nzima.",

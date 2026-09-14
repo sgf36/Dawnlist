@@ -61,6 +61,13 @@ class SearchQuery:
     #: before anything has read it, so a doubtful one costs a real role.
     exclude_title_terms: list[str] = field(default_factory=list)
     exclude_companies: list[str] = field(default_factory=list)
+    #: Whole-word matches against the job DESCRIPTION, not the title. Covers
+    #: roles whose function is named in the text but not in the title — "Hotel
+    #: Asset Manager" appearing in a description headed "Vice President,
+    #: Investments". The feed matches whole words with word boundaries, case-
+    #: insensitively, so "asset management" will not match "asset-management"
+    #: but will match "Asset Management".
+    description_keywords: list[str] = field(default_factory=list)
 
 
 def feed_job_ids(ids) -> list[int]:

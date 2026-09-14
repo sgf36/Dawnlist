@@ -285,6 +285,8 @@
   "searches.add": "Dodaj",
   "searches.added": "Dodano {label}.",
   "searches.body": "Ovo su pretrage koje se obuhvaćaju u Dawnlistovu dnevnom pokretanju, koje se odvija u vrijeme pokretanja postavljeno niže na ovom zaslonu, dok Dawnlist radi. Uključena pretraga stvara trošak svaki dan kada se izvrši, jer izvor oglasa naplaćuje po vraćenom oglasu — stoga su pretrage koje je Dawnlist predložio na temelju vaših podataka isprva isključene, dok ih ne pregledate.",
+  "searches.dk_label": "Pronađi i ove riječi u opisu posla (neobvezno)",
+  "searches.dk_placeholder": "Odvojeno zarezima, npr. asset management, portfolio strategy",
   "searches.heading": "Što Dawnlist traži",
   "searches.needs_where": "{label} se ne može uključiti dok ne postavite gdje želite raditi. Bez lokacije pretraživala bi cijeli svijet.",
   "searches.needs_where_first": "Postavite gdje želite raditi prije dodavanja pretrage. Bez lokacije pretraživala bi cijeli svijet.",

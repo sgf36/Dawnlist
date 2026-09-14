@@ -285,6 +285,8 @@
   "searches.add": "Add",
   "searches.added": "Added {label}.",
   "searches.body": "These are the searches swept in Dawnlist's daily run, which happens at the run time set further down this screen, while Dawnlist is running. A search that is switched on costs money every day it runs, because the job feed bills per posting returned — so the ones Dawnlist suggested from what you told it start switched off until you have read them.",
+  "searches.dk_label": "Also match these words in the job description (optional)",
+  "searches.dk_placeholder": "Comma-separated, e.g. asset management, portfolio strategy",
   "searches.heading": "What Dawnlist looks for",
   "searches.needs_where": "{label} cannot be switched on until you set where you want to work. With no location it would look across the whole world.",
   "searches.needs_where_first": "Set where you want to work before adding a search. With no location it would look across the whole world.",

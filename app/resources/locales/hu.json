@@ -285,6 +285,8 @@
   "searches.add": "Hozzáadás",
   "searches.added": "{label} hozzáadva.",
   "searches.body": "Ezek azok a keresések, amelyeket a Dawnlist napi futtatása átvizsgál, amely az ezen a képernyőn lejjebb beállított időpontban történik, amíg a Dawnlist fut. Egy bekapcsolt keresés minden futtatási napon pénzbe kerül, mert a hirdetési hírcsatorna a visszaadott hirdetések száma alapján számláz — ezért a Dawnlist által az Ön megadott adatai alapján javasolt keresések kikapcsolva indulnak, amíg át nem nézi őket.",
+  "searches.dk_label": "Ezeket a szavakat is keresse az álláshirdetés leírásában (nem kötelező)",
+  "searches.dk_placeholder": "Vesszővel elválasztva, pl. asset management, portfolio strategy",
   "searches.heading": "Amit a Dawnlist keres",
   "searches.needs_where": "A(z) {label} nem kapcsolható be, amíg meg nem adod, hol szeretnél dolgozni. Hely nélkül az egész világon keresne.",
   "searches.needs_where_first": "Add meg, hol szeretnél dolgozni, mielőtt keresést adnál hozzá. Hely nélkül az egész világon keresne.",

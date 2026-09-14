@@ -285,6 +285,8 @@
   "searches.add": "Toevoegen",
   "searches.added": "{label} toegevoegd.",
   "searches.body": "Dit zijn de zoekopdrachten die worden doorlopen in Dawnlists dagelijkse run, die plaatsvindt op het runtijdstip dat verderop op dit scherm is ingesteld, zolang Dawnlist actief is. Een ingeschakelde zoekopdracht kost geld op elke dag dat hij wordt uitgevoerd, omdat de vacaturefeed per teruggegeven vacature factureert — daarom staan de zoekopdrachten die Dawnlist op basis van jouw gegevens heeft voorgesteld standaard uit totdat je ze hebt gelezen.",
+  "searches.dk_label": "Zoek ook naar deze woorden in de functiebeschrijving (optioneel)",
+  "searches.dk_placeholder": "Gescheiden door komma's, bijv. asset management, portfolio strategy",
   "searches.heading": "Waar Dawnlist naar zoekt",
   "searches.needs_where": "{label} kan niet worden ingeschakeld totdat u instelt waar u wilt werken. Zonder locatie zou dit de hele wereld doorzoeken.",
   "searches.needs_where_first": "Stel in waar u wilt werken voordat u een zoekopdracht toevoegt. Zonder locatie zou dit de hele wereld doorzoeken.",

@@ -130,6 +130,9 @@ const SEARCH_LISTS = {
   cities:            { items: 20,   chars: 100 },
   excludeTitleTerms: { items: 100,  chars: 200 },
   excludeCompanies:  { items: 500,  chars: 200 },
+  // Whole-word matches against the job description. Same bound as titles,
+  // because both are search terms the user typed.
+  descriptionKeywords: { items: 50, chars: 200 },
   // The app sends its 1,000 most recently held ids (RECENT_HELD_IDS). Twice
   // that leaves room, and stops an unbounded list being forwarded to the feed
   // with every page.
@@ -390,6 +393,7 @@ const ADAPTERS = {
       // the app checks employers again on normalised names after the fetch.
       if (q.excludeTitleTerms?.length) base.job_title_not = q.excludeTitleTerms;
       if (q.excludeCompanies?.length) base.company_name_not = q.excludeCompanies;
+      if (q.descriptionKeywords?.length) base.job_description_contains_or = q.descriptionKeywords;
       if (q.postedWithinDays) base.posted_at_max_age_days = q.postedWithinDays;
       if (q.discoveredSince) base.discovered_at_gte = q.discoveredSince;
       // Excluding what we have already been billed for is a BILLING control,
@@ -585,6 +589,7 @@ function cacheKeyFor(query) {
     ci: [...(query.cities || [])].map((c) => c.trim().toLowerCase()).sort(),
     xt: [...(query.excludeTitleTerms || [])].map((t) => t.trim().toLowerCase()).sort(),
     xc: [...(query.excludeCompanies || [])].sort(),
+    dk: [...(query.descriptionKeywords || [])].map((k) => k.trim().toLowerCase()).sort(),
     m: query.maxResults ?? query.limit ?? null,
   });
   return new Request(`https://cache.dawnlist.internal/search?q=${encodeURIComponent(canonical)}`);

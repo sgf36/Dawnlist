@@ -436,8 +436,8 @@ def test_the_searches_step_switches_a_seed_on(qapp):
     from app.ui.onboarding import SearchesPage
 
     page = SearchesPage()
-    page.load([("hotel asset management", ["hotel asset management"], False),
-               ("three kinds investment", ["three kinds investment"], False)])
+    page.load([("hotel asset management", ["hotel asset management"], [], False),
+               ("three kinds investment", ["three kinds investment"], [], False)])
     assert not page.any_enabled
     assert "quiet" in page.note.text(), "it must say what nothing-on means"
 
@@ -454,11 +454,11 @@ def test_no_location_means_no_search_can_be_switched_on(qapp):
     from app.ui.onboarding import SearchesPage
 
     page = SearchesPage()
-    page.load([("hotel asset manager", ["hotel asset manager"], False)], where="")
+    page.load([("hotel asset manager", ["hotel asset manager"], [], False)], where="")
     assert not page._rows[0][1].isEnabled()
     assert "whole world" in page.note.text()
 
-    page.load([("hotel asset manager", ["hotel asset manager"], False)],
+    page.load([("hotel asset manager", ["hotel asset manager"], [], False)],
               where="London, GB")
     assert page._rows[0][1].isEnabled(), "positive control"
     page._rows[0][1].setChecked(True)
@@ -471,7 +471,7 @@ def test_searches_sit_at_the_top_rather_than_spreading_down_the_window(qapp):
     from app.ui.onboarding import SearchesPage
 
     page = SearchesPage()
-    page.load([("a", ["a"], False), ("b", ["b"], False)], where="London, GB")
+    page.load([("a", ["a"], [], False), ("b", ["b"], [], False)], where="London, GB")
     page.resize(900, 780)
     page.show()
     qapp.processEvents()
@@ -492,8 +492,8 @@ def test_leaving_the_searches_step_saves_what_was_switched_on(qapp, monkeypatch)
     w = OnboardingWizard(
         extract=lambda p: (["cv.docx"], []),
         sample=lambda: items(0),
-        searches=lambda: [("hotels", ["hotels"], False),
-                          ("junk phrase", ["junk phrase"], False)],
+        searches=lambda: [("hotels", ["hotels"], [], False),
+                          ("junk phrase", ["junk phrase"], [], False)],
         set_search=lambda label, enabled: saved.append((label, enabled)))
 
     w.searches.load(w._searches())
@@ -1005,7 +1005,7 @@ def test_going_back_and_forward_does_not_buy_the_postings_again(qapp,
         return items(10)
 
     w = a_wizard(monkeypatch, terms_accepted=True, sample=sample,
-                 searches=lambda: [("hotels", ["hotels"], True)],
+                 searches=lambda: [("hotels", ["hotels"], [], True)],
                  set_search=lambda label, on: None)
     w.searches.load(w._searches())
     w.stack.setCurrentIndex(STEP_SEARCHES)
@@ -1039,8 +1039,8 @@ def test_switching_a_different_search_on_asks_before_discarding(qapp,
 
     w = a_wizard(monkeypatch, terms_accepted=True, sample=sample,
                  confirm=lambda: answers.pop(0),
-                 searches=lambda: [("hotels", ["hotels"], True),
-                                   ("asset management", ["asset"], False)],
+                 searches=lambda: [("hotels", ["hotels"], [], True),
+                                   ("asset management", ["asset"], [], False)],
                  set_search=lambda label, on: None)
     w.searches.load(w._searches())
     w.stack.setCurrentIndex(STEP_SEARCHES)
@@ -1079,7 +1079,7 @@ def test_an_empty_first_fetch_is_retried_without_asking(qapp, monkeypatch,
     w = a_wizard(monkeypatch, terms_accepted=True,
                  sample=lambda: results.pop(0),
                  confirm=lambda: asked.append(True) or True,
-                 searches=lambda: [("hotels", ["hotels"], True)],
+                 searches=lambda: [("hotels", ["hotels"], [], True)],
                  set_search=lambda label, on: None)
     w.searches.load(w._searches())
     w.stack.setCurrentIndex(STEP_SEARCHES)
@@ -1220,7 +1220,7 @@ def test_the_postings_already_paid_for_come_back_rather_than_being_refetched(
 
     first = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
                      save_draft=save, sample=sample,
-                     searches=lambda: [("hotels", ["hotels"], True)],
+                     searches=lambda: [("hotels", ["hotels"], [], True)],
                      set_search=lambda label, on: None)
     first.searches.load(first._searches())
     first.stack.setCurrentIndex(STEP_SEARCHES)
@@ -1233,7 +1233,7 @@ def test_the_postings_already_paid_for_come_back_rather_than_being_refetched(
 
     second = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
                       save_draft=save, sample=sample,
-                      searches=lambda: [("hotels", ["hotels"], True)],
+                      searches=lambda: [("hotels", ["hotels"], [], True)],
                       set_search=lambda label, on: None)
     assert fetches == [1], "the same postings were bought a second time"
     assert second.stack.currentIndex() == STEP_CALIBRATION
@@ -1253,7 +1253,7 @@ def test_a_draft_left_on_the_gate_with_no_postings_reopens_a_step_earlier(
     held.update({"step": "calibration", "aim": "", "factsheet": "",
                  "brief": "", "questions": [], "answers": {}, "files": []})
     w = a_wizard(monkeypatch, terms_accepted=True, load_draft=load,
-                 save_draft=save, searches=lambda: [("hotels", ["h"], True)],
+                 save_draft=save, searches=lambda: [("hotels", ["h"], [], True)],
                  set_search=lambda label, on: None)
     assert w.stack.currentIndex() == STEP_SEARCHES
     w.close()

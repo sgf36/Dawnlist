@@ -285,6 +285,8 @@
   "searches.add": "Tambah",
   "searches.added": "{label} ditambahkan.",
   "searches.body": "Ini adalah pencarian yang disapu dalam run harian Dawnlist, yang terjadi pada waktu run yang diatur lebih lanjut di layar ini, selama Dawnlist berjalan. Pencarian yang diaktifkan akan dikenai biaya setiap hari ia berjalan, karena feed lowongan menagih per lowongan yang dikembalikan — sehingga pencarian yang disarankan Dawnlist berdasarkan informasi Anda mulai dalam keadaan nonaktif hingga Anda membacanya.",
+  "searches.dk_label": "Cocokkan juga kata-kata ini dalam deskripsi pekerjaan (opsional)",
+  "searches.dk_placeholder": "Dipisahkan koma, mis. asset management, portfolio strategy",
   "searches.heading": "Apa yang dicari Dawnlist",
   "searches.needs_where": "{label} tidak dapat diaktifkan sebelum Anda mengatur lokasi kerja yang diinginkan. Tanpa lokasi, pencarian akan mencakup seluruh dunia.",
   "searches.needs_where_first": "Atur lokasi kerja yang diinginkan sebelum menambahkan pencarian. Tanpa lokasi, pencarian akan mencakup seluruh dunia.",

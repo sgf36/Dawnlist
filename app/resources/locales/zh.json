@@ -285,6 +285,8 @@
   "searches.add": "添加",
   "searches.added": "已添加 {label}。",
   "searches.body": "这些是在 Dawnlist 每日运行中被扫描的搜索项，该运行会在本页面下方设定的运行时间、且 Dawnlist 处于运行状态时进行。已开启的搜索每天运行都会产生费用，因为职位源按返回的职位数计费——因此 Dawnlist 根据您提供的信息所建议的搜索项，在您阅读之前会默认保持关闭状态。",
+  "searches.dk_label": "同时在职位描述中匹配这些词语（可选）",
+  "searches.dk_placeholder": "以逗号分隔，例如 asset management, portfolio strategy",
   "searches.heading": "Dawnlist 的搜索内容",
   "searches.needs_where": "在您设定希望工作的地点之前,{label} 无法启用。未设定地点将导致搜索覆盖全球范围。",
   "searches.needs_where_first": "在添加搜索之前,请先设定希望工作的地点。未设定地点将导致搜索覆盖全球范围。",

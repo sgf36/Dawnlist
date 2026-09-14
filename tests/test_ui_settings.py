@@ -743,8 +743,8 @@ def searches_panel(qapp, rows=None):
     state = list(rows or [])
     log = []
 
-    def save(label, titles):
-        state.append((label, titles, True))
+    def save(label, titles, dk=None):
+        state.append((label, titles, dk or [], True))
         log.append(("add", label))
 
     def forget(label):
@@ -752,7 +752,7 @@ def searches_panel(qapp, rows=None):
         log.append(("remove", label))
 
     def enable(label, on):
-        state[:] = [(l, t, on if l == label else e) for l, t, e in state]
+        state[:] = [(l, t, d, on if l == label else e) for l, t, d, e in state]
         log.append(("enable", label, on))
 
     panel = SearchesPanel(loader=lambda: state, saver=save,
@@ -764,7 +764,7 @@ def searches_panel(qapp, rows=None):
 def test_a_search_shows_whether_it_is_switched_on(qapp):
     """A search left on costs money every morning, because the feed bills per
     posting returned."""
-    panel = searches_panel(qapp, [("asset management", ["asset manager"], False)])
+    panel = searches_panel(qapp, [("asset management", ["asset manager"], [], False)])
     assert "off" in panel.listing.item(0).text()
     assert "asset manager" in panel.listing.item(0).text()
     panel.close()
@@ -789,7 +789,7 @@ def test_an_empty_search_is_not_added(qapp):
 
 
 def test_a_search_can_be_switched_on(qapp):
-    panel = searches_panel(qapp, [("asset management", ["asset manager"], False)])
+    panel = searches_panel(qapp, [("asset management", ["asset manager"], [], False)])
     panel.listing.setCurrentRow(0)
     panel.toggle()
     assert panel._log == [("enable", "asset management", True)]
@@ -799,7 +799,7 @@ def test_a_search_can_be_switched_on(qapp):
 
 def test_switching_says_what_it_will_cost_you(qapp):
     """Silence would leave the user unsure whether it now costs money."""
-    panel = searches_panel(qapp, [("asset management", ["asset manager"], False)])
+    panel = searches_panel(qapp, [("asset management", ["asset manager"], [], False)])
     panel.listing.setCurrentRow(0)
     panel.toggle()
     assert "swept in each daily run" in panel.result.text()
@@ -807,7 +807,7 @@ def test_switching_says_what_it_will_cost_you(qapp):
 
 
 def test_a_search_can_be_removed(qapp):
-    panel = searches_panel(qapp, [("asset management", ["asset manager"], True)])
+    panel = searches_panel(qapp, [("asset management", ["asset manager"], [], True)])
     panel.listing.setCurrentRow(0)
     panel.remove()
     assert panel.listing.count() == 0
@@ -849,7 +849,7 @@ def test_switching_on_a_search_with_no_location_says_why(qapp):
         raise ValueError(f"{label} cannot be switched on until you set where")
 
     panel = SearchesPanel(
-        loader=lambda: [("asset management", ["asset manager"], False)],
+        loader=lambda: [("asset management", ["asset manager"], [], False)],
         enabler=refuse)
     panel.listing.setCurrentRow(0)
     panel.toggle()

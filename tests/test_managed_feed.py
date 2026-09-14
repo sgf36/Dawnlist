@@ -229,7 +229,8 @@ def test_no_personal_content_is_sent_upstream(monkeypatch):
     assert set(body) == {"label", "titles", "countries", "companies",
                          "postedWithinDays", "discoveredSince",
                          "excludeJobIds", "maxResults", "cities",
-                         "excludeTitleTerms", "excludeCompanies"}
+                         "excludeTitleTerms", "excludeCompanies",
+                         "descriptionKeywords"}
     # excludeJobIds carries PROVIDER IDS ONLY. It is a billing control, and it
     # must never become a channel for anything about the user. They are
     # integers, not strings: the Worker forwards the list untouched to

@@ -285,6 +285,8 @@
   "searches.add": "Fi kún",
   "searches.added": "A ti fi {label} kún.",
   "searches.body": "Ìwọ̀nyí ni àwọn ìsáwárí tí a ń wádìí nínú ìsáwárí ojoojúmọ́ ti Dawnlist, èyí tí ń ṣẹlẹ̀ ní àkókò ìsáwárí tí a ti ṣètò síwájú síi nínú ojú-ìwé yìí, níwọ̀n ìgbà tí Dawnlist bá ń ṣiṣẹ́. Ìsáwárí tí a bá ti ṣí sílẹ̀ máa ná owó ní ọjọ́ kọ̀ọ̀kan tí ó bá ṣiṣẹ́, nítorí orísun iṣẹ́ náà máa ń gba owó fún ìpolówó iṣẹ́ kọ̀ọ̀kan tí a dá padà — nítorí náà àwọn tí Dawnlist dábàá láti inú ohun tí o sọ fún un yóò bẹ̀rẹ̀ ní pípade títí o fi ka wọ́n.",
+  "searches.dk_label": "Tún wa àwọn ọ̀rọ̀ wọ̀nyí nínú àpèjúwe iṣẹ́ náà (àṣàyàn)",
+  "searches.dk_placeholder": "Tí a ya sọ́tọ̀ pẹ̀lú àmì ìdádúró, bí àpẹẹrẹ asset management, portfolio strategy",
   "searches.heading": "Ohun tí Dawnlist ń wá",
   "searches.needs_where": "{label} kò lè tan-an títí o fi ṣètò ibi tí o fẹ́ ṣiṣẹ́ sí. Láìsí ipò, yóò wá kári gbogbo àgbáyé.",
   "searches.needs_where_first": "Ṣètò ibi tí o fẹ́ ṣiṣẹ́ sí kí o tó fi àwárí kún. Láìsí ipò, yóò wá kári gbogbo àgbáyé.",

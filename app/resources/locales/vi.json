@@ -285,6 +285,8 @@
   "searches.add": "Thêm",
   "searches.added": "Đã thêm {label}.",
   "searches.body": "Đây là các tìm kiếm được quét trong lượt chạy hằng ngày của Dawnlist, diễn ra vào giờ chạy được đặt bên dưới màn hình này, khi Dawnlist đang hoạt động. Một tìm kiếm được bật sẽ tốn chi phí mỗi ngày nó chạy, vì nguồn dữ liệu việc làm tính phí theo mỗi tin đăng trả về — vì vậy các tìm kiếm mà Dawnlist đề xuất dựa trên thông tin bạn cung cấp sẽ bắt đầu ở trạng thái tắt cho đến khi bạn đã xem qua chúng.",
+  "searches.dk_label": "Cũng tìm các từ này trong mô tả công việc (tùy chọn)",
+  "searches.dk_placeholder": "Phân tách bằng dấu phẩy, ví dụ asset management, portfolio strategy",
   "searches.heading": "Dawnlist đang tìm kiếm gì",
   "searches.needs_where": "{label} chưa thể được kích hoạt cho đến khi bạn thiết lập nơi bạn muốn làm việc. Nếu không có địa điểm, tìm kiếm này sẽ tìm trên toàn thế giới.",
   "searches.needs_where_first": "Hãy thiết lập nơi bạn muốn làm việc trước khi thêm một tìm kiếm. Nếu không có địa điểm, tìm kiếm sẽ tìm trên toàn thế giới.",

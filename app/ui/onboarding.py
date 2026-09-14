@@ -1481,7 +1481,7 @@ class SearchesPage(QWidget):
 
     def load(self, rows, where: str | None = None,
              titles_error: str | None = None) -> None:
-        """`rows` is (label, titles, enabled), as `all_queries` returns.
+        """`rows` is (label, titles, description_keywords, enabled), as `all_queries` returns.
 
         `where` is the place every search looks. Blank means setup found none,
         and then nothing here can be switched on: a search with no location
@@ -1508,7 +1508,7 @@ class SearchesPage(QWidget):
         else:
             self._error_banner.hide()
 
-        for label, _titles, enabled in rows:
+        for label, _titles, _dk, enabled in rows:
             box = QCheckBox(label)
             box.setChecked(bool(enabled) and not blocked)
             box.setEnabled(not blocked)

@@ -285,6 +285,8 @@
   "searches.add": "Engeza",
   "searches.added": "Kwengeziwe {label}.",
   "searches.body": "Lezi yizinto ezisheshwa ohambweni lwansuku zonke lwe-Dawnlist, olwenzeka ngesikhathi sohambo esisethwe ngezansi kwesi sikrini, ngenkathi i-Dawnlist isebenza. Usesho olusebenzayo lubiza imali nsuku zonke lusebenza, ngoba ukudla komsebenzi kukhokhisa ngokwesishicilelwe esibuyisiwe – ngakho lezo eziphakanyiswe yi-Dawnlist ngokusekelwe kulokho okuyisho ziqala zivaliwe kuze kube yilapho uzifundile.",
+  "searches.dk_label": "Hlanganisa futhi la magama encazelweni yomsebenzi (ukukhetha)",
+  "searches.dk_placeholder": "Ahlukaniswe ngokhefana, isib. asset management, portfolio strategy",
   "searches.heading": "Lokho i-Dawnlist ekufunayo",
   "searches.needs_where": "I-{label} ayikwazi ukuvulwa uze usethe ukuthi ufuna ukusebenza kuphi. Uma kungenayo indawo, izobheka emhlabeni wonke.",
   "searches.needs_where_first": "Setha ukuthi ufuna ukusebenza kuphi ngaphambi kokwengeza insesho. Uma kungenayo indawo, izobheka emhlabeni wonke.",

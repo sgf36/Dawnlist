@@ -285,6 +285,8 @@
   "searches.add": "Tinye",
   "searches.added": "Etinyela {label}.",
   "searches.body": "Ndị a bụ nchọta ndị a na-achọ na nchọta Dawnlist kwa ụbọchị, nke na-eme n'oge nchọta e dobere n'okpuru ihuenyo a, mgbe Dawnlist na-arụ ọrụ. Nchọta e gbanyere na-efu ego kwa ụbọchị ọ na-arụ ọrụ, n'ihi na ozi ọrụ (feed) na-agbakwunye ụgwọ kwa ọkwa e weghachitere — yabụ ndị Dawnlist tụpụtara site n'ihe ị gwara ya na-amalite na-agbanyụ ruo mgbe ị gụchara ha.",
+  "searches.dk_label": "Chọtakwa okwu ndị a na nkọwa ọrụ ahụ (nhọrọ)",
+  "searches.dk_placeholder": "Kewapụtara site na kọma, dịka ọmụmaatụ asset management, portfolio strategy",
   "searches.heading": "Ihe Dawnlist na-achọ",
   "searches.needs_where": "{label} enweghị ike ịgbanye ruo mgbe ị họpụtara ebe ị chọrọ ọrụ. Ọ bụrụ na enweghị ebe, ọ ga-achọ n'ụwa niile.",
   "searches.needs_where_first": "Họpụta ebe ị chọrọ ọrụ tupu ị gbakwunye ọchụchọ. Ọ bụrụ na enweghị ebe, ọ ga-achọ n'ụwa niile.",

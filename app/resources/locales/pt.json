@@ -285,6 +285,8 @@
   "searches.add": "Adicionar",
   "searches.added": "{label} adicionado.",
   "searches.body": "Estas são as pesquisas percorridas na execução diária do Dawnlist, que ocorre à hora de execução definida mais abaixo neste ecrã, enquanto o Dawnlist estiver em execução. Uma pesquisa ativada custa dinheiro em cada dia em que é executada, porque o feed de vagas cobra por cada vaga devolvida — por isso, as que o Dawnlist sugeriu com base no que lhe indicou começam desativadas até que as tenha revisto.",
+  "searches.dk_label": "Procurar também estas palavras na descrição da vaga (opcional)",
+  "searches.dk_placeholder": "Separadas por vírgulas, p. ex. asset management, portfolio strategy",
   "searches.heading": "O que o Dawnlist procura",
   "searches.needs_where": "{label} não pode ser ativada até definir onde pretende trabalhar. Sem localização, abrangeria o mundo inteiro.",
   "searches.needs_where_first": "Defina onde pretende trabalhar antes de adicionar uma pesquisa. Sem localização, abrangeria o mundo inteiro.",

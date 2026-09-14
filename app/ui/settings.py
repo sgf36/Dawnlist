@@ -2172,7 +2172,7 @@ class SearchesPanel(QWidget):
                  parent=None):
         super().__init__(parent)
         self._load = loader or (lambda: [])
-        self._save = saver or (lambda label, titles: None)
+        self._save = saver or (lambda label, titles, dk=None: None)
         self._forget = forgetter or (lambda label: None)
         self._enable = enabler or (lambda label, on: None)
         self._where_load = where_loader or (lambda: "")
@@ -2260,6 +2260,18 @@ class SearchesPanel(QWidget):
         row.addWidget(self.btn_remove)
         layout.addLayout(row)
 
+        dk_label = QLabel(tr("searches.dk_label"))
+        layout.addWidget(dk_label)
+
+        dk_row = QHBoxLayout()
+        dk_row.setSpacing(6)
+        self.dk_field = QLineEdit()
+        self.dk_field.setObjectName("sentence")
+        self.dk_field.setPlaceholderText(tr("searches.dk_placeholder"))
+        self.dk_field.returnPressed.connect(self.add)
+        dk_row.addWidget(self.dk_field, 1)
+        layout.addLayout(dk_row)
+
         self.setStyleSheet(SETTINGS_STYLESHEET)
         self.btn_add.clicked.connect(self.add)
         self.btn_toggle.clicked.connect(self.toggle)
@@ -2268,9 +2280,12 @@ class SearchesPanel(QWidget):
 
     def refresh(self) -> None:
         self.listing.clear()
-        for label, titles, on in self._load() or []:
+        for label, titles, dk, on in self._load() or []:
             state = tr("searches.on") if on else tr("searches.off")
-            item = QListWidgetItem(f"{state}  {label}  —  {', '.join(titles)}")
+            text = f"{state}  {label}  —  {', '.join(titles)}"
+            if dk:
+                text += f"  [{', '.join(dk)}]"
+            item = QListWidgetItem(text)
             item.setData(Qt.UserRole, (label, on))
             self.listing.addItem(item)
 
@@ -2285,12 +2300,15 @@ class SearchesPanel(QWidget):
         text = self.field.text().strip()
         if not text:
             return
+        dk_text = self.dk_field.text().strip()
+        dk = [k.strip() for k in dk_text.split(",") if k.strip()] if dk_text else None
         try:
-            self._save(text, [text])
+            self._save(text, [text], dk)
         except ValueError as exc:
             self._say(str(exc), ok=False)
             return
         self.field.clear()
+        self.dk_field.clear()
         self._say(tr("searches.added", label=text), ok=True)
         self.refresh()
         self.changed.emit()

@@ -285,6 +285,8 @@
   "searches.add": "Přidat",
   "searches.added": "Přidáno: {label}.",
   "searches.body": "Toto jsou vyhledávání procházená v denním běhu Dawnlistu, který probíhá v čase nastaveném níže na této obrazovce, dokud je Dawnlist spuštěný. Zapnuté vyhledávání stojí peníze za každý den, kdy proběhne, protože zdroj nabídek účtuje podle počtu vrácených nabídek — proto vyhledávání, která Dawnlist navrhl na základě vašich údajů, začínají vypnutá, dokud si je nepřečtete.",
+  "searches.dk_label": "Hledejte také tato slova v popisu pozice (volitelné)",
+  "searches.dk_placeholder": "Oddělené čárkami, např. asset management, portfolio strategy",
   "searches.heading": "Co Dawnlist vyhledává",
   "searches.needs_where": "{label} nelze zapnout, dokud nenastavíte, kde chcete pracovat. Bez zadané lokality by hledání prohledávalo celý svět.",
   "searches.needs_where_first": "Před přidáním hledání nastavte, kde chcete pracovat. Bez zadané lokality by hledání prohledávalo celý svět.",

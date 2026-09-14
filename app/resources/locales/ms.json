@@ -285,6 +285,8 @@
   "searches.add": "Tambah",
   "searches.added": "{label} ditambah.",
   "searches.body": "Inilah carian yang diimbas dalam larian harian Dawnlist, yang berlaku pada waktu larian yang ditetapkan lebih jauh di bawah skrin ini, semasa Dawnlist berjalan. Carian yang dihidupkan akan mengenakan kos setiap hari ia berjalan, kerana suapan jawatan mengenakan bayaran mengikut setiap jawatan yang dikembalikan — jadi carian yang dicadangkan oleh Dawnlist daripada maklumat yang anda berikan bermula dalam keadaan dimatikan sehingga anda telah membacanya.",
+  "searches.dk_label": "Padankan juga perkataan ini dalam huraian pekerjaan (pilihan)",
+  "searches.dk_placeholder": "Dipisahkan koma, cth. asset management, portfolio strategy",
   "searches.heading": "Apa yang dicari oleh Dawnlist",
   "searches.needs_where": "{label} tidak boleh dihidupkan sehingga anda menetapkan tempat anda mahu bekerja. Tanpa lokasi, carian akan meliputi seluruh dunia.",
   "searches.needs_where_first": "Tetapkan tempat anda mahu bekerja sebelum menambah carian. Tanpa lokasi, carian akan meliputi seluruh dunia.",
