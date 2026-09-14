@@ -233,12 +233,13 @@ def test_onboarding_has_a_key_step_before_calibration(qapp, monkeypatch):
 
     monkeypatch.setattr(api_key, "get", lambda: None)
     w = OnboardingWizard(extract=lambda p: ([], []), sample=lambda: items(1))
-    assert w.stack.count() == 7, (
-        "TERMS, ingest, key, entitlement, interview, searches, calibration — "
-        "the entitlement step is where the user subscribes, and its absence "
-        "was why a new install reached calibration having paid for nothing; "
-        "the terms step is what binds a subscriber to the licence the feed's "
-        "own supplier requires")
+    assert w.stack.count() == 8, (
+        "TERMS, ingest, key, entitlement, profile, interview, searches, "
+        "calibration — the entitlement step is where the user subscribes, "
+        "and its absence was why a new install reached calibration having "
+        "paid for nothing; the profile step captures location so the "
+        "searches page is not greyed out; the terms step binds a subscriber "
+        "to the licence the feed's own supplier requires")
     assert isinstance(w.stack.widget(STEP_KEY), KeyPanel)
     w.close()
 
@@ -946,7 +947,7 @@ def test_subscribing_from_the_menu_returns_to_where_it_was_opened(qapp,
     from PySide6.QtWidgets import QLabel
 
     from app.ui.onboarding import (STEP_ENTITLEMENT, STEP_INGEST, STEP_KEY,
-                                   STEP_INTERVIEW)
+                                   STEP_PROFILE)
 
     w = a_wizard(monkeypatch, terms_accepted=True,
                  entitlement_panel=QLabel("subscribe"))
@@ -965,10 +966,10 @@ def test_subscribing_from_the_menu_returns_to_where_it_was_opened(qapp,
     assert w.stack.currentIndex() == STEP_KEY
 
     # POSITIVE CONTROL: reached in the ordinary way, the subscribe step still
-    # leads to the interview.
+    # leads forward — to the profile step (which then leads to the interview).
     w._show_step(STEP_ENTITLEMENT)
     w._next()
-    assert w.stack.currentIndex() == STEP_INTERVIEW
+    assert w.stack.currentIndex() == STEP_PROFILE
     w.close()
 
 
