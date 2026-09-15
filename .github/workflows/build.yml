@@ -144,14 +144,9 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            variant: store        # Microsoft Store, Paddle till -> dist/Dawnlist.msix
-          - os: windows-latest
-            # SAME storefront as `store`, different till. Built ALONGSIDE it,
-            # not instead of it: Paddle declined the Dawnlist domain on
-            # 2026-09-11 and an appeal is open, so both tills must stay
-            # packaged and provable until it resolves. Paddle is cheaper, so
-            # `store` is expected to come back - and a variant that stopped
-            # building would be discovered on the day it was needed.
+            # Microsoft Store, IAP subscription. Paddle declined the Dawnlist
+            # domain on 2026-09-11 and the appeal was rejected 2026-09-15, so
+            # the Store's own subscription is the only Windows Store till.
             variant: store_iap    # Microsoft Store, Store subscription
           - os: windows-latest
             variant: direct       # Website download -> dist/Dawnlist-windows-*.zip
@@ -274,9 +269,8 @@ jobs:
 
       # ------------------------------------------------- Windows, Store build
       - name: Build the MSIX
-        if: matrix.os == 'windows-latest' && (matrix.variant == 'store' || matrix.variant == 'store_iap')
+        if: matrix.os == 'windows-latest' && matrix.variant == 'store_iap'
         run: python packaging/build_msix.py
-
 
       # Partner Center refuses an unsigned package, and the Store strips this
       # signature and re-signs on publish — so a throwaway certificate is the
@@ -284,23 +278,15 @@ jobs:
       # reaches no secret, which is why this step alone is not branch-gated;
       # what keeps a branch package distinguishable is the name it leaves under.
       - name: Sign the MSIX for upload
-        if: matrix.os == 'windows-latest' && (matrix.variant == 'store' || matrix.variant == 'store_iap')
+        if: matrix.os == 'windows-latest' && matrix.variant == 'store_iap'
         shell: pwsh
         run: pwsh -NoProfile -File packaging\sign_msix.ps1
-      # A DIFFERENT FILENAME, and it is not cosmetic. Both Store variants
-      # produce a package for the SAME listing and look identical in a folder,
-      # but one bills through Paddle and the other through Microsoft.
-      # Submitting the wrong one would be discovered by a customer, at the
-      # till. The name is the only thing that tells them apart before then.
+
+      # The filename says which till this package uses.
       - name: Name the Store-subscription package for what it is
         if: matrix.os == 'windows-latest' && matrix.variant == 'store_iap'
         shell: bash
         run: mv dist/Dawnlist.msix dist/Dawnlist-store-iap.msix
-
-      - name: Mark a non-release MSIX in its own filename
-        if: matrix.os == 'windows-latest' && matrix.variant == 'store' && steps.label.outputs.suffix != ''
-        shell: bash
-        run: mv dist/Dawnlist.msix "dist/Dawnlist${{ steps.label.outputs.suffix }}.msix"
 
       # ------------------------------------------------ Windows, direct build
       # A real Microsoft-managed Public Trust certificate through Azure

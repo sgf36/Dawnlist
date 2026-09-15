@@ -865,21 +865,10 @@ def build_provider(conn):
         if key:
             return TheirStackProvider(key)
 
-    # No licence and no developer key. WHAT TO SAY DEPENDS ON THE BUILD, and
-    # getting it wrong is worse than saying nothing.
-    #
-    # Both Windows channels sell through Paddle, so whoever reads this either
-    # has a key to enter or has not bought yet, and the message names that.
-    # Telling a customer to put a provider key in their keyring is advice for
-    # a product they did not buy, so only a build with no store variant says
-    # it.
-    if build == "store":
-        # Windows Store: the licence box IS shown (Microsoft permits
-        # third-party commerce), so this is something the user can act on
-        # rather than a fault to report.
-        from app.i18n import tr
-        raise NotConfigured(tr("refusal.no_licence"))
-
+    # No licence and no developer key. The direct build is the only variant
+    # that still uses a Paddle licence key. Telling a customer to put a
+    # provider key in their keyring is advice for a product they did not buy,
+    # so only the direct build says it.
     raise NotConfigured(
         "No licence key found. Enter the key from your purchase email in "
         "Settings. (Development builds may instead set "
@@ -2235,7 +2224,8 @@ def build_onboarding(conn, *, on_finished=None):
         where=lambda: load_scope(conn).describe(),
         set_search=lambda label, enabled: enable_query(
             conn, label, enabled=enabled),
-        save_search=lambda label: save_new_search(conn, label, [label]))
+        save_search=lambda label, dk=None: save_new_search(
+            conn, label, [label], description_keywords=dk))
 
     # The ⋯ menu: language, subscription, restore. On the wizard as well as
     # the main window, because the person who needs all three most is the one

@@ -21,7 +21,7 @@ from PySide6.QtGui import QFont, QGuiApplication
 from PySide6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QFrame,
                                QHBoxLayout, QLabel,
                                QLineEdit, QListWidget, QListWidgetItem,
-                               QPushButton,
+                               QProgressBar, QPushButton,
                                QPlainTextEdit, QRadioButton, QScrollArea, QSizePolicy,
                                QSpinBox, QStackedWidget, QTextBrowser,
                                QVBoxLayout, QWidget)
@@ -456,6 +456,12 @@ class CalibrationPage(QWidget):
         self.blockers_label = QLabel()
         self.blockers_label.setWordWrap(True)
         bl.addWidget(self.blockers_label)
+        self._cal_busy = QProgressBar()
+        self._cal_busy.setRange(0, 0)
+        self._cal_busy.setTextVisible(False)
+        self._cal_busy.setMaximumWidth(140)
+        self._cal_busy.hide()
+        bl.addWidget(self._cal_busy)
         layout.addWidget(self.blockers)
 
         # "Review your searches" — shown only when calibration cannot proceed
@@ -500,6 +506,7 @@ class CalibrationPage(QWidget):
         self._no_feed = None
         self.blockers.setObjectName("blockers")
         self.blockers_label.setText(tr("onboarding.calibration_fetching"))
+        self._cal_busy.show()
         self.blockers.style().unpolish(self.blockers)
         self.blockers.style().polish(self.blockers)
         self.btn_finish.setEnabled(False)
@@ -513,6 +520,7 @@ class CalibrationPage(QWidget):
         self.blockers.setObjectName("blockers")
         self.blockers_label.setText(
             tr("onboarding.calibration_failed", reason=reason))
+        self._cal_busy.hide()
         self.blockers.style().unpolish(self.blockers)
         self.blockers.style().polish(self.blockers)
         self.btn_finish.setEnabled(True)
@@ -529,6 +537,7 @@ class CalibrationPage(QWidget):
         # caller that hands over a plain list — every test, and the render
         # tools — behaves exactly as before.
         self._no_feed = getattr(items, "no_feed", None)
+        self._cal_busy.hide()
         self._clear_cards()
 
         for item in items:
@@ -1064,6 +1073,12 @@ class InterviewPage(QWidget):
         self.btn_history.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.btn_history.hide()   # shown once any version has been saved
         row.addWidget(self.btn_history)
+        self._draft_busy = QProgressBar()
+        self._draft_busy.setRange(0, 0)
+        self._draft_busy.setTextVisible(False)
+        self._draft_busy.setMaximumWidth(140)
+        self._draft_busy.hide()
+        row.addWidget(self._draft_busy)
         self.status = QLabel()
         self.status.setObjectName("stepBody")
         row.addWidget(self.status, 1)
@@ -1184,6 +1199,8 @@ QPlainTextEdit#aimBox {
         self.drafting = True
         self.btn_draft.setEnabled(False)
         self.status.setText(tr("onboarding.drafting"))
+        self._draft_busy.setRange(0, 0)
+        self._draft_busy.show()
         self.changed.emit()
 
         # OFF THE UI THREAD. This reads a corpus of CVs and then calls
@@ -1207,6 +1224,7 @@ QPlainTextEdit#aimBox {
         """Back on the UI thread, with (factsheet, brief, questions)."""
         self.drafting = False
         self.btn_draft.setEnabled(True)
+        self._draft_busy.hide()
         factsheet, brief, questions = result
         self.factsheet.setPlainText(factsheet)
         self.brief.setPlainText(brief)
@@ -1225,6 +1243,7 @@ QPlainTextEdit#aimBox {
         dead end, and it must not look like an empty one either."""
         self.drafting = False
         self.btn_draft.setEnabled(True)
+        self._draft_busy.hide()
         self.status.setText(tr("onboarding.draft_failed", reason=str(exc)[:200]))
         self.changed.emit()
 
@@ -1447,7 +1466,7 @@ class SearchesPage(QWidget):
         layout.addWidget(self._error_banner)
 
         self._rows: list[tuple[str, QCheckBox]] = []
-        self._new_labels: list[str] = []
+        self._new_labels: list[tuple[str, list[str] | None]] = []
         self._where: str | None = None
         self._form = QVBoxLayout()
         self._form.setContentsMargins(0, 0, 0, 0)
@@ -1473,6 +1492,14 @@ class SearchesPage(QWidget):
         self._btn_add.clicked.connect(self._add_search)
         add_row.addWidget(self._btn_add)
         layout.addLayout(add_row)
+
+        dk_label = QLabel(tr("searches.dk_label"))
+        dk_label.setObjectName("stepBody")
+        layout.addWidget(dk_label)
+        self._dk_field = QLineEdit()
+        self._dk_field.setPlaceholderText(tr("searches.dk_placeholder"))
+        self._dk_field.returnPressed.connect(self._add_search)
+        layout.addWidget(self._dk_field)
 
         self.note = QLabel()
         self.note.setObjectName("stepBody")
@@ -1530,6 +1557,8 @@ class SearchesPage(QWidget):
         if text.lower() in existing:
             self._add_field.clear()
             return
+        dk_text = self._dk_field.text().strip()
+        dk = [k.strip() for k in dk_text.split(",") if k.strip()] if dk_text else None
         blocked = self._where is not None and not self._where.strip()
         box = QCheckBox(text)
         box.setChecked(not blocked)
@@ -1541,12 +1570,13 @@ class SearchesPage(QWidget):
             stretch_idx = 0
         self._form.insertWidget(stretch_idx, box)
         self._rows.append((text, box))
-        self._new_labels.append(text)
+        self._new_labels.append((text, dk))
         self._add_field.clear()
+        self._dk_field.clear()
         self._refresh()
 
-    def new_labels(self) -> list[str]:
-        """Labels added by the user (not from the titler), needing save_query."""
+    def new_labels(self) -> list[tuple[str, list[str] | None]]:
+        """(label, description_keywords) added by the user, needing save_query."""
         return list(self._new_labels)
 
     def selections(self) -> list[tuple[str, bool]]:
@@ -2162,9 +2192,9 @@ class OnboardingWizard(QWidget):
             # trying to enable them — a search must exist in the database
             # before set_search can toggle it.
             if self._save_search is not None:
-                for label in self.searches.new_labels():
+                for label, dk in self.searches.new_labels():
                     try:
-                        self._save_search(label)
+                        self._save_search(label, dk)
                     except Exception:  # noqa: BLE001
                         pass  # best-effort; the enable below will fail visibly
             enable_failures: list[str] = []

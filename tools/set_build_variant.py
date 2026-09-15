@@ -1,8 +1,8 @@
 """Select the build variant before running PyInstaller.
 
-    python tools/set_build_variant.py store     # Microsoft Store
-    python tools/set_build_variant.py mas       # Mac App Store
-    python tools/set_build_variant.py direct    # direct download
+    python tools/set_build_variant.py store_iap  # Microsoft Store (IAP)
+    python tools/set_build_variant.py mas        # Mac App Store
+    python tools/set_build_variant.py direct     # direct download
     python tools/set_build_variant.py --show
 
 The variants are mutually exclusive and are signalled by a flag file that the

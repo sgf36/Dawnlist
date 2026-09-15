@@ -693,7 +693,7 @@ def test_a_manual_run_from_a_branch_signs_nothing(workflow):
         step = _step(build, name)
         for os_name, variant in (("macos-latest", "direct"),
                                  ("windows-latest", "direct"),
-                                 ("windows-latest", "store")):
+                                 ("windows-latest", "store_iap")):
             context = _context(event="workflow_dispatch",
                                ref="refs/heads/some-branch",
                                os=os_name, variant=variant, macos_direct=True)
@@ -798,7 +798,7 @@ def test_the_upload_demands_an_artefact_only_when_one_will_exist(workflow,
     upload = _step(build, "Upload")
     for os_name, variant in (("macos-latest", "direct"),
                              ("windows-latest", "direct"),
-                             ("windows-latest", "store")):
+                             ("windows-latest", "store_iap")):
         context = _context(os=os_name, variant=variant, macos_direct=True,
                            **scenario)
         expectation = _evaluate(upload["with"]["if-no-files-found"], context)
@@ -818,13 +818,13 @@ def test_a_branch_artefact_is_named_for_its_event_and_commit(workflow):
     released = _interpolate(name, _context(event="push",
                                            ref="refs/heads/master",
                                            os="windows-latest",
-                                           variant="store"))
-    assert released == "dawnlist-windows-latest-store"
+                                           variant="store_iap"))
+    assert released == "dawnlist-windows-latest-store_iap"
 
     branch = _interpolate(name, _context(event="pull_request",
                                          ref="refs/pull/7/merge",
-                                         os="windows-latest", variant="store"))
-    assert branch.startswith("dawnlist-windows-latest-store-")
+                                         os="windows-latest", variant="store_iap"))
+    assert branch.startswith("dawnlist-windows-latest-store_iap-")
     assert "pull_request" in branch and "abc1234" in branch
 
 
@@ -837,22 +837,15 @@ def test_the_label_step_reads_the_commit_somebody_pushed(workflow):
     assert "github.event_name" in run
 
 
-def test_a_non_release_msix_is_renamed_as_well_as_relabelled(workflow):
-    """The artefact name is lost the moment somebody extracts the ZIP, and the
-    MSIX inside carries the same throwaway signature as a release build."""
+def test_store_iap_msix_is_renamed_for_clarity(workflow):
+    """The IAP package is renamed to Dawnlist-store-iap.msix so it cannot be
+    confused with the (now-removed) Paddle store package."""
     build = workflow["jobs"]["build"]
-    rename = _step(build, "Mark a non-release MSIX in its own filename")
-    assert _index(build, "Sign the MSIX for upload") < _index(
-        build, "Mark a non-release MSIX in its own filename"), (
-        "renaming before signing would leave sign_msix.ps1 looking for a file "
-        "that is no longer there")
-    assert _will_run(rename, _context(event="pull_request",
-                                      ref="refs/pull/7/merge",
-                                      os="windows-latest", variant="store"))
-    assert not _will_run(rename, _context(event="push",
-                                          ref="refs/heads/master",
-                                          os="windows-latest",
-                                          variant="store"))
+    rename = _step(build, "Name the Store-subscription package for what it is")
+    assert _will_run(rename, _context(event="push",
+                                      ref="refs/heads/master",
+                                      os="windows-latest",
+                                      variant="store_iap"))
 
 
 # -- what every job installs, and what it waits for -------------------------

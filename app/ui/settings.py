@@ -2248,16 +2248,7 @@ class SearchesPanel(QWidget):
         self.field.setObjectName("sentence")
         self.field.setPlaceholderText(tr("searches.placeholder"))
         self.field.returnPressed.connect(self.add)
-        self.btn_add = QPushButton(tr("searches.add"))
-        self.btn_toggle = QPushButton(tr("searches.toggle"))
-        self.btn_remove = QPushButton(tr("searches.remove"))
-        for b in (self.btn_add, self.btn_toggle, self.btn_remove):
-            b.setObjectName("secondary")
-            b.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         row.addWidget(self.field, 1)
-        row.addWidget(self.btn_add)
-        row.addWidget(self.btn_toggle)
-        row.addWidget(self.btn_remove)
         layout.addLayout(row)
 
         dk_label = QLabel(tr("searches.dk_label"))
@@ -2271,6 +2262,20 @@ class SearchesPanel(QWidget):
         self.dk_field.returnPressed.connect(self.add)
         dk_row.addWidget(self.dk_field, 1)
         layout.addLayout(dk_row)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(6)
+        self.btn_add = QPushButton(tr("searches.add"))
+        self.btn_toggle = QPushButton(tr("searches.toggle"))
+        self.btn_remove = QPushButton(tr("searches.remove"))
+        for b in (self.btn_add, self.btn_toggle, self.btn_remove):
+            b.setObjectName("secondary")
+            b.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        btn_row.addStretch(1)
+        btn_row.addWidget(self.btn_add)
+        btn_row.addWidget(self.btn_toggle)
+        btn_row.addWidget(self.btn_remove)
+        layout.addLayout(btn_row)
 
         self.setStyleSheet(SETTINGS_STYLESHEET)
         self.btn_add.clicked.connect(self.add)
