@@ -128,25 +128,11 @@ def test_the_managed_module_is_importable_from_a_frozen_build():
 # The store build has no feed route — the launch blocker
 # ---------------------------------------------------------------------------
 
-def test_a_store_build_without_a_licence_says_so_honestly(no_keyring, monkeypatch):
-    """A store customer must be told something they can do.
-
-    The Store build sells through Paddle, so the licence box is on screen and
-    "enter your licence key in Settings" is an action they can take. Pointing
-    them at a keyring entry is advice for a product they did not buy. (This
-    docstring used to describe the Store build as entitled by possession,
-    which stopped being true on 2026-09-08.)
-    """
-    monkeypatch.setattr("app.core.build_variant.variant", lambda: "store")
-    with pytest.raises(NotConfigured) as e:
-        build_provider(conn=None)
-    message = str(e.value)
-    # Windows CAN accept a licence, so the message names the action the user
-    # can take rather than reporting a fault they cannot do anything about.
-    assert "licence" in message.lower()
-    assert "settings" in message.lower()
-    assert "keyring" not in message.lower()
-    assert "dawnlist-feed" not in message
+def test_the_paddle_store_variant_no_longer_exists():
+    """Paddle rejected the Dawnlist domain on 2026-09-15. The 'store' variant
+    is no longer in FLAGS, so it cannot be built or bundled."""
+    from app.core.build_variant import FLAGS
+    assert "store" not in FLAGS
 
 
 def test_the_mac_app_store_build_gets_the_same_treatment(no_keyring, monkeypatch):
