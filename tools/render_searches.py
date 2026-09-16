@@ -109,6 +109,10 @@ def build_searches(*, size=None):
         connection_tester=lambda: None,
     )
 
+    # Show "Title and description" so the description keywords field is
+    # visible — demonstrates more of the UI's capability in one shot.
+    panel.type_combo.setCurrentIndex(1)
+
     win = SettingsWindow(variant="store_iap", searches=panel)
     render_hidden(win, size or STORE_SIZE)
 
