@@ -57,7 +57,7 @@ from tools.asc import APP, call, errs  # noqa: E402
 #: broken product, and they would be half right — see the note in
 #: `store/MACOS-LISTING.md` about the pane not following a tab change.
 ORDER = ["01-shortlist", "03-board", "04-understood", "05-calibration",
-         "06-rules"]
+         "06-rules", "07-settings"]
 
 EXPECTED = (2560, 1600)
 DISPLAY_TYPE = "APP_DESKTOP"

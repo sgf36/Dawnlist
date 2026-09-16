@@ -42,6 +42,7 @@ CAPTIONS = {
     "04-understood": "It reads your CVs and shows you what it understood",
     "05-calibration": "It learns your judgement before it runs",
     "06-rules": "Screening you control, and it refuses a rule that would hide a real role",
+    "07-settings": "Search types, description keywords, CSV import and a test-connection button",
 }
 
 
@@ -165,6 +166,11 @@ def main() -> int:
     # 6. The screening rules, showing a refused term.
     from render_rules import build_rules
     written.append(save(paint(build_rules()), "06-rules"))
+
+    # 7. Settings → Searches, showing 1.1.6 features: search types, keywords,
+    #    last-run dates, CSV import/export, guide export, test connection.
+    from render_searches import build_searches
+    written.append(save(paint(build_searches(size=SIZE)), "07-settings"))
 
     (OUT / "CAPTIONS.md").write_text(
         "# Store screenshot captions\n\n"

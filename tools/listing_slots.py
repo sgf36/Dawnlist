@@ -44,6 +44,7 @@ SLOT_ORDER = [
     "05-calibration",
     "02-needs-review",
     "06-rules",
+    "07-settings",
 ]
 
 #: The order a caption list is written in, which is the order the renderer
@@ -55,6 +56,7 @@ FILE_ORDER = [
     "04-understood",
     "05-calibration",
     "06-rules",
+    "07-settings",
 ]
 
 

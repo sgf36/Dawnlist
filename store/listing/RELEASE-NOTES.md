@@ -1,32 +1,43 @@
-# ReleaseNotes — en-GB source, for 1.1.0
+# ReleaseNotes — en-GB source, for 1.1.6
 
-The live build (1.0.0) refuses every licence key: it verified them against a
-service endpoint that answers before it reads the request, and the network in
-front of that service refused the app's requests outright. Anyone who had a
-key was told it was not accepted.
+Release notes are read by people deciding whether to update, and by the
+reviewer deciding whether to pass. Everything here is user-facing; nothing
+names an internal limit, a build variant change or a server-side detail.
 
-Release notes are read by people deciding whether to update. This one has to
-say that plainly without inviting them to conclude the product is unreliable.
+British English, no Oxford commas, no abbreviations.
 
 ---
 
-Fixes a fault that stopped licence keys and access codes being accepted at
-all. If Dawnlist told you your key was not valid, it will work now.
+Import and export your searches as a spreadsheet, so you can build a set in a
+CSV file and load them all at once rather than typing each one.
 
-Setting up is clearer: it asks for your subscription in the right place
-rather than leaving you to find it, the suggested searches are real job
-titles, and answers you type during setup are visibly saved.
+Export your fit criteria as a formatted document, edit it outside the app and
+reimport it — useful when somebody else is helping you shape what you are
+looking for.
 
-Dawnlist now opens in your computer's language, and you can change it at any
-time from the ⋯ menu.
+Test your connection from Settings without waiting for the morning run. One
+button checks your API key and feed access and tells you immediately whether
+everything is working.
+
+Each search now shows when it last ran, so you can see at a glance which ones
+are active and which have gone quiet.
+
+Keyboard shortcuts on the calibration screen: P to pursue, L for later, R to
+reject, J and K to move between postings, 1 through 4 to switch tabs. Faster
+when you are working through a batch.
+
+Searches can now match on the job title, the description or both, and you can
+add description keywords to narrow what comes back.
+
+Setup now shows a progress bar, so you know how far through the steps you are.
 
 ---
 
 ## What this deliberately does not say
 
-- **No apology paragraph.** A release note is not the place; the fix is the
-  apology.
-- **No detail about the cause.** "A network filter refused our own client's
-  requests" is true and tells a customer nothing they can act on.
-- **No mention of Restore or StoreKit.** Both are Mac App Store only and this
-  is the Windows listing.
+- **No mention of the active search cap** (25). A guardrail, not a feature.
+- **No mention of the build variant change** (store_iap replaces store). That
+  is an internal decision about billing infrastructure.
+- **No mention of the Worker's searchType support.** Server-side, invisible.
+- **No claim count or "X new features".** Every line says what it does; a
+  number on top adds nothing.
