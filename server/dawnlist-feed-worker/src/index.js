@@ -171,6 +171,12 @@ async function readSearch(request) {
     }
   }
 
+  const st = body.searchType;
+  if (st !== undefined && st !== null
+      && (typeof st !== 'string' || !['title', 'description', 'both'].includes(st))) {
+    throw invalidField('searchType', 'must be "title", "description", or "both"');
+  }
+
   const since = body.discoveredSince;
   if (since !== undefined && since !== null
       && (typeof since !== 'string' || since.length > 64 || Number.isNaN(Date.parse(since)))) {
@@ -384,7 +390,14 @@ const ADAPTERS = {
         // 30-day window (28.7%) had already closed.
         is_closed: false,
       };
-      if (q.titles?.length) base.job_title_or = q.titles;
+      // searchType: "title" (default), "description", or "both".
+      // Title-only is the cheapest shape: fewer rows per credit, higher
+      // relevance. Description search is broader and costlier.
+      const st = q.searchType || "title";
+      if (q.titles?.length) {
+        if (st === "title" || st === "both") base.job_title_or = q.titles;
+        if (st === "description" || st === "both") base.job_description_pattern_or = q.titles;
+      }
       if (q.countries?.length) base.job_country_code_or = q.countries;
       if (q.locationIds?.length) base.job_location_or = q.locationIds.map((id) => ({ id }));
       if (q.companies?.length) base.company_name_or = q.companies;
@@ -591,6 +604,7 @@ function cacheKeyFor(query) {
     xc: [...(query.excludeCompanies || [])].sort(),
     dk: [...(query.descriptionKeywords || [])].map((k) => k.trim().toLowerCase()).sort(),
     m: query.maxResults ?? query.limit ?? null,
+    st: query.searchType || "title",
   });
   return new Request(`https://cache.dawnlist.internal/search?q=${encodeURIComponent(canonical)}`);
 }
