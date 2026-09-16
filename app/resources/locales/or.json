@@ -446,5 +446,17 @@
   "update.size": "ଡାଉନଲୋଡ ଆକାର: {size}",
   "update.title": "ଅପଡେଟ୍ ଉପଲବ୍ଧ",
   "voice.no_profile": "ଏପର୍ଯ୍ୟନ୍ତ କୌଣସି ସ୍ୱର ପ୍ରୋଫାଇଲ୍ ନାହିଁ — ଆପଣଙ୍କ ପଠାଯାଇଥିବା କିଛି ଇମେଲ ଯୋଡନ୍ତୁ",
-  "voice.profile_from": "ଆପଣଙ୍କ ପଠାଯାଇଥିବା {count}ଟି ମେସେଜ୍‌ରୁ ସ୍ୱର ଶିଖାଯାଇଛି"
+  "voice.profile_from": "ଆପଣଙ୍କ ପଠାଯାଇଥିବା {count}ଟି ମେସେଜ୍‌ରୁ ସ୍ୱର ଶିଖାଯାଇଛି",
+  "searches.cap_reached": "You can have at most {cap} searches switched on at once. Switch one off before switching another on.",
+  "searches.export": "Export CSV",
+  "searches.export_empty": "Nothing to export — add at least one search first.",
+  "searches.export_title": "Export saved searches",
+  "searches.exported": "Exported {count} search(es).",
+  "searches.import": "Import CSV",
+  "searches.import_error": "{label}: {error}",
+  "searches.import_title": "Import saved searches",
+  "searches.imported": "Imported {count} search(es). Imported searches start switched off.",
+  "searches.template": "Download template",
+  "searches.template_saved": "Template saved.",
+  "searches.template_title": "Save search template"
 }

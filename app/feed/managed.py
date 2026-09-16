@@ -182,6 +182,7 @@ class ManagedProvider(FeedProvider):
             "excludeTitleTerms": list(query.exclude_title_terms),
             "excludeCompanies": list(query.exclude_companies),
             "descriptionKeywords": list(query.description_keywords),
+            "searchType": getattr(query, "search_type", "title"),
         }
         status, payload = self._call(SEARCH_PATH, body, method="POST")
 

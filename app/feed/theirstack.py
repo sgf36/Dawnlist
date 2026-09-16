@@ -153,7 +153,11 @@ class TheirStackProvider(FeedProvider):
             "include_total_results": False,
         }
         if q.titles:
-            body["job_title_or"] = q.titles
+            st = getattr(q, "search_type", "title")
+            if st in ("title", "both"):
+                body["job_title_or"] = q.titles
+            if st in ("description", "both"):
+                body["job_description_pattern_or"] = q.titles
         if q.countries:
             body["job_country_code_or"] = q.countries
         if q.companies:

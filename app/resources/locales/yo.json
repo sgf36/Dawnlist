@@ -446,5 +446,17 @@
   "update.size": "Ìwọ̀n ìgbàsílẹ̀: {size}",
   "update.title": "Ìmúdójúìwọ̀n wà",
   "voice.no_profile": "Kò sí àkọsílẹ̀ ohùn síbẹ̀ — fi díẹ̀ nínú àwọn ímeèlì tí o ti fi ránṣẹ́ kún",
-  "voice.profile_from": "A kọ́ ohùn láti inú {count} nínú àwọn ìránṣẹ́ tí o ti fi ránṣẹ́"
+  "voice.profile_from": "A kọ́ ohùn láti inú {count} nínú àwọn ìránṣẹ́ tí o ti fi ránṣẹ́",
+  "searches.cap_reached": "You can have at most {cap} searches switched on at once. Switch one off before switching another on.",
+  "searches.export": "Export CSV",
+  "searches.export_empty": "Nothing to export — add at least one search first.",
+  "searches.export_title": "Export saved searches",
+  "searches.exported": "Exported {count} search(es).",
+  "searches.import": "Import CSV",
+  "searches.import_error": "{label}: {error}",
+  "searches.import_title": "Import saved searches",
+  "searches.imported": "Imported {count} search(es). Imported searches start switched off.",
+  "searches.template": "Download template",
+  "searches.template_saved": "Template saved.",
+  "searches.template_title": "Save search template"
 }

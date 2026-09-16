@@ -446,5 +446,17 @@
   "update.size": "Ukuran unduhan: {size}",
   "update.title": "Pembaruan kasedhiya",
   "voice.no_profile": "Durung ana profil gaya basa — tambahaké sawetara email kiriman dhewe",
-  "voice.profile_from": "Gaya basa disinaoni saka {count} pesen sing wis dikirim dhewe"
+  "voice.profile_from": "Gaya basa disinaoni saka {count} pesen sing wis dikirim dhewe",
+  "searches.cap_reached": "You can have at most {cap} searches switched on at once. Switch one off before switching another on.",
+  "searches.export": "Export CSV",
+  "searches.export_empty": "Nothing to export — add at least one search first.",
+  "searches.export_title": "Export saved searches",
+  "searches.exported": "Exported {count} search(es).",
+  "searches.import": "Import CSV",
+  "searches.import_error": "{label}: {error}",
+  "searches.import_title": "Import saved searches",
+  "searches.imported": "Imported {count} search(es). Imported searches start switched off.",
+  "searches.template": "Download template",
+  "searches.template_saved": "Template saved.",
+  "searches.template_title": "Save search template"
 }

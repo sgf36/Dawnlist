@@ -446,5 +446,17 @@
   "update.size": "Kích thước tải xuống: {size}",
   "update.title": "Có bản cập nhật mới",
   "voice.no_profile": "Chưa có hồ sơ giọng văn — hãy thêm một số email bạn đã gửi",
-  "voice.profile_from": "Giọng văn học được từ {count} tin nhắn bạn đã gửi"
+  "voice.profile_from": "Giọng văn học được từ {count} tin nhắn bạn đã gửi",
+  "searches.cap_reached": "You can have at most {cap} searches switched on at once. Switch one off before switching another on.",
+  "searches.export": "Export CSV",
+  "searches.export_empty": "Nothing to export — add at least one search first.",
+  "searches.export_title": "Export saved searches",
+  "searches.exported": "Exported {count} search(es).",
+  "searches.import": "Import CSV",
+  "searches.import_error": "{label}: {error}",
+  "searches.import_title": "Import saved searches",
+  "searches.imported": "Imported {count} search(es). Imported searches start switched off.",
+  "searches.template": "Download template",
+  "searches.template_saved": "Template saved.",
+  "searches.template_title": "Save search template"
 }

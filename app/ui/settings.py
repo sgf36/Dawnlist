@@ -2277,17 +2277,39 @@ class SearchesPanel(QWidget):
         btn_row.addWidget(self.btn_remove)
         layout.addLayout(btn_row)
 
+        # Import / Export / Template row — bulk operations for users with many
+        # searches. Below the per-query controls because the common case is
+        # one search at a time; a spreadsheet is the power-user path.
+        io_row = QHBoxLayout()
+        io_row.setSpacing(6)
+        self.btn_import = QPushButton(tr("searches.import"))
+        self.btn_export = QPushButton(tr("searches.export"))
+        self.btn_template = QPushButton(tr("searches.template"))
+        for b in (self.btn_import, self.btn_export, self.btn_template):
+            b.setObjectName("secondary")
+            b.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        io_row.addStretch(1)
+        io_row.addWidget(self.btn_template)
+        io_row.addWidget(self.btn_export)
+        io_row.addWidget(self.btn_import)
+        layout.addLayout(io_row)
+
         self.setStyleSheet(SETTINGS_STYLESHEET)
         self.btn_add.clicked.connect(self.add)
         self.btn_toggle.clicked.connect(self.toggle)
         self.btn_remove.clicked.connect(self.remove)
+        self.btn_import.clicked.connect(self.import_csv)
+        self.btn_export.clicked.connect(self.export_csv)
+        self.btn_template.clicked.connect(self.download_template)
         self.refresh()
 
     def refresh(self) -> None:
         self.listing.clear()
-        for label, titles, dk, on in self._load() or []:
+        for label, titles, dk, on, search_type in self._load() or []:
             state = tr("searches.on") if on else tr("searches.off")
-            text = f"{state}  {label}  —  {', '.join(titles)}"
+            type_tag = {"title": "T", "description": "D",
+                        "both": "T+D"}.get(search_type, "T")
+            text = f"{state}  [{type_tag}]  {label}  —  {', '.join(titles)}"
             if dk:
                 text += f"  [{', '.join(dk)}]"
             item = QListWidgetItem(text)
@@ -2397,6 +2419,110 @@ class SearchesPanel(QWidget):
         self._say(tr("searches.removed", label=label), ok=True)
         self.refresh()
         self.changed.emit()
+
+    # ------------------------------------------------------------------
+    # CSV import / export
+    # ------------------------------------------------------------------
+
+    def import_csv(self) -> None:
+        """Import searches from a CSV file.
+
+        Every imported query starts DISABLED unless the CSV explicitly says
+        enabled=1. Billing is per posting returned, so silently enabling
+        forty queries would cost real money on the next morning run.
+        """
+        from PySide6.QtWidgets import QFileDialog
+
+        from app.core.query_csv import ImportError_, parse_import
+
+        path, _filter = QFileDialog.getOpenFileName(
+            self, tr("searches.import_title"), "",
+            "CSV (*.csv);;All files (*)")
+        if not path:
+            return
+
+        try:
+            rows = parse_import(path)
+        except ImportError_ as exc:
+            self._say(str(exc), ok=False)
+            return
+
+        imported = 0
+        for qr in rows:
+            try:
+                self._save(qr.label, qr.titles,
+                           search_type=qr.search_type)
+                if not qr.enabled:
+                    self._enable(qr.label, False)
+                imported += 1
+            except ValueError as exc:
+                self._say(tr("searches.import_error",
+                             label=qr.label, error=str(exc)), ok=False)
+                return
+
+        self._say(tr("searches.imported", count=imported), ok=True)
+        self.refresh()
+        self.changed.emit()
+
+    def export_csv(self) -> None:
+        """Export current searches to a CSV file."""
+        from PySide6.QtWidgets import QFileDialog
+
+        from app.core.query_csv import export_queries
+
+        rows = self._load() or []
+        if not rows:
+            self._say(tr("searches.export_empty"), ok=False)
+            return
+
+        path, _filter = QFileDialog.getSaveFileName(
+            self, tr("searches.export_title"), "dawnlist-searches.csv",
+            "CSV (*.csv)")
+        if not path:
+            return
+
+        # Build scope_params from the where description. The where_loader
+        # returns a formatted string, so we parse country codes (2-letter
+        # tokens) vs city names from it.
+        where = self._where_load() or ""
+        scope_params: dict = {"countries": [], "cities": [],
+                              "exclude_title_terms": [],
+                              "exclude_companies": []}
+        if where:
+            parts = [p.strip() for p in where.split(",")]
+            import re
+            scope_params["countries"] = [
+                p.upper() for p in parts if re.match(r"^[A-Za-z]{2}$", p)]
+            scope_params["cities"] = [
+                p for p in parts if not re.match(r"^[A-Za-z]{2}$", p)]
+
+        try:
+            export_queries(rows, path, scope_params=scope_params)
+        except OSError as exc:
+            self._say(str(exc), ok=False)
+            return
+
+        self._say(tr("searches.exported", count=len(rows)), ok=True)
+
+    def download_template(self) -> None:
+        """Save a blank CSV template for the user to fill in."""
+        from PySide6.QtWidgets import QFileDialog
+
+        from app.core.query_csv import write_template
+
+        path, _filter = QFileDialog.getSaveFileName(
+            self, tr("searches.template_title"),
+            "dawnlist-searches-template.csv", "CSV (*.csv)")
+        if not path:
+            return
+
+        try:
+            write_template(path)
+        except OSError as exc:
+            self._say(str(exc), ok=False)
+            return
+
+        self._say(tr("searches.template_saved"), ok=True)
 
 
 class SchedulePanel(QWidget):

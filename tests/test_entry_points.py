@@ -952,7 +952,7 @@ def test_seeded_searches_arrive_switched_off(conn):
     added = seed_queries_from_aim(
         conn, "Hotel asset management in London, and general management roles.")
     assert added >= 1
-    assert all(not on for _label, _titles, _dk, on in all_queries(conn))
+    assert all(not on for _label, _titles, _dk, on, *_ in all_queries(conn))
     assert load_queries(conn) == [], "a seed must not sweep until switched on"
 
 
@@ -986,7 +986,7 @@ def test_description_keywords_round_trip(conn):
                description_keywords=["asset management", "portfolio strategy"])
     rows = all_queries(conn)
     assert len(rows) == 1
-    _label, _titles, dk, _on = rows[0]
+    _label, _titles, dk, _on, *_ = rows[0]
     assert dk == ["asset management", "portfolio strategy"]
 
     queries = load_queries(conn)
@@ -999,7 +999,7 @@ def test_description_keywords_empty_by_default(conn):
     from app.main import all_queries, load_queries, save_query
 
     save_query(conn, "general manager", ["general manager"], countries=["GB"])
-    _label, _titles, dk, _on = all_queries(conn)[0]
+    _label, _titles, dk, _on, *_ = all_queries(conn)[0]
     assert dk == []
     assert load_queries(conn)[0].description_keywords == []
 
@@ -1255,7 +1255,7 @@ def test_breadth_is_allowed_when_it_is_deliberate(conn):
     from app.main import all_queries, save_query
     save_query(conn, "wide", ["general manager"],
                countries=["GB", "US", "FR", "DE", "ES", "IT", "NL", "AE"])
-    assert "wide" in [lbl for lbl, _t, _dk, _on in all_queries(conn)]
+    assert "wide" in [lbl for lbl, _t, _dk, _on, *_ in all_queries(conn)]
 
 
 def test_a_disabled_seed_needs_no_scope(conn):
@@ -1267,7 +1267,7 @@ def test_a_disabled_seed_needs_no_scope(conn):
     """
     from app.main import all_queries, save_query
     save_query(conn, "a candidate", ["asset manager"], enabled=False)
-    assert "a candidate" in [lbl for lbl, _t, _dk, _on in all_queries(conn)]
+    assert "a candidate" in [lbl for lbl, _t, _dk, _on, *_ in all_queries(conn)]
 
 
 def test_country_codes_are_normalised(conn):
@@ -1278,3 +1278,46 @@ def test_country_codes_are_normalised(conn):
     row = conn.execute(
         "SELECT params_json FROM queries WHERE label='normalised'").fetchone()
     assert json.loads(row["params_json"])["countries"] == ["GB", "US"]
+
+
+def test_search_type_persists(conn):
+    import json
+
+    from app.main import save_query
+    save_query(conn, "desc search", ["manager"], countries=["GB"],
+               search_type="description")
+    row = conn.execute(
+        "SELECT params_json FROM queries WHERE label='desc search'").fetchone()
+    assert json.loads(row["params_json"])["search_type"] == "description"
+
+
+def test_search_type_defaults_to_title(conn):
+    import json
+
+    from app.main import save_query
+    save_query(conn, "default type", ["manager"], countries=["GB"])
+    row = conn.execute(
+        "SELECT params_json FROM queries WHERE label='default type'").fetchone()
+    assert json.loads(row["params_json"])["search_type"] == "title"
+
+
+def test_active_query_cap(conn):
+    from app.main import MAX_ACTIVE_QUERIES, enable_query, save_query
+    for i in range(MAX_ACTIVE_QUERIES):
+        save_query(conn, f"q{i}", ["manager"], countries=["GB"])
+    # All 25 are already enabled — trying to enable one more should fail
+    save_query(conn, "one too many", ["manager"], countries=["GB"],
+               enabled=False)
+    with pytest.raises(ValueError, match="at most"):
+        enable_query(conn, "one too many")
+
+
+def test_cap_does_not_block_re_enabling_existing(conn):
+    """Switching an already-enabled query off and back on should not be
+    refused by the cap — it was already counted."""
+    from app.main import MAX_ACTIVE_QUERIES, enable_query, save_query
+    for i in range(MAX_ACTIVE_QUERIES):
+        save_query(conn, f"q{i}", ["manager"], countries=["GB"])
+    # Disable one, then re-enable — should work since cap counts others
+    enable_query(conn, "q0", enabled=False)
+    enable_query(conn, "q0", enabled=True)  # should not raise

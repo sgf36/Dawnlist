@@ -446,5 +446,17 @@
   "update.size": "حجم دانلود: {size}",
   "update.title": "به‌روزرسانی موجود است",
   "voice.no_profile": "هنوز نمایه لحنی وجود ندارد — چند ایمیل ارسالی خودتان را اضافه کنید",
-  "voice.profile_from": "لحن از {count} پیام ارسالی خودتان آموخته شده"
+  "voice.profile_from": "لحن از {count} پیام ارسالی خودتان آموخته شده",
+  "searches.cap_reached": "You can have at most {cap} searches switched on at once. Switch one off before switching another on.",
+  "searches.export": "Export CSV",
+  "searches.export_empty": "Nothing to export — add at least one search first.",
+  "searches.export_title": "Export saved searches",
+  "searches.exported": "Exported {count} search(es).",
+  "searches.import": "Import CSV",
+  "searches.import_error": "{label}: {error}",
+  "searches.import_title": "Import saved searches",
+  "searches.imported": "Imported {count} search(es). Imported searches start switched off.",
+  "searches.template": "Download template",
+  "searches.template_saved": "Template saved.",
+  "searches.template_title": "Save search template"
 }

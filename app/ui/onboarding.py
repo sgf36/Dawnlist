@@ -1535,7 +1535,7 @@ class SearchesPage(QWidget):
         else:
             self._error_banner.hide()
 
-        for label, _titles, _dk, enabled in rows:
+        for label, _titles, _dk, enabled, *_ in rows:
             box = QCheckBox(label)
             box.setChecked(bool(enabled) and not blocked)
             box.setEnabled(not blocked)
@@ -1936,6 +1936,14 @@ class OnboardingWizard(QWidget):
         self.btn_back.setEnabled(False)
         self.btn_next.setEnabled(False)      # nothing ingested yet
         nav.addWidget(self.btn_back)
+        nav.addStretch(1)
+        # Global save indicator — visible on EVERY step, not just interview.
+        # Placed between the navigation buttons so it is impossible to miss
+        # and impossible to confuse with any page-specific element.
+        self._save_status = QLabel()
+        self._save_status.setObjectName("ok")
+        self._save_status.setAlignment(Qt.AlignCenter)
+        nav.addWidget(self._save_status)
         nav.addStretch(1)
         nav.addWidget(self.btn_next)
         layout.addLayout(nav)
@@ -2393,12 +2401,15 @@ class OnboardingWizard(QWidget):
         try:
             self._save_draft(self.draft())
             self._draft_failed = False
-            # Flash a confirmation on the interview page so the user can see
-            # their edits are being kept. Only while they are on that step —
-            # a status blinking on a page they have left is noise.
+            # Flash "Saved ✓" in the navigation bar so it is visible on EVERY
+            # step. The interview page also has its own status label for
+            # backward compatibility, but the nav-bar indicator is the primary
+            # one now — certainty that the app captured the edit, wherever
+            # the user happens to be in the flow.
+            self._save_status.setText(tr("onboarding.draft_saved"))
             if self.stack.currentIndex() == STEP_INTERVIEW:
                 self.interview.status.setText(tr("onboarding.draft_saved"))
-                self._indicator_timer.start()
+            self._indicator_timer.start()
         except Exception:  # noqa: BLE001
             # A scratchpad that cannot be written must not take setup down with
             # it — but it must not pretend either, so closing says so.
@@ -2406,7 +2417,10 @@ class OnboardingWizard(QWidget):
 
     def _clear_save_indicator(self) -> None:
         # Only clear if we wrote it — another status may have arrived since.
-        if self.interview.status.text() == tr("onboarding.draft_saved"):
+        saved = tr("onboarding.draft_saved")
+        if self._save_status.text() == saved:
+            self._save_status.setText("")
+        if self.interview.status.text() == saved:
             self.interview.status.setText("")
 
     def draft(self) -> dict:

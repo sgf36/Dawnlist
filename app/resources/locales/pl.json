@@ -446,5 +446,17 @@
   "update.size": "Rozmiar pobierania: {size}",
   "update.title": "Dostępna aktualizacja",
   "voice.no_profile": "Brak profilu tonu — dodaj kilka swoich wysłanych e-maili",
-  "voice.profile_from": "Ton nauczony na podstawie {count} Twoich wysłanych wiadomości"
+  "voice.profile_from": "Ton nauczony na podstawie {count} Twoich wysłanych wiadomości",
+  "searches.cap_reached": "You can have at most {cap} searches switched on at once. Switch one off before switching another on.",
+  "searches.export": "Export CSV",
+  "searches.export_empty": "Nothing to export — add at least one search first.",
+  "searches.export_title": "Export saved searches",
+  "searches.exported": "Exported {count} search(es).",
+  "searches.import": "Import CSV",
+  "searches.import_error": "{label}: {error}",
+  "searches.import_title": "Import saved searches",
+  "searches.imported": "Imported {count} search(es). Imported searches start switched off.",
+  "searches.template": "Download template",
+  "searches.template_saved": "Template saved.",
+  "searches.template_title": "Save search template"
 }
