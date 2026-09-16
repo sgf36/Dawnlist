@@ -458,5 +458,20 @@
   "searches.imported": "Imported {count} search(es). Imported searches start switched off.",
   "searches.template": "Download template",
   "searches.template_saved": "Template saved.",
-  "searches.template_title": "Save search template"
+  "searches.template_title": "Save search template",
+  "guide.export": "Export criteria guide",
+  "guide.import": "Import criteria guide",
+  "guide.export_title": "Save criteria guide",
+  "guide.import_title": "Import revised criteria guide",
+  "guide.exported": "Criteria guide exported.",
+  "guide.imported": "Applied {count} change(s) from the criteria guide.",
+  "guide.import_error": "Could not read the guide: {error}",
+  "guide.no_changes": "No changes found — the guide matches your current settings.",
+  "guide.brief_changed": "Fit brief has been revised.",
+  "guide.queries_added": "New searches: {labels}",
+  "guide.queries_removed": "Searches removed: {labels}",
+  "guide.queries_modified": "Searches modified: {labels}",
+  "guide.scope_changed": "Search scope has been revised.",
+  "guide.confirm_title": "Apply changes from criteria guide?",
+  "guide.confirm_body": "The imported guide contains the following changes:\n\n{changes}\n\nApply these changes?"
 }

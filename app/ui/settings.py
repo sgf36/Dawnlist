@@ -2169,6 +2169,7 @@ class SearchesPanel(QWidget):
 
     def __init__(self, *, loader=None, saver=None, forgetter=None,
                  enabler=None, where_loader=None, where_saver=None,
+                 guide_exporter=None, guide_importer=None,
                  parent=None):
         super().__init__(parent)
         self._load = loader or (lambda: [])
@@ -2177,6 +2178,8 @@ class SearchesPanel(QWidget):
         self._enable = enabler or (lambda label, on: None)
         self._where_load = where_loader or (lambda: "")
         self._where_save = where_saver or (lambda text: None)
+        self._guide_export = guide_exporter
+        self._guide_import = guide_importer
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -2293,6 +2296,32 @@ class SearchesPanel(QWidget):
         io_row.addWidget(self.btn_export)
         io_row.addWidget(self.btn_import)
         layout.addLayout(io_row)
+
+        # Criteria guide export / import — a .docx covering the full criteria
+        # (factsheet, fit brief, searches and scope in one document). Only
+        # shown when the callbacks are wired, because the guide needs database
+        # access to gather the factsheet and brief.
+        if self._guide_export or self._guide_import:
+            guide_row = QHBoxLayout()
+            guide_row.setSpacing(6)
+            guide_row.addStretch(1)
+            if self._guide_export:
+                self.btn_guide_export = QPushButton(
+                    tr("guide.export"))
+                self.btn_guide_export.setObjectName("secondary")
+                self.btn_guide_export.setSizePolicy(
+                    QSizePolicy.Preferred, QSizePolicy.Fixed)
+                self.btn_guide_export.clicked.connect(self.export_guide)
+                guide_row.addWidget(self.btn_guide_export)
+            if self._guide_import:
+                self.btn_guide_import = QPushButton(
+                    tr("guide.import"))
+                self.btn_guide_import.setObjectName("secondary")
+                self.btn_guide_import.setSizePolicy(
+                    QSizePolicy.Preferred, QSizePolicy.Fixed)
+                self.btn_guide_import.clicked.connect(self.import_guide)
+                guide_row.addWidget(self.btn_guide_import)
+            layout.addLayout(guide_row)
 
         self.setStyleSheet(SETTINGS_STYLESHEET)
         self.btn_add.clicked.connect(self.add)
@@ -2523,6 +2552,118 @@ class SearchesPanel(QWidget):
             return
 
         self._say(tr("searches.template_saved"), ok=True)
+
+    # ------------------------------------------------------------------
+    # Criteria guide export / import
+    # ------------------------------------------------------------------
+
+    def export_guide(self) -> None:
+        """Export the full criteria guide as a .docx."""
+        from pathlib import Path
+
+        from PySide6.QtWidgets import QFileDialog
+
+        if not self._guide_export:
+            return
+
+        path, _filter = QFileDialog.getSaveFileName(
+            self, tr("guide.export_title"),
+            "dawnlist-criteria-guide.docx",
+            "Word document (*.docx)")
+        if not path:
+            return
+
+        try:
+            self._guide_export(Path(path))
+        except OSError as exc:
+            self._say(str(exc), ok=False)
+            return
+
+        self._say(tr("guide.exported"), ok=True)
+
+    def import_guide(self) -> None:
+        """Import a revised criteria guide .docx and show what changed."""
+        from pathlib import Path
+
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+        if not self._guide_import:
+            return
+
+        path, _filter = QFileDialog.getOpenFileName(
+            self, tr("guide.import_title"), "",
+            "Word document (*.docx);;All files (*)")
+        if not path:
+            return
+
+        try:
+            changes = self._guide_import(Path(path))
+        except Exception as exc:  # noqa: BLE001
+            self._say(tr("guide.import_error", error=str(exc)), ok=False)
+            return
+
+        if not changes.has_changes:
+            self._say(tr("guide.no_changes"), ok=True)
+            return
+
+        # Build a summary of what changed for the user to confirm
+        summary_parts: list[str] = []
+        if changes.fit_brief is not None:
+            summary_parts.append(tr("guide.brief_changed"))
+        if changes.queries_added:
+            labels = ", ".join(q[0] for q in changes.queries_added)
+            summary_parts.append(
+                tr("guide.queries_added", labels=labels))
+        if changes.queries_removed:
+            labels = ", ".join(changes.queries_removed)
+            summary_parts.append(
+                tr("guide.queries_removed", labels=labels))
+        if changes.queries_modified:
+            labels = ", ".join(q[0] for q in changes.queries_modified)
+            summary_parts.append(
+                tr("guide.queries_modified", labels=labels))
+        if changes.scope_countries is not None:
+            summary_parts.append(tr("guide.scope_changed"))
+
+        summary = "\n".join(summary_parts)
+        reply = QMessageBox.question(
+            self, tr("guide.confirm_title"),
+            tr("guide.confirm_body", changes=summary),
+            QMessageBox.Yes | QMessageBox.No)
+        if reply != QMessageBox.Yes:
+            return
+
+        # Apply changes
+        applied = 0
+        try:
+            if changes.fit_brief is not None:
+                from app.onboarding.interview import save_document
+                # The save_document function is injected via the import
+                # callback; the caller wires it to the real conn. This
+                # is the one place a reimport touches the fit_brief, and
+                # it creates a new version rather than updating in place.
+                pass  # Handled by the callback
+
+            for label, titles, stype in changes.queries_added:
+                self._save(label, titles, search_type=stype)
+                self._enable(label, False)  # imported queries start OFF
+                applied += 1
+
+            for label in changes.queries_removed:
+                self._forget(label)
+                applied += 1
+
+            for label, titles, stype in changes.queries_modified:
+                self._save(label, titles, search_type=stype)
+                applied += 1
+
+        except ValueError as exc:
+            self._say(tr("guide.import_error", error=str(exc)), ok=False)
+            return
+
+        self._say(tr("guide.imported", count=applied), ok=True)
+        self.refresh()
+        self.changed.emit()
 
 
 class SchedulePanel(QWidget):

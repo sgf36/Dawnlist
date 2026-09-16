@@ -2502,6 +2502,16 @@ def open_settings(parent=None, conn=None):
     rules = families = searches = when = None
     if conn is not None:
         when = _schedule_panel(conn)
+        def _export_guide(dest):
+            from app.core.criteria_guide import export_guide, gather_data
+            export_guide(gather_data(conn), dest)
+
+        def _import_guide(path):
+            from app.core.criteria_guide import diff_guide, gather_data, read_guide
+            data = gather_data(conn)
+            text = read_guide(path)
+            return diff_guide(data, text)
+
         searches = SearchesPanel(
             loader=lambda: all_queries(conn),
             saver=lambda label, titles, **kw: save_new_search(
@@ -2510,7 +2520,9 @@ def open_settings(parent=None, conn=None):
             enabler=lambda label, on: enable_query(conn, label, enabled=on),
             where_loader=lambda: load_scope(conn).describe(),
             where_saver=lambda text: apply_scope(
-                conn, parse_where(text, keep=load_scope(conn))))
+                conn, parse_where(text, keep=load_scope(conn))),
+            guide_exporter=_export_guide,
+            guide_importer=_import_guide)
         families = FamiliesPanel(
             loader=lambda: load_rules(conn).kill_families,
             adopter=lambda name, on: adopt_kill_family(conn, name, adopted=on),
