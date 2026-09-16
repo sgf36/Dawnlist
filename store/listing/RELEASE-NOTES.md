@@ -1,4 +1,4 @@
-# ReleaseNotes — en-GB source, for 1.2.0
+# ReleaseNotes — en-GB source, for 1.2.1
 
 Release notes are read by people deciding whether to update, and by the
 reviewer deciding whether to pass. Everything here is user-facing; nothing
