@@ -20,14 +20,15 @@
     "Hutumia ufunguo wako mwenyewe wa Anthropic — wewe unaushikilia, wewe unaona matumizi"
   ],
   "short_description": "Dawnlist husoma mipasho ya kazi kila asubuhi, huhukumu kila tangazo kwa kutumia muhtasari inaoujenga pamoja na wewe kutoka CV zako mwenyewe, na hukupa orodha fupi iliyopangwa kwa vyeo pamoja na sababu zilizotajwa. Nafasi zilizokataliwa hubaki zinaonekana. Huandika rasimu za ujumbe wako wa kufuatilia na haizitumi kamwe. Hufanya kazi kwa ufunguo wako mwenyewe wa API wa Anthropic.",
-  "release_notes": "Hurekebisha hitilafu iliyozuia funguo za leseni na kodi za ufikiaji kukubaliwa kabisa. Ikiwa Dawnlist ilikuambia kuwa ufunguo wako haukuwa halali, sasa utafanya kazi.\n\nUsanidi ni wazi zaidi: huomba usajili wako katika sehemu inayofaa badala ya kukuachia utafute mwenyewe, utafutaji unaopendekezwa ni majina halisi ya kazi, na majibu unayoyaandika wakati wa usanidi yanahifadhiwa kwa namna inayoonekana.\n\nDawnlist sasa hufunguka kwa lugha ya kompyuta yako, na unaweza kuibadilisha wakati wowote kutoka menyu ya ⋯.",
+  "release_notes": "Ingiza na utoe utafutaji wako kama lahajedwali, ili uweze kuunda seti katika faili la CSV na kupakia zote mara moja badala ya kuandika moja kwa moja.\n\nToa vigezo vyako vya uchujaji kama hati iliyopangwa, ihariri nje ya programu kisha uiingize tena — inafaa wakati mtu mwingine anakusaidia kubainisha unachotafuta.\n\nJaribu muunganisho wako kutoka Mipangilio bila kusubiri utekelezaji wa asubuhi. Kitufe kimoja hukagua ufunguo wako wa API na upatikanaji wa malisho, na kukuambia mara moja kama kila kitu kinafanya kazi.\n\nKila utafutaji sasa unaonyesha wakati uliotekelezwa mara ya mwisho, ili uweze kuona kwa haraka ni yupi aliye hai na ni yupi amekuwa kimya.\n\nMikato ya kibodi kwenye skrini ya urekebishaji: P kuendelea, L kwa baadaye, R kukataa, J na K kusogea kati ya machapisho, 1 hadi 4 kubadilisha vichupo.\n\nUtafutaji sasa unaweza kulingana na kichwa cha kazi, maelezo au vyote viwili, na unaweza kuongeza maneno muhimu ya maelezo ili kupunguza matokeo yanayorudi.\n\nUsanidi sasa unaonyesha upau wa maendeleo, ili ujue umefika hatua ngapi.",
   "screenshot_captions": [
     "Orodha yako fupi, na sababu — na zilizokataliwa bado zinaonekana",
     "Kanuni inapozidi kiasi, hukuambia",
     "Kila nafasi unayoifuatilia, na linalofuata kufanywa",
     "Husoma CV zako na hukuonyesha ilivyoelewa",
     "Hujifunza uamuzi wako kabla ya kuanza kazi",
-    "Uchunguzi unaoudhibiti, na hukataa kanuni ingeyoficha nafasi halisi"
+    "Uchunguzi unaoudhibiti, na hukataa kanuni ingeyoficha nafasi halisi",
+    "Aina za utafutaji, maneno muhimu ya maelezo, uingizaji wa CSV na kitufe cha kujaribu muunganisho"
   ],
   "search_terms": [
     "utafutaji wa kazi",

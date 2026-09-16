@@ -20,14 +20,15 @@
     "Folosește propria dumneavoastră cheie Anthropic — dumneavoastră o dețineți, dumneavoastră vedeți consumul"
   ],
   "short_description": "Dawnlist citește în fiecare dimineață fluxurile de anunțuri de angajare, evaluează fiecare anunț în raport cu un set de criterii pe care îl construiește împreună cu tine pornind de la propriile tale CV-uri și îți oferă o listă scurtă ordonată, cu motivele explicate. Respingerile rămân vizibile. Redactează mesajele tale de revenire și nu le trimite niciodată. Funcționează cu propria ta cheie API Anthropic.",
-  "release_notes": "Remediază o defecțiune din cauza căreia cheile de licență și codurile de acces nu erau acceptate deloc. Dacă Dawnlist ți-a spus că cheia ta nu este validă, acum va funcționa.\n\nConfigurarea este mai clară: îți cere abonamentul acolo unde trebuie, în loc să te lase să îl cauți, căutările sugerate sunt titluri reale de posturi, iar răspunsurile pe care le scrii în timpul configurării sunt salvate vizibil.\n\nDawnlist se deschide acum în limba computerului tău și o poți schimba oricând din meniul ⋯.",
+  "release_notes": "Importă și exportă căutările tale ca foaie de calcul — poți pregăti un set într-un fișier CSV și să le încarci pe toate dintr-o dată, în loc să le introduci pe fiecare manual.\n\nExportă criteriile de potrivire ca document formatat, editează-l în afara aplicației și reimportă-l — util când altcineva te ajută să definești ce anume cauți.\n\nTestează conexiunea din Setări fără să aștepți rularea de dimineață. Un singur buton verifică cheia API și accesul la feed, spunându-ți imediat dacă totul funcționează.\n\nFiecare căutare afișează acum data ultimei rulări, astfel încât poți vedea dintr-o privire care sunt active și care s-au oprit.\n\nScurtături de tastatură pe ecranul de calibrare: P pentru a urmări, L pentru mai târziu, R pentru a respinge, J și K pentru a naviga între anunțuri, 1–4 pentru a schimba filele.\n\nCăutările pot acum filtra după titlul postului, descriere sau ambele, iar pentru a restrânge rezultatele poți adăuga cuvinte cheie din descriere.\n\nConfigurarea afișează acum o bară de progres, ca să știi cât de departe ai ajuns în pași.",
   "screenshot_captions": [
     "Lista ta scurtă, cu motivele — și respingerile tot vizibile",
     "Când o regulă merge prea departe, îți spune",
     "Fiecare post pe care îl urmărești și ce urmează",
     "Îți citește CV-urile și îți arată ce a înțeles",
     "Îți învață judecata înainte să ruleze",
-    "Filtrare pe care o controlezi: refuză o regulă care ar ascunde un post real"
+    "Filtrare pe care o controlezi: refuză o regulă care ar ascunde un post real",
+    "Tipuri de căutare, cuvinte cheie din descriere, import CSV și buton de testare a conexiunii"
   ],
   "search_terms": [
     "căutare loc de muncă",

@@ -20,14 +20,15 @@
     "Koristi vaš vlastiti Anthropic ključ — vi ga držite, vi vidite korištenje"
   ],
   "short_description": "Dawnlist svako jutro čita oglase za posao, ocjenjuje svaki oglas prema kriterijima koje zajedno s vama sastavi iz vaših životopisa i daje vam rangirani uži izbor s navedenim razlozima. Odbijeni oglasi ostaju vidljivi. Sastavlja vaše poruke za praćenje i nikada ih ne šalje. Radi s vašim vlastitim Anthropic API ključem.",
-  "release_notes": "Ispravlja kvar zbog kojeg licencni ključevi i pristupni kodovi uopće nisu bili prihvaćani. Ako vam je Dawnlist rekao da vaš ključ nije valjan, sada će raditi.\n\nPostavljanje je jasnije: pretplatu traži na pravom mjestu umjesto da je sami tražite, predložene pretrage stvarni su nazivi radnih mjesta, a odgovori koje upišete tijekom postavljanja vidljivo se spremaju.\n\nDawnlist se sada otvara na jeziku vašeg računala, a jezik možete promijeniti u bilo kojem trenutku iz izbornika ⋯.",
+  "release_notes": "Uvezite i izvezite svoje pretrage kao proračunsku tablicu, tako da možete izgraditi skup u CSV datoteci i učitati ih sve odjednom umjesto da svaku tipkate zasebno.\n\nIzvezite svoje kriterije odabira kao formatiran dokument, uredite ga izvan aplikacije i uvezite natrag — korisno kada vam netko drugi pomaže oblikovati što tražite.\n\nTestirajte vezu iz Postavki bez čekanja na jutarnje pokretanje. Jedan gumb provjerava vaš API ključ i pristup feedu te vam odmah govori funkcionira li sve ispravno.\n\nSvaka pretraga sada prikazuje kada je zadnji put pokrenuta, tako da na prvi pogled možete vidjeti koje su aktivne, a koje su utihnule.\n\nTipkovnički prečaci na zaslonu za kalibraciju: P za praćenje, L za kasnije, R za odbijanje, J i K za pomicanje između oglasa, 1 do 4 za prebacivanje kartica.\n\nPretrage sada mogu podudarati naslov posla, opis ili oboje, a možete dodati ključne riječi opisa kako biste suzili rezultate.\n\nPostavke sada prikazuju traku napretka, tako da znate koliko ste daleko kroz korake.",
   "screenshot_captions": [
     "Vaš uži izbor, s razlozima — i odbijeni ostaju vidljivi",
     "Kad pravilo zahvati preširoko, reći će vam",
     "Svaka pozicija koju pratite i što slijedi",
     "Čita vaše životopise i pokazuje što je razumio",
     "Uči vaše kriterije prije nego što se pokrene",
-    "Filtriranje pod vašom kontrolom, uz odbijanje pravila koje bi sakrilo pravi posao"
+    "Filtriranje pod vašom kontrolom, uz odbijanje pravila koje bi sakrilo pravi posao",
+    "Vrste pretraživanja, ključne riječi opisa, CSV uvoz i gumb za testiranje veze"
   ],
   "search_terms": [
     "traženje posla",

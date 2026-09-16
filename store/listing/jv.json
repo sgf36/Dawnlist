@@ -20,14 +20,15 @@
     "Nganggo kunci Anthropic panjenengan dhewe — panjenengan sing nyekel, panjenengan sing weruh panganggone"
   ],
   "short_description": "Dawnlist maca feed lowongan saben esuk, mbiji saben iklan lowongan adhedhasar brief sing disusun bareng kowe saka CV-mu dhewe, banjur masrahake dhaptar cendhak sing wis diurutake kanthi alesane dielingake cetha. Lowongan sing ditolak tetep katon. Dawnlist nyusun konsep tindak lanjutmu lan ora tau ngirim. Mlaku nganggo API key Anthropic duwekmu dhewe.",
-  "release_notes": "Ndandani kaluputan sing njalari kunci lisensi lan kode akses babar pisan ora bisa ditampa. Yen Dawnlist kandha yen kunci-mu ora valid, saiki bakal bisa.\n\nPanyetelane luwih cetha: langganan dijaluk ing panggonan sing bener tinimbang kokgoleki dhewe, panggolekan sing disaranake nganggo jeneng pakaryan tenanan, lan wangsulan sing kokketik nalika panyetelan katon disimpen.\n\nDawnlist saiki mbukak nganggo basa komputermu, lan kowe bisa nggantine sawayah-wayah saka menu ⋯.",
+  "release_notes": "Impor lan ekspor pencarianmu minangka spreadsheet, supaya bisa nggawe kumpulan ing file CSV lan ngunggah kabeh sekaligus tinimbang ngetik siji-siji.\n\nEkspor kriteria pencarianmu minangka dokumen sing wis diformat, sunting ing njaba aplikasi banjur impor maneh — migunani nalika wong liya mbantu ngrancang apa sing lagi digolèki.\n\nUji koneksimu saka Setelan tanpa kudu nunggu proses sing mlaku esuk-esuk. Siji tombol bisa mriksa API key lan akses feed-mu, banjur langsung menehi kabar apa kabèh wis mlaku kanthi bener.\n\nSaben pencarian saiki nuduhake kapan pungkasan mlaku, supaya bisa ndelok sekilas endi sing isih aktif lan endi sing wis meneng.\n\nPintasan keyboard ing layar kalibrasi: P kanggo dikejar, L kanggo mengko, R kanggo ditolak, J lan K kanggo pindhah antarane lowongan, 1 nganti 4 kanggo ganti tab.\n\nPencarian saiki bisa cocog karo judul lowongan, deskripsi, utawa loro-lorone, lan bisa nambah tembung kunci deskripsi kanggo nyempitake asil sing metu.\n\nSetup saiki nuduhake progress bar, supaya ngerti wis tekan tahap pira.",
   "screenshot_captions": [
     "Dhaptar cendhakmu, karo alesane — lan sing ditolak isih katon",
     "Yen aturan kliwat jembar, kowe dikandhani",
     "Kabeh lowongan sing kokoyak, lan apa sabanjure",
     "Maca CV-mu lan nuduhake apa sing dipahami",
     "Sinau pertimbanganmu sadurunge mlaku",
-    "Panyaringan sing kokkontrol, lan nolak aturan sing ngumpetake lowongan tenan"
+    "Panyaringan sing kokkontrol, lan nolak aturan sing ngumpetake lowongan tenan",
+    "Jenis pencarian, tembung kunci deskripsi, impor CSV, lan tombol uji koneksi"
   ],
   "search_terms": [
     "golek kerja",

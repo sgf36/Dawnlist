@@ -20,14 +20,15 @@
     "Isebenzisa ukhiye wakho ka-Anthropic — wena uwuphethe, wena ubona ukusetshenziswa"
   ],
   "short_description": "I-Dawnlist ifunda ama-feed emisebenzi njalo ekuseni, ihlulele isikhangiso ngasinye ngokumelene nomhlahlandlela omfushane eyakha nawe isebenzisa ama-CV akho, bese ikunika uhlu olufingqiwe oluhlelwe ngamazinga, izizathu zishiwo. Okwenqatshiwe kuhlala kubonakala. Ibhalela imilayezo yakho yokulandelela futhi ayilokothi iwathumele. Isebenza ngokhiye wakho we-Anthropic API.",
-  "release_notes": "Ilungisa iphutha elalivimba okhiye belayisensi namakhodi okufinyelela ukuthi amukelwe nhlobo. Uma i-Dawnlist ikutshelile ukuthi ukhiye wakho awusebenzi, manje uzosebenza.\n\nUkulungiselela sekucace kakhudlwana: icela ukubhaliselwa kwakho endaweni efanele kunokuthi ikushiye uzitholele, ukucinga okuphakanyisiwe kungamagama emisebenzi angempela, futhi izimpendulo ozibhalayo ngesikhathi sokulungiselela zibonakala zilondolozwe.\n\nI-Dawnlist manje ivuleka ngolimi lwekhompyutha yakho, futhi ungalushintsha noma nini kusuka kumenyu ye-⋯.",
+  "release_notes": "Ngenisa noma thumela izinkinga zakho zokusesha njengespredishithi, ukuze wakhe uhlu nge-CSV file bese ulayisha konke ngasikhathi sinye esikhundleni sokuthayipha ngakunye.\n\nThumela amazinga akho wokuhlola njengombhalo ohlelelwe kahle, uwulungise ngaphandle kohlelo bese uwungenisa futhi — kuyasiza lapho omunye umuntu ekusiza ukuchaza lokho okufunayo.\n\nHlola ukuxhumeka kwakho kusuka kumaSethingi ngaphandle kokulinda ukugijima kwasekuseni. Inkinobho eyodwa ihlola i-API key yakho nokufinyelela kwefeed ikutshele ngokuphazima kweso uma konke kusebenza kahle.\n\nUkusesha ngakunye manje kubonisa ukuthi kwagijima nini kwakamuva, ukuze ubone ngokuphazima kweso ukuthi yiziphi ezisebenzayo neziphi esezithe thii.\n\nIzikhiye zikhibhodi esikrini sokuhlelwa: P ukuqhubeka, L okwamanje, R ukwenqaba, J no-K ukuhamba phakathi kwezintengiso, 1 kuya ku-4 ukushintsha amathebhu.\n\nUkusesha manje kunganweba isihloko somsebenzi, incazelo noma kokubili, futhi ungengeza amagama angukhiye encazelweni ukunciphisa okubuyayo.\n\nUkumisela manje kubonisa ibha yentuthuko, ukuze wazi ukuthi usufike kuphi ezigabeni.",
   "screenshot_captions": [
     "Uhlu lwakho olufingqiwe, nezizathu — nokwenqatshiwe kusabonakala",
     "Uma umthetho weqa umkhawulo, iyakutshela",
     "Yonke indima oyifunayo, nokulandelayo okumele kwenziwe",
     "Ifunda ama-CV akho ikukhombise lokho ekuqondile",
     "Ifunda indlela oyahlulela ngayo ngaphambi kokusebenza",
-    "Ukuhlunga okulawulwa nguwe — iyenqaba umthetho ongafihla umsebenzi wangempela"
+    "Ukuhlunga okulawulwa nguwe — iyenqaba umthetho ongafihla umsebenzi wangempela",
+    "Izinhlobo zokusesha, amagama angukhiye encazelweni, ukungenisa nge-CSV nenkinobho yokuhlola ukuxhumeka"
   ],
   "search_terms": [
     "ukufuna umsebenzi",

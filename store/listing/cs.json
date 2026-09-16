@@ -20,14 +20,15 @@
     "Používá váš vlastní klíč od Anthropic — držíte ho vy, spotřebu vidíte vy"
   ],
   "short_description": "Dawnlist každé ráno pročte pracovní nabídky, posoudí každý inzerát podle zadání, které s vámi sestaví z vašich vlastních životopisů, a předá vám seřazený užší výběr i s uvedenými důvody. Zamítnuté nabídky zůstávají viditelné. Připraví návrhy vašich následných zpráv a nikdy je neodešle. Běží na vašem vlastním Anthropic API klíči.",
-  "release_notes": "Opravuje chybu, kvůli které nebyly licenční klíče a přístupové kódy vůbec přijímány. Pokud vám Dawnlist hlásil, že váš klíč není platný, nyní bude fungovat.\n\nNastavení je přehlednější: o předplatné si řekne na správném místě, místo aby vás nechal ho hledat, navrhovaná vyhledávání jsou skutečné názvy pozic a odpovědi, které během nastavení zadáte, se viditelně uloží.\n\nDawnlist se nyní spouští v jazyce vašeho počítače a kdykoli jej můžete změnit v nabídce ⋯.",
+  "release_notes": "Importujte a exportujte svá hledání jako tabulku – můžete si tak sestavit sadu v CSV souboru a načíst ji najednou, místo abyste každé hledání zadávali ručně.\n\nExportujte svá kritéria shody jako formátovaný dokument, upravte je mimo aplikaci a znovu je importujte – hodí se, když vám někdo pomáhá upřesnit, co hledáte.\n\nVyzkoušejte připojení přímo v Nastavení, aniž byste čekali na ranní spuštění. Jedno tlačítko ověří váš API klíč i přístup k feedu a okamžitě vám řekne, zda vše funguje správně.\n\nKaždé hledání nyní zobrazuje, kdy naposledy proběhlo – takže jedním pohledem zjistíte, která jsou aktivní a která přestala fungovat.\n\nKlávesové zkratky na obrazovce kalibrace: P pro sledování, L pro odložení, R pro odmítnutí, J a K pro pohyb mezi inzeráty, 1 až 4 pro přepínání záložek.\n\nHledání nyní může porovnávat pracovní pozici, popis nebo obojí a můžete přidat klíčová slova z popisu pro zpřesnění výsledků.\n\nPrůvodce nastavením nyní zobrazuje ukazatel průběhu, takže víte, jak daleko v jednotlivých krocích jste.",
   "screenshot_captions": [
     "Váš užší výběr s důvody — i zamítnuté zůstávají vidět",
     "Když pravidlo zabírá příliš široce, dá vám vědět",
     "Všechny pozice, o které usilujete, a co je na řadě",
     "Přečte vaše životopisy a ukáže, co z nich pochopil",
     "Naučí se váš úsudek, než se spustí",
-    "Filtrování řídíte vy — odmítne pravidlo, které by skrylo skutečnou pozici"
+    "Filtrování řídíte vy — odmítne pravidlo, které by skrylo skutečnou pozici",
+    "Typy hledání, klíčová slova popisu, import CSV a tlačítko pro test připojení"
   ],
   "search_terms": [
     "hledání práce",

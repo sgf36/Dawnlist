@@ -27,7 +27,8 @@
     "Cada vaga que está a seguir e o que se segue",
     "Lê os seus CVs e mostra-lhe o que percebeu",
     "Aprende o seu critério antes de arrancar",
-    "Triagem que você controla, e recusa uma regra que esconderia uma vaga real"
+    "Triagem que você controla, e recusa uma regra que esconderia uma vaga real",
+    "Tipos de busca, palavras-chave da descrição, importação via CSV e botão para testar a conexão"
   ],
   "search_terms": [
     "procura de emprego",

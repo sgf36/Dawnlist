@@ -20,14 +20,15 @@
     "Använder din egen Anthropic-nyckel — du har den, du ser användningen"
   ],
   "short_description": "Dawnlist läser jobbflödena varje morgon, bedömer varje annons mot en kravprofil som den bygger tillsammans med dig utifrån dina egna CV:n, och ger dig en rangordnad urvalslista med skälen angivna. Bortvalda annonser förblir synliga. Den skriver utkast till dina uppföljningar och skickar dem aldrig. Körs på din egen Anthropic-API-nyckel.",
-  "release_notes": "Åtgärdar ett fel som gjorde att licensnycklar och åtkomstkoder inte accepterades alls. Om Dawnlist sa att din nyckel inte var giltig fungerar den nu.\n\nKonfigurationen är tydligare: den frågar efter din prenumeration på rätt ställe i stället för att låta dig leta själv, de föreslagna sökningarna är riktiga jobbtitlar, och svar du skriver under konfigurationen sparas synligt.\n\nDawnlist öppnas nu på datorns språk, och du kan ändra det när som helst från ⋯-menyn.",
+  "release_notes": "Importera och exportera dina sökningar som ett kalkylblad, så att du kan bygga upp en samling i en CSV-fil och läsa in dem alla på en gång istället för att skriva in dem en efter en.\n\nExportera dina urvalskriterier som ett formaterat dokument, redigera det utanför appen och importera det sedan igen — praktiskt när någon annan hjälper dig att forma vad du letar efter.\n\nTesta din anslutning från Inställningar utan att behöva vänta på morgonkörningen. En knapp kontrollerar din API-nyckel och flödesåtkomst och talar omedelbart om för dig om allt fungerar.\n\nVarje sökning visar nu när den senast kördes, så att du snabbt kan se vilka som är aktiva och vilka som har blivit tysta.\n\nTangentbordsgenvägar på kalibreringsskärmen: P för att gå vidare, L för senare, R för att avvisa, J och K för att navigera mellan annonser, 1 till 4 för att byta flik.\n\nSökningar kan nu matcha på jobbtitel, beskrivning eller båda, och du kan lägga till nyckelord för beskrivningen för att begränsa vad som returneras.\n\nInstallationen visar nu en förloppsindikator, så att du vet hur långt du kommit i stegen.",
   "screenshot_captions": [
     "Din urvalslista, med skälen – och de bortvalda syns fortfarande",
     "När en regel går för långt säger den till",
     "Alla roller du söker, och vad som ska göras härnäst",
     "Den läser dina CV:n och visar vad den förstod",
     "Den lär sig ditt omdöme innan den körs",
-    "Gallring du styr – och den vägrar en regel som skulle dölja en riktig roll"
+    "Gallring du styr – och den vägrar en regel som skulle dölja en riktig roll",
+    "Söktyper, nyckelord i beskrivning, CSV-import och en knapp för att testa anslutningen"
   ],
   "search_terms": [
     "jobbsökning",

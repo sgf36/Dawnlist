@@ -20,14 +20,15 @@
     "Utilise votre propre clé Anthropic — c'est vous qui la détenez et voyez la consommation"
   ],
   "short_description": "Dawnlist parcourt les offres d'emploi chaque matin, évalue chaque annonce au regard d'un brief qu'il construit avec vous à partir de vos propres CV, et vous remet une liste restreinte classée, avec les raisons énoncées. Les refus restent visibles. Il rédige vos relances et ne les envoie jamais. Fonctionne avec votre propre clé API Anthropic.",
-  "release_notes": "La configuration vous pose désormais des questions sur vous : une nouvelle étape de profil couvre votre localisation, votre préférence entre postes permanents ou missions, votre salaire cible et votre niveau d'expérience. Dawnlist tient compte de tout cela lorsqu'il évalue les annonces au regard de votre brief.\n\nVous pouvez relancer l'assistant de configuration à tout moment depuis le menu ⋯ : un changement de situation n'oblige donc pas à repartir de zéro.\n\nLa page d'entretien indique maintenant quand vos réponses sont enregistrées : vous voyez que chacune est conservée au fil de la saisie.\n\nLes modifications de documents sont accompagnées d'un journal des changements : vous pouvez voir ce qui a été modifié, et quand.\n\nCinquante langues, entièrement traduites — chaque écran, chaque libellé, chaque message.",
+  "release_notes": "Importez et exportez vos recherches sous forme de feuille de calcul, afin de constituer un ensemble dans un fichier CSV et de tout charger en une seule fois plutôt que de tout saisir manuellement.\n\nExportez vos critères de sélection sous forme de document mis en forme, modifiez-le en dehors de l'application puis réimportez-le — pratique lorsque quelqu'un d'autre vous aide à définir ce que vous recherchez.\n\nTestez votre connexion depuis les Paramètres sans attendre l'exécution du matin. Un seul bouton vérifie votre clé API et l'accès au flux, et vous indique immédiatement si tout fonctionne correctement.\n\nChaque recherche affiche désormais la date de sa dernière exécution, ce qui vous permet de voir en un coup d'œil lesquelles sont actives et lesquelles ne donnent plus signe de vie.\n\nRaccourcis clavier sur l'écran de calibration : P pour poursuivre, L pour plus tard, R pour rejeter, J et K pour naviguer entre les offres, et 1 à 4 pour changer d'onglet.\n\nLes recherches peuvent désormais correspondre au titre du poste, à la description ou aux deux, et vous pouvez ajouter des mots-clés issus de la description pour affiner les résultats.\n\nLa configuration affiche maintenant une barre de progression, afin que vous sachiez où vous en êtes dans les étapes.",
   "screenshot_captions": [
     "Votre liste restreinte, avec les raisons — et les refus toujours visibles",
     "Quand une règle va trop loin, il vous le dit",
     "Chaque poste que vous suivez, et la prochaine échéance",
     "Il lit vos CV et vous montre ce qu'il a compris",
     "Il apprend votre jugement avant de se lancer",
-    "Un filtrage que vous contrôlez : il refuse une règle qui masquerait un vrai poste"
+    "Un filtrage que vous contrôlez : il refuse une règle qui masquerait un vrai poste",
+    "Types de recherche, mots-clés de description, importation CSV et bouton de test de connexion"
   ],
   "search_terms": [
     "recherche d'emploi",

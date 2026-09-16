@@ -20,14 +20,15 @@
     "Ọ na-eji igodo Anthropic nke gị — ị na-ejide ya, ị na-ahụkwa ojiji ya"
   ],
   "short_description": "Dawnlist na-agụ ebe a na-ebipụta ọrụ kwa ụtụtụ, na-atụle ọrụ ọ bụla site n'iji nkọwa mkpirisi ọ na-eso gị wuo n'ime CV nke gị, ma nye gị ndepụta mkpirisi ahaziri n'usoro tinyere ihe kpatara ya. Ọrụ ndị ọ jụrụ ka na-apụta ìhè. Ọ na-edetu ozi nchụsọ gị, ma ọ dịghị mgbe ọ na-eziga ha. Ọ na-eji igodo API Anthropic nke gị onwe gị arụ ọrụ.",
-  "release_notes": "Ọ na-edozi nsogbu nke mere na anaghị anabata igodo ikike na koodu nnweta ma ọlị. Ọ bụrụ na Dawnlist gwara gị na igodo gị ezighi ezi, ọ ga-arụ ọrụ ugbu a.\n\nNhazi mmalite doro anya karị: ọ na-arịọ maka ndenyeaha gị n'ebe kwesịrị ekwesị kama ịhapụ gị ka ị chọta ya, nchọta ndị a tụrụ aro bụ ezigbo aha ọrụ, na azịza ndị ị na-edetu n'oge nhazi ka a na-echekwa n'ụzọ a na-ahụ anya.\n\nDawnlist na-emeghe ugbu a n'asụsụ kọmputa gị, ị nwekwara ike gbanwee ya mgbe ọ bụla site na menu ⋯.",
+  "release_notes": "Bubata ma ọ bụ mepụta ọchụchọ gị dị ka spreadsheet, ka ị nwee ike iwulite nchịkọta na faịlụ CSV wee bulite ha niile ọtụtụ n'otu oge kama ịtẹ ọ bụla otu n'otu.\n\nMepụta ihe ọchụchọ gị dị ka akwụkwọ emebere nke ọma, dezie ya n'èzí ngwa ahụ wee weghachite ya — nke a na-aba uru mgbe onye ọzọ na-enyere gị aka ịhazi ihe ị na-achọ.\n\nNwaa njikọ gị site na Ntọala n'emechaghị ịchere oge ọ ga-agba n'ụtụtụ. Otu bọtịnụ ga-enyocha igodo API gị na ohere feed gị wee gwa gị ozugbo ma ihe niile na-arụ ọrụ.\n\nOchụchọ ọ bụla ugbu a na-egosi mgbe ọ gachara n'ikpeazụ, ka ị nwee ike ịhụ n'otu ntụgharị anya nke ndị ọ ka na-arụ ọrụ na ndị nwụọla.\n\nIhe ngwa keyboard na ihuenyo ntọpụtọ: P iji chụso, L maka mgbe e mesịrị, R iji jụ, J na K iji kwaga n'etiti ọrụ, 1 ruo 4 iji gbanwee taabụ.\n\nỌchụchọ ugbu a nwere ike itufere aha ọrụ, nkọwa ma ọ bụ ha abụọ, ị nwekwara ike itinye mkpọtụ nkọwa iji mepee ihe ọ na-azaghachi.\n\nNtọala ugbu a na-egosi nha ọganihu, ka ị mara etu ị si erute n'ọnọdụ gị n'usoro ahụ.",
   "screenshot_captions": [
     "Ndepụta mkpirisi gị, na ihe kpatara ya — ndị ọ jụrụ ka na-apụta",
     "Mgbe iwu gbatịrị aka ukwuu, ọ na-agwa gị",
     "Ọrụ niile ị na-achụ, na ihe na-eso n'oge",
     "Ọ na-agụ CV gị ma gosi gị ihe ọ ghọtara",
     "Ọ na-amụta ikpe gị tupu ọ malite",
-    "Nzacha ị na-achịkwa — ọ na-ajụ iwu ga-ezochi ezigbo ọrụ"
+    "Nzacha ị na-achịkwa — ọ na-ajụ iwu ga-ezochi ezigbo ọrụ",
+    "Ụdị ọchụchọ, mkpọtụ nkọwa, bubata CSV, na bọtịnụ nnwale njikọ"
   ],
   "search_terms": [
     "ọchụchọ ọrụ",

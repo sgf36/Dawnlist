@@ -20,14 +20,15 @@
     "Nutzt Ihren eigenen Anthropic-Schlüssel — Sie besitzen ihn, Sie sehen die Nutzung"
   ],
   "short_description": "Dawnlist liest jeden Morgen die Stellenbörsen, bewertet jede Anzeige anhand eines Anforderungsprofils, das es gemeinsam mit Ihnen aus Ihren eigenen Lebensläufen erstellt, und übergibt Ihnen eine Auswahlliste nach Rang – mit genannten Gründen. Absagen bleiben sichtbar. Es entwirft Ihre Nachfassnachrichten und versendet sie nie. Läuft mit Ihrem eigenen Anthropic-API-Schlüssel.",
-  "release_notes": "Die Einrichtung fragt jetzt nach Ihnen: Ein neuer Profilschritt erfasst Ihren Standort, ob Sie eine Festanstellung oder Vertragsarbeit suchen, Ihr Zielgehalt und Ihre Karrierestufe. Dawnlist berücksichtigt all das, wenn es Anzeigen anhand Ihres Anforderungsprofils bewertet.\n\nSie können den Einrichtungsassistenten jederzeit über das Menü ⋯ neu starten – veränderte Umstände bedeuten also nicht, von vorn anfangen zu müssen.\n\nDie Interviewseite zeigt jetzt an, wann Ihre Antworten gespeichert werden, sodass Sie beim Tippen sehen, dass jede erhalten bleibt.\n\nDokumentänderungen führen ein Änderungsprotokoll: Sie können sehen, was wann geändert wurde.\n\nFünfzig Sprachen, vollständig übersetzt – jeder Bildschirm, jede Bezeichnung, jede Meldung.",
+  "release_notes": "Importiere und exportiere deine Suchanfragen als Tabelle – so kannst du eine Sammlung in einer CSV-Datei aufbauen und alle auf einmal laden, anstatt jede einzeln einzutippen.\n\nExportiere deine Filterkriterien als formatiertes Dokument, bearbeite es außerhalb der App und importiere es anschließend wieder – praktisch, wenn jemand anderes dir hilft, deine Anforderungen zu definieren.\n\nTestet deine Verbindung direkt in den Einstellungen, ohne auf den morgendlichen Durchlauf warten zu müssen. Ein einziger Knopf prüft deinen API-Schlüssel und den Feed-Zugriff und zeigt dir sofort, ob alles funktioniert.\n\nJede Suche zeigt jetzt an, wann sie zuletzt ausgeführt wurde – so erkennst du auf einen Blick, welche aktiv sind und welche nicht mehr reagieren.\n\nTastaturkürzel auf dem Kalibrierungsbildschirm: P zum Weiterverfolgen, L für später, R zum Ablehnen, J und K zum Navigieren zwischen Einträgen, 1 bis 4 zum Wechseln der Tabs.\n\nSuchanfragen können jetzt nach Jobtitel, Beschreibung oder beidem abgeglichen werden, und du kannst Beschreibungs-Keywords hinzufügen, um die Ergebnisse einzugrenzen.\n\nDie Einrichtung zeigt jetzt einen Fortschrittsbalken an, damit du weißt, wie weit du die einzelnen Schritte bereits abgeschlossen hast.",
   "screenshot_captions": [
     "Ihre Auswahlliste mit Gründen – Absagen bleiben sichtbar",
     "Greift eine Regel zu weit, sagt es Ihnen das",
     "Jede Stelle, die Sie verfolgen – und was als Nächstes fällig ist",
     "Es liest Ihre Lebensläufe und zeigt, was es verstanden hat",
     "Es lernt Ihr Urteil, bevor es läuft",
-    "Screening, das Sie steuern – und es weist Regeln ab, die echte Stellen verbergen"
+    "Screening, das Sie steuern – und es weist Regeln ab, die echte Stellen verbergen",
+    "Suchtypen, Beschreibungs-Keywords, CSV-Import und Verbindungstest-Schaltfläche"
   ],
   "search_terms": [
     "Jobsuche",

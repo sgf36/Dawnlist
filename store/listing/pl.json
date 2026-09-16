@@ -20,14 +20,15 @@
     "Korzysta z Twojego własnego klucza Anthropic — Ty go masz, Ty widzisz zużycie"
   ],
   "short_description": "Dawnlist każdego ranka przegląda kanały z ofertami pracy, ocenia każde ogłoszenie według opisu wymagań, który tworzy razem z Tobą na podstawie Twoich CV, i podaje uszeregowaną krótką listę wraz z uzasadnieniem. Odrzucone oferty pozostają widoczne. Redaguje Twoje wiadomości uzupełniające i nigdy ich nie wysyła. Działa na Twoim własnym kluczu API Anthropic.",
-  "release_notes": "Naprawiono usterkę, przez którą klucze licencyjne i kody dostępu w ogóle nie były przyjmowane. Jeśli Dawnlist informował, że Twój klucz jest nieprawidłowy, teraz zadziała.\n\nKonfiguracja jest czytelniejsza: o subskrypcję pyta we właściwym miejscu, zamiast zostawiać Ci jej szukanie, proponowane wyszukiwania to prawdziwe nazwy stanowisk, a odpowiedzi wpisywane podczas konfiguracji są widocznie zapisywane.\n\nDawnlist otwiera się teraz w języku Twojego komputera, a język możesz zmienić w dowolnej chwili w menu ⋯.",
+  "release_notes": "Importuj i eksportuj swoje wyszukiwania jako arkusz kalkulacyjny — możesz przygotować zestaw w pliku CSV i wczytać go jednocześnie, zamiast wpisywać każde wyszukiwanie ręcznie.\n\nEksportuj kryteria dopasowania jako sformatowany dokument, edytuj go poza aplikacją i zaimportuj ponownie — przydatne, gdy ktoś inny pomaga Ci określić, czego szukasz.\n\nSprawdź połączenie z poziomu Ustawień bez czekania na poranny przebieg. Jeden przycisk weryfikuje klucz API i dostęp do kanału, natychmiast informując, czy wszystko działa poprawnie.\n\nKażde wyszukiwanie pokazuje teraz, kiedy ostatnio było uruchomione — dzięki temu od razu widać, które są aktywne, a które przestały działać.\n\nSkróty klawiszowe na ekranie kalibracji: P — kontynuuj, L — na później, R — odrzuć, J i K — przechodzenie między ofertami, 1–4 — przełączanie zakładek.\n\nWyszukiwania mogą teraz dopasowywać według tytułu stanowiska, opisu lub obu jednocześnie, a do zawężenia wyników można dodać słowa kluczowe z opisu.\n\nKonfiguracja wyświetla teraz pasek postępu, dzięki czemu wiesz, na którym etapie jesteś.",
   "screenshot_captions": [
     "Twoja krótka lista z uzasadnieniem — odrzucone nadal widoczne",
     "Gdy reguła sięga za daleko, mówi Ci o tym",
     "Każda oferta, o którą się starasz, i najbliższe terminy",
     "Czyta Twoje CV i pokazuje, co z nich zrozumiał",
     "Uczy się Twoich ocen, zanim ruszy",
-    "Selekcja pod Twoją kontrolą — odrzuca regułę, która ukryłaby realną ofertę"
+    "Selekcja pod Twoją kontrolą — odrzuca regułę, która ukryłaby realną ofertę",
+    "Typy wyszukiwań, słowa kluczowe opisu, import CSV i przycisk testowania połączenia"
   ],
   "search_terms": [
     "szukanie pracy",

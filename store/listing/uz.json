@@ -20,14 +20,15 @@
     "O'zingizning Anthropic kalitingizdan foydalanadi — kalit sizda, foydalanishni ko'rib turasiz"
   ],
   "short_description": "Dawnlist har kuni ertalab ish e'lonlari oqimini o'qiydi, har bir e'lonni o'zingizning rezyumelaringiz asosida siz bilan birga tuzgan brifga solib baholaydi va sabablari ko'rsatilgan tartiblangan qisqa ro'yxatni beradi. Rad etilganlar ko'rinib turadi. U sizning kuzatuv xatlaringizni tayyorlaydi va ularni hech qachon yubormaydi. O'zingizning Anthropic API kalitingizda ishlaydi.",
-  "release_notes": "Litsenziya kalitlari va kirish kodlarining umuman qabul qilinmasligiga olib kelgan nuqson tuzatildi. Agar Dawnlist sizga kalitingiz yaroqsiz deb aytgan bo'lsa, endi u ishlaydi.\n\nSozlash tushunarliroq bo'ldi: obunangiz o'zingiz izlab topishingizga qoldirilmay, kerakli joyda so'raladi, taklif qilinadigan qidiruvlar haqiqiy ish nomlaridan iborat, sozlash vaqtida yozgan javoblaringiz esa ko'rinadigan tarzda saqlanadi.\n\nDawnlist endi kompyuteringiz tilida ochiladi va tilni istalgan vaqtda ⋯ menyusidan o'zgartirishingiz mumkin.",
+  "release_notes": "Qidiruvlaringizni elektron jadval sifatida import va eksport qiling — shunday qilib, CSV faylida to'plam tuzib, har birini alohida kiritish o'rniga barchasini bir vaqtda yuklashingiz mumkin.\n\nMoslashuv mezonlaringizni formatlangan hujjat sifatida eksport qiling, ilovadan tashqarida tahrirlang va qayta import qiling — bu nima izlayotganingizni aniqlashda birov sizga yordam berayotganda juda qo'l keladi.\n\nErtalabki ishgacha kutmasdan, Sozlamalar orqali ulanishni sinab ko'ring. Bitta tugma API kalitingizni va lentaga kirishni tekshiradi hamda hamma narsa to'g'ri ishlayotganini darhol xabar qiladi.\n\nHar bir qidiruv endi oxirgi ishga tushirilgan vaqtni ko'rsatadi, shuning uchun qaysilari faol, qaysilari to'xtab qolganini bir qarashda bilib olasiz.\n\nKalibratsiya ekranidagi klaviatura yorliqlari: P — kuzatishga qo'shish, L — keyinroq, R — rad etish, J va K — e'lonlar o'rtasida harakatlanish, 1 dan 4 gacha — yorliqlarni almashtirish.\n\nQidiruvlar endi ish nomi, tavsif yoki ikkalasi bo'yicha ham moslik topa oladi, shuningdek, natijalarni toraytirish uchun tavsif kalit so'zlari qo'shishingiz mumkin.\n\nBoshlang'ich sozlash jarayonida endi taraqqiyot paneli ko'rsatiladi, shunda qaysi bosqichda ekanligingizni bilasiz.",
   "screenshot_captions": [
     "Qisqa ro'yxatingiz — sabablari bilan, rad etilganlar ham ko'rinadi",
     "Qoida haddan oshib ketsa, u sizga aytadi",
     "Siz harakat qilayotgan har bir lavozim va navbatdagi vazifa",
     "Rezyumelaringizni o'qiydi va nimani tushunganini ko'rsatadi",
     "Ishga tushishdan oldin sizning mulohazangizni o'rganadi",
-    "Saralashni siz boshqarasiz; haqiqiy lavozimni yashiradigan qoidani rad etadi"
+    "Saralashni siz boshqarasiz; haqiqiy lavozimni yashiradigan qoidani rad etadi",
+    "Qidiruv turlari, tavsif kalit so'zlari, CSV import va ulanishni sinash tugmasi"
   ],
   "search_terms": [
     "ish qidirish",

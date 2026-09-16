@@ -20,14 +20,15 @@
     "Ó ń lo kọ́kọ́rọ́ Anthropic tìrẹ — ìwọ ni ó mú u, ìwọ ni ó ń rí ìlò rẹ̀"
   ],
   "short_description": "Dawnlist máa ń ka àwọn ìwé ìpolongo iṣẹ́ ní gbogbo òwúrọ̀, ó ń dá ìpolongo kọ̀ọ̀kan lẹ́jọ́ ní ìbámu pẹ̀lú àkọsílẹ̀ ìtọ́sọ́nà tí ó bá ọ kọ láti inú àwọn CV tìrẹ, ó sì fún ọ ní àtòjọ kúkúrú tí a to létòlétò pẹ̀lú àwọn ìdí tí a sọ ní gbangba. Àwọn tí a kọ̀ ṣì máa ń hàn. Ó ń kọ àwọn ìránnilétí rẹ ní àfọwọ́kọ, kò sì ní í fi wọ́n ránṣẹ́ láé. Ó ń ṣiṣẹ́ lórí kọ́kọ́rọ́ API Anthropic tìrẹ.",
-  "release_notes": "Ó tún àṣìṣe kan ṣe tí ó dí i lọ́wọ́ pátápátá kí a tẹ́wọ́ gba kọ́kọ́rọ́ ìwé-àṣẹ àti kóòdù ìwọlé. Bí Dawnlist bá ti sọ fún ọ pé kọ́kọ́rọ́ rẹ kò tọ̀nà, yóò ṣiṣẹ́ báyìí.\n\nÌṣètò ti ṣe kedere sí i: ó ń béèrè fún ìforúkọsílẹ̀ rẹ ní ibi tó tọ́ dípò kí ó fi sílẹ̀ fún ọ láti wá a, àwọn ìwádìí tí a dábàá jẹ́ orúkọ iṣẹ́ gidi, àwọn ìdáhùn tí o bá tẹ̀ nígbà ìṣètò sì máa hàn pé a ti fi wọ́n pamọ́.\n\nDawnlist wá ń ṣí ní èdè kọ̀ǹpútà rẹ báyìí, o sì lè yí i padà nígbàkúgbà láti inú àkójọ ⋯.",
+  "release_notes": "Gbe awọn àwárí rẹ wọle tabi jade gẹgẹ bi iwe iṣiro, ki o le kọ atokọ ninu faili CSV kan ki o gbe gbogbo wọn sinu ni ẹẹkan dipo titẹ ọkọọkan.\n\nGbe awọn ìlànà rẹ jade gẹgẹ bi iwe tí a tò, ṣatunkọ rẹ ni ita app náà ki o tun gbe wọle — wulo nigba ti ẹlomiran n ṣe iranlọwọ fun ọ lati ṣe apẹrẹ ohun tí o ń wá.\n\nDán ìsopọ rẹ wò lati Ètò láìdúró de ìgbà ìṣiṣẹ́ òwúrọ̀. Bọtini kan ṣayẹwo API key rẹ àti àǹfààní feed rẹ, ó sì sọ fún ọ lẹsẹkẹsẹ bóyá ohun gbogbo ń ṣiṣẹ́.\n\nÀwárí kọọkan n ṣafihan ìgbà tí ó ṣiṣẹ́ kẹhin, nítorí náà o le rí ní ojú kan èyí tí ó ṣiṣẹ́ àti èyí tí ó ti dákẹ́.\n\nÀwọn àmúlò keyboard lórí iboju ìdiwọ̀n: P láti lepa, L fún nigbamii, R láti kọ̀, J àti K láti gbe laarin àwọn ìpolongo, 1 sí 4 láti yipada laarin àwọn tab.\n\nÀwọn àwárí le baamu orukọ iṣẹ́, àpèjúwe, tabi méjèèjì, ó sì ṣeéṣe ki o ṣafikun àwọn ọ̀rọ̀ àpèjúwe láti dín àwọn èsì padà.\n\nÌtò ìṣètò ń ṣafihan ìgbèlé ìlọsiwaju, nítorí náà o mọ ìgbésẹ̀ tí o wà.",
   "screenshot_captions": [
     "Àtòjọ kúkúrú rẹ, pẹ̀lú àwọn ìdí — àwọn tí a kọ̀ ṣì hàn",
     "Nígbà tí òfin kan bá tayọ ààlà, ó sọ fún ọ",
     "Gbogbo ipò tí o ń lépa, àti ohun tó kàn",
     "Ó ka àwọn CV rẹ, ó fi ohun tó yé e hàn ọ́",
     "Ó kọ́ ìdájọ́ rẹ kí ó tó ṣiṣẹ́",
-    "Ìṣàyẹ̀wò tí o ń darí, ó kọ òfin tó máa fi ipò gidi pamọ́"
+    "Ìṣàyẹ̀wò tí o ń darí, ó kọ òfin tó máa fi ipò gidi pamọ́",
+    "Àwọn iru àwárí, àwọn ọ̀rọ̀ àpèjúwe, gbigbe CSV wọle àti bọtini ìdánwò ìsopọ"
   ],
   "search_terms": [
     "ìwádìí iṣẹ́",

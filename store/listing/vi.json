@@ -20,14 +20,15 @@
     "Dùng khóa Anthropic của chính bạn — bạn giữ khóa, bạn thấy mức sử dụng"
   ],
   "short_description": "Mỗi sáng, Dawnlist đọc các nguồn tin tuyển dụng, đánh giá từng tin theo bản yêu cầu mà nó cùng bạn dựng nên từ chính CV của bạn, rồi trao cho bạn một danh sách rút gọn đã xếp hạng kèm lý do rõ ràng. Những tin bị loại vẫn luôn hiển thị. Nó soạn thư theo dõi cho bạn và không bao giờ tự gửi đi. Chạy bằng khóa API Anthropic của riêng bạn.",
-  "release_notes": "Sửa lỗi khiến khóa giấy phép và mã truy cập hoàn toàn không được chấp nhận. Nếu Dawnlist từng báo rằng khóa của bạn không hợp lệ, giờ nó sẽ dùng được.\n\nViệc thiết lập rõ ràng hơn: ứng dụng hỏi thông tin đăng ký của bạn ngay tại đúng chỗ thay vì để bạn tự đi tìm, các gợi ý tìm kiếm là những chức danh công việc thật, và câu trả lời bạn nhập trong lúc thiết lập được lưu lại một cách rõ ràng.\n\nDawnlist giờ mở theo ngôn ngữ của máy tính bạn, và bạn có thể thay đổi bất cứ lúc nào từ menu ⋯.",
+  "release_notes": "Nhập và xuất các tìm kiếm của bạn dưới dạng bảng tính, giúp bạn tạo danh sách trong file CSV và tải tất cả cùng một lúc thay vì nhập từng mục một.\n\nXuất tiêu chí tìm kiếm của bạn thành tài liệu có định dạng, chỉnh sửa bên ngoài ứng dụng rồi nhập lại — tiện lợi khi có người khác đang giúp bạn xác định những gì bạn đang tìm kiếm.\n\nKiểm tra kết nối ngay trong Cài đặt mà không cần chờ đến lần chạy buổi sáng. Chỉ một nút bấm để kiểm tra API key và quyền truy cập feed, cho bạn biết ngay lập tức mọi thứ có hoạt động hay không.\n\nMỗi tìm kiếm giờ đây hiển thị thời điểm chạy gần nhất, giúp bạn nhìn qua là biết cái nào đang hoạt động và cái nào đã im lặng.\n\nPhím tắt trên màn hình hiệu chỉnh: P để theo đuổi, L để để sau, R để từ chối, J và K để di chuyển giữa các bài đăng, 1 đến 4 để chuyển tab.\n\nCác tìm kiếm giờ đây có thể khớp theo tiêu đề công việc, mô tả hoặc cả hai, và bạn có thể thêm từ khóa mô tả để thu hẹp kết quả trả về.\n\nQuá trình thiết lập giờ hiển thị thanh tiến trình, giúp bạn biết mình đang ở bước nào trong quy trình.",
   "screenshot_captions": [
     "Danh sách rút gọn kèm lý do — và các tin bị loại vẫn hiển thị",
     "Khi một quy tắc lọc đi quá xa, nó sẽ nói cho bạn biết",
     "Mọi vị trí bạn đang theo đuổi và việc cần làm tiếp theo",
     "Nó đọc CV của bạn và cho bạn thấy nó đã hiểu gì",
     "Nó học cách bạn đánh giá trước khi chạy",
-    "Bạn kiểm soát việc sàng lọc, và nó từ chối quy tắc có thể che mất một vị trí thật"
+    "Bạn kiểm soát việc sàng lọc, và nó từ chối quy tắc có thể che mất một vị trí thật",
+    "Loại tìm kiếm, từ khóa mô tả, nhập CSV và nút kiểm tra kết nối"
   ],
   "search_terms": [
     "tìm việc làm",

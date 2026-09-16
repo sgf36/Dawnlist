@@ -20,14 +20,15 @@
     "Menggunakan kunci Anthropic Anda sendiri — Anda yang memegangnya, Anda yang melihat pemakaiannya"
   ],
   "short_description": "Dawnlist membaca umpan lowongan setiap pagi, menilai setiap lowongan berdasarkan brief yang disusunnya bersama Anda dari CV Anda sendiri, dan memberikan daftar pendek berperingkat lengkap dengan alasannya. Lowongan yang ditolak tetap terlihat. Dawnlist menyusun draf tindak lanjut Anda dan tidak pernah mengirimkannya. Berjalan dengan kunci API Anthropic milik Anda sendiri.",
-  "release_notes": "Penyiapan kini menanyakan tentang Anda: langkah profil baru mencakup lokasi Anda, apakah Anda menginginkan posisi tetap atau kontrak, target gaji, dan tingkat senioritas Anda. Dawnlist menggunakan semua ini saat menilai lowongan berdasarkan brief Anda.\n\nAnda dapat memulai ulang panduan penyiapan kapan saja dari menu ⋯, sehingga perubahan keadaan tidak berarti harus mulai dari nol.\n\nHalaman wawancara kini menampilkan saat jawaban Anda sedang disimpan, sehingga Anda dapat melihat setiap jawaban tersimpan sambil Anda mengetik.\n\nPenyuntingan dokumen kini disertai catatan perubahan: Anda dapat melihat apa yang diubah dan kapan.\n\nLima puluh bahasa, diterjemahkan sepenuhnya — setiap layar, setiap label, setiap pesan.",
+  "release_notes": "Impor dan ekspor pencarian Anda sebagai spreadsheet, sehingga Anda dapat membuat kumpulan data dalam file CSV dan memuatnya sekaligus daripada mengetik satu per satu.\n\nEkspor kriteria pencarian Anda sebagai dokumen terformat, edit di luar aplikasi, lalu impor kembali — berguna ketika orang lain membantu Anda menentukan apa yang sedang Anda cari.\n\nUji koneksi Anda dari Pengaturan tanpa harus menunggu hingga proses berjalan di pagi hari. Satu tombol akan memeriksa API key dan akses feed Anda, lalu memberi tahu Anda secara langsung apakah semuanya berjalan dengan baik.\n\nSetiap pencarian kini menampilkan kapan terakhir kali dijalankan, sehingga Anda dapat melihat sekilas mana yang masih aktif dan mana yang sudah tidak berjalan.\n\nPintasan keyboard di layar kalibrasi: P untuk mengejar, L untuk nanti, R untuk menolak, J dan K untuk berpindah antar lowongan, 1 hingga 4 untuk beralih tab.\n\nPencarian kini dapat mencocokkan berdasarkan judul pekerjaan, deskripsi, atau keduanya, dan Anda dapat menambahkan kata kunci deskripsi untuk mempersempit hasil yang muncul.\n\nPengaturan kini menampilkan bilah kemajuan, sehingga Anda tahu sudah seberapa jauh Anda menyelesaikan langkah-langkahnya.",
   "screenshot_captions": [
     "Daftar pendek Anda, dengan alasannya — dan penolakan tetap terlihat",
     "Bila sebuah aturan terlalu jauh, Anda diberi tahu",
     "Semua posisi yang Anda kejar, dan apa yang jatuh tempo berikutnya",
     "Membaca CV Anda dan menunjukkan apa yang dipahaminya",
     "Mempelajari penilaian Anda sebelum mulai bekerja",
-    "Penyaringan yang Anda kendalikan, dan menolak aturan yang akan menyembunyikan lowongan nyata"
+    "Penyaringan yang Anda kendalikan, dan menolak aturan yang akan menyembunyikan lowongan nyata",
+    "Jenis pencarian, kata kunci deskripsi, impor CSV, dan tombol uji koneksi"
   ],
   "search_terms": [
     "cari kerja",
