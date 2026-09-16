@@ -105,6 +105,29 @@ def _linkify_console(text: str) -> str:
             + escape(after))
 
 
+def _format_last_run(iso_str: str) -> str:
+    """Human-readable relative date from an ISO-8601 timestamp.
+
+    Returns a short label like "today", "yesterday", "3 days ago", or a
+    compact date — enough for a list item without dominating it.
+    """
+    from datetime import datetime, timezone
+
+    try:
+        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return ""
+    now = datetime.now(timezone.utc)
+    days = (now.date() - dt.date()).days
+    if days == 0:
+        return tr("searches.last_run_today")
+    if days == 1:
+        return tr("searches.last_run_yesterday")
+    if days < 14:
+        return tr("searches.last_run_days", days=days)
+    return dt.strftime("%d %b %Y")
+
+
 class KeyPanel(QWidget):
     """Enter and verify the user's own Anthropic key."""
 
@@ -2167,12 +2190,15 @@ class SearchesPanel(QWidget):
 
     changed = Signal()
 
-    def __init__(self, *, loader=None, saver=None, forgetter=None,
+    def __init__(self, *, loader=None, detail_loader=None, saver=None,
+                 forgetter=None,
                  enabler=None, where_loader=None, where_saver=None,
                  guide_exporter=None, guide_importer=None,
+                 connection_tester=None,
                  parent=None):
         super().__init__(parent)
         self._load = loader or (lambda: [])
+        self._load_detail = detail_loader
         self._save = saver or (lambda label, titles, dk=None: None)
         self._forget = forgetter or (lambda label: None)
         self._enable = enabler or (lambda label, on: None)
@@ -2180,6 +2206,7 @@ class SearchesPanel(QWidget):
         self._where_save = where_saver or (lambda text: None)
         self._guide_export = guide_exporter
         self._guide_import = guide_importer
+        self._test_connection = connection_tester
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -2323,6 +2350,20 @@ class SearchesPanel(QWidget):
                 guide_row.addWidget(self.btn_guide_import)
             layout.addLayout(guide_row)
 
+        # Test connection button — verifies that the feed (Worker or direct)
+        # can be reached with the current credentials.
+        if self._test_connection:
+            conn_row = QHBoxLayout()
+            conn_row.setSpacing(6)
+            self.btn_test_conn = QPushButton(tr("searches.test_connection"))
+            self.btn_test_conn.setObjectName("secondary")
+            self.btn_test_conn.setSizePolicy(
+                QSizePolicy.Preferred, QSizePolicy.Fixed)
+            self.btn_test_conn.clicked.connect(self.test_connection)
+            conn_row.addStretch(1)
+            conn_row.addWidget(self.btn_test_conn)
+            layout.addLayout(conn_row)
+
         self.setStyleSheet(SETTINGS_STYLESHEET)
         self.btn_add.clicked.connect(self.add)
         self.btn_toggle.clicked.connect(self.toggle)
@@ -2334,16 +2375,40 @@ class SearchesPanel(QWidget):
 
     def refresh(self) -> None:
         self.listing.clear()
-        for label, titles, dk, on, search_type in self._load() or []:
-            state = tr("searches.on") if on else tr("searches.off")
-            type_tag = {"title": "T", "description": "D",
-                        "both": "T+D"}.get(search_type, "T")
-            text = f"{state}  [{type_tag}]  {label}  —  {', '.join(titles)}"
-            if dk:
-                text += f"  [{', '.join(dk)}]"
-            item = QListWidgetItem(text)
-            item.setData(Qt.UserRole, (label, on))
-            self.listing.addItem(item)
+        if self._load_detail:
+            for row in self._load_detail() or []:
+                label = row["label"]
+                titles = row["titles"]
+                dk = row.get("description_keywords") or []
+                on = row["enabled"]
+                search_type = row.get("search_type", "title")
+                last_run = row.get("last_run")
+                state = tr("searches.on") if on else tr("searches.off")
+                type_tag = {"title": "T", "description": "D",
+                            "both": "T+D"}.get(search_type, "T")
+                run_info = _format_last_run(last_run) if last_run else ""
+                text = (f"{state}  [{type_tag}]  {label}"
+                        f"  —  {', '.join(titles)}")
+                if dk:
+                    text += f"  [{', '.join(dk)}]"
+                if run_info:
+                    text += f"  ·  {run_info}"
+                item = QListWidgetItem(text)
+                item.setData(Qt.UserRole, (label, on))
+                self.listing.addItem(item)
+        else:
+            for label, titles, dk, on, *rest in self._load() or []:
+                search_type = rest[0] if rest else "title"
+                state = tr("searches.on") if on else tr("searches.off")
+                type_tag = {"title": "T", "description": "D",
+                            "both": "T+D"}.get(search_type, "T")
+                text = (f"{state}  [{type_tag}]  {label}"
+                        f"  —  {', '.join(titles)}")
+                if dk:
+                    text += f"  [{', '.join(dk)}]"
+                item = QListWidgetItem(text)
+                item.setData(Qt.UserRole, (label, on))
+                self.listing.addItem(item)
 
     def _say(self, text: str, ok: bool) -> None:
         self.result.setObjectName("ok" if ok else "bad")
@@ -2664,6 +2729,30 @@ class SearchesPanel(QWidget):
         self._say(tr("guide.imported", count=applied), ok=True)
         self.refresh()
         self.changed.emit()
+
+    # ------------------------------------------------------------------
+    # Test connection
+    # ------------------------------------------------------------------
+
+    def test_connection(self) -> None:
+        """Verify the feed connection with a lightweight plan() call."""
+        if not self._test_connection:
+            return
+
+        self.btn_test_conn.setEnabled(False)
+        self._say(tr("searches.testing_connection"), ok=True)
+
+        tester = self._test_connection
+        self._conn_task = run_in_background(
+            tester,
+            on_done=lambda result: self._connection_tested(result),
+            on_error=lambda exc: self._connection_tested(
+                (False, str(exc))))
+
+    def _connection_tested(self, result) -> None:
+        ok, message = result
+        self.btn_test_conn.setEnabled(True)
+        self._say(message, ok=ok)
 
 
 class SchedulePanel(QWidget):

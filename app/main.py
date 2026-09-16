@@ -500,6 +500,8 @@ def all_queries(conn) -> list[tuple[str, list[str], list[str], bool, str]]:
     turned off looks like one the app lost.
 
     Returns (label, titles, description_keywords, enabled, search_type).
+    The last_discovered_at is available via `all_queries_detail` for the UI
+    but NOT returned here, because every existing caller unpacks as a 5-tuple.
     """
     out = []
     for row in conn.execute("SELECT label, params_json, enabled FROM queries "
@@ -509,6 +511,27 @@ def all_queries(conn) -> list[tuple[str, list[str], list[str], bool, str]]:
                     params.get("description_keywords", []),
                     bool(row["enabled"]),
                     params.get("search_type", "title")))
+    return out
+
+
+def all_queries_detail(conn) -> list[dict]:
+    """Every saved search with full metadata for the Settings display.
+
+    Unlike `all_queries`, this returns dicts rather than tuples so new fields
+    (last run date, counts) can be added without breaking unpacking everywhere.
+    """
+    out = []
+    for row in conn.execute(
+            "SELECT label, params_json, enabled, last_discovered_at "
+            "FROM queries ORDER BY label"):
+        params = json.loads(row["params_json"])
+        out.append({
+            "label": row["label"],
+            "titles": params.get("titles", []),
+            "enabled": bool(row["enabled"]),
+            "search_type": params.get("search_type", "title"),
+            "last_run": row["last_discovered_at"],
+        })
     return out
 
 
@@ -2512,8 +2535,27 @@ def open_settings(parent=None, conn=None):
             text = read_guide(path)
             return diff_guide(data, text)
 
+        def _test_feed_connection():
+            """Verify the feed by calling plan() — lightweight, no billing."""
+            try:
+                provider = build_provider(conn)
+            except NotConfigured as exc:
+                return (False, str(exc))
+            try:
+                plan = provider.plan()
+                return (True, tr("searches.connection_ok",
+                                 plan=plan.plan or "unknown",
+                                 remaining=plan.postings_remaining))
+            except AttributeError:
+                # TheirStackProvider has no plan() — key existence is enough
+                return (True, tr("searches.connection_ok_dev"))
+            except Exception as exc:  # noqa: BLE001
+                return (False, tr("searches.connection_failed",
+                                  error=str(exc)))
+
         searches = SearchesPanel(
             loader=lambda: all_queries(conn),
+            detail_loader=lambda: all_queries_detail(conn),
             saver=lambda label, titles, **kw: save_new_search(
                 conn, label, titles, **kw),
             forgetter=lambda label: forget_query(conn, label),
@@ -2522,7 +2564,8 @@ def open_settings(parent=None, conn=None):
             where_saver=lambda text: apply_scope(
                 conn, parse_where(text, keep=load_scope(conn))),
             guide_exporter=_export_guide,
-            guide_importer=_import_guide)
+            guide_importer=_import_guide,
+            connection_tester=_test_feed_connection)
         families = FamiliesPanel(
             loader=lambda: load_rules(conn).kill_families,
             adopter=lambda name, on: adopt_kill_family(conn, name, adopted=on),
