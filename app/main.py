@@ -528,6 +528,7 @@ def all_queries_detail(conn) -> list[dict]:
         out.append({
             "label": row["label"],
             "titles": params.get("titles", []),
+            "description_keywords": params.get("description_keywords", []),
             "enabled": bool(row["enabled"]),
             "search_type": params.get("search_type", "title"),
             "last_run": row["last_discovered_at"],
@@ -2273,8 +2274,9 @@ def build_onboarding(conn, *, on_finished=None):
         where=lambda: load_scope(conn).describe(),
         set_search=lambda label, enabled: enable_query(
             conn, label, enabled=enabled),
-        save_search=lambda label, dk=None: save_new_search(
-            conn, label, [label], description_keywords=dk))
+        save_search=lambda label, dk=None, st="title": save_new_search(
+            conn, label, [label], description_keywords=dk,
+            search_type=st))
 
     # The ⋯ menu: language, subscription, restore. On the wizard as well as
     # the main window, because the person who needs all three most is the one
@@ -2842,6 +2844,7 @@ def restart_setup(conn) -> None:
                 calibration.CALIBRATION_KEY,
                 terms.ACCEPTED_VERSION_KEY, terms.ACCEPTED_AT_KEY):
         conn.execute("DELETE FROM settings WHERE key=?", (key,))
+    conn.execute("DELETE FROM queries")
     conn.commit()
 
 

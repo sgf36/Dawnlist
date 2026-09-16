@@ -1466,7 +1466,7 @@ class SearchesPage(QWidget):
         layout.addWidget(self._error_banner)
 
         self._rows: list[tuple[str, QCheckBox]] = []
-        self._new_labels: list[tuple[str, list[str] | None]] = []
+        self._new_labels: list[tuple[str, list[str] | None, str]] = []
         self._where: str | None = None
         self._form = QVBoxLayout()
         self._form.setContentsMargins(0, 0, 0, 0)
@@ -1493,12 +1493,29 @@ class SearchesPage(QWidget):
         add_row.addWidget(self._btn_add)
         layout.addLayout(add_row)
 
-        dk_label = QLabel(tr("searches.dk_label"))
-        dk_label.setObjectName("stepBody")
-        layout.addWidget(dk_label)
+        type_row = QHBoxLayout()
+        type_row.setSpacing(6)
+        type_label = QLabel(tr("searches.match_in"))
+        type_label.setObjectName("stepBody")
+        type_row.addWidget(type_label)
+        self._type_combo = QComboBox()
+        self._type_combo.addItem(tr("searches.match_title"), "title")
+        self._type_combo.addItem(tr("searches.match_both"), "both")
+        self._type_combo.addItem(tr("searches.match_description"),
+                                 "description")
+        self._type_combo.currentIndexChanged.connect(self._type_changed)
+        type_row.addWidget(self._type_combo)
+        type_row.addStretch(1)
+        layout.addLayout(type_row)
+
+        self._dk_label = QLabel(tr("searches.dk_label"))
+        self._dk_label.setObjectName("stepBody")
+        self._dk_label.hide()
+        layout.addWidget(self._dk_label)
         self._dk_field = QLineEdit()
         self._dk_field.setPlaceholderText(tr("searches.dk_placeholder"))
         self._dk_field.returnPressed.connect(self._add_search)
+        self._dk_field.hide()
         layout.addWidget(self._dk_field)
 
         self.note = QLabel()
@@ -1547,36 +1564,42 @@ class SearchesPage(QWidget):
         self._form.addStretch(1)
         self._refresh()
 
+    def _type_changed(self) -> None:
+        st = self._type_combo.currentData()
+        show_dk = st in ("description", "both")
+        self._dk_label.setVisible(show_dk)
+        self._dk_field.setVisible(show_dk)
+
     def _add_search(self) -> None:
         """Add a user-typed search to the checkbox list."""
         text = self._add_field.text().strip()
         if not text:
             return
-        # No duplicates.
         existing = {label.lower() for label, _box in self._rows}
         if text.lower() in existing:
             self._add_field.clear()
             return
         dk_text = self._dk_field.text().strip()
         dk = [k.strip() for k in dk_text.split(",") if k.strip()] if dk_text else None
+        search_type = self._type_combo.currentData() or "title"
         blocked = self._where is not None and not self._where.strip()
         box = QCheckBox(text)
         box.setChecked(not blocked)
         box.setEnabled(not blocked)
         box.stateChanged.connect(lambda *_: self._refresh())
-        # Insert before the stretch at the end.
         stretch_idx = self._form.count() - 1
         if stretch_idx < 0:
             stretch_idx = 0
         self._form.insertWidget(stretch_idx, box)
         self._rows.append((text, box))
-        self._new_labels.append((text, dk))
+        self._new_labels.append((text, dk, search_type))
         self._add_field.clear()
         self._dk_field.clear()
+        self._type_combo.setCurrentIndex(0)
         self._refresh()
 
-    def new_labels(self) -> list[tuple[str, list[str] | None]]:
-        """(label, description_keywords) added by the user, needing save_query."""
+    def new_labels(self) -> list[tuple[str, list[str] | None, str]]:
+        """(label, description_keywords, search_type) added by the user."""
         return list(self._new_labels)
 
     def selections(self) -> list[tuple[str, bool]]:
@@ -2200,9 +2223,9 @@ class OnboardingWizard(QWidget):
             # trying to enable them — a search must exist in the database
             # before set_search can toggle it.
             if self._save_search is not None:
-                for label, dk in self.searches.new_labels():
+                for label, dk, stype in self.searches.new_labels():
                     try:
-                        self._save_search(label, dk)
+                        self._save_search(label, dk, stype)
                     except Exception:  # noqa: BLE001
                         pass  # best-effort; the enable below will fail visibly
             enable_failures: list[str] = []

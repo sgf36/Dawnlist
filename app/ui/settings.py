@@ -2281,17 +2281,30 @@ class SearchesPanel(QWidget):
         row.addWidget(self.field, 1)
         layout.addLayout(row)
 
-        dk_label = QLabel(tr("searches.dk_label"))
-        layout.addWidget(dk_label)
+        type_row = QHBoxLayout()
+        type_row.setSpacing(6)
+        type_label = QLabel(tr("searches.match_in"))
+        type_row.addWidget(type_label)
+        self.type_combo = QComboBox()
+        self.type_combo.addItem(tr("searches.match_title"), "title")
+        self.type_combo.addItem(tr("searches.match_both"), "both")
+        self.type_combo.addItem(tr("searches.match_description"),
+                                "description")
+        self.type_combo.currentIndexChanged.connect(self._type_changed)
+        type_row.addWidget(self.type_combo)
+        type_row.addStretch(1)
+        layout.addLayout(type_row)
 
-        dk_row = QHBoxLayout()
-        dk_row.setSpacing(6)
+        self.dk_label = QLabel(tr("searches.dk_label"))
+        self.dk_label.hide()
+        layout.addWidget(self.dk_label)
+
         self.dk_field = QLineEdit()
         self.dk_field.setObjectName("sentence")
         self.dk_field.setPlaceholderText(tr("searches.dk_placeholder"))
         self.dk_field.returnPressed.connect(self.add)
-        dk_row.addWidget(self.dk_field, 1)
-        layout.addLayout(dk_row)
+        self.dk_field.hide()
+        layout.addWidget(self.dk_field)
 
         btn_row = QHBoxLayout()
         btn_row.setSpacing(6)
@@ -2307,15 +2320,14 @@ class SearchesPanel(QWidget):
         btn_row.addWidget(self.btn_remove)
         layout.addLayout(btn_row)
 
-        # Import / Export / Template row — bulk operations for users with many
-        # searches. Below the per-query controls because the common case is
-        # one search at a time; a spreadsheet is the power-user path.
+        layout.addSpacing(12)
+
         io_row = QHBoxLayout()
         io_row.setSpacing(6)
-        self.btn_import = QPushButton(tr("searches.import"))
-        self.btn_export = QPushButton(tr("searches.export"))
         self.btn_template = QPushButton(tr("searches.template"))
-        for b in (self.btn_import, self.btn_export, self.btn_template):
+        self.btn_export = QPushButton(tr("searches.export"))
+        self.btn_import = QPushButton(tr("searches.import"))
+        for b in (self.btn_template, self.btn_export, self.btn_import):
             b.setObjectName("secondary")
             b.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         io_row.addStretch(1)
@@ -2324,25 +2336,19 @@ class SearchesPanel(QWidget):
         io_row.addWidget(self.btn_import)
         layout.addLayout(io_row)
 
-        # Criteria guide export / import — a .docx covering the full criteria
-        # (factsheet, fit brief, searches and scope in one document). Only
-        # shown when the callbacks are wired, because the guide needs database
-        # access to gather the factsheet and brief.
         if self._guide_export or self._guide_import:
             guide_row = QHBoxLayout()
             guide_row.setSpacing(6)
             guide_row.addStretch(1)
             if self._guide_export:
-                self.btn_guide_export = QPushButton(
-                    tr("guide.export"))
+                self.btn_guide_export = QPushButton(tr("guide.export"))
                 self.btn_guide_export.setObjectName("secondary")
                 self.btn_guide_export.setSizePolicy(
                     QSizePolicy.Preferred, QSizePolicy.Fixed)
                 self.btn_guide_export.clicked.connect(self.export_guide)
                 guide_row.addWidget(self.btn_guide_export)
             if self._guide_import:
-                self.btn_guide_import = QPushButton(
-                    tr("guide.import"))
+                self.btn_guide_import = QPushButton(tr("guide.import"))
                 self.btn_guide_import.setObjectName("secondary")
                 self.btn_guide_import.setSizePolicy(
                     QSizePolicy.Preferred, QSizePolicy.Fixed)
@@ -2350,17 +2356,15 @@ class SearchesPanel(QWidget):
                 guide_row.addWidget(self.btn_guide_import)
             layout.addLayout(guide_row)
 
-        # Test connection button — verifies that the feed (Worker or direct)
-        # can be reached with the current credentials.
         if self._test_connection:
             conn_row = QHBoxLayout()
             conn_row.setSpacing(6)
+            conn_row.addStretch(1)
             self.btn_test_conn = QPushButton(tr("searches.test_connection"))
             self.btn_test_conn.setObjectName("secondary")
             self.btn_test_conn.setSizePolicy(
                 QSizePolicy.Preferred, QSizePolicy.Fixed)
             self.btn_test_conn.clicked.connect(self.test_connection)
-            conn_row.addStretch(1)
             conn_row.addWidget(self.btn_test_conn)
             layout.addLayout(conn_row)
 
@@ -2417,19 +2421,29 @@ class SearchesPanel(QWidget):
         self.result.style().polish(self.result)
         self.result.setVisible(bool(text))
 
+    def _type_changed(self) -> None:
+        st = self.type_combo.currentData()
+        show_dk = st in ("description", "both")
+        self.dk_label.setVisible(show_dk)
+        self.dk_field.setVisible(show_dk)
+
     def add(self) -> None:
         text = self.field.text().strip()
         if not text:
             return
         dk_text = self.dk_field.text().strip()
         dk = [k.strip() for k in dk_text.split(",") if k.strip()] if dk_text else None
+        search_type = self.type_combo.currentData() or "title"
         try:
-            self._save(text, [text], dk)
+            self._save(text, [text],
+                       description_keywords=dk,
+                       search_type=search_type)
         except ValueError as exc:
             self._say(str(exc), ok=False)
             return
         self.field.clear()
         self.dk_field.clear()
+        self.type_combo.setCurrentIndex(0)
         self._say(tr("searches.added", label=text), ok=True)
         self.refresh()
         self.changed.emit()

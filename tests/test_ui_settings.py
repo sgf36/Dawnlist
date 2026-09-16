@@ -743,8 +743,9 @@ def searches_panel(qapp, rows=None):
     state = list(rows or [])
     log = []
 
-    def save(label, titles, dk=None):
-        state.append((label, titles, dk or [], True))
+    def save(label, titles, **kw):
+        dk = kw.get("description_keywords") or []
+        state.append((label, titles, dk, True))
         log.append(("add", label))
 
     def forget(label):
