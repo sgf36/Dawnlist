@@ -1,4 +1,4 @@
-# Submission 3 (1.1.6) — what to paste, and what changed
+# Submission 3 (1.2.0) — what to paste, and what changed
 
 Written 2026-09-16. The commerce model has changed since submission 2:
 Paddle rejected the Dawnlist domain on 2026-09-11, so this build (`store_iap`)
@@ -62,7 +62,7 @@ Paste this, with the real code substituted:
   commerce declaration may still be declared (for the access-code path that
   redeems against our own server), but the primary purchase is a Store
   subscription.
-- **Version.** 1.1.6.0 (was 1.1.1.0).
+- **Version.** 1.2.0.0 (was 1.1.1.0).
 - **New features.** CSV import/export, criteria guide export, test connection,
   keyboard shortcuts, last-run dates, search-type selection, description
   keywords, onboarding progress bars.
@@ -100,10 +100,7 @@ Updated in the listing CSV for all languages. The English text:
 
 ## 4. Screenshots
 
-No screenshots changed for this release. The existing six in
-`store/screenshots/` are still accurate — the UI additions (CSV buttons,
-test-connection button, last-run dates, keyboard shortcut tooltips) are in
-Settings, and the listing deliberately shows the product rather than its
-installer.
-
-If screenshots were already uploaded correctly from submission 2, leave them.
+Seven screenshots uploaded — the six from submission 2 plus a new
+settings screenshot (07-settings) showing CSV import/export, search types,
+description keywords and the test-connection button. Localised sets rendered
+for de, es, fr, hi, ja, zh.

@@ -27,7 +27,8 @@
     "Every role you are pursuing, and what is due next",
     "It reads your CVs and shows you what it understood",
     "It learns your judgement before it runs",
-    "Screening you control, and it refuses a rule that would hide a real role"
+    "Screening you control, and it refuses a rule that would hide a real role",
+    "Search types, description keywords, CSV import and a test-connection button"
   ],
   "search_terms": [
     "job search",
