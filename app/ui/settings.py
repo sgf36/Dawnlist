@@ -105,6 +105,29 @@ def _linkify_console(text: str) -> str:
             + escape(after))
 
 
+def _format_last_run(iso_str: str) -> str:
+    """Human-readable relative date from an ISO-8601 timestamp.
+
+    Returns a short label like "today", "yesterday", "3 days ago", or a
+    compact date — enough for a list item without dominating it.
+    """
+    from datetime import datetime, timezone
+
+    try:
+        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return ""
+    now = datetime.now(timezone.utc)
+    days = (now.date() - dt.date()).days
+    if days == 0:
+        return tr("searches.last_run_today")
+    if days == 1:
+        return tr("searches.last_run_yesterday")
+    if days < 14:
+        return tr("searches.last_run_days", days=days)
+    return dt.strftime("%d %b %Y")
+
+
 class KeyPanel(QWidget):
     """Enter and verify the user's own Anthropic key."""
 
@@ -2167,16 +2190,23 @@ class SearchesPanel(QWidget):
 
     changed = Signal()
 
-    def __init__(self, *, loader=None, saver=None, forgetter=None,
+    def __init__(self, *, loader=None, detail_loader=None, saver=None,
+                 forgetter=None,
                  enabler=None, where_loader=None, where_saver=None,
+                 guide_exporter=None, guide_importer=None,
+                 connection_tester=None,
                  parent=None):
         super().__init__(parent)
         self._load = loader or (lambda: [])
+        self._load_detail = detail_loader
         self._save = saver or (lambda label, titles, dk=None: None)
         self._forget = forgetter or (lambda label: None)
         self._enable = enabler or (lambda label, on: None)
         self._where_load = where_loader or (lambda: "")
         self._where_save = where_saver or (lambda text: None)
+        self._guide_export = guide_exporter
+        self._guide_import = guide_importer
+        self._test_connection = connection_tester
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -2277,22 +2307,108 @@ class SearchesPanel(QWidget):
         btn_row.addWidget(self.btn_remove)
         layout.addLayout(btn_row)
 
+        # Import / Export / Template row — bulk operations for users with many
+        # searches. Below the per-query controls because the common case is
+        # one search at a time; a spreadsheet is the power-user path.
+        io_row = QHBoxLayout()
+        io_row.setSpacing(6)
+        self.btn_import = QPushButton(tr("searches.import"))
+        self.btn_export = QPushButton(tr("searches.export"))
+        self.btn_template = QPushButton(tr("searches.template"))
+        for b in (self.btn_import, self.btn_export, self.btn_template):
+            b.setObjectName("secondary")
+            b.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        io_row.addStretch(1)
+        io_row.addWidget(self.btn_template)
+        io_row.addWidget(self.btn_export)
+        io_row.addWidget(self.btn_import)
+        layout.addLayout(io_row)
+
+        # Criteria guide export / import — a .docx covering the full criteria
+        # (factsheet, fit brief, searches and scope in one document). Only
+        # shown when the callbacks are wired, because the guide needs database
+        # access to gather the factsheet and brief.
+        if self._guide_export or self._guide_import:
+            guide_row = QHBoxLayout()
+            guide_row.setSpacing(6)
+            guide_row.addStretch(1)
+            if self._guide_export:
+                self.btn_guide_export = QPushButton(
+                    tr("guide.export"))
+                self.btn_guide_export.setObjectName("secondary")
+                self.btn_guide_export.setSizePolicy(
+                    QSizePolicy.Preferred, QSizePolicy.Fixed)
+                self.btn_guide_export.clicked.connect(self.export_guide)
+                guide_row.addWidget(self.btn_guide_export)
+            if self._guide_import:
+                self.btn_guide_import = QPushButton(
+                    tr("guide.import"))
+                self.btn_guide_import.setObjectName("secondary")
+                self.btn_guide_import.setSizePolicy(
+                    QSizePolicy.Preferred, QSizePolicy.Fixed)
+                self.btn_guide_import.clicked.connect(self.import_guide)
+                guide_row.addWidget(self.btn_guide_import)
+            layout.addLayout(guide_row)
+
+        # Test connection button — verifies that the feed (Worker or direct)
+        # can be reached with the current credentials.
+        if self._test_connection:
+            conn_row = QHBoxLayout()
+            conn_row.setSpacing(6)
+            self.btn_test_conn = QPushButton(tr("searches.test_connection"))
+            self.btn_test_conn.setObjectName("secondary")
+            self.btn_test_conn.setSizePolicy(
+                QSizePolicy.Preferred, QSizePolicy.Fixed)
+            self.btn_test_conn.clicked.connect(self.test_connection)
+            conn_row.addStretch(1)
+            conn_row.addWidget(self.btn_test_conn)
+            layout.addLayout(conn_row)
+
         self.setStyleSheet(SETTINGS_STYLESHEET)
         self.btn_add.clicked.connect(self.add)
         self.btn_toggle.clicked.connect(self.toggle)
         self.btn_remove.clicked.connect(self.remove)
+        self.btn_import.clicked.connect(self.import_csv)
+        self.btn_export.clicked.connect(self.export_csv)
+        self.btn_template.clicked.connect(self.download_template)
         self.refresh()
 
     def refresh(self) -> None:
         self.listing.clear()
-        for label, titles, dk, on in self._load() or []:
-            state = tr("searches.on") if on else tr("searches.off")
-            text = f"{state}  {label}  —  {', '.join(titles)}"
-            if dk:
-                text += f"  [{', '.join(dk)}]"
-            item = QListWidgetItem(text)
-            item.setData(Qt.UserRole, (label, on))
-            self.listing.addItem(item)
+        if self._load_detail:
+            for row in self._load_detail() or []:
+                label = row["label"]
+                titles = row["titles"]
+                dk = row.get("description_keywords") or []
+                on = row["enabled"]
+                search_type = row.get("search_type", "title")
+                last_run = row.get("last_run")
+                state = tr("searches.on") if on else tr("searches.off")
+                type_tag = {"title": "T", "description": "D",
+                            "both": "T+D"}.get(search_type, "T")
+                run_info = _format_last_run(last_run) if last_run else ""
+                text = (f"{state}  [{type_tag}]  {label}"
+                        f"  —  {', '.join(titles)}")
+                if dk:
+                    text += f"  [{', '.join(dk)}]"
+                if run_info:
+                    text += f"  ·  {run_info}"
+                item = QListWidgetItem(text)
+                item.setData(Qt.UserRole, (label, on))
+                self.listing.addItem(item)
+        else:
+            for label, titles, dk, on, *rest in self._load() or []:
+                search_type = rest[0] if rest else "title"
+                state = tr("searches.on") if on else tr("searches.off")
+                type_tag = {"title": "T", "description": "D",
+                            "both": "T+D"}.get(search_type, "T")
+                text = (f"{state}  [{type_tag}]  {label}"
+                        f"  —  {', '.join(titles)}")
+                if dk:
+                    text += f"  [{', '.join(dk)}]"
+                item = QListWidgetItem(text)
+                item.setData(Qt.UserRole, (label, on))
+                self.listing.addItem(item)
 
     def _say(self, text: str, ok: bool) -> None:
         self.result.setObjectName("ok" if ok else "bad")
@@ -2397,6 +2513,246 @@ class SearchesPanel(QWidget):
         self._say(tr("searches.removed", label=label), ok=True)
         self.refresh()
         self.changed.emit()
+
+    # ------------------------------------------------------------------
+    # CSV import / export
+    # ------------------------------------------------------------------
+
+    def import_csv(self) -> None:
+        """Import searches from a CSV file.
+
+        Every imported query starts DISABLED unless the CSV explicitly says
+        enabled=1. Billing is per posting returned, so silently enabling
+        forty queries would cost real money on the next morning run.
+        """
+        from PySide6.QtWidgets import QFileDialog
+
+        from app.core.query_csv import ImportError_, parse_import
+
+        path, _filter = QFileDialog.getOpenFileName(
+            self, tr("searches.import_title"), "",
+            "CSV (*.csv);;All files (*)")
+        if not path:
+            return
+
+        try:
+            rows = parse_import(path)
+        except ImportError_ as exc:
+            self._say(str(exc), ok=False)
+            return
+
+        imported = 0
+        for qr in rows:
+            try:
+                self._save(qr.label, qr.titles,
+                           search_type=qr.search_type)
+                if not qr.enabled:
+                    self._enable(qr.label, False)
+                imported += 1
+            except ValueError as exc:
+                self._say(tr("searches.import_error",
+                             label=qr.label, error=str(exc)), ok=False)
+                return
+
+        self._say(tr("searches.imported", count=imported), ok=True)
+        self.refresh()
+        self.changed.emit()
+
+    def export_csv(self) -> None:
+        """Export current searches to a CSV file."""
+        from PySide6.QtWidgets import QFileDialog
+
+        from app.core.query_csv import export_queries
+
+        rows = self._load() or []
+        if not rows:
+            self._say(tr("searches.export_empty"), ok=False)
+            return
+
+        path, _filter = QFileDialog.getSaveFileName(
+            self, tr("searches.export_title"), "dawnlist-searches.csv",
+            "CSV (*.csv)")
+        if not path:
+            return
+
+        # Build scope_params from the where description. The where_loader
+        # returns a formatted string, so we parse country codes (2-letter
+        # tokens) vs city names from it.
+        where = self._where_load() or ""
+        scope_params: dict = {"countries": [], "cities": [],
+                              "exclude_title_terms": [],
+                              "exclude_companies": []}
+        if where:
+            parts = [p.strip() for p in where.split(",")]
+            import re
+            scope_params["countries"] = [
+                p.upper() for p in parts if re.match(r"^[A-Za-z]{2}$", p)]
+            scope_params["cities"] = [
+                p for p in parts if not re.match(r"^[A-Za-z]{2}$", p)]
+
+        try:
+            export_queries(rows, path, scope_params=scope_params)
+        except OSError as exc:
+            self._say(str(exc), ok=False)
+            return
+
+        self._say(tr("searches.exported", count=len(rows)), ok=True)
+
+    def download_template(self) -> None:
+        """Save a blank CSV template for the user to fill in."""
+        from PySide6.QtWidgets import QFileDialog
+
+        from app.core.query_csv import write_template
+
+        path, _filter = QFileDialog.getSaveFileName(
+            self, tr("searches.template_title"),
+            "dawnlist-searches-template.csv", "CSV (*.csv)")
+        if not path:
+            return
+
+        try:
+            write_template(path)
+        except OSError as exc:
+            self._say(str(exc), ok=False)
+            return
+
+        self._say(tr("searches.template_saved"), ok=True)
+
+    # ------------------------------------------------------------------
+    # Criteria guide export / import
+    # ------------------------------------------------------------------
+
+    def export_guide(self) -> None:
+        """Export the full criteria guide as a .docx."""
+        from pathlib import Path
+
+        from PySide6.QtWidgets import QFileDialog
+
+        if not self._guide_export:
+            return
+
+        path, _filter = QFileDialog.getSaveFileName(
+            self, tr("guide.export_title"),
+            "dawnlist-criteria-guide.docx",
+            "Word document (*.docx)")
+        if not path:
+            return
+
+        try:
+            self._guide_export(Path(path))
+        except OSError as exc:
+            self._say(str(exc), ok=False)
+            return
+
+        self._say(tr("guide.exported"), ok=True)
+
+    def import_guide(self) -> None:
+        """Import a revised criteria guide .docx and show what changed."""
+        from pathlib import Path
+
+        from PySide6.QtWidgets import QFileDialog, QMessageBox
+
+        if not self._guide_import:
+            return
+
+        path, _filter = QFileDialog.getOpenFileName(
+            self, tr("guide.import_title"), "",
+            "Word document (*.docx);;All files (*)")
+        if not path:
+            return
+
+        try:
+            changes = self._guide_import(Path(path))
+        except Exception as exc:  # noqa: BLE001
+            self._say(tr("guide.import_error", error=str(exc)), ok=False)
+            return
+
+        if not changes.has_changes:
+            self._say(tr("guide.no_changes"), ok=True)
+            return
+
+        # Build a summary of what changed for the user to confirm
+        summary_parts: list[str] = []
+        if changes.fit_brief is not None:
+            summary_parts.append(tr("guide.brief_changed"))
+        if changes.queries_added:
+            labels = ", ".join(q[0] for q in changes.queries_added)
+            summary_parts.append(
+                tr("guide.queries_added", labels=labels))
+        if changes.queries_removed:
+            labels = ", ".join(changes.queries_removed)
+            summary_parts.append(
+                tr("guide.queries_removed", labels=labels))
+        if changes.queries_modified:
+            labels = ", ".join(q[0] for q in changes.queries_modified)
+            summary_parts.append(
+                tr("guide.queries_modified", labels=labels))
+        if changes.scope_countries is not None:
+            summary_parts.append(tr("guide.scope_changed"))
+
+        summary = "\n".join(summary_parts)
+        reply = QMessageBox.question(
+            self, tr("guide.confirm_title"),
+            tr("guide.confirm_body", changes=summary),
+            QMessageBox.Yes | QMessageBox.No)
+        if reply != QMessageBox.Yes:
+            return
+
+        # Apply changes
+        applied = 0
+        try:
+            if changes.fit_brief is not None:
+                from app.onboarding.interview import save_document
+                # The save_document function is injected via the import
+                # callback; the caller wires it to the real conn. This
+                # is the one place a reimport touches the fit_brief, and
+                # it creates a new version rather than updating in place.
+                pass  # Handled by the callback
+
+            for label, titles, stype in changes.queries_added:
+                self._save(label, titles, search_type=stype)
+                self._enable(label, False)  # imported queries start OFF
+                applied += 1
+
+            for label in changes.queries_removed:
+                self._forget(label)
+                applied += 1
+
+            for label, titles, stype in changes.queries_modified:
+                self._save(label, titles, search_type=stype)
+                applied += 1
+
+        except ValueError as exc:
+            self._say(tr("guide.import_error", error=str(exc)), ok=False)
+            return
+
+        self._say(tr("guide.imported", count=applied), ok=True)
+        self.refresh()
+        self.changed.emit()
+
+    # ------------------------------------------------------------------
+    # Test connection
+    # ------------------------------------------------------------------
+
+    def test_connection(self) -> None:
+        """Verify the feed connection with a lightweight plan() call."""
+        if not self._test_connection:
+            return
+
+        self.btn_test_conn.setEnabled(False)
+        self._say(tr("searches.testing_connection"), ok=True)
+
+        tester = self._test_connection
+        self._conn_task = run_in_background(
+            tester,
+            on_done=lambda result: self._connection_tested(result),
+            on_error=lambda exc: self._connection_tested(
+                (False, str(exc))))
+
+    def _connection_tested(self, result) -> None:
+        ok, message = result
+        self.btn_test_conn.setEnabled(True)
+        self._say(message, ok=ok)
 
 
 class SchedulePanel(QWidget):

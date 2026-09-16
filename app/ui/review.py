@@ -18,7 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QFont, QFontMetrics
+from PySide6.QtGui import QAction, QFont, QFontMetrics, QKeySequence, QShortcut
 from app.i18n import is_rtl, tr
 from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel,
                                QMainWindow, QProgressBar,
@@ -492,6 +492,30 @@ class ReviewWindow(QMainWindow):
         self.btn_later.clicked.connect(lambda: self._decide("later"))
         self.btn_reject.clicked.connect(lambda: self._decide("reject"))
 
+        # Keyboard shortcuts. Single letters are safe: no editable text field
+        # exists on this screen, and the detail pane is read-only. The three
+        # decision keys match the button initials in English; the number keys
+        # work in every language and the tooltips announce them.
+        QShortcut(QKeySequence("P"), self).activated.connect(
+            lambda: self._decide("pursue"))
+        QShortcut(QKeySequence("L"), self).activated.connect(
+            lambda: self._decide("later"))
+        QShortcut(QKeySequence("R"), self).activated.connect(
+            lambda: self._decide("reject"))
+        # Vim-style navigation: J/K move to next/previous posting.
+        QShortcut(QKeySequence("J"), self).activated.connect(
+            self._select_next)
+        QShortcut(QKeySequence("K"), self).activated.connect(
+            self._select_prev)
+        # Tab switching: 1–4 jump to the four tabs.
+        for i in range(4):
+            QShortcut(QKeySequence(str(i + 1)), self).activated.connect(
+                lambda idx=i: self.tabs.setCurrentIndex(idx))
+
+        self.btn_pursue.setToolTip(tr("shortcut.pursue"))
+        self.btn_later.setToolTip(tr("shortcut.later"))
+        self.btn_reject.setToolTip(tr("shortcut.reject"))
+
     # -- construction ------------------------------------------------------
     @staticmethod
     def _make_tree() -> QTreeWidget:
@@ -601,6 +625,35 @@ class ReviewWindow(QMainWindow):
         if item is None:
             return None
         return self._rows.get(item.data(0, Qt.UserRole))
+
+    def _select_next(self) -> None:
+        """Move to the next posting in the current tab."""
+        tree = self.tabs.currentWidget()
+        if not isinstance(tree, QTreeWidget) or tree.topLevelItemCount() == 0:
+            return
+        current = tree.currentItem()
+        if current is None:
+            tree.setCurrentItem(tree.topLevelItem(0))
+        else:
+            idx = tree.indexOfTopLevelItem(current)
+            nxt = idx + 1
+            if nxt < tree.topLevelItemCount():
+                tree.setCurrentItem(tree.topLevelItem(nxt))
+
+    def _select_prev(self) -> None:
+        """Move to the previous posting in the current tab."""
+        tree = self.tabs.currentWidget()
+        if not isinstance(tree, QTreeWidget) or tree.topLevelItemCount() == 0:
+            return
+        current = tree.currentItem()
+        if current is None:
+            tree.setCurrentItem(
+                tree.topLevelItem(tree.topLevelItemCount() - 1))
+        else:
+            idx = tree.indexOfTopLevelItem(current)
+            prev = idx - 1
+            if prev >= 0:
+                tree.setCurrentItem(tree.topLevelItem(prev))
 
     def _show_detail(self, *_):
         r = self._current_row()

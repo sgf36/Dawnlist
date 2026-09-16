@@ -68,6 +68,13 @@ class SearchQuery:
     #: insensitively, so "asset management" will not match "asset-management"
     #: but will match "Asset Management".
     description_keywords: list[str] = field(default_factory=list)
+    #: How the `titles` list is matched against the feed:
+    #:   "title"       — match job titles only (the original behaviour)
+    #:   "description" — match job descriptions only
+    #:   "both"        — match either title or description
+    #: Title-only is the default because it is the cheapest shape: fewer rows
+    #: returned per credit, higher relevance, lower billing.
+    search_type: str = "title"
 
 
 def feed_job_ids(ids) -> list[int]:

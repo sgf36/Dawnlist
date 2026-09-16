@@ -230,7 +230,8 @@ def test_no_personal_content_is_sent_upstream(monkeypatch):
                          "postedWithinDays", "discoveredSince",
                          "excludeJobIds", "maxResults", "cities",
                          "excludeTitleTerms", "excludeCompanies",
-                         "descriptionKeywords"}
+                         "descriptionKeywords",
+                         "searchType"}
     # excludeJobIds carries PROVIDER IDS ONLY. It is a billing control, and it
     # must never become a channel for anything about the user. They are
     # integers, not strings: the Worker forwards the list untouched to
