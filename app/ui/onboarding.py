@@ -1972,6 +1972,8 @@ class OnboardingWizard(QWidget):
         frame.setWidgetResizable(True)
         frame.setFrameShape(QFrame.NoFrame)
         frame.setWidget(self.stack)
+        from app.ui import enable_touch_scroll
+        enable_touch_scroll(frame)
         layout.addWidget(frame, 1)
 
         nav = QHBoxLayout()

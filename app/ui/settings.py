@@ -545,6 +545,8 @@ class SettingsWindow(QWidget):
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.NoFrame)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        from app.ui import enable_touch_scroll
+        enable_touch_scroll(self.scroll)
         outer.addWidget(self.scroll)
 
         content = QWidget()

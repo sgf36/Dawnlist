@@ -446,6 +446,8 @@ class ReviewWindow(QMainWindow):
         rl.setContentsMargins(0, 0, 0, 0)
         self.detail = QTextBrowser()
         self.detail.setOpenExternalLinks(True)
+        from app.ui import enable_touch_scroll
+        enable_touch_scroll(self.detail)
         rl.addWidget(self.detail, 1)
 
         buttons = QHBoxLayout()
@@ -542,6 +544,8 @@ class ReviewWindow(QMainWindow):
         # Uniform row heights: without this Qt measures every row and a single
         # tall glyph (Arabic, Devanagari) stretches one row out of line.
         t.setUniformRowHeights(True)
+        from app.ui import enable_touch_scroll
+        enable_touch_scroll(t)
         return t
 
     def set_calibration_needed(self, needed: bool) -> None:
