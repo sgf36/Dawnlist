@@ -25,10 +25,11 @@ from typing import Callable
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPalette
-from PySide6.QtWidgets import (QComboBox, QFrame, QHBoxLayout, QLabel,
+from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox,
+                               QFrame, QHBoxLayout, QLabel,
                                QLineEdit,
                                QMenu, QMessageBox,
-                               QPushButton,
+                               QPlainTextEdit, QPushButton,
                                QSizePolicy, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
@@ -281,6 +282,7 @@ class BoardWindow(QWidget):
     #: was reachable only as `--draft` on a command line, while every store
     #: listing said Dawnlist "drafts your follow-ups". Found by audit.
     drafts_requested = Signal()
+    import_requested = Signal(str, str)   # (url, pasted_text)
     #: The employer answered. (opportunity_id, positive, stage) — `stage` is
     #: the Stage value to advance to and is meaningless when `positive` is
     #: false, because a negative determination has exactly one destination.
@@ -302,6 +304,9 @@ class BoardWindow(QWidget):
         self.audit = AuditBanner()
         top = QHBoxLayout()
         top.addWidget(self.audit, 1)
+        self.btn_import = QPushButton(tr("board.import_job"))
+        self.btn_import.clicked.connect(self._show_import_dialog)
+        top.addWidget(self.btn_import)
         self.btn_drafts = QPushButton(tr("board.draft_followups"))
         self.btn_drafts.setObjectName("primary")
         self.btn_drafts.setToolTip(tr("draft.never_sends"))
@@ -325,6 +330,8 @@ class BoardWindow(QWidget):
         # per-item bottom border already separates rows, so nothing is lost.
         self.tree.setAlternatingRowColors(False)
         self.tree.setUniformRowHeights(True)
+        from app.ui import enable_touch_scroll
+        enable_touch_scroll(self.tree)
         # The ::item:selected stylesheet rule paints the item, not the strip
         # beyond the last column, so the default highlight shows through there
         # and a selected row comes out two colours. Set the palette too.
@@ -396,6 +403,12 @@ class BoardWindow(QWidget):
             lambda: self._emit_determination(positive=True))
         self.btn_no_offer.clicked.connect(
             lambda: self._emit_determination(positive=False))
+
+    # -- import dialog -----------------------------------------------------
+    def _show_import_dialog(self):
+        dlg = ImportJobDialog(self)
+        if dlg.exec() == QDialog.Accepted:
+            self.import_requested.emit(dlg.url(), dlg.pasted_text())
 
     # -- population --------------------------------------------------------
     def load(self, rows: list[BoardRow], findings: dict[str, list]) -> None:
@@ -613,3 +626,41 @@ class BoardWindow(QWidget):
         row = self._current()
         if row and row.bounce_defect:
             self.bounce_repair_requested.emit(row.opportunity_id)
+
+
+class ImportJobDialog(QDialog):
+    """Paste a URL or the text of a job posting to bring it into the board."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(tr("board.import_title"))
+        self.setMinimumWidth(520)
+
+        layout = QVBoxLayout(self)
+
+        layout.addWidget(QLabel(tr("board.import_url_label")))
+        self._url = QLineEdit()
+        self._url.setPlaceholderText("https://...")
+        layout.addWidget(self._url)
+
+        layout.addWidget(QLabel(tr("board.import_text_label")))
+        self._text = QPlainTextEdit()
+        self._text.setMinimumHeight(180)
+        self._text.setPlaceholderText(tr("board.import_text_hint"))
+        layout.addWidget(self._text)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self._validate)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def _validate(self):
+        if self._url.text().strip() or self._text.toPlainText().strip():
+            self.accept()
+
+    def url(self) -> str:
+        return self._url.text().strip()
+
+    def pasted_text(self) -> str:
+        return self._text.toPlainText().strip()

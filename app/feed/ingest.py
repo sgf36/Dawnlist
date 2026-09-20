@@ -39,10 +39,14 @@ corrected, the wrong one gets applied to.
 from __future__ import annotations
 
 import hashlib
+import html.parser
 import re
+import urllib.error
+import urllib.request
 from dataclasses import dataclass, field
 from urllib.parse import urlparse
 
+from app.core.http import build_request
 from app.feed.models import Job
 
 #: This provider name is what distinguishes a hand-entered posting from a fed
@@ -208,3 +212,68 @@ def parse_pasted(text: str, url: str = "") -> ParsedPosting:
         url=url.strip(),
         unresolved=tuple(unresolved),
     )
+
+
+# ---------------------------------------------------------------------------
+# URL import
+# ---------------------------------------------------------------------------
+
+class _TextExtractor(html.parser.HTMLParser):
+    """Pull visible text out of HTML, dropping scripts and styles."""
+
+    _SKIP = frozenset(("script", "style", "noscript", "svg", "head"))
+
+    def __init__(self):
+        super().__init__()
+        self._pieces: list[str] = []
+        self._skip_depth = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in self._SKIP:
+            self._skip_depth += 1
+        if tag in ("br", "p", "div", "li", "tr", "h1", "h2", "h3", "h4"):
+            self._pieces.append("\n")
+
+    def handle_endtag(self, tag):
+        if tag in self._SKIP:
+            self._skip_depth = max(0, self._skip_depth - 1)
+
+    def handle_data(self, data):
+        if self._skip_depth == 0:
+            self._pieces.append(data)
+
+    def get_text(self) -> str:
+        return re.sub(r"\n{3,}", "\n\n", "".join(self._pieces)).strip()
+
+
+def _html_to_text(raw: str) -> str:
+    parser = _TextExtractor()
+    parser.feed(raw)
+    return parser.get_text()
+
+
+def fetch_url(url: str, *, timeout: int = 15) -> ParsedPosting:
+    """Fetch a job posting URL and parse its content.
+
+    The caller is the user, explicitly choosing to fetch this page. This is
+    not automated scraping — it is the user saying "I found this, bring it in."
+    """
+    req = build_request(url)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            ct = r.headers.get("Content-Type", "")
+            raw = r.read().decode(
+                r.headers.get_content_charset() or "utf-8", errors="replace")
+    except (urllib.error.URLError, OSError) as exc:
+        return ParsedPosting(
+            url=url,
+            unresolved=("fetch",),
+            description=f"Could not fetch: {exc}",
+        )
+
+    if "html" in ct.lower() or raw.lstrip().startswith("<"):
+        text = _html_to_text(raw)
+    else:
+        text = raw
+
+    return parse_pasted(text, url=url)
