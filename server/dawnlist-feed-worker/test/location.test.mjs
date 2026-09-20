@@ -171,29 +171,29 @@ await test('the country and contract tags reach the app for its gates', async ()
 console.log('\npaging');
 
 await test('a request larger than a page is paged by offset, in one refresh', async () => {
-  const DB = makeDB();
+  const DB = makeDB({ maxPostings: 2000 });
   makeCaches();
-  const calls = stubUpstream({ available: 1000 });
+  const calls = stubUpstream({ available: 2000 });
   const res = await worker.fetch(req({ titles: ['a'], countries: ['GB'],
-    maxResults: 250 }), { DB }, ctx);
+    maxResults: 1000 }), { DB }, ctx);
   const out = await res.json();
-  assert.deepEqual(calls.search.map((b) => b.offset), [0, 100, 200]);
-  assert.deepEqual(calls.search.map((b) => b.limit), [100, 100, 50]);
-  assert.equal(out.jobs.length, 250);
+  assert.deepEqual(calls.search.map((b) => b.offset), [0, 500]);
+  assert.deepEqual(calls.search.map((b) => b.limit), [500, 500]);
+  assert.equal(out.jobs.length, 1000);
   assert.equal(DB.state.refreshes, 1, 'one search is one refresh however many pages');
-  assert.equal(DB.state.postings, 250);
+  assert.equal(DB.state.postings, 1000);
   assert.equal(calls.search[1].include_total_results, false,
     'the total is asked for on the first page only');
 });
 
 await test('paging stops when the feed runs out', async () => {
   makeCaches();
-  const calls = stubUpstream({ available: 130 });
+  const calls = stubUpstream({ available: 630 });
   const res = await worker.fetch(req({ titles: ['a'], countries: ['GB'],
-    maxResults: 500 }), { DB: makeDB() }, ctx);
+    maxResults: 1000 }), { DB: makeDB() }, ctx);
   const out = await res.json();
   assert.equal(calls.search.length, 2);
-  assert.equal(out.jobs.length, 130);
+  assert.equal(out.jobs.length, 630);
 });
 
 await test('the default is still one page, so nothing buys more unasked', async () => {
@@ -201,7 +201,7 @@ await test('the default is still one page, so nothing buys more unasked', async 
   const calls = stubUpstream({ available: 1000 });
   await worker.fetch(req({ titles: ['a'], countries: ['GB'] }), { DB: makeDB() }, ctx);
   assert.equal(calls.search.length, 1);
-  assert.equal(calls.search[0].limit, 100);
+  assert.equal(calls.search[0].limit, 500);
 });
 
 // --- the shared cache ---------------------------------------------------------
@@ -242,7 +242,7 @@ await test('a result cut short by one licence\'s allowance is not cached', async
     { DB: makeDB() }, ctx);
   const out = await res.json();
   assert.equal(out.cached, false, 'the second user was not handed ten rows as the lot');
-  assert.equal(out.jobs.length, 100);
+  assert.equal(out.jobs.length, 500);
   assert.equal(calls.search.length, 2);
 });
 

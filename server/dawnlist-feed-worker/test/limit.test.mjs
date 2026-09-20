@@ -24,7 +24,7 @@ async function test(name, fn) {
   catch (e) { console.log(`  FAIL ${name}\n       ${e.message}`); failed++; }
 }
 
-const MAX_PAGE = 100;
+const MAX_PAGE = 500;
 globalThis.caches = { default: { async match() {}, async put() {} } };
 
 /** Returns the `limit` of every page the provider was asked for. */
