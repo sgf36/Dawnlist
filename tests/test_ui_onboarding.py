@@ -861,6 +861,37 @@ def test_a_file_added_by_mistake_can_be_taken_out(qapp, monkeypatch, settle):
     w.close()
 
 
+def test_files_are_staged_before_the_background_read(qapp, monkeypatch, settle,
+                                                      tmp_path):
+    """Apple rejection 2026-09-18: the sandbox's drag-and-drop grant expires
+    before the worker thread reads the files. Staging copies them into the
+    container while the grant is still active."""
+    from pathlib import Path
+
+    one = tmp_path / "one.pdf"
+    two = tmp_path / "two.docx"
+    one.write_bytes(b"%PDF-1.4 stub")
+    two.write_bytes(b"stub docx content")
+
+    staged_paths = []
+
+    def extract(paths):
+        staged_paths.extend(paths)
+        return [Path(p).name for p in paths], []
+
+    w = a_wizard(monkeypatch, terms_accepted=True, extract=extract)
+    w._on_files([one, two])
+    settle(lambda: not w._reading, what="the read")
+
+    assert staged_paths, "extract must have been called"
+    for p in staged_paths:
+        assert Path(p).parent.name.startswith("dawnlist-ingest-"), \
+            f"the background thread must read staged copies, not originals: {p}"
+    assert not getattr(w, "_staging_dir", None) or \
+        not w._staging_dir.exists(), "staging dir must be cleaned up"
+    w.close()
+
+
 def test_reading_the_files_does_not_happen_on_the_ui_thread(qapp, monkeypatch,
                                                             settle):
     """It opens and parses every file added. Inline, the window stopped

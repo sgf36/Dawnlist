@@ -64,6 +64,38 @@ def app_verdict_label(value: str | None) -> str:
     return tr(f"onboarding.app.{value}")
 
 
+def _stage_for_reading(paths: list[Path]) -> tuple[list[Path], Path]:
+    """Copy user-selected files into the app container so a worker thread can
+    read them after the sandbox's drag-and-drop grant has expired.
+
+    In a Mac App Store sandbox the user-selected-file entitlement grants access
+    during the event that delivered the file (drop or open-panel). The worker
+    thread that parses the files runs later, outside that grant, and gets
+    PermissionError. Copying on the main thread while the grant is still active
+    puts the data somewhere the worker can always reach.
+
+    Returns (staged_paths, staging_dir). The caller owns the staging dir.
+    """
+    import shutil
+    import tempfile
+
+    staging = Path(tempfile.mkdtemp(prefix="dawnlist-ingest-"))
+    staged: list[Path] = []
+    for src in paths:
+        dest = staging / src.name
+        n = 1
+        while dest.exists():
+            dest = staging / f"{src.stem}_{n}{src.suffix}"
+            n += 1
+        try:
+            shutil.copy2(src, dest)
+        except OSError:
+            staged.append(src)
+            continue
+        staged.append(dest)
+    return staged, staging
+
+
 def _same_file(path) -> str:
     """One spelling of a path, so the same file added twice is one file.
 
@@ -2074,6 +2106,13 @@ class OnboardingWizard(QWidget):
         The whole set is re-read rather than the new files alone, because the
         corpus warnings are about the set: "only one CV version" stops being
         true when a second arrives, and would otherwise stay on screen.
+
+        STAGED TO THE APP CONTAINER FIRST. In a Mac App Store sandbox the
+        user-selected-file grant from a drag-and-drop expires after the event
+        handler returns. The worker thread that reads the files runs later,
+        outside that grant, and gets PermissionError. Copying on the main
+        thread while the grant is still active puts the data somewhere the
+        worker can always reach. Apple rejection 2026-09-18, build 224.
         """
         self.ingest.set_files(self._paths)
         if not self._paths:
@@ -2083,16 +2122,19 @@ class OnboardingWizard(QWidget):
             self._refresh_next()
             return
 
+        self._cleanup_staging()
         paths = list(self._paths)
+        staged, self._staging_dir = _stage_for_reading(paths)
         self.ingest.set_reading(True)
         self._refresh_next()
         extract = self._extract
         self._extract_task = run_in_background(
-            lambda: extract(paths),
+            lambda: extract(staged),
             on_done=self._files_read,
             on_error=self._files_unreadable)
 
     def _files_read(self, result) -> None:
+        self._cleanup_staging()
         names, warnings = result
         self._corpus = list(self._paths)
         self._names = list(names)
@@ -2104,11 +2146,19 @@ class OnboardingWizard(QWidget):
         """A failure in the reader itself, as opposed to a file it could not
         read. Shown rather than swallowed: silence here looks like a drop that
         never registered, and the user simply drops the files again."""
+        self._cleanup_staging()
         self._names = []
         self.ingest.set_reading(False)
         self.ingest.show_warnings(
             [tr("onboarding.files_unreadable", reason=str(exc)[:200])])
         self._refresh_next()
+
+    def _cleanup_staging(self) -> None:
+        import shutil
+        staging = getattr(self, "_staging_dir", None)
+        if staging and staging.exists():
+            shutil.rmtree(staging, ignore_errors=True)
+        self._staging_dir = None
 
     @property
     def _reading(self) -> bool:
