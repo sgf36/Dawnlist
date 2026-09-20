@@ -260,7 +260,12 @@ looks across the whole world, so each rule matters:
   industries, locations or sentences. "Revenue Manager" is a title; "the \
   underwriting-to-property seam" and "London" are not. Two to four words \
   each, in ordinary market wording rather than the person's own phrasing. \
-  Between three and eight. Empty if nothing says what work they want.
+  Between four and eight. Include VARIANT TITLES that cover the same role: \
+  different seniority levels, adjacent specialisms, and alternative phrasings \
+  the market actually uses (e.g. for "Hotel Asset Manager" also include \
+  "Hospitality Investment Manager", "Real Estate Asset Manager", \
+  "Hotel Portfolio Manager"). Empty only if neither the stated aim nor the \
+  fit brief indicate what roles they want.
 - countries: ISO 3166-1 alpha-2 codes ("GB", never "UK") for the countries \
   the ROLE must be based in. Only countries the person states, or that follow \
   from a city they name. Never infer one from where they used to work, where \

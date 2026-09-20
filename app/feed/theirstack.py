@@ -42,7 +42,7 @@ from app.feed.models import Job, name_key
 BASE = "https://api.theirstack.com"
 SEARCH_PATH = "/v1/jobs/search"
 CREDITS_PATH = "/v0/teams/credits_consumption"
-PAGE_SIZE = 100
+PAGE_SIZE = 500
 
 # The Windows console is cp1252 and job titles are not. The first P0 run died
 # on an en-dash AFTER the credits had already been spent.
@@ -146,30 +146,32 @@ class TheirStackProvider(FeedProvider):
         return None, "retries exhausted"
 
     # -- search ------------------------------------------------------------
-    def _body(self, q: SearchQuery, page: int, limit: int) -> dict:
+    def _body(self, q: SearchQuery, page: int, limit: int,
+              *, mode: str | None = None) -> dict:
         body: dict = {
             "limit": limit,
             "page": page,
             "include_total_results": False,
         }
+        st = mode or getattr(q, "search_type", "title")
         if q.titles:
-            st = getattr(q, "search_type", "title")
-            if st in ("title", "both"):
+            if st == "title":
                 body["job_title_or"] = q.titles
-            if st in ("description", "both"):
-                body["job_description_pattern_or"] = q.titles
+            elif st == "description":
+                desc_or = list(q.titles)
+                if q.description_keywords:
+                    desc_or.extend(q.description_keywords)
+                body["job_description_contains_or"] = desc_or
         if q.countries:
             body["job_country_code_or"] = q.countries
         if q.companies:
             body["company_name_or"] = q.companies
-        # A closed posting cannot be applied for and is still billed. Measured
-        # 2026-09-11: three of five sampled rows had already closed.
         body["is_closed"] = False
         if q.exclude_title_terms:
             body["job_title_not"] = q.exclude_title_terms
         if q.exclude_companies:
             body["company_name_not"] = q.exclude_companies
-        if q.description_keywords:
+        if q.description_keywords and st != "description":
             body["job_description_contains_or"] = q.description_keywords
         # `cities` is NOT applied on this developer path: turning a city into
         # the feed's place ids lives in the Worker, so this adapter searches
@@ -187,35 +189,56 @@ class TheirStackProvider(FeedProvider):
                 timezone.utc).strftime("%Y-%m-%d")
         return body
 
-    def search(self, query: SearchQuery) -> FetchResult:
+    def _fetch_paged(self, query: SearchQuery, max_results: int,
+                     *, mode: str | None = None) -> FetchResult:
         jobs: list[Job] = []
         pages = 0
         exhausted = False
-
-        while len(jobs) < query.max_results:
-            remaining = query.max_results - len(jobs)
+        while len(jobs) < max_results:
+            remaining = max_results - len(jobs)
             limit = min(PAGE_SIZE, remaining)
             status, payload = self._call(
-                SEARCH_PATH, self._body(query, pages, limit), "POST")
-
+                SEARCH_PATH, self._body(query, pages, limit, mode=mode),
+                "POST")
             if status != 200 or not isinstance(payload, dict):
-                # spec 6.2: surface it. A partial page already fetched is
-                # returned WITH the error so the caller can report both.
                 return FetchResult(jobs=jobs, pages_fetched=pages,
                                    exhausted=False, credits_estimate=len(jobs),
                                    error=f"TheirStack {SEARCH_PATH} returned "
                                          f"{status}: {str(payload)[:200]}")
-
             rows = payload.get("data") or []
             jobs.extend(self._to_job(r) for r in rows)
             pages += 1
-
             if len(rows) < limit:
-                exhausted = True      # spec 10.1: paginated to exhaustion
+                exhausted = True
                 break
-
         return FetchResult(jobs=jobs, pages_fetched=pages, exhausted=exhausted,
                            credits_estimate=len(jobs))
+
+    def search(self, query: SearchQuery) -> FetchResult:
+        st = getattr(query, "search_type", "title")
+        if st != "both" or not query.titles:
+            return self._fetch_paged(query, query.max_results, mode=st)
+
+        # "both" = title OR description. TheirStack ANDs different filter
+        # groups in one request, so two requests merged by job id.
+        half = max(1, query.max_results // 2)
+        t_res = self._fetch_paged(query, half, mode="title")
+        d_res = self._fetch_paged(query, half, mode="description")
+        if t_res.error and d_res.error:
+            return t_res
+        seen: set[str] = set()
+        merged: list[Job] = []
+        for job in (*t_res.jobs, *d_res.jobs):
+            if job.provider_job_id not in seen:
+                seen.add(job.provider_job_id)
+                merged.append(job)
+        return FetchResult(
+            jobs=merged[:query.max_results],
+            pages_fetched=t_res.pages_fetched + d_res.pages_fetched,
+            exhausted=t_res.exhausted and d_res.exhausted,
+            credits_estimate=len(t_res.jobs) + len(d_res.jobs),
+            error=t_res.error or d_res.error,
+        )
 
     def _to_job(self, row: dict) -> Job:
         company = _company_name(row)

@@ -1828,6 +1828,55 @@ def add_posting(conn, path: Path, url: str = ""):
     return parsed
 
 
+def _import_job(board, conn, url: str, pasted_text: str):
+    """Import a job posting from a URL or pasted text into the board."""
+    import json
+
+    from app.feed.ingest import fetch_url, parse_pasted, ParsedPosting
+    from app.feed.models import name_key
+    from app.i18n import tr
+    from app.ui.board_adapter import board_rows
+
+    parsed: ParsedPosting
+    if pasted_text:
+        parsed = parse_pasted(pasted_text, url=url)
+    elif url:
+        parsed = fetch_url(url)
+    else:
+        return
+
+    if not parsed.is_usable:
+        from PySide6.QtWidgets import QMessageBox
+        QMessageBox.warning(
+            board, tr("board.import_title"),
+            tr("board.import_failed", missing=", ".join(parsed.unresolved)))
+        return
+
+    job = parsed.to_job()
+    conn.execute(
+        """INSERT INTO jobs(provider, provider_job_id, title, company,
+               locations_json, description_text, salary, url,
+               raw_criteria_json, name_key, funnel_status)
+           VALUES (?,?,?,?,?,?,?,?,?,?, 'likely')
+           ON CONFLICT(provider, provider_job_id) DO UPDATE SET
+               title=excluded.title, company=excluded.company,
+               description_text=excluded.description_text,
+               salary=excluded.salary, url=excluded.url""",
+        (job.provider, job.provider_job_id, job.title, job.company,
+         json.dumps(list(job.locations)), job.description_text, job.salary,
+         job.url, json.dumps(job.raw_criteria),
+         name_key(job.company, job.title)))
+    conn.commit()
+
+    rows, findings = board_rows(conn)
+    board.load(rows, findings)
+
+    from PySide6.QtWidgets import QMessageBox
+    QMessageBox.information(
+        board, tr("board.import_title"),
+        tr("board.import_success", title=job.title, company=job.company))
+
+
 #: Sent mail the user has supplied, for measuring how they write. Files rather
 #: than a table, and deliberately: `documents` is constrained to the fit brief
 #: and the factsheet, and widening that CHECK to admit a mail archive would put
@@ -2307,7 +2356,7 @@ def build_onboarding(conn, *, on_finished=None):
         # want of a query. They arrive switched OFF — see
         # `seed_queries_from_aim` for why that matters to the bill.
         plan = wizard.interview.suggested_plan
-        if plan is not None:
+        if plan is not None and plan.titles:
             # Already worked out off the UI thread while the draft was read.
             seed_queries_from_aim(conn, wizard.interview.aim.toPlainText(),
                                   titles=plan.titles, scope=plan.scope)
@@ -2756,6 +2805,8 @@ def _wire_board(board, conn) -> None:
     board.application_requested.connect(
         lambda oid, brief: _write_application(board, conn, oid, brief))
     board.drafts_requested.connect(lambda: _draft_followups(board, conn))
+    board.import_requested.connect(
+        lambda url, text: _import_job(board, conn, url, text))
     rows, findings = board_rows(conn)
     board.load(rows, findings)
 

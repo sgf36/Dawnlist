@@ -81,7 +81,7 @@ const DEFAULTS = {
 };
 
 /** Hard ceiling on a single upstream page, independent of the licence cap. */
-const MAX_PAGE = 100;
+const MAX_PAGE = 500;
 
 class HttpError extends Error {
   constructor(status, code, message) {
@@ -96,6 +96,44 @@ const json = (body, status = 200) =>
     status,
     headers: { 'content-type': 'application/json; charset=utf-8' },
   });
+
+/**
+ * Paginated fetch from TheirStack's /v1/jobs/search. Returns at most `asked`
+ * normalised jobs and the total_results from the first page.
+ */
+async function fetchPaged(base, asked, env) {
+  const jobs = [];
+  let total = null;
+  while (jobs.length < asked) {
+    const limit = Math.min(MAX_PAGE, asked - jobs.length);
+    const res = await fetch('https://api.theirstack.com/v1/jobs/search', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${env.THEIRSTACK_API_KEY}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...base,
+        limit,
+        offset: jobs.length,
+        include_total_results: jobs.length === 0,
+      }),
+    });
+    if (!res.ok) {
+      throw new HttpError(502, 'provider_error',
+        `theirstack returned ${res.status}`);
+    }
+    const payload = await res.json();
+    const rows = payload.data || [];
+    if (jobs.length === 0) {
+      total = payload.metadata?.total_results ?? null;
+    }
+    jobs.push(...rows.map(normaliseTheirStack));
+    if (rows.length < limit) break;
+    if (typeof total === 'number' && jobs.length >= total) break;
+  }
+  return { jobs, total };
+}
 
 // ---------------------------------------------------------------------------
 // The search body — refused before anything is reserved or fetched
@@ -394,71 +432,54 @@ const ADAPTERS = {
       // Title-only is the cheapest shape: fewer rows per credit, higher
       // relevance. Description search is broader and costlier.
       const st = q.searchType || "title";
-      if (q.titles?.length) {
-        if (st === "title" || st === "both") base.job_title_or = q.titles;
-        if (st === "description" || st === "both") base.job_description_pattern_or = q.titles;
-      }
       if (q.countries?.length) base.job_country_code_or = q.countries;
       if (q.locationIds?.length) base.job_location_or = q.locationIds.map((id) => ({ id }));
       if (q.companies?.length) base.company_name_or = q.companies;
-      // Exclusions the USER stated, applied here because a row that never
-      // returns is never billed. The feed matches company names exactly, so
-      // the app checks employers again on normalised names after the fetch.
       if (q.excludeTitleTerms?.length) base.job_title_not = q.excludeTitleTerms;
       if (q.excludeCompanies?.length) base.company_name_not = q.excludeCompanies;
       if (q.descriptionKeywords?.length) base.job_description_contains_or = q.descriptionKeywords;
       if (q.postedWithinDays) base.posted_at_max_age_days = q.postedWithinDays;
       if (q.discoveredSince) base.discovered_at_gte = q.discoveredSince;
-      // Excluding what we have already been billed for is a BILLING control,
-      // not a nicety: TheirStack does not cache, so re-fetching a row we hold
-      // re-buys it. It does NOT deduplicate the ATS and LinkedIn copies of one
-      // job — those carry different ids and are billed twice regardless
-      // (~7% of a UK hospitality pull, ~1.7% of a global one).
       if (q.excludeJobIds?.length) base.job_id_not = q.excludeJobIds;
 
-      // PAGED BY OFFSET, and only up to what was asked. The app asks for one
-      // page per search; paging exists so that a larger request is honoured
-      // rather than silently cut to a hundred, not so a run buys more by
-      // default. Offset rather than page, because pages of different sizes do
-      // not line up with each other.
-      const jobs = [];
-      let total = null;
-      while (jobs.length < asked) {
-        const limit = Math.min(MAX_PAGE, asked - jobs.length);
-        const res = await fetch('https://api.theirstack.com/v1/jobs/search', {
-          method: 'POST',
-          headers: {
-            authorization: `Bearer ${env.THEIRSTACK_API_KEY}`,
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
-            ...base,
-            limit,
-            offset: jobs.length,
-            // First page only. It is free on a page being fetched anyway, and
-            // the docs warn it slows a response. Never add a separate sizing
-            // call: "a count costs one record".
-            include_total_results: jobs.length === 0,
-          }),
-        });
-
-        if (!res.ok) {
-          // Surfaced, never swallowed into "no new jobs".
-          throw new HttpError(502, 'provider_error',
-            `theirstack returned ${res.status}`);
+      // "both" means title OR description. TheirStack ANDs different filter
+      // groups in one request, so two separate requests merged by job id is
+      // the only way to get a true OR.
+      if (st === "both" && q.titles?.length) {
+        const titleBase = { ...base, job_title_or: q.titles };
+        const descBase  = { ...base };
+        descBase.job_description_contains_or = [
+          ...(base.job_description_contains_or || []),
+          ...q.titles,
+        ];
+        const half = Math.max(1, Math.ceil(asked / 2));
+        const [tRes, dRes] = await Promise.all([
+          fetchPaged(titleBase, half, env),
+          fetchPaged(descBase, half, env),
+        ]);
+        const seen = new Set();
+        const merged = [];
+        for (const job of [...tRes.jobs, ...dRes.jobs]) {
+          if (!seen.has(job.provider_job_id)) {
+            seen.add(job.provider_job_id);
+            merged.push(job);
+          }
         }
-        const payload = await res.json();
-        const rows = payload.data || [];
-        if (jobs.length === 0) {
-          // Lives under `metadata`, not at the top level — reading it from the
-          // top returns undefined silently and every page then looks unsized.
-          total = payload.metadata?.total_results ?? null;
-        }
-        jobs.push(...rows.map(normaliseTheirStack));
-        if (rows.length < limit) break;
-        if (typeof total === 'number' && jobs.length >= total) break;
+        const total = (tRes.total ?? 0) + (dRes.total ?? 0);
+        return { jobs: merged.slice(0, asked), total };
       }
-      return { jobs, total };
+
+      // Single-mode: title or description, not both.
+      if (q.titles?.length) {
+        if (st === "title") base.job_title_or = q.titles;
+        if (st === "description") {
+          base.job_description_contains_or = [
+            ...(base.job_description_contains_or || []),
+            ...q.titles,
+          ];
+        }
+      }
+      return fetchPaged(base, asked, env);
     },
   },
 };
