@@ -88,7 +88,7 @@ def test_unexhausted_pagination_is_surfaced(conn):
         jobs=[job("a")], pages_fetched=1, exhausted=False)})
     out = run_morning(conn, provider, [Q], RULES, fit_brief="b", factsheet="f",
                       send=strong_send)
-    assert any("exhaustion" in e for e in out.fetch_errors)
+    assert any("not all matching jobs" in e for e in out.fetch_errors)
     assert not out.complete
 
 

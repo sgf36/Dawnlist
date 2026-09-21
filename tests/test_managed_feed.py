@@ -162,7 +162,7 @@ def test_cap_reached_mid_query_is_flagged_and_counted(monkeypatch):
     shortfall = res.shortfall
     assert shortfall is not None
     # It must say it is the PLAN, with the numbers — not a vague "partial".
-    assert "capped" in shortfall
+    assert "daily posting limit" in shortfall
     assert "900" in shortfall
     assert prov.credits_used() == 700
 

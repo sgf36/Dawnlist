@@ -20,8 +20,8 @@ from dataclasses import dataclass
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QFont, QFontMetrics, QKeySequence, QShortcut
 from app.i18n import is_rtl, tr
-from PySide6.QtWidgets import (QApplication, QFileDialog, QFrame,
-                               QHBoxLayout, QLabel,
+from PySide6.QtWidgets import (QApplication, QDialog, QFileDialog, QFrame,
+                               QHBoxLayout, QLabel, QLineEdit,
                                QMainWindow, QMessageBox, QProgressBar,
                                QPushButton, QSizePolicy, QSplitter,
                                QTabWidget, QTextBrowser,
@@ -283,8 +283,70 @@ class FunnelBar(QFrame):
             self._warn_chip("⚠ " + note)
 
 
+_REJECT_REASONS = [
+    "reject.wrong_role",
+    "reject.wrong_company",
+    "reject.wrong_location",
+    "reject.not_relevant",
+]
+
+
+class RejectReasonDialog(QDialog):
+    """One-click reason picker shown when the user rejects a posting."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(tr("reject.title"))
+        self.setMinimumWidth(360)
+        self._reason = ""
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(tr("reject.hint")))
+
+        chips = QHBoxLayout()
+        for key in _REJECT_REASONS:
+            btn = QPushButton(tr(key))
+            btn.clicked.connect(lambda _=False, k=key: self._pick(tr(k)))
+            chips.addWidget(btn)
+        layout.addLayout(chips)
+
+        other_row = QHBoxLayout()
+        other_row.addWidget(QLabel(tr("reject.other")))
+        self._text = QLineEdit()
+        self._text.setPlaceholderText(tr("reject.placeholder"))
+        self._text.returnPressed.connect(self._submit_text)
+        other_row.addWidget(self._text)
+        layout.addLayout(other_row)
+
+        buttons = QHBoxLayout()
+        skip = QPushButton(tr("reject.skip"))
+        skip.clicked.connect(lambda: self._pick(""))
+        submit = QPushButton(tr("reject.submit"))
+        submit.setDefault(True)
+        submit.clicked.connect(self._submit_text)
+        buttons.addStretch()
+        buttons.addWidget(skip)
+        buttons.addWidget(submit)
+        layout.addLayout(buttons)
+
+    def _pick(self, reason: str):
+        self._reason = reason
+        self.accept()
+
+    def _submit_text(self):
+        self._reason = self._text.text().strip()
+        self.accept()
+
+    @staticmethod
+    def ask(parent=None) -> str | None:
+        dlg = RejectReasonDialog(parent)
+        if dlg.exec() == QDialog.Accepted:
+            return dlg._reason
+        return None
+
+
 class ReviewWindow(QMainWindow):
-    decided = Signal(str, str)          # (job_id, decision)
+    decided = Signal(str, str, str)     # (job_id, decision, note)
     settings_requested = Signal()
     #: Open the board. Until 2026-09-13 the board could be reached ONLY with
     #: the `--board` command-line flag, so on every shipped build a posting
@@ -799,6 +861,13 @@ class ReviewWindow(QMainWindow):
         if r is None:
             return
 
+        note = ""
+        if decision == "reject":
+            reason = RejectReasonDialog.ask(self)
+            if reason is None:
+                return
+            note = reason
+
         idx = tree.indexOfTopLevelItem(item)
         tree.takeTopLevelItem(idx)
 
@@ -810,7 +879,7 @@ class ReviewWindow(QMainWindow):
             pass
 
         self._refresh_tab_counts()
-        self.decided.emit(r.job_id, decision)
+        self.decided.emit(r.job_id, decision, note)
 
         if tree.topLevelItemCount():
             nxt = min(idx, tree.topLevelItemCount() - 1)
@@ -880,7 +949,7 @@ class ReviewWindow(QMainWindow):
                 if not job_id or job_id not in self._rows:
                     skipped.append(row.get("Title", job_id))
                     continue
-                self.decided.emit(job_id, decision)
+                self.decided.emit(job_id, decision, "")
                 applied += 1
                 self._remove_from_trees(job_id, decision)
         self._refresh_tab_counts()

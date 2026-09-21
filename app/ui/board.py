@@ -26,11 +26,12 @@ from typing import Callable
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox,
-                               QFrame, QHBoxLayout, QLabel,
+                               QFileDialog, QFrame, QHBoxLayout, QLabel,
                                QLineEdit,
                                QMenu, QMessageBox,
                                QPlainTextEdit, QPushButton,
-                               QSizePolicy, QTreeWidget, QTreeWidgetItem,
+                               QSizePolicy, QSplitter, QTextBrowser,
+                               QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
 from app.core.tracker import Stage
@@ -304,6 +305,9 @@ class BoardWindow(QWidget):
         self.audit = AuditBanner()
         top = QHBoxLayout()
         top.addWidget(self.audit, 1)
+        self.btn_export = QPushButton(tr("board.export_csv"))
+        self.btn_export.clicked.connect(self._export_csv)
+        top.addWidget(self.btn_export)
         self.btn_import = QPushButton(tr("board.import_job"))
         self.btn_import.clicked.connect(self._show_import_dialog)
         top.addWidget(self.btn_import)
@@ -314,34 +318,37 @@ class BoardWindow(QWidget):
         top.addWidget(self.btn_drafts)
         outer.addLayout(top)
 
+        splitter = QSplitter(Qt.Vertical)
+
         self.tree = QTreeWidget()
         self.tree.setObjectName("boardTree")
         self._visible: list[str] = [c.key for c in COLUMNS if c.default_visible]
         self._apply_columns()
         self.tree.header().setStretchLastSection(True)
-        # Right-click the header to choose columns. Qt's own convention, so it
-        # needs no button and no explaining, and it is where a user who wants
-        # more columns will look first.
         self.tree.header().setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree.header().customContextMenuRequested.connect(self._column_menu)
-        # Alternating row colours OFF. With setFirstColumnSpanned group headers
-        # they made a non-selected row paint as if selected — the widget state
-        # said one row was selected while two were painted. The stylesheet's
-        # per-item bottom border already separates rows, so nothing is lost.
         self.tree.setAlternatingRowColors(False)
         self.tree.setUniformRowHeights(True)
         from app.ui import enable_touch_scroll
         enable_touch_scroll(self.tree)
-        # The ::item:selected stylesheet rule paints the item, not the strip
-        # beyond the last column, so the default highlight shows through there
-        # and a selected row comes out two colours. Set the palette too.
         palette = self.tree.palette()
         palette.setColor(QPalette.Highlight, QColor(TEAL))
         palette.setColor(QPalette.HighlightedText, QColor(CREAM))
         palette.setColor(QPalette.Inactive, QPalette.Highlight, QColor(TEAL))
         palette.setColor(QPalette.Inactive, QPalette.HighlightedText, QColor(CREAM))
         self.tree.setPalette(palette)
-        outer.addWidget(self.tree, 1)
+        splitter.addWidget(self.tree)
+
+        self.detail = QTextBrowser()
+        self.detail.setObjectName("boardDetail")
+        self.detail.setOpenExternalLinks(True)
+        self.detail.setMinimumHeight(0)
+        self.detail.hide()
+        enable_touch_scroll(self.detail)
+        splitter.addWidget(self.detail)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 1)
+        outer.addWidget(splitter, 1)
 
         actions = QHBoxLayout()
         actions.setSpacing(10)
@@ -562,8 +569,42 @@ class BoardWindow(QWidget):
         self.combo_stage.setEnabled(live)
         self.btn_reply.setEnabled(live)
         self.btn_no_offer.setEnabled(live)
+        self._show_detail(row)
         if row:
             self.opportunity_selected.emit(row.opportunity_id)
+
+    def _show_detail(self, row: BoardRow | None) -> None:
+        if row is None:
+            self.detail.hide()
+            return
+        self.detail.show()
+        url_link = (f'<a href="{row.job_url}">{row.job_url}</a>'
+                    if row.job_url else "—")
+        fields = [
+            (tr("board.col.company"), row.company),
+            (tr("board.col.role"), row.job_title or "—"),
+            (tr("board.detail.stage"), stage_text(row.stage)),
+            (tr("board.detail.status"), status_text(row.status) or "—"),
+            (tr("board.detail.next_step"), _next_step_text(row) or "—"),
+            (tr("board.detail.open_task"), row.open_task or "—"),
+            (tr("board.detail.location"), row.location or "—"),
+            (tr("board.detail.salary"), row.salary or "—"),
+            (tr("board.detail.posted"), _date(row.posted_at) or "—"),
+            (tr("board.detail.first_tracked"), _date(row.created_at) or "—"),
+            (tr("board.detail.last_contact"), _date(row.last_outbound_on) or "—"),
+        ]
+        rows_html = "".join(
+            f'<tr><td style="padding:4px 12px 4px 0;font-weight:600;'
+            f'color:{TEAL};white-space:nowrap">{label}</td>'
+            f'<td style="padding:4px 0">{value}</td></tr>'
+            for label, value in fields)
+        html = (
+            f'<table style="margin:8px">{rows_html}'
+            f'<tr><td style="padding:4px 12px 4px 0;font-weight:600;'
+            f'color:{TEAL};white-space:nowrap">{tr("board.col.url")}</td>'
+            f'<td style="padding:4px 0">{url_link}</td></tr>'
+            f'</table>')
+        self.detail.setHtml(html)
 
     def _emit_task(self):
         row = self._current()
@@ -616,6 +657,26 @@ class BoardWindow(QWidget):
         box.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
         box.setDefaultButton(QMessageBox.Cancel)
         return box.exec() == QMessageBox.Yes
+
+    # -- export --------------------------------------------------------------
+    def _export_csv(self):
+        import csv
+        path, _ = QFileDialog.getSaveFileName(
+            self, tr("board.export_title"), "dawnlist_board.csv",
+            "CSV (*.csv)")
+        if not path:
+            return
+        cols = list(COLUMNS)
+        with open(path, "w", newline="", encoding="utf-8-sig") as f:
+            w = csv.writer(f)
+            w.writerow(["Stage"] + [tr(c.label_key) for c in cols])
+            for row in sorted(self._rows.values(),
+                              key=lambda r: (r.stage.value, r.company.casefold())):
+                w.writerow([stage_text(row.stage)]
+                           + [c.value(row) for c in cols])
+        QMessageBox.information(
+            self, tr("board.export_title"),
+            tr("board.export_done", count=len(self._rows)))
 
     def _emit_repair(self):
         row = self._current()
