@@ -11,13 +11,18 @@ pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from app.ui.review import ReviewRow, ReviewWindow  # noqa: E402
+from app.ui.review import RejectReasonDialog, ReviewRow, ReviewWindow  # noqa: E402
 
 
 @pytest.fixture(scope="module")
 def qapp():
     app = QApplication.instance() or QApplication([])
     yield app
+
+
+@pytest.fixture(autouse=True)
+def _no_reject_dialog(monkeypatch):
+    monkeypatch.setattr(RejectReasonDialog, "ask", staticmethod(lambda parent=None: ""))
 
 
 @pytest.fixture()
@@ -120,7 +125,7 @@ def test_deciding_emits_the_job_id_and_decision(win):
               row("C", bucket="strong", reason="c")], {})
     win.tabs.setCurrentIndex(0)
     seen = []
-    win.decided.connect(lambda j, d: seen.append((j, d)))
+    win.decided.connect(lambda j, d, n: seen.append((j, d)))
 
     win.shortlist.setCurrentItem(win.shortlist.topLevelItem(0))
     win.btn_pursue.click()
@@ -347,7 +352,7 @@ def test_the_pane_and_the_buttons_never_disagree(qapp):
     what the reader is looking at."""
     w = _two_tab_window(qapp)
     decided = []
-    w.decided.connect(lambda job_id, d: decided.append(job_id))
+    w.decided.connect(lambda job_id, d, n: decided.append(job_id))
 
     for i in range(w.tabs.count()):
         if w.tabs.widget(i) is w.screened_out:
