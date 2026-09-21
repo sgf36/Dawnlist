@@ -2196,6 +2196,7 @@ class SearchesPanel(QWidget):
                  forgetter=None,
                  enabler=None, where_loader=None, where_saver=None,
                  guide_exporter=None, guide_importer=None,
+                 brief_saver=None,
                  connection_tester=None,
                  parent=None):
         super().__init__(parent)
@@ -2208,6 +2209,7 @@ class SearchesPanel(QWidget):
         self._where_save = where_saver or (lambda text: None)
         self._guide_export = guide_exporter
         self._guide_import = guide_importer
+        self._brief_saver = brief_saver
         self._test_connection = connection_tester
 
         layout = QVBoxLayout(self)
@@ -2274,6 +2276,11 @@ class SearchesPanel(QWidget):
         self.listing.setObjectName("ruleList")
         layout.addWidget(self.listing, 1)
 
+        self._cost_label = QLabel()
+        self._cost_label.setWordWrap(True)
+        self._cost_label.setStyleSheet("color:#6b5426;font-size:12px;")
+        layout.addWidget(self._cost_label)
+
         row = QHBoxLayout()
         row.setSpacing(6)
         self.field = QLineEdit()
@@ -2296,6 +2303,12 @@ class SearchesPanel(QWidget):
         type_row.addWidget(self.type_combo)
         type_row.addStretch(1)
         layout.addLayout(type_row)
+
+        self._both_warning = QLabel(tr("searches.both_warning"))
+        self._both_warning.setWordWrap(True)
+        self._both_warning.setStyleSheet("color:#6b5426;font-size:12px;")
+        self._both_warning.hide()
+        layout.addWidget(self._both_warning)
 
         self.dk_label = QLabel(tr("searches.dk_label"))
         self.dk_label.hide()
@@ -2381,6 +2394,8 @@ class SearchesPanel(QWidget):
 
     def refresh(self) -> None:
         self.listing.clear()
+        enabled_count = 0
+        both_count = 0
         if self._load_detail:
             for row in self._load_detail() or []:
                 label = row["label"]
@@ -2389,6 +2404,10 @@ class SearchesPanel(QWidget):
                 on = row["enabled"]
                 search_type = row.get("search_type", "title")
                 last_run = row.get("last_run")
+                if on:
+                    enabled_count += 1
+                    if search_type == "both":
+                        both_count += 1
                 state = tr("searches.on") if on else tr("searches.off")
                 type_tag = {"title": "T", "description": "D",
                             "both": "T+D"}.get(search_type, "T")
@@ -2405,6 +2424,10 @@ class SearchesPanel(QWidget):
         else:
             for label, titles, dk, on, *rest in self._load() or []:
                 search_type = rest[0] if rest else "title"
+                if on:
+                    enabled_count += 1
+                    if search_type == "both":
+                        both_count += 1
                 state = tr("searches.on") if on else tr("searches.off")
                 type_tag = {"title": "T", "description": "D",
                             "both": "T+D"}.get(search_type, "T")
@@ -2415,6 +2438,25 @@ class SearchesPanel(QWidget):
                 item = QListWidgetItem(text)
                 item.setData(Qt.UserRole, (label, on))
                 self.listing.addItem(item)
+        self._update_cost(enabled_count, both_count)
+
+    def _update_cost(self, enabled: int, both: int) -> None:
+        if not enabled:
+            self._cost_label.setText(tr("searches.cost_none"))
+            return
+        calls = enabled + both
+        if both:
+            self._cost_label.setText(tr(
+                "searches.cost_summary",
+                calls=calls, s="" if calls == 1 else "s",
+                queries=enabled, qs="" if enabled == 1 else "es",
+                both=both, page=100))
+        else:
+            self._cost_label.setText(tr(
+                "searches.cost_summary_simple",
+                calls=calls, s="" if calls == 1 else "s",
+                queries=enabled, qs="" if enabled == 1 else "es",
+                page=100))
 
     def _say(self, text: str, ok: bool) -> None:
         self.result.setObjectName("ok" if ok else "bad")
@@ -2428,6 +2470,7 @@ class SearchesPanel(QWidget):
         show_dk = st in ("description", "both")
         self.dk_label.setVisible(show_dk)
         self.dk_field.setVisible(show_dk)
+        self._both_warning.setVisible(st == "both")
 
     def add(self) -> None:
         text = self.field.text().strip()
@@ -2717,13 +2760,9 @@ class SearchesPanel(QWidget):
         # Apply changes
         applied = 0
         try:
-            if changes.fit_brief is not None:
-                from app.onboarding.interview import save_document
-                # The save_document function is injected via the import
-                # callback; the caller wires it to the real conn. This
-                # is the one place a reimport touches the fit_brief, and
-                # it creates a new version rather than updating in place.
-                pass  # Handled by the callback
+            if changes.fit_brief is not None and self._brief_saver:
+                self._brief_saver(changes.fit_brief)
+                applied += 1
 
             for label, titles, stype in changes.queries_added:
                 self._save(label, titles, search_type=stype)

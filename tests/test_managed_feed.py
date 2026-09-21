@@ -232,12 +232,9 @@ def test_no_personal_content_is_sent_upstream(monkeypatch):
                          "excludeTitleTerms", "excludeCompanies",
                          "descriptionKeywords",
                          "searchType"}
-    # excludeJobIds carries PROVIDER IDS ONLY. It is a billing control, and it
-    # must never become a channel for anything about the user. They are
-    # integers, not strings: the Worker forwards the list untouched to
-    # TheirStack's `job_id_not`, which is typed as integers. This line used to
-    # assert strings, which pinned the wrong type in place.
-    assert all(isinstance(x, int) for x in body["excludeJobIds"])
+    # excludeJobIds carries PROVIDER IDS ONLY.  The client stringifies them;
+    # the Worker normalises back to integers for TheirStack's `job_id_not`.
+    assert all(isinstance(x, str) for x in body["excludeJobIds"])
 
 
 def test_only_numeric_feed_ids_reach_either_transport(monkeypatch):
@@ -252,7 +249,7 @@ def test_only_numeric_feed_ids_reach_either_transport(monkeypatch):
 
     prov = _provider(monkeypatch, {"/v1/search": (200, {"jobs": [], "counts": {}})})
     prov.search(query)
-    assert prov.calls[0][1]["excludeJobIds"] == [4711, 12]
+    assert prov.calls[0][1]["excludeJobIds"] == ["4711", "12"]
 
     direct = TheirStackProvider("TS-KEY")._body(query, 0, 10)
     assert direct["job_id_not"] == [4711, 12]

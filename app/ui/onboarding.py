@@ -591,6 +591,34 @@ class CalibrationPage(QWidget):
         title.setWordWrap(True)
         layout.addWidget(title)
 
+        if item.description and item.description.strip():
+            desc_text = item.description.strip()
+            desc_label = QLabel(desc_text[:600]
+                                + ("…" if len(desc_text) > 600 else ""))
+            desc_label.setWordWrap(True)
+            desc_label.setStyleSheet(
+                "color:#45505a;font-size:12px;padding:4px 0 0 0;"
+                "border-top:1px solid #e0dcd4;margin-top:2px;")
+            desc_label.hide()
+            toggle = QPushButton(tr("onboarding.desc_show"))
+            toggle.setFlat(True)
+            toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+            toggle.setStyleSheet(
+                f"color:{TEAL_LIFTED};font-size:12px;text-align:left;"
+                "padding:0;border:none;")
+
+            def _make_toggle(btn, lbl):
+                def _toggle():
+                    showing = lbl.isVisible()
+                    lbl.setVisible(not showing)
+                    btn.setText(tr("onboarding.desc_hide")
+                                if not showing
+                                else tr("onboarding.desc_show"))
+                return _toggle
+            toggle.clicked.connect(_make_toggle(toggle, desc_label))
+            layout.addWidget(toggle)
+            layout.addWidget(desc_label)
+
         verdict = QLabel(tr("onboarding.app_said",
                             verdict=app_verdict_label(item.app_verdict),
                             reason=item.app_reason))
@@ -1584,12 +1612,28 @@ class SearchesPage(QWidget):
         else:
             self._error_banner.hide()
 
-        for label, _titles, _dk, enabled, *_ in rows:
+        _TYPE_LABELS = {
+            "title": tr("searches.match_title"),
+            "description": tr("searches.match_description"),
+            "both": tr("searches.match_both"),
+        }
+        for label, _titles, _dk, enabled, *rest in rows:
+            search_type = rest[0] if rest else "title"
             box = QCheckBox(label)
             box.setChecked(bool(enabled) and not blocked)
             box.setEnabled(not blocked)
             box.stateChanged.connect(lambda *_: self._refresh())
-            self._form.addWidget(box)
+            row_layout = QHBoxLayout()
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.setSpacing(6)
+            row_layout.addWidget(box)
+            tag = QLabel(_TYPE_LABELS.get(search_type, search_type))
+            tag.setStyleSheet("color:#8896a4;font-size:11px;")
+            row_layout.addWidget(tag)
+            row_layout.addStretch(1)
+            row_widget = QWidget()
+            row_widget.setLayout(row_layout)
+            self._form.addWidget(row_widget)
             self._rows.append((label, box))
         # Without this the layout shares the scroll area's spare height out
         # between the rows, and five searches spread down the whole window.

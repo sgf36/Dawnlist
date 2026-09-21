@@ -115,14 +115,34 @@ def test_strong_verdicts_sort_above_rejections(win):
 
 
 def test_deciding_emits_the_job_id_and_decision(win):
-    win.load([row("42", bucket="strong", reason="fits")], {})
+    win.load([row("A", bucket="strong", reason="a"),
+              row("B", bucket="strong", reason="b"),
+              row("C", bucket="strong", reason="c")], {})
     win.tabs.setCurrentIndex(0)
-    win.shortlist.setCurrentItem(win.shortlist.topLevelItem(0))
     seen = []
     win.decided.connect(lambda j, d: seen.append((j, d)))
+
+    win.shortlist.setCurrentItem(win.shortlist.topLevelItem(0))
     win.btn_pursue.click()
+    win.shortlist.setCurrentItem(win.shortlist.topLevelItem(0))
     win.btn_reject.click()
-    assert seen == [("42", "pursue"), ("42", "reject")]
+    win.shortlist.setCurrentItem(win.shortlist.topLevelItem(0))
+    win.btn_later.click()
+
+    assert seen == [("A", "pursue"), ("B", "reject"), ("C", "later")]
+
+
+def test_decide_removes_row_and_updates_tab_counts(win):
+    win.load([row("1", bucket="strong"), row("2", bucket="strong")], {})
+    win.tabs.setCurrentIndex(0)
+    assert win.shortlist.topLevelItemCount() == 2
+    win.shortlist.setCurrentItem(win.shortlist.topLevelItem(0))
+    win.decided.connect(lambda *_: None)
+    win.btn_reject.click()
+    assert win.shortlist.topLevelItemCount() == 1
+    assert win.rejected.topLevelItemCount() == 1
+    assert "(1)" in win.tabs.tabText(0)
+    assert "(1)" in win.tabs.tabText(1)
 
 
 def test_the_full_why_text_is_available_on_hover(win):

@@ -2586,6 +2586,10 @@ def open_settings(parent=None, conn=None):
             text = read_guide(path)
             return diff_guide(data, text)
 
+        def _save_brief(body):
+            from app.onboarding.interview import save_document
+            save_document(conn, "fit_brief", body)
+
         def _test_feed_connection():
             """Verify the feed by calling plan() — lightweight, no billing."""
             try:
@@ -2616,6 +2620,7 @@ def open_settings(parent=None, conn=None):
                 conn, parse_where(text, keep=load_scope(conn))),
             guide_exporter=_export_guide,
             guide_importer=_import_guide,
+            brief_saver=_save_brief,
             connection_tester=_test_feed_connection)
         families = FamiliesPanel(
             loader=lambda: load_rules(conn).kill_families,

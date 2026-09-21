@@ -20,8 +20,9 @@ from dataclasses import dataclass
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QFont, QFontMetrics, QKeySequence, QShortcut
 from app.i18n import is_rtl, tr
-from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel,
-                               QMainWindow, QProgressBar,
+from PySide6.QtWidgets import (QApplication, QFileDialog, QFrame,
+                               QHBoxLayout, QLabel,
+                               QMainWindow, QMessageBox, QProgressBar,
                                QPushButton, QSizePolicy, QSplitter,
                                QTabWidget, QTextBrowser,
                                QTreeWidget, QTreeWidgetItem, QVBoxLayout,
@@ -410,6 +411,12 @@ class ReviewWindow(QMainWindow):
         self.calibration_note.setWordWrap(True)
         self.calibration_note.setTextFormat(Qt.PlainText)
         self.calibration_note.hide()
+        self.btn_export = QPushButton(tr("menu.export"))
+        self.btn_export.setObjectName("secondaryButton")
+        self.btn_export.clicked.connect(self._export_csv)
+        self.btn_import = QPushButton(tr("menu.import"))
+        self.btn_import.setObjectName("secondaryButton")
+        self.btn_import.clicked.connect(self._import_csv)
         self.btn_board = QPushButton(tr("menu.board"))
         self.btn_board.setObjectName("secondaryButton")
         self.btn_board.clicked.connect(self.board_requested)
@@ -421,6 +428,8 @@ class ReviewWindow(QMainWindow):
         run_row.addWidget(self.run_progress)
         run_row.addStretch(1)
         run_row.addWidget(self.btn_calibrate)
+        run_row.addWidget(self.btn_export)
+        run_row.addWidget(self.btn_import)
         run_row.addWidget(self.btn_board)
         run_row.addWidget(self.btn_settings)
         run_row.addWidget(self.btn_run_now)
@@ -779,9 +788,119 @@ class ReviewWindow(QMainWindow):
             event.acceptProposedAction()
 
     def _decide(self, decision: str):
-        r = self._current_row()
-        if r is not None:
-            self.decided.emit(r.job_id, decision)
+        tree = self.tabs.currentWidget()
+        if not isinstance(tree, QTreeWidget):
+            return
+        item = tree.currentItem()
+        if item is None:
+            return
+        job_id = item.data(0, Qt.UserRole)
+        r = self._rows.get(job_id)
+        if r is None:
+            return
+
+        idx = tree.indexOfTopLevelItem(item)
+        tree.takeTopLevelItem(idx)
+
+        if decision == "reject":
+            self.rejected.addTopLevelItem(item)
+        elif decision == "later":
+            pass
+        else:
+            pass
+
+        self._refresh_tab_counts()
+        self.decided.emit(r.job_id, decision)
+
+        if tree.topLevelItemCount():
+            nxt = min(idx, tree.topLevelItemCount() - 1)
+            tree.setCurrentItem(tree.topLevelItem(nxt))
+        else:
+            self._show_detail()
+
+    def _refresh_tab_counts(self):
+        for idx, (tree, key) in enumerate((
+                (self.shortlist, "tab.shortlist"), (self.rejected, "tab.rejected"),
+                (self.screened_out, "tab.screened_out"),
+                (self.contained, "tab.needs_review"))):
+            self.tabs.setTabText(idx, tr("tab.with_count", label=tr(key),
+                                         count=tree.topLevelItemCount()))
+
+    # -- CSV export / import ------------------------------------------------
+    _TAB_NAMES = {0: "Shortlist", 1: "Rejected", 2: "Screened out",
+                  3: "Needs review"}
+
+    def _all_rows_by_tab(self):
+        """Yield (tab_name, ReviewRow) for every item across all tabs."""
+        for idx, tree in enumerate((self.shortlist, self.rejected,
+                                    self.screened_out, self.contained)):
+            tab = self._TAB_NAMES.get(idx, "")
+            for i in range(tree.topLevelItemCount()):
+                job_id = tree.topLevelItem(i).data(0, Qt.UserRole)
+                r = self._rows.get(job_id)
+                if r:
+                    yield tab, r
+
+    def _export_csv(self):
+        import csv, io
+        path, _ = QFileDialog.getSaveFileName(
+            self, tr("export.title"), "dawnlist_review.csv",
+            "CSV (*.csv)")
+        if not path:
+            return
+        with open(path, "w", newline="", encoding="utf-8-sig") as f:
+            w = csv.writer(f)
+            w.writerow(["Tab", "Job ID", "Title", "Company", "Location",
+                         "URL", "Verdict", "Reason", "Decision"])
+            for tab, r in self._all_rows_by_tab():
+                w.writerow([tab, r.job_id, r.title, r.company, r.location,
+                            r.url, r.bucket, r.reason or r.screen_reason, ""])
+        QMessageBox.information(self, tr("export.title"),
+                                tr("export.done", count=sum(
+                                    t.topLevelItemCount() for t in (
+                                        self.shortlist, self.rejected,
+                                        self.screened_out, self.contained))))
+
+    def _import_csv(self):
+        import csv
+        path, _ = QFileDialog.getOpenFileName(
+            self, tr("import.title"), "",
+            "CSV (*.csv)")
+        if not path:
+            return
+        applied = 0
+        skipped = []
+        with open(path, newline="", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                decision = (row.get("Decision") or "").strip().lower()
+                if decision not in ("pursue", "reject", "later"):
+                    continue
+                job_id = (row.get("Job ID") or "").strip()
+                if not job_id or job_id not in self._rows:
+                    skipped.append(row.get("Title", job_id))
+                    continue
+                self.decided.emit(job_id, decision)
+                applied += 1
+                self._remove_from_trees(job_id, decision)
+        self._refresh_tab_counts()
+        self._show_detail()
+        msg = tr("import.done", applied=applied)
+        if skipped:
+            msg += "\n" + tr("import.skipped", count=len(skipped))
+        QMessageBox.information(self, tr("import.title"), msg)
+
+    def _remove_from_trees(self, job_id: str, decision: str):
+        """Remove a job from whichever tree it sits in; move to rejected if needed."""
+        for tree in (self.shortlist, self.rejected,
+                     self.screened_out, self.contained):
+            for i in range(tree.topLevelItemCount()):
+                item = tree.topLevelItem(i)
+                if item.data(0, Qt.UserRole) == job_id:
+                    tree.takeTopLevelItem(i)
+                    if decision == "reject":
+                        self.rejected.addTopLevelItem(item)
+                    return
 
 
 def main(rows: list[ReviewRow] | None = None, counts: dict | None = None) -> int:
