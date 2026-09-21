@@ -1434,11 +1434,11 @@ def calibration_sample(conn, *, provider=None, send=None):
 
 def morning_run(conn, *, provider=None, send=None, today: date | None = None):
     """One morning run, with the gates the stored state implies."""
-    from app.ui.adapter import rejected_keys
+    from app.ui.adapter import recent_reject_notes, rejected_keys
 
     from app.onboarding.calibration import is_calibrated
 
-    brief = load_document(conn, "fit_brief")
+    brief = load_document(conn, "fit_brief") + recent_reject_notes(conn)
     factsheet = load_document(conn, "factsheet")
     if not brief.strip():
         from app.i18n import tr

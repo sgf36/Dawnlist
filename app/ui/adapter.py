@@ -114,7 +114,8 @@ def split_job_id(job_id: str) -> tuple[str, str]:
     return provider, provider_job_id
 
 
-def record_decision(conn: sqlite3.Connection, job_id: str, decision: str) -> None:
+def record_decision(conn: sqlite3.Connection, job_id: str, decision: str,
+                    note: str = "") -> None:
     """Persist one Pursue / Reject / Later.
 
     A rejection is PERMANENT and never expires (spec 4), so this writes to
@@ -135,11 +136,12 @@ def record_decision(conn: sqlite3.Connection, job_id: str, decision: str) -> Non
         raise LookupError(f"no stored job for {job_id!r}; persist the run first")
 
     conn.execute(
-        """INSERT INTO decisions(job_id, kind, decided_at) VALUES(?,?,?)
+        """INSERT INTO decisions(job_id, kind, note, decided_at) VALUES(?,?,?,?)
            ON CONFLICT(job_id) DO UPDATE SET
                kind = excluded.kind,
+               note = excluded.note,
                decided_at = excluded.decided_at""",
-        (row["id"], decision,
+        (row["id"], decision, note or None,
          datetime.now(timezone.utc).isoformat(timespec="seconds")))
     conn.commit()
 
@@ -191,10 +193,28 @@ def rejected_keys(conn: sqlite3.Connection) -> set[tuple[str, str]]:
     }
 
 
+def recent_reject_notes(conn: sqlite3.Connection, limit: int = 30) -> str:
+    """Recent rejection feedback, formatted for the assessment brief."""
+    rows = conn.execute(
+        "SELECT j.title, j.company, d.note FROM decisions d "
+        "JOIN jobs j ON j.id = d.job_id "
+        "WHERE d.kind = 'reject' AND d.note IS NOT NULL AND d.note != '' "
+        "ORDER BY d.decided_at DESC LIMIT ?", (limit,)).fetchall()
+    if not rows:
+        return ""
+    lines = [f"- {r['title']} at {r['company']}: {r['note']}" for r in rows]
+    return (
+        "\n\n## Recent rejection feedback\n\n"
+        "The user rejected these postings for the stated reasons. "
+        "Use this to be stricter on similar matches.\n\n"
+        + "\n".join(lines)
+    )
+
+
 def connect_window(window, conn: sqlite3.Connection) -> None:
     """Wire the window's decisions straight through to the database."""
-    window.decided.connect(lambda job_id, decision:
-                           record_decision(conn, job_id, decision))
+    window.decided.connect(lambda job_id, decision, note="":
+                           record_decision(conn, job_id, decision, note))
 
 
 def latest_run_id(conn: sqlite3.Connection) -> int | None:
