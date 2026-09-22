@@ -531,5 +531,6 @@
   "update.size": "ડાઉનલોડ કદ: {size}",
   "update.title": "અપડેટ ઉપલબ્ધ છે",
   "voice.no_profile": "હજુ સુધી કોઈ ટોન પ્રોફાઇલ નથી — તમારા મોકલેલા કેટલાક ઇમેઇલ ઉમેરો",
-  "voice.profile_from": "તમારા {count} મોકલેલા સંદેશાઓમાંથી ટોન શીખાયો"
+  "voice.profile_from": "તમારા {count} મોકલેલા સંદેશાઓમાંથી ટોન શીખાયો",
+  "tab.pursuing": "Pursuing"
 }

@@ -531,5 +531,6 @@
   "update.size": "İndirme boyutu: {size}",
   "update.title": "Güncelleme mevcut",
   "voice.no_profile": "Henüz ton profili yok — gönderdiğiniz bazı e-postaları ekleyin",
-  "voice.profile_from": "Ton, gönderdiğiniz {count} mesajdan öğrenildi"
+  "voice.profile_from": "Ton, gönderdiğiniz {count} mesajdan öğrenildi",
+  "tab.pursuing": "Pursuing"
 }

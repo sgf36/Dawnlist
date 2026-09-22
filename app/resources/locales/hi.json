@@ -531,5 +531,6 @@
   "update.size": "डाउनलोड आकार: {size}",
   "update.title": "अपडेट उपलब्ध है",
   "voice.no_profile": "अभी तक कोई लहजा प्रोफ़ाइल नहीं — अपने कुछ भेजे गए ईमेल जोड़ें",
-  "voice.profile_from": "आपके {count} भेजे गए संदेशों से लहजा सीखा गया"
+  "voice.profile_from": "आपके {count} भेजे गए संदेशों से लहजा सीखा गया",
+  "tab.pursuing": "Pursuing"
 }

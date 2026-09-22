@@ -531,5 +531,6 @@
   "update.size": "Tamaño de la descarga: {size}",
   "update.title": "Actualización disponible",
   "voice.no_profile": "Aún no hay un perfil de tono — añade algunos de tus correos enviados",
-  "voice.profile_from": "Tono aprendido a partir de {count} de tus propios mensajes enviados"
+  "voice.profile_from": "Tono aprendido a partir de {count} de tus propios mensajes enviados",
+  "tab.pursuing": "Pursuing"
 }

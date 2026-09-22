@@ -531,5 +531,6 @@
   "update.size": "Downloadgrootte: {size}",
   "update.title": "Update beschikbaar",
   "voice.no_profile": "Nog geen toonprofiel — voeg enkele van uw eigen verzonden e-mails toe",
-  "voice.profile_from": "Toon geleerd van {count} van uw eigen verzonden berichten"
+  "voice.profile_from": "Toon geleerd van {count} van uw eigen verzonden berichten",
+  "tab.pursuing": "Pursuing"
 }

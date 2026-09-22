@@ -531,5 +531,6 @@
   "update.size": "Ukubwa wa upakuaji: {size}",
   "update.title": "Sasisho linapatikana",
   "voice.no_profile": "Bado hakuna wasifu wa sauti — ongeza baadhi ya barua pepe ulizotuma mwenyewe",
-  "voice.profile_from": "Sauti imejifunza kutoka kwa jumbe {count} ulizotuma mwenyewe"
+  "voice.profile_from": "Sauti imejifunza kutoka kwa jumbe {count} ulizotuma mwenyewe",
+  "tab.pursuing": "Pursuing"
 }

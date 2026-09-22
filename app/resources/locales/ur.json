@@ -531,5 +531,6 @@
   "update.size": "ڈاؤن لوڈ کا سائز: {size}",
   "update.title": "اپڈیٹ دستیاب ہے",
   "voice.no_profile": "ابھی تک کوئی لہجہ پروفائل نہیں — اپنے کچھ بھیجے گئے ای میلز شامل کریں",
-  "voice.profile_from": "لہجہ آپ کے {count} بھیجے گئے پیغامات سے سیکھا گیا"
+  "voice.profile_from": "لہجہ آپ کے {count} بھیجے گئے پیغامات سے سیکھا گیا",
+  "tab.pursuing": "Pursuing"
 }

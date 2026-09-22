@@ -531,5 +531,6 @@
   "update.size": "ਡਾਊਨਲੋਡ ਆਕਾਰ: {size}",
   "update.title": "ਅੱਪਡੇਟ ਉਪਲਬਧ ਹੈ",
   "voice.no_profile": "ਹਾਲੇ ਕੋਈ ਲਹਿਜ਼ਾ ਪ੍ਰੋਫਾਈਲ ਨਹੀਂ — ਆਪਣੀਆਂ ਕੁਝ ਭੇਜੀਆਂ ਈਮੇਲਾਂ ਸ਼ਾਮਲ ਕਰੋ",
-  "voice.profile_from": "ਲਹਿਜ਼ਾ ਤੁਹਾਡੇ ਭੇਜੇ ਗਏ {count} ਸੁਨੇਹਿਆਂ ਤੋਂ ਸਿੱਖਿਆ ਗਿਆ"
+  "voice.profile_from": "ਲਹਿਜ਼ਾ ਤੁਹਾਡੇ ਭੇਜੇ ਗਏ {count} ਸੁਨੇਹਿਆਂ ਤੋਂ ਸਿੱਖਿਆ ਗਿਆ",
+  "tab.pursuing": "Pursuing"
 }

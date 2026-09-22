@@ -531,5 +531,6 @@
   "update.size": "බාගැනීමේ ප්‍රමාණය: {size}",
   "update.title": "යාවත්කාලීනයක් තිබේ",
   "voice.no_profile": "තවම ස්වර පැතිකඩක් නැත — ඔබ එවූ ඊමේල් කිහිපයක් එක් කරන්න",
-  "voice.profile_from": "ඔබ එවූ පණිවිඩ {count} කින් ස්වරය ඉගෙන ගන්නා ලදී"
+  "voice.profile_from": "ඔබ එවූ පණිවිඩ {count} කින් ස්වරය ඉගෙන ගන්නා ලදී",
+  "tab.pursuing": "Pursuing"
 }

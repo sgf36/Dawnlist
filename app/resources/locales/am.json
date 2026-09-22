@@ -531,5 +531,6 @@
   "update.size": "የማውረጃ መጠን፦ {size}",
   "update.title": "ዝማኔ ይገኛል",
   "voice.no_profile": "እስካሁን የቃና መገለጫ የለም — ከእርስዎ የተላኩ ኢሜይሎችን ጨምሩ",
-  "voice.profile_from": "ቃናው ከ{count} እርስዎ ከላኳቸው መልእክቶች ተማረ"
+  "voice.profile_from": "ቃናው ከ{count} እርስዎ ከላኳቸው መልእክቶች ተማረ",
+  "tab.pursuing": "Pursuing"
 }

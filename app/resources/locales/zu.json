@@ -531,5 +531,6 @@
   "update.size": "Usayizi wokudawuniloda: {size}",
   "update.title": "Isibuyekezo siyatholakala",
   "voice.no_profile": "Asikho isimo somoya okwamanje — engeza eminye imiyalezo yakho owayithumela",
-  "voice.profile_from": "Isimo somoya sifundwe kusukela kwimiyalezo {count} owayithumela wena ngokwakho"
+  "voice.profile_from": "Isimo somoya sifundwe kusukela kwimiyalezo {count} owayithumela wena ngokwakho",
+  "tab.pursuing": "Pursuing"
 }

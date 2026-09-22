@@ -531,5 +531,6 @@
   "update.size": "حجم التنزيل: {size}",
   "update.title": "يتوفر تحديث",
   "voice.no_profile": "لا يوجد ملف أسلوب بعد",
-  "voice.profile_from": "تم تعلم الأسلوب من {count} من رسائلك المرسلة"
+  "voice.profile_from": "تم تعلم الأسلوب من {count} من رسائلك المرسلة",
+  "tab.pursuing": "Pursuing"
 }

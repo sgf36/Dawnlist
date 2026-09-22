@@ -531,5 +531,6 @@
   "update.size": "Veličina preuzimanja: {size}",
   "update.title": "Dostupno je ažuriranje",
   "voice.no_profile": "Profil tona još ne postoji — dodajte neke od svojih poslanih e-poruka",
-  "voice.profile_from": "Ton naučen iz {count} vaših poslanih poruka"
+  "voice.profile_from": "Ton naučen iz {count} vaših poslanih poruka",
+  "tab.pursuing": "Pursuing"
 }

@@ -243,9 +243,15 @@ class TheirStackProvider(FeedProvider):
     def _to_job(self, row: dict) -> Job:
         company = _company_name(row)
         title = row.get("job_title") or ""
-        locations = [x for x in (row.get("location"),
+        raw_locs = [x for x in (row.get("location"),
                                  row.get("short_location"),
                                  row.get("long_location")) if x]
+        # Drop locations that are substrings of a more specific one — TheirStack
+        # often returns "London, England" in all three fields, or "London" plus
+        # "London, England, United Kingdom".
+        unique = list(dict.fromkeys(raw_locs))
+        locations = [a for a in unique
+                     if not any(a != b and a in b for b in unique)]
         raw = {k: row.get(k) for k in
                ("seniority", "industry", "remote", "employment_statuses")
                if row.get(k) is not None}
@@ -262,7 +268,7 @@ class TheirStackProvider(FeedProvider):
             provider_job_id=str(row.get("id") or row.get("job_id") or row.get("url") or ""),
             title=title,
             company=company,
-            locations=tuple(dict.fromkeys(locations)),
+            locations=tuple(locations),
             description_text=row.get("description") or "",
             posted_at=parse_date(row.get("date_posted")),
             salary=row.get("salary_string") or None,

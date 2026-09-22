@@ -531,5 +531,6 @@
   "update.size": "גודל ההורדה: {size}",
   "update.title": "עדכון זמין",
   "voice.no_profile": "עדיין אין פרופיל טון — הוסף כמה מהמיילים שנשלחת בעצמך",
-  "voice.profile_from": "הטון נלמד מ-{count} מהודעות שנשלחו על ידך"
+  "voice.profile_from": "הטון נלמד מ-{count} מהודעות שנשלחו על ידך",
+  "tab.pursuing": "Pursuing"
 }

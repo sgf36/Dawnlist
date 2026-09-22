@@ -531,5 +531,6 @@
   "update.size": "Ukuran unduhan: {size}",
   "update.title": "Pembaruan tersedia",
   "voice.no_profile": "Belum ada profil nada — tambahkan beberapa email terkirim Anda sendiri",
-  "voice.profile_from": "Nada bahasa dipelajari dari {count} pesan terkirim Anda"
+  "voice.profile_from": "Nada bahasa dipelajari dari {count} pesan terkirim Anda",
+  "tab.pursuing": "Pursuing"
 }

@@ -531,5 +531,6 @@
   "update.size": "Taille du téléchargement : {size}",
   "update.title": "Mise à jour disponible",
   "voice.no_profile": "Aucun profil de ton pour l'instant — ajoutez quelques-uns de vos e-mails envoyés",
-  "voice.profile_from": "Ton appris à partir de {count} de vos propres messages envoyés"
+  "voice.profile_from": "Ton appris à partir de {count} de vos propres messages envoyés",
+  "tab.pursuing": "Pursuing"
 }

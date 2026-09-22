@@ -2409,8 +2409,10 @@ class SearchesPanel(QWidget):
                     if search_type == "both":
                         both_count += 1
                 state = tr("searches.on") if on else tr("searches.off")
-                type_tag = {"title": "T", "description": "D",
-                            "both": "T+D"}.get(search_type, "T")
+                type_tag = {"title": tr("searches.match_title"),
+                            "description": tr("searches.match_description"),
+                            "both": tr("searches.match_both"),
+                            }.get(search_type, tr("searches.match_title"))
                 run_info = _format_last_run(last_run) if last_run else ""
                 text = (f"{state}  [{type_tag}]  {label}"
                         f"  —  {', '.join(titles)}")
@@ -2429,8 +2431,10 @@ class SearchesPanel(QWidget):
                     if search_type == "both":
                         both_count += 1
                 state = tr("searches.on") if on else tr("searches.off")
-                type_tag = {"title": "T", "description": "D",
-                            "both": "T+D"}.get(search_type, "T")
+                type_tag = {"title": tr("searches.match_title"),
+                            "description": tr("searches.match_description"),
+                            "both": tr("searches.match_both"),
+                            }.get(search_type, tr("searches.match_title"))
                 text = (f"{state}  [{type_tag}]  {label}"
                         f"  —  {', '.join(titles)}")
                 if dk:

@@ -531,5 +531,6 @@
   "update.size": "Ogo nbudata: {size}",
   "update.title": "Enwere mmelite",
   "voice.no_profile": "Enweghị profaịlụ ụda olu ka ugbu a — tinye ụfọdụ ozi-e gị ndị e ziputara",
-  "voice.profile_from": "Ụda olu mụtara site na {count} n'ime ozi gị ndị e zipụrụ"
+  "voice.profile_from": "Ụda olu mụtara site na {count} n'ime ozi gị ndị e zipụrụ",
+  "tab.pursuing": "Pursuing"
 }

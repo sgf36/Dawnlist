@@ -531,5 +531,6 @@
   "update.size": "Nedladdningsstorlek: {size}",
   "update.title": "Uppdatering tillgänglig",
   "voice.no_profile": "Ingen tonalitetsprofil ännu — lägg till några av dina egna skickade e-postmeddelanden",
-  "voice.profile_from": "Tonalitet inlärd från {count} av dina egna skickade meddelanden"
+  "voice.profile_from": "Tonalitet inlärd från {count} av dina egna skickade meddelanden",
+  "tab.pursuing": "Pursuing"
 }
