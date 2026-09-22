@@ -78,14 +78,35 @@ def connect_board(window, conn: sqlite3.Connection) -> None:
     pipeline read was wrong. Collapsing them into one "fix it" button would let
     a bounce be papered over as a status tidy-up.
     """
-    window.repair_requested.connect(lambda oid: repair_mirror(conn, oid))
-    window.bounce_repair_requested.connect(
-        lambda oid: set_stage(conn, oid, Stage.IDENTIFIED))
-    window.sent_recorded.connect(lambda oid: record_sent(conn, oid))
-    window.task_added.connect(lambda oid, title: add_task(conn, oid, title))
-    window.determination_recorded.connect(
-        lambda oid, positive, stage: record_determination(
-            window, conn, oid, positive=positive, stage=stage))
+    def _reload():
+        rows, findings = board_rows(conn)
+        window.load(rows, findings)
+
+    def _do_repair(oid):
+        repair_mirror(conn, oid)
+        _reload()
+
+    def _do_bounce(oid):
+        set_stage(conn, oid, Stage.IDENTIFIED)
+        _reload()
+
+    def _do_sent(oid):
+        record_sent(conn, oid)
+        _reload()
+
+    def _do_task(oid, title):
+        add_task(conn, oid, title)
+        _reload()
+
+    def _do_determination(oid, positive, stage):
+        record_determination(window, conn, oid, positive=positive, stage=stage)
+        _reload()
+
+    window.repair_requested.connect(_do_repair)
+    window.bounce_repair_requested.connect(_do_bounce)
+    window.sent_recorded.connect(_do_sent)
+    window.task_added.connect(_do_task)
+    window.determination_recorded.connect(_do_determination)
     # Restore the saved column set BEFORE wiring the save, or applying it
     # would immediately write back what was just read.
     saved = load_visible_columns(conn)

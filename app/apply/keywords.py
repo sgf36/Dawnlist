@@ -158,9 +158,27 @@ def _lines(description: str) -> list[str]:
     Bullets arrive as newlines from most providers, but some flatten a list
     into one paragraph separated by semicolons or bullet glyphs, and a single
     1,400-character line yields nothing useful. Splitting on those recovers it.
+
+    Prose-format postings have neither bullets nor semicolons. A paragraph
+    written as flowing sentences still carries requirements ("must have",
+    "experience in …") — they just sit inside sentences rather than on their
+    own line. Splitting on sentence boundaries catches those without harming
+    the bullet case (a bullet line rarely contains a period mid-text).
     """
     rough = re.split(r"[\n\r]+|(?<=[a-z0-9])\s*[•·‣▪]\s*|;\s+", description)
-    return [ln.strip(" \t-–—*•·‣▪") for ln in rough if ln and ln.strip()]
+    result: list[str] = []
+    for ln in rough:
+        ln = ln.strip(" \t-–—*•·‣▪")
+        if not ln:
+            continue
+        if len(ln) > 200:
+            for sentence in re.split(r"(?<=[.!?])\s+", ln):
+                s = sentence.strip()
+                if s:
+                    result.append(s)
+        else:
+            result.append(ln)
+    return result
 
 
 def _clean(phrase: str) -> str:

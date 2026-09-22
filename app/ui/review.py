@@ -19,7 +19,8 @@ import re
 from dataclasses import dataclass
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QFont, QFontMetrics, QKeySequence, QShortcut
+from PySide6.QtGui import (QAction, QColor, QFont, QFontMetrics, QIcon,
+                           QKeySequence, QPainter, QPixmap, QShortcut)
 from app.i18n import is_rtl, tr
 from PySide6.QtWidgets import (QApplication, QDialog, QFileDialog, QFrame,
                                QHBoxLayout, QLabel, QLineEdit,
@@ -38,10 +39,45 @@ GOLD_DEEP = "#B07A2E"
 CREAM = "#F0ECE4"
 INK = "#16212A"
 
+# Per-tab accent colours — within the teal/gold brand family.
+TAB_COLOURS = {
+    0: TEAL,            # Shortlist — primary positive
+    1: "#2A6B5E",       # Pursuing — brighter teal (active engagement)
+    2: GOLD_DEEP,       # Rejected — user said no
+    3: "#7a7267",       # Lost — muted warm grey (employer said no)
+    4: "#8b9199",       # Screened out — cool grey (automated)
+    5: "#8B6914",       # Needs review — dark gold (needs attention)
+}
+
+# Row-level accent colours for bucket decoration.
+BUCKET_COLOURS = {
+    "strong": TEAL,
+    "possible": "#2A6B5E",
+    "judgement-call": "#5C7A6A",
+    "rejected": GOLD_DEEP,
+    "declined": GOLD_DEEP,
+    "lost": "#7a7267",
+    "screened-out": "#8b9199",
+    "pursued": "#2A6B5E",
+}
+
 #: The warning chip must never push the funnel counts off the bar.
 WARNING_MAX_WIDTH = 420
 
 BUCKET_ORDER = {"strong": 0, "possible": 1, "judgement-call": 2, "rejected": 3}
+
+
+def _dot_icon(colour: str, size: int = 10) -> QIcon:
+    """A small filled circle in the given colour, for use as a tab icon."""
+    pm = QPixmap(size, size)
+    pm.fill(QColor(0, 0, 0, 0))
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.setBrush(QColor(colour))
+    p.setPen(Qt.NoPen)
+    p.drawEllipse(1, 1, size - 2, size - 2)
+    p.end()
+    return QIcon(pm)
 
 _MD_LINK = re.compile(r'\[([^\]]+)\]\((https?://[^\s)]+)\)')
 _MD_BOLD = re.compile(r'\*\*(.+?)\*\*|__(.+?)__')
@@ -567,14 +603,18 @@ class ReviewWindow(QMainWindow):
         self.shortlist = self._make_tree()
         self.pursuing = self._make_tree()
         self.rejected = self._make_tree()
+        self.lost = self._make_tree()
         self.screened_out = self._make_tree()
         self.contained = self._make_tree()
         self.tabs.addTab(self.shortlist, tr("tab.shortlist"))
         self.tabs.addTab(self.pursuing, tr("tab.pursuing"))
         self.tabs.addTab(self.rejected, tr("tab.rejected"))
+        self.tabs.addTab(self.lost, tr("tab.lost"))
         # spec 5.4: the unlikely pile is browsable, never erased.
         self.tabs.addTab(self.screened_out, tr("tab.screened_out"))
         self.tabs.addTab(self.contained, tr("tab.needs_review"))
+        for idx, colour in TAB_COLOURS.items():
+            self.tabs.setTabIcon(idx, _dot_icon(colour))
         splitter.addWidget(self.tabs)
 
         right = QWidget()
@@ -611,7 +651,7 @@ class ReviewWindow(QMainWindow):
         self.setCentralWidget(root)
 
         for tree in (self.shortlist, self.pursuing, self.rejected,
-                     self.screened_out, self.contained):
+                     self.lost, self.screened_out, self.contained):
             tree.currentItemChanged.connect(self._show_detail)
         # AND ON A TAB CHANGE, which nothing did.
         #
@@ -646,8 +686,8 @@ class ReviewWindow(QMainWindow):
             self._select_next)
         QShortcut(QKeySequence("K"), self).activated.connect(
             self._select_prev)
-        # Tab switching: 1–5 jump to the five tabs.
-        for i in range(5):
+        # Tab switching: 1–6 jump to the six tabs.
+        for i in range(6):
             QShortcut(QKeySequence(str(i + 1)), self).activated.connect(
                 lambda idx=i: self.tabs.setCurrentIndex(idx))
 
@@ -700,13 +740,19 @@ class ReviewWindow(QMainWindow):
              notes: list[str] | None = None) -> None:
         self._rows = {r.job_id: r for r in rows}
         for tree in (self.shortlist, self.pursuing, self.rejected,
-                     self.screened_out, self.contained):
+                     self.lost, self.screened_out, self.contained):
             tree.clear()
 
         ordered = sorted(rows, key=lambda r: (BUCKET_ORDER.get(r.bucket, 9),
                                               r.company.casefold()))
         for r in ordered:
-            if r.screen_reason and r.bucket == "screened-out":
+            if r.bucket == "pursued":
+                target = self.pursuing
+            elif r.bucket == "lost":
+                target = self.lost
+            elif r.bucket == "declined":
+                target = self.rejected
+            elif r.screen_reason and r.bucket == "screened-out":
                 target = self.contained if r.contained else self.screened_out
             elif r.bucket == "rejected":
                 target = self.rejected
@@ -725,6 +771,9 @@ class ReviewWindow(QMainWindow):
                 item.setFont(0, f)
             if r.downgrade_reason or r.contained:
                 item.setForeground(2, Qt.darkYellow)
+            bucket_colour = BUCKET_COLOURS.get(r.bucket)
+            if bucket_colour:
+                item.setForeground(0, QColor(bucket_colour))
             target.addTopLevelItem(item)
 
         self.funnel.set_counts(counts, incomplete_note=incomplete_note,
@@ -733,6 +782,7 @@ class ReviewWindow(QMainWindow):
                 (self.shortlist, "tab.shortlist"),
                 (self.pursuing, "tab.pursuing"),
                 (self.rejected, "tab.rejected"),
+                (self.lost, "tab.lost"),
                 (self.screened_out, "tab.screened_out"),
                 (self.contained, "tab.needs_review"))):
             self.tabs.setTabText(idx, tr("tab.with_count", label=tr(key),
@@ -961,6 +1011,7 @@ class ReviewWindow(QMainWindow):
                 (self.shortlist, "tab.shortlist"),
                 (self.pursuing, "tab.pursuing"),
                 (self.rejected, "tab.rejected"),
+                (self.lost, "tab.lost"),
                 (self.screened_out, "tab.screened_out"),
                 (self.contained, "tab.needs_review"))):
             self.tabs.setTabText(idx, tr("tab.with_count", label=tr(key),
@@ -968,13 +1019,13 @@ class ReviewWindow(QMainWindow):
 
     # -- CSV export / import ------------------------------------------------
     _TAB_NAMES = {0: "Shortlist", 1: "Pursuing", 2: "Rejected",
-                  3: "Screened out", 4: "Needs review"}
+                  3: "Lost", 4: "Screened out", 5: "Needs review"}
 
     def _all_rows_by_tab(self):
         """Yield (tab_name, ReviewRow) for every item across all tabs."""
         for idx, tree in enumerate((self.shortlist, self.pursuing,
-                                    self.rejected, self.screened_out,
-                                    self.contained)):
+                                    self.rejected, self.lost,
+                                    self.screened_out, self.contained)):
             tab = self._TAB_NAMES.get(idx, "")
             for i in range(tree.topLevelItemCount()):
                 job_id = tree.topLevelItem(i).data(0, Qt.UserRole)

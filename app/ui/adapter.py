@@ -15,6 +15,7 @@ Two rules travel with the rows rather than being re-derived in the UI:
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -34,6 +35,16 @@ VALID_DECISIONS = {"pursue", "reject", "later"}
 #: A run id no row can carry, for asking `stranded_rows` for everything
 #: undecided rather than everything undecided from OTHER runs.
 NO_RUN = -1
+
+_DOWNGRADE_RE = re.compile(r"\s*\[downgraded:\s*(.*?)\]\s*$")
+
+
+def _split_downgrade(reason: str) -> tuple[str, str | None]:
+    """Strip legacy ``[downgraded: …]`` suffix from a stored reason."""
+    m = _DOWNGRADE_RE.search(reason)
+    if m:
+        return reason[:m.start()].rstrip(), m.group(1)
+    return reason, None
 
 
 def rows_from_outcome(outcome: RunOutcome) -> list[ReviewRow]:
@@ -286,7 +297,8 @@ def _row_from_sql(r, near: dict[str, str], *,
     """One database row as the review screen sees it."""
     if r["bucket"]:
         bucket = r["bucket"]
-        reason = r["reason"] or ""
+        raw_reason = r["reason"] or ""
+        reason, downgrade = _split_downgrade(raw_reason)
         quote = r["disqualifying_quote"]
         checked = bool(r["requirement_checked"])
     elif r["screen_verdict"] == Verdict.LIKELY.value:
@@ -294,10 +306,10 @@ def _row_from_sql(r, near: dict[str, str], *,
         # `rows_from_outcome`: an unread posting is an unknown, not a
         # rejection.
         bucket, reason = "judgement-call", "not assessed in this run"
-        quote, checked = None, False
+        quote, checked, downgrade = None, False, None
     else:
         bucket, reason = SCREENED_OUT, ""
-        quote, checked = None, True
+        quote, checked, downgrade = None, True, None
 
     if carried_forward:
         # Said on the row itself, not only in a flag the window may or may not
@@ -310,14 +322,14 @@ def _row_from_sql(r, near: dict[str, str], *,
         job_id=f"{r['provider']}:{r['provider_job_id']}",
         title=r["title"],
         company=r["company"],
-        location=", ".join(json.loads(r["locations_json"] or "[]")),
+        location=", ".join(dict.fromkeys(json.loads(r["locations_json"] or "[]"))),
         url=r["url"],
         description=r["description_text"],
         bucket=bucket,
         reason=reason,
         disqualifying_quote=quote,
         requirement_checked=checked,
-        downgrade_reason=None,
+        downgrade_reason=downgrade,
         screen_reason=r["screen_reason"] or "",
         contained=False,
         near_duplicate=near.get(r["provider_job_id"], ""),
@@ -413,6 +425,111 @@ def rows_from_db(conn: sqlite3.Connection, run_id: int | None = None,
     rows = [_row_from_sql(r, near) for r in conn.execute(sql, (run_id, run_id))]
     if recover and not include_decided:
         rows.extend(stranded_rows(conn, run_id, near))
+    return rows
+
+
+def pursued_rows(conn: sqlite3.Connection) -> list[ReviewRow]:
+    """Jobs the user pursued, for the Pursuing tab.
+
+    Without this the Pursuing tab starts empty every launch: rows_from_db
+    excludes decided jobs, so anything the user clicked Pursue on yesterday
+    vanishes from the review window — even though it is live on the Board.
+    """
+    sql = """
+        SELECT j.provider, j.provider_job_id, j.title, j.company,
+               j.locations_json, j.description_text, j.url,
+               a.bucket, a.reason
+          FROM decisions d
+          JOIN jobs j ON j.id = d.job_id
+          LEFT JOIN assessments a ON a.job_id = j.id
+         WHERE d.kind = 'pursue'
+         ORDER BY d.decided_at DESC
+    """
+    rows: list[ReviewRow] = []
+    seen: set[str] = set()
+    for r in conn.execute(sql):
+        jid = f"{r['provider']}:{r['provider_job_id']}"
+        if jid in seen:
+            continue
+        seen.add(jid)
+        rows.append(ReviewRow(
+            job_id=jid,
+            title=r["title"],
+            company=r["company"],
+            location=", ".join(dict.fromkeys(
+                json.loads(r["locations_json"] or "[]"))),
+            url=r["url"],
+            description=r["description_text"],
+            bucket="pursued",
+            reason=r["reason"] or "",
+        ))
+    return rows
+
+
+def declined_rows(conn: sqlite3.Connection) -> list[ReviewRow]:
+    """Jobs the user explicitly rejected, for the Rejected tab."""
+    sql = """
+        SELECT j.provider, j.provider_job_id, j.title, j.company,
+               j.locations_json, j.description_text, j.url,
+               a.bucket, a.reason, d.note
+          FROM decisions d
+          JOIN jobs j ON j.id = d.job_id
+          LEFT JOIN assessments a ON a.job_id = j.id
+         WHERE d.kind = 'reject'
+         ORDER BY d.decided_at DESC
+    """
+    rows: list[ReviewRow] = []
+    seen: set[str] = set()
+    for r in conn.execute(sql):
+        jid = f"{r['provider']}:{r['provider_job_id']}"
+        if jid in seen:
+            continue
+        seen.add(jid)
+        reason = r["note"] or r["reason"] or ""
+        rows.append(ReviewRow(
+            job_id=jid,
+            title=r["title"],
+            company=r["company"],
+            location=", ".join(dict.fromkeys(
+                json.loads(r["locations_json"] or "[]"))),
+            url=r["url"],
+            description=r["description_text"],
+            bucket="declined",
+            reason=reason,
+        ))
+    return rows
+
+
+def lost_rows(conn: sqlite3.Connection) -> list[ReviewRow]:
+    """Board opportunities that reached Lost (employer said no)."""
+    sql = """
+        SELECT j.provider, j.provider_job_id, j.title, j.company,
+               j.locations_json, j.description_text, j.url,
+               a.bucket, a.reason
+          FROM opportunities o
+          JOIN jobs j ON j.id = o.job_id
+          LEFT JOIN assessments a ON a.job_id = j.id
+         WHERE o.stage = 7
+         ORDER BY o.id DESC
+    """
+    rows: list[ReviewRow] = []
+    seen: set[str] = set()
+    for r in conn.execute(sql):
+        jid = f"{r['provider']}:{r['provider_job_id']}"
+        if jid in seen:
+            continue
+        seen.add(jid)
+        rows.append(ReviewRow(
+            job_id=jid,
+            title=r["title"],
+            company=r["company"],
+            location=", ".join(dict.fromkeys(
+                json.loads(r["locations_json"] or "[]"))),
+            url=r["url"],
+            description=r["description_text"],
+            bucket="lost",
+            reason=r["reason"] or "",
+        ))
     return rows
 
 

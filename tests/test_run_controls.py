@@ -258,7 +258,7 @@ def test_status_text_reports_a_failed_or_partial_run_once(qapp, conn):
             note="strategy: Could not reach the Dawnlist feed service.",
             error="strategy: Could not reach the Dawnlist feed service.")
     text = status_text(run_status(conn, 1))
-    assert text.startswith("Some jobs may have been missed")
+    assert text.startswith("The last run did not finish completely")
     assert text.count("Could not reach") == 1
 
     add_run(conn, "2026-09-11T06:00:00+00:00", status="complete")

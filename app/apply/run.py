@@ -170,7 +170,8 @@ def summarise(pack: ApplicationPack) -> str:
     if pack.brief is not None:
         lines.append("interview brief: "
                      + ("ready" if not pack.brief.is_empty else
-                        "EMPTY — the request returned nothing usable"))
+                        "not available (the posting did not contain enough "
+                        "detail to produce one)"))
 
     lines.extend(pack.errors)
     return "\n".join(lines)

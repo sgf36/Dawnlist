@@ -1,17 +1,11 @@
 """Tone of voice, learned from the user's own sent messages.
 
-## The constraint this design exists to satisfy
+Two paths deliver the raw messages:
 
-v1 ships **no mailbox reading** — no IMAP, no Gmail/Outlook OAuth, no app
-passwords (handoff Part 1, Part 4). Learning a tone of voice from "historical
-emails" would ordinarily mean exactly that, and would drag the product into
-Google's restricted-scope rules and their annual paid CASA assessment.
-
-So the messages arrive the same way job-alert emails already do: **the user
-drags their own sent mail onto the app** — `.eml` files, or an `.mbox` export,
-both of which every mainstream client can produce. Zero credentials, works with
-every provider, and it is the user handling their own mail. Nothing here ever
-connects to a mailbox.
+1. **File-based** — the user drags `.eml` files or an `.mbox` export onto the
+   app.  Zero credentials, works with every provider.
+2. **IMAP-based** — when the user has configured an email account, recent sent
+   messages are fetched from the Sent folder via IMAP FETCH (read-only).
 
 ## What is derived, and what is deliberately not
 
@@ -270,6 +264,19 @@ def build_profile(bodies: list[str], locale: str = "en") -> VoiceProfile:
 
 def profile_from_files(paths: list[Path], locale: str = "en") -> VoiceProfile:
     return build_profile(extract_bodies(paths), locale=locale)
+
+
+def profile_from_imap(host: str, port: int, email: str, password: str,
+                      locale: str = "en", limit: int = 50) -> VoiceProfile:
+    """Build a voice profile from the user's Sent folder via IMAP.
+
+    The messages are fetched read-only and stripped the same way file-based
+    messages are.  The result is identical in shape to `profile_from_files`.
+    """
+    from app.core.email_client import fetch_sent_bodies
+    raw_bodies = fetch_sent_bodies(host, port, email, password, limit=limit)
+    bodies = [strip_quoted(b) for b in raw_bodies if b.strip()]
+    return build_profile(bodies, locale=locale)
 
 
 # ---------------------------------------------------------------------------
