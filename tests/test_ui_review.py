@@ -57,7 +57,7 @@ def test_screened_out_rows_are_browsable_not_deleted(win):
     win.load([row(str(i), bucket="screened-out", screen_reason="x")
               for i in range(9)], {"swept": 9})
     assert win.screened_out.topLevelItemCount() == 9
-    assert "9" in win.tabs.tabText(3)
+    assert "9" in win.tabs.tabText(4)
 
 
 def bar_text(win):

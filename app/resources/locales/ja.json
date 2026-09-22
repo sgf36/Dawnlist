@@ -514,7 +514,9 @@
   "storekit.not_saved": "サブスクリプションは確認されましたが、このMacのキーチェーンに保存できませんでした。次回Dawnlistを開いたときに再度保存を試みます。二重に請求されることはありません。",
   "storekit.nothing_to_restore": "このアカウントには復元する購入項目がありません。",
   "storekit.unconfirmed": "App Storeでは購入が完了していますが、Dawnlistはまだサブスクリプションサービスで確認できていません。次回Dawnlistを開いたときに自動的に再確認します。二重に請求されることはありません。",
+  "tab.lost": "不採用",
   "tab.needs_review": "要確認",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "却下済み",
   "tab.screened_out": "除外済み",
   "tab.shortlist": "候補リスト",
@@ -531,6 +533,5 @@
   "update.size": "ダウンロードサイズ: {size}",
   "update.title": "アップデートのお知らせ",
   "voice.no_profile": "文体プロファイルがまだありません ― ご自身の送信済みメールを追加してください",
-  "voice.profile_from": "ご自身が送信した {count} 件のメッセージから文体を学習しました",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "ご自身が送信した {count} 件のメッセージから文体を学習しました"
 }

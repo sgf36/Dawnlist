@@ -514,7 +514,9 @@
   "storekit.not_saved": "तपाईंको सदस्यता पुष्टि भएको छ, तर यस Mac को Keychain ले यसलाई सुरक्षित गर्न सकेन। Dawnlist अर्को पटक खुल्दा फेरि प्रयास गर्नेछ — तपाईंलाई दुई पटक शुल्क लाग्ने छैन।",
   "storekit.nothing_to_restore": "यो खातामा पुनर्स्थापना गर्नका लागि केही छैन।",
   "storekit.unconfirmed": "App Store मा खरिद छ, तर Dawnlist ले अझै सदस्यता सेवासँग यसलाई पुष्टि गर्न सकेको छैन। Dawnlist अर्को पटक खुल्दा यसले आफैं फेरि प्रयास गर्नेछ — तपाईंलाई दुई पटक शुल्क लाग्ने छैन।",
+  "tab.lost": "हराएको",
   "tab.needs_review": "समीक्षा आवश्यक",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "अस्वीकृत",
   "tab.screened_out": "स्क्रिनबाट बाहिर",
   "tab.shortlist": "शर्टलिस्ट",
@@ -531,6 +533,5 @@
   "update.size": "डाउनलोड साइज: {size}",
   "update.title": "अपडेट उपलब्ध छ",
   "voice.no_profile": "अझै कुनै स्वर प्रोफाइल छैन — आफ्ना केही पठाइएका इमेलहरू थप्नुहोस्",
-  "voice.profile_from": "तपाईंले पठाएका {count} सन्देशबाट स्वर सिकियो",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "तपाईंले पठाएका {count} सन्देशबाट स्वर सिकियो"
 }

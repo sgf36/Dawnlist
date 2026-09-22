@@ -514,7 +514,9 @@
   "storekit.not_saved": "Din prenumeration är bekräftad, men den här Mac-datorns Nyckelring kunde inte spara den. Dawnlist försöker igen nästa gång det öppnas — du debiteras inte två gånger.",
   "storekit.nothing_to_restore": "Inget att återställa på det här kontot.",
   "storekit.unconfirmed": "App Store har registrerat köpet, men Dawnlist kunde inte bekräfta det med prenumerationstjänsten ännu. Det försöker igen automatiskt nästa gång Dawnlist öppnas — du debiteras inte två gånger.",
+  "tab.lost": "Förlorat",
   "tab.needs_review": "Behöver granskas",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Avvisade",
   "tab.screened_out": "Bortsorterade",
   "tab.shortlist": "Urval",
@@ -531,6 +533,5 @@
   "update.size": "Nedladdningsstorlek: {size}",
   "update.title": "Uppdatering tillgänglig",
   "voice.no_profile": "Ingen tonalitetsprofil ännu — lägg till några av dina egna skickade e-postmeddelanden",
-  "voice.profile_from": "Tonalitet inlärd från {count} av dina egna skickade meddelanden",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "Tonalitet inlärd från {count} av dina egna skickade meddelanden"
 }

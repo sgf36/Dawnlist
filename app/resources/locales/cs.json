@@ -514,7 +514,9 @@
   "storekit.not_saved": "Vaše předplatné je potvrzeno, ale Klíčenka tohoto Macu je nedokázala uložit. Dawnlist to zkusí znovu při příštím spuštění — nebude vám účtováno dvakrát.",
   "storekit.nothing_to_restore": "Na tomto účtu není nic k obnovení.",
   "storekit.unconfirmed": "App Store nákup zaznamenal, ale Dawnlist jej zatím nemohl potvrdit u služby pro předplatné. Zkusí to znovu sám při příštím spuštění Dawnlist — nebude vám účtováno dvakrát.",
+  "tab.lost": "Ztraceno",
   "tab.needs_review": "Vyžaduje kontrolu",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Zamítnuté",
   "tab.screened_out": "Vyřazené výběrem",
   "tab.shortlist": "Užší výběr",
@@ -531,6 +533,5 @@
   "update.size": "Velikost stažení: {size}",
   "update.title": "K dispozici je aktualizace",
   "voice.no_profile": "Zatím žádný profil tónu — přidejte některé své odeslané e-maily",
-  "voice.profile_from": "Tón se učí z {count} vašich odeslaných zpráv",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "Tón se učí z {count} vašich odeslaných zpráv"
 }

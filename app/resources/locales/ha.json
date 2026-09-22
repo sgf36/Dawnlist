@@ -514,7 +514,9 @@
   "storekit.not_saved": "An tabbatar da biyan kuɗin ku, amma Keychain na wannan Mac bai ajiye shi ba. Dawnlist zai sake gwadawa a lokacin da ya buɗe na gaba — ba za a caje ku sau biyu ba.",
   "storekit.nothing_to_restore": "Babu abin da za a maido a wannan asusun.",
   "storekit.unconfirmed": "App Store yana da sayayyar, amma Dawnlist bai iya tabbatar da ita da sabis ɗin biyan kuɗi ba tukuna. Zai sake gwadawa da kansa a lokacin da Dawnlist ya buɗe na gaba — ba za a caje ku sau biyu ba.",
+  "tab.lost": "Batattu",
   "tab.needs_review": "Yana bukatar dubawa",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "An ƙi",
   "tab.screened_out": "An fitar bayan bincike",
   "tab.shortlist": "Jerin zaɓaɓɓu",
@@ -531,6 +533,5 @@
   "update.size": "Girman zazzagewa: {size}",
   "update.title": "Akwai sabuntawa",
   "voice.no_profile": "Babu bayanin salon magana tukuna — ƙara wasu daga cikin imel ɗin da ka aika",
-  "voice.profile_from": "An koyi salon magana daga {count} na saƙonnin da kake aikawa",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "An koyi salon magana daga {count} na saƙonnin da kake aikawa"
 }

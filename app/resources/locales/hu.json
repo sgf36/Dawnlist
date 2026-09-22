@@ -514,7 +514,9 @@
   "storekit.not_saved": "Az előfizetése megerősítve, de ennek a Macnek a Kulcskarikája nem tudta elmenteni. A Dawnlist legközelebb, amikor megnyílik, újra megpróbálja — nem fogják kétszer megterhelni.",
   "storekit.nothing_to_restore": "Nincs mit visszaállítani ezen a fiókon.",
   "storekit.unconfirmed": "Az App Store rögzítette a vásárlást, de a Dawnlist még nem tudta megerősíteni az előfizetési szolgáltatással. Legközelebb, amikor a Dawnlist megnyílik, automatikusan újra megpróbálja — nem fogják kétszer megterhelni.",
+  "tab.lost": "Elveszett",
   "tab.needs_review": "Átnézésre vár",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Elutasítva",
   "tab.screened_out": "Kiszűrve",
   "tab.shortlist": "Rövidlista",
@@ -531,6 +533,5 @@
   "update.size": "Letöltés mérete: {size}",
   "update.title": "Frissítés elérhető",
   "voice.no_profile": "Még nincs hangnem-profil — adj hozzá néhány saját elküldött e-mailt",
-  "voice.profile_from": "A hangnem {count} saját elküldött üzenetedből tanulva",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "A hangnem {count} saját elküldött üzenetedből tanulva"
 }

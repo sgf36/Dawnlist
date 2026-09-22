@@ -514,7 +514,9 @@
   "storekit.not_saved": "ምዝገባዎ ተረጋግጧል፣ ነገር ግን የዚህ ማክ Keychain ማስቀመጥ አልቻለም። Dawnlist በሚቀጥለው ጊዜ ሲከፈት እንደገና ይሞክራል — ሁለት ጊዜ አይከፈሉም።",
   "storekit.nothing_to_restore": "በዚህ መለያ ላይ የሚመለስ ነገር የለም።",
   "storekit.unconfirmed": "App Store ግዢውን ይዟል፣ ነገር ግን Dawnlist ገና ከምዝገባ አገልግሎት ጋር ማረጋገጥ አልቻለም። Dawnlist በሚቀጥለው ጊዜ ሲከፈት ራሱ እንደገና ይሞክራል — ሁለት ጊዜ አይከፈሉም።",
+  "tab.lost": "ጠፍቷል",
   "tab.needs_review": "ግምገማ ይፈልጋል",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "ውድቅ የተደረጉ",
   "tab.screened_out": "ማጣሪያ ውስጥ የቀሩ",
   "tab.shortlist": "የመጨረሻ ዝርዝር",
@@ -531,6 +533,5 @@
   "update.size": "የማውረጃ መጠን፦ {size}",
   "update.title": "ዝማኔ ይገኛል",
   "voice.no_profile": "እስካሁን የቃና መገለጫ የለም — ከእርስዎ የተላኩ ኢሜይሎችን ጨምሩ",
-  "voice.profile_from": "ቃናው ከ{count} እርስዎ ከላኳቸው መልእክቶች ተማረ",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "ቃናው ከ{count} እርስዎ ከላኳቸው መልእክቶች ተማረ"
 }

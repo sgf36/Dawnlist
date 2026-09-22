@@ -191,7 +191,7 @@ def test_persist_writes_verdicts_and_marks_downgrades(conn):
     persist(conn, out)
     row = conn.execute("SELECT bucket, reason FROM assessments").fetchone()
     assert row["bucket"] == "judgement-call"
-    assert "downgraded" in row["reason"]
+    assert row["reason"] == "needs an MBA"
 
 
 def test_a_run_output_written_but_not_registered_is_caught(conn, tmp_path):

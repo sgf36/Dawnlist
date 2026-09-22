@@ -514,7 +514,9 @@
   "storekit.not_saved": "Aboneliğiniz onaylandı, ancak bu Mac'in Keychain'i kaydetmedi. Dawnlist bir sonraki açılışında tekrar deneyecek — iki kez ücretlendirilmeyeceksiniz.",
   "storekit.nothing_to_restore": "Bu hesapta geri yüklenecek bir şey yok.",
   "storekit.unconfirmed": "App Store satın alımı aldı, ancak Dawnlist bunu henüz abonelik hizmetiyle doğrulayamadı. Dawnlist bir sonraki açılışında bunu kendiliğinden tekrar deneyecek — iki kez ücretlendirilmeyeceksiniz.",
+  "tab.lost": "Kaybedildi",
   "tab.needs_review": "İnceleme bekleyenler",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Reddedilenler",
   "tab.screened_out": "Elenenler",
   "tab.shortlist": "Kısa liste",
@@ -531,6 +533,5 @@
   "update.size": "İndirme boyutu: {size}",
   "update.title": "Güncelleme mevcut",
   "voice.no_profile": "Henüz ton profili yok — gönderdiğiniz bazı e-postaları ekleyin",
-  "voice.profile_from": "Ton, gönderdiğiniz {count} mesajdan öğrenildi",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "Ton, gönderdiğiniz {count} mesajdan öğrenildi"
 }

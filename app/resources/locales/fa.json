@@ -514,7 +514,9 @@
   "storekit.not_saved": "اشتراک شما تأیید شده است، اما Keychain این مک آن را ذخیره نکرد. Dawnlist در دفعهٔ بعد که باز می‌شود دوباره تلاش می‌کند — از شما دو بار هزینه دریافت نخواهد شد.",
   "storekit.nothing_to_restore": "چیزی برای بازیابی در این حساب وجود ندارد.",
   "storekit.unconfirmed": "App Store خرید را ثبت کرده است، اما Dawnlist هنوز نتوانسته آن را با سرویس اشتراک تأیید کند. در دفعهٔ بعد که Dawnlist باز شود، خودش دوباره تلاش می‌کند — از شما دو بار هزینه دریافت نخواهد شد.",
+  "tab.lost": "از دست رفته",
   "tab.needs_review": "نیازمند بازبینی",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "رد شده",
   "tab.screened_out": "رد شده در غربال",
   "tab.shortlist": "فهرست کوتاه",
@@ -531,6 +533,5 @@
   "update.size": "حجم دانلود: {size}",
   "update.title": "به‌روزرسانی موجود است",
   "voice.no_profile": "هنوز نمایه لحنی وجود ندارد — چند ایمیل ارسالی خودتان را اضافه کنید",
-  "voice.profile_from": "لحن از {count} پیام ارسالی خودتان آموخته شده",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "لحن از {count} پیام ارسالی خودتان آموخته شده"
 }

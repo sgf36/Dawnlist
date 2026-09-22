@@ -514,7 +514,9 @@
   "storekit.not_saved": "ඔබගේ දායකත්වය තහවුරු කර ඇත, නමුත් මෙම Mac හි Keychain එය සුරැකීමට අකමැති විය. Dawnlist ඊළඟට විවෘත වන විට නැවත උත්සාහ කරනු ඇත — ඔබෙන් දෙවරක් අය නොකරනු ලැබේ.",
   "storekit.nothing_to_restore": "මෙම ගිණුමේ ප්‍රතිස්ථාපනය කිරීමට කිසිවක් නොමැත.",
   "storekit.unconfirmed": "App Store හි මිලදී ගැනීම ඇත, නමුත් Dawnlist හට එය තවම දායකත්ව සේවාව සමඟ තහවුරු කළ නොහැකි විය. Dawnlist ඊළඟට විවෘත වන විට එය තමන්ම නැවත උත්සාහ කරනු ඇත — ඔබෙන් දෙවරක් අය නොකරනු ලැබේ.",
+  "tab.lost": "අහිමි",
   "tab.needs_review": "සමාලෝචනය අවශ්‍යයි",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "ප්‍රතික්ෂේප කළ",
   "tab.screened_out": "පරීක්ෂණයෙන් ඉවත් කළ",
   "tab.shortlist": "කෙටි ලැයිස්තුව",
@@ -531,6 +533,5 @@
   "update.size": "බාගැනීමේ ප්‍රමාණය: {size}",
   "update.title": "යාවත්කාලීනයක් තිබේ",
   "voice.no_profile": "තවම ස්වර පැතිකඩක් නැත — ඔබ එවූ ඊමේල් කිහිපයක් එක් කරන්න",
-  "voice.profile_from": "ඔබ එවූ පණිවිඩ {count} කින් ස්වරය ඉගෙන ගන්නා ලදී",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "ඔබ එවූ පණිවිඩ {count} කින් ස්වරය ඉගෙන ගන්නා ලදී"
 }

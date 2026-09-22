@@ -514,7 +514,9 @@
   "storekit.not_saved": "Ukubhalisela kwakho kuqinisekisiwe, kodwa i-Keychain yale Mac ayikwazanga ukukusindisa. I-Dawnlist izophinde izame ngesikhathi elandelayo ivulwa — ngeke ukhokhiswe kabili.",
   "storekit.nothing_to_restore": "Akukho okungabuyiselwa kule akhawunti.",
   "storekit.unconfirmed": "I-App Store inomthengo, kodwa i-Dawnlist ayikakwazi ukuwuqinisekisa nesevisi yokubhalisela okwamanje. Izophinde izame ngokwayo ngesikhathi i-Dawnlist ivulwa futhi — ngeke ukhokhiswe kabili.",
+  "tab.lost": "Ilahlekile",
   "tab.needs_review": "Kudinga ukubuyekezwa",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Kwenqatshiwe",
   "tab.screened_out": "Kwenqatshelwe ekuhlungeni",
   "tab.shortlist": "Uhlu lokuqoka",
@@ -531,6 +533,5 @@
   "update.size": "Usayizi wokudawuniloda: {size}",
   "update.title": "Isibuyekezo siyatholakala",
   "voice.no_profile": "Asikho isimo somoya okwamanje — engeza eminye imiyalezo yakho owayithumela",
-  "voice.profile_from": "Isimo somoya sifundwe kusukela kwimiyalezo {count} owayithumela wena ngokwakho",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "Isimo somoya sifundwe kusukela kwimiyalezo {count} owayithumela wena ngokwakho"
 }

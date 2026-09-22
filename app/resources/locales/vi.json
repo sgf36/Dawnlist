@@ -514,7 +514,9 @@
   "storekit.not_saved": "Gói đăng ký của bạn đã được xác nhận, nhưng Chuỗi khóa của Mac này không lưu được. Dawnlist sẽ thử lại vào lần mở tiếp theo — bạn sẽ không bị tính phí hai lần.",
   "storekit.nothing_to_restore": "Không có gì để khôi phục trên tài khoản này.",
   "storekit.unconfirmed": "App Store đã ghi nhận giao dịch mua, nhưng Dawnlist chưa thể xác nhận với dịch vụ đăng ký. Ứng dụng sẽ tự thử lại vào lần mở Dawnlist tiếp theo — bạn sẽ không bị tính phí hai lần.",
+  "tab.lost": "Mất",
   "tab.needs_review": "Cần xem lại",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Đã từ chối",
   "tab.screened_out": "Bị loại sơ bộ",
   "tab.shortlist": "Danh sách rút gọn",
@@ -531,6 +533,5 @@
   "update.size": "Kích thước tải xuống: {size}",
   "update.title": "Có bản cập nhật mới",
   "voice.no_profile": "Chưa có hồ sơ giọng văn — hãy thêm một số email bạn đã gửi",
-  "voice.profile_from": "Giọng văn học được từ {count} tin nhắn bạn đã gửi",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "Giọng văn học được từ {count} tin nhắn bạn đã gửi"
 }

@@ -514,7 +514,9 @@
   "storekit.not_saved": "Votre abonnement est confirmé, mais le Trousseau de ce Mac n'a pas pu l'enregistrer. Dawnlist réessaiera à la prochaine ouverture — vous ne serez pas facturé deux fois.",
   "storekit.nothing_to_restore": "Rien à restaurer sur ce compte.",
   "storekit.unconfirmed": "L'App Store a bien enregistré l'achat, mais Dawnlist n'a pas encore pu le confirmer auprès du service d'abonnement. Il réessaiera automatiquement à la prochaine ouverture de Dawnlist — vous ne serez pas facturé deux fois.",
+  "tab.lost": "Perdu",
   "tab.needs_review": "À vérifier",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Rejetées",
   "tab.screened_out": "Écartées",
   "tab.shortlist": "Présélection",
@@ -531,6 +533,5 @@
   "update.size": "Taille du téléchargement : {size}",
   "update.title": "Mise à jour disponible",
   "voice.no_profile": "Aucun profil de ton pour l'instant — ajoutez quelques-uns de vos e-mails envoyés",
-  "voice.profile_from": "Ton appris à partir de {count} de vos propres messages envoyés",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "Ton appris à partir de {count} de vos propres messages envoyés"
 }

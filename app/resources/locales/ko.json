@@ -514,7 +514,9 @@
   "storekit.not_saved": "구독이 확인되었지만, 이 Mac의 키체인이 이를 저장하지 못했습니다. Dawnlist가 다음에 열릴 때 다시 시도합니다 — 이중으로 청구되지 않습니다.",
   "storekit.nothing_to_restore": "이 계정에서 복원할 항목이 없습니다.",
   "storekit.unconfirmed": "App Store에는 구매 내역이 있지만, Dawnlist가 아직 구독 서비스로부터 이를 확인하지 못했습니다. Dawnlist가 다음에 열릴 때 자동으로 다시 시도합니다 — 이중으로 청구되지 않습니다.",
+  "tab.lost": "탈락",
   "tab.needs_review": "검토 필요",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "거절됨",
   "tab.screened_out": "제외됨",
   "tab.shortlist": "관심 목록",
@@ -531,6 +533,5 @@
   "update.size": "다운로드 크기: {size}",
   "update.title": "업데이트 가능",
   "voice.no_profile": "아직 어조 프로필이 없습니다 — 보낸 이메일을 추가해 주세요",
-  "voice.profile_from": "보내신 메시지 {count}건에서 학습된 어조",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "보내신 메시지 {count}건에서 학습된 어조"
 }

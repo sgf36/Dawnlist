@@ -514,7 +514,9 @@
   "storekit.not_saved": "Obunangiz tasdiqlandi, ammo bu Mac'ning Keychain'i uni saqlamadi. Dawnlist keyingi safar ochilganda qayta urinib ko'radi — sizdan ikki marta pul yechilmaydi.",
   "storekit.nothing_to_restore": "Bu hisobda tiklash uchun hech narsa yo'q.",
   "storekit.unconfirmed": "App Store xaridni qayd etdi, ammo Dawnlist uni obuna xizmati bilan hali tasdiqlay olmadi. Dawnlist keyingi safar ochilganda buni o'zi qayta urinib ko'radi — sizdan ikki marta pul yechilmaydi.",
+  "tab.lost": "Yo'qotilgan",
   "tab.needs_review": "Ko'rib chiqish kerak",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Rad etilgan",
   "tab.screened_out": "Saralab chiqarilgan",
   "tab.shortlist": "Tanlanganlar",
@@ -531,6 +533,5 @@
   "update.size": "Yuklama hajmi: {size}",
   "update.title": "Yangilanish mavjud",
   "voice.no_profile": "Hozircha ohang profili yo'q — o'zingiz yuborgan e-pochtalardan qo'shing",
-  "voice.profile_from": "Ohang sizning {count} ta yuborilgan xabaringizdan o'rganildi",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "Ohang sizning {count} ta yuborilgan xabaringizdan o'rganildi"
 }

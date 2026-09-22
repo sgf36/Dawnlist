@@ -514,7 +514,9 @@
   "storekit.not_saved": "تم تأكيد اشتراكك، لكن Keychain في هذا الـ Mac لم يحفظه. سيحاول Dawnlist مرة أخرى في المرة القادمة التي يُفتح فيها — لن تُحاسب مرتين.",
   "storekit.nothing_to_restore": "لا يوجد شيء لاستعادته في هذا الحساب.",
   "storekit.unconfirmed": "لدى App Store سجل عملية الشراء، لكن تعذّر على Dawnlist تأكيدها مع خدمة الاشتراكات حتى الآن. سيحاول مرة أخرى تلقائيًا في المرة القادمة التي يُفتح فيها Dawnlist — لن تُحاسب مرتين.",
+  "tab.lost": "خسرت",
   "tab.needs_review": "يحتاج مراجعة",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "مرفوضة",
   "tab.screened_out": "استبعد بالفرز",
   "tab.shortlist": "القائمة المختصرة",
@@ -531,6 +533,5 @@
   "update.size": "حجم التنزيل: {size}",
   "update.title": "يتوفر تحديث",
   "voice.no_profile": "لا يوجد ملف أسلوب بعد",
-  "voice.profile_from": "تم تعلم الأسلوب من {count} من رسائلك المرسلة",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "تم تعلم الأسلوب من {count} من رسائلك المرسلة"
 }

@@ -514,7 +514,9 @@
   "storekit.not_saved": "Su suscripción está confirmada, pero el Llavero de este Mac no pudo guardarla. Dawnlist lo intentará de nuevo la próxima vez que se abra; no se le cobrará dos veces.",
   "storekit.nothing_to_restore": "No hay nada que restaurar en esta cuenta.",
   "storekit.unconfirmed": "App Store tiene registrada la compra, pero Dawnlist aún no pudo confirmarla con el servicio de suscripciones. Lo intentará de nuevo por sí solo la próxima vez que se abra Dawnlist; no se le cobrará dos veces.",
+  "tab.lost": "Perdido",
   "tab.needs_review": "Requieren revisión",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Rechazados",
   "tab.screened_out": "Descartados",
   "tab.shortlist": "Preseleccionados",
@@ -531,6 +533,5 @@
   "update.size": "Tamaño de la descarga: {size}",
   "update.title": "Actualización disponible",
   "voice.no_profile": "Aún no hay un perfil de tono — añade algunos de tus correos enviados",
-  "voice.profile_from": "Tono aprendido a partir de {count} de tus propios mensajes enviados",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "Tono aprendido a partir de {count} de tus propios mensajes enviados"
 }

@@ -514,7 +514,9 @@
   "storekit.not_saved": "Vaša pretplata je potvrđena, ali Keychain ovog Maca nije je mogao spremiti. Dawnlist će pokušati ponovno sljedeći put kad se otvori — nećete biti naplaćeni dvaput.",
   "storekit.nothing_to_restore": "Nema ničega za vraćanje na ovom računu.",
   "storekit.unconfirmed": "App Store ima zabilježenu kupnju, ali Dawnlist je još nije mogao potvrditi s uslugom pretplate. Pokušat će ponovno sam sljedeći put kad se Dawnlist otvori — nećete biti naplaćeni dvaput.",
+  "tab.lost": "Izgubljeno",
   "tab.needs_review": "Potreban pregled",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Odbijeno",
   "tab.screened_out": "Odbačeno u probiru",
   "tab.shortlist": "Uži izbor",
@@ -531,6 +533,5 @@
   "update.size": "Veličina preuzimanja: {size}",
   "update.title": "Dostupno je ažuriranje",
   "voice.no_profile": "Profil tona još ne postoji — dodajte neke od svojih poslanih e-poruka",
-  "voice.profile_from": "Ton naučen iz {count} vaših poslanih poruka",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "Ton naučen iz {count} vaših poslanih poruka"
 }

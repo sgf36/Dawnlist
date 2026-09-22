@@ -514,7 +514,9 @@
   "storekit.not_saved": "Abonamentul dvs. este confirmat, dar Keychain-ul acestui Mac nu l-a putut salva. Dawnlist va încerca din nou la următoarea deschidere — nu veți fi taxat de două ori.",
   "storekit.nothing_to_restore": "Nimic de restaurat pentru acest cont.",
   "storekit.unconfirmed": "App Store are achiziția, dar Dawnlist nu a putut-o confirma încă cu serviciul de abonamente. Va încerca din nou automat la următoarea deschidere a Dawnlist — nu veți fi taxat de două ori.",
+  "tab.lost": "Pierdut",
   "tab.needs_review": "Necesită revizuire",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Respinse",
   "tab.screened_out": "Respinse la triaj",
   "tab.shortlist": "Listă scurtă",
@@ -531,6 +533,5 @@
   "update.size": "Dimensiunea descărcării: {size}",
   "update.title": "Actualizare disponibilă",
   "voice.no_profile": "Încă niciun profil de ton — adaugă câteva dintre e-mailurile tale trimise",
-  "voice.profile_from": "Ton învățat din {count} dintre mesajele tale trimise",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "Ton învățat din {count} dintre mesajele tale trimise"
 }

@@ -514,7 +514,9 @@
   "storekit.not_saved": "Twoja subskrypcja została potwierdzona, ale Pęk kluczy tego komputera Mac nie chciał jej zapisać. Dawnlist spróbuje ponownie przy następnym uruchomieniu — nie zostaniesz obciążony dwukrotnie.",
   "storekit.nothing_to_restore": "Na tym koncie nie ma nic do przywrócenia.",
   "storekit.unconfirmed": "App Store odnotował zakup, ale Dawnlist nie zdołał go jeszcze potwierdzić w usłudze subskrypcji. Spróbuje ponownie samodzielnie przy następnym uruchomieniu Dawnlist — nie zostaniesz obciążony dwukrotnie.",
+  "tab.lost": "Utracone",
   "tab.needs_review": "Do przejrzenia",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Odrzucone",
   "tab.screened_out": "Odrzucone wstępnie",
   "tab.shortlist": "Lista wybranych",
@@ -531,6 +533,5 @@
   "update.size": "Rozmiar pobierania: {size}",
   "update.title": "Dostępna aktualizacja",
   "voice.no_profile": "Brak profilu tonu — dodaj kilka swoich wysłanych e-maili",
-  "voice.profile_from": "Ton nauczony na podstawie {count} Twoich wysłanych wiadomości",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "Ton nauczony na podstawie {count} Twoich wysłanych wiadomości"
 }

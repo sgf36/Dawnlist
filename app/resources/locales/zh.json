@@ -514,7 +514,9 @@
   "storekit.not_saved": "您的订阅已确认，但此 Mac 的钥匙串未能保存。Dawnlist 会在下次打开时重试——您不会被重复扣款。",
   "storekit.nothing_to_restore": "此账户没有可恢复的订阅。",
   "storekit.unconfirmed": "App Store 已收到该购买，但 Dawnlist 尚未能向订阅服务确认。Dawnlist 会在下次打开时自动重试——您不会被重复扣款。",
+  "tab.lost": "未通过",
   "tab.needs_review": "待复核",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "已拒绝",
   "tab.screened_out": "已筛除",
   "tab.shortlist": "候选名单",
@@ -531,6 +533,5 @@
   "update.size": "下载大小：{size}",
   "update.title": "有可用更新",
   "voice.no_profile": "尚无语气画像 — 请添加一些您已发送的邮件",
-  "voice.profile_from": "语气已根据您发送的 {count} 条消息学习得出",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "语气已根据您发送的 {count} 条消息学习得出"
 }

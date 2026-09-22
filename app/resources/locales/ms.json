@@ -514,7 +514,9 @@
   "storekit.not_saved": "Langganan anda telah disahkan, tetapi Keychain pada Mac ini tidak dapat menyimpannya. Dawnlist akan cuba lagi pada kali seterusnya ia dibuka — anda tidak akan dicaj dua kali.",
   "storekit.nothing_to_restore": "Tiada apa-apa untuk dipulihkan pada akaun ini.",
   "storekit.unconfirmed": "App Store telah menerima pembelian tersebut, tetapi Dawnlist belum dapat mengesahkannya dengan perkhidmatan langganan. Ia akan cuba lagi secara automatik pada kali seterusnya Dawnlist dibuka — anda tidak akan dicaj dua kali.",
+  "tab.lost": "Kalah",
   "tab.needs_review": "Perlu disemak",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Ditolak",
   "tab.screened_out": "Gagal saringan",
   "tab.shortlist": "Senarai pendek",
@@ -531,6 +533,5 @@
   "update.size": "Saiz muat turun: {size}",
   "update.title": "Kemas kini tersedia",
   "voice.no_profile": "Belum ada profil nada — tambah beberapa e-mel hantar anda sendiri",
-  "voice.profile_from": "Nada dipelajari daripada {count} mesej hantar anda sendiri",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "Nada dipelajari daripada {count} mesej hantar anda sendiri"
 }

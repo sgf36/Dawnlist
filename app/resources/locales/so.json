@@ -514,7 +514,9 @@
   "storekit.not_saved": "Rukhsaddaada waa la xaqiijiyay, laakiin Keychain-ka Mac-kan ma kaydin. Dawnlist mar kale isku dayi doonaa marka xigta ee la furo — laguuma qaadi doono lacag laba jeer.",
   "storekit.nothing_to_restore": "Waxba looma soo celin karo xisaabtan.",
   "storekit.unconfirmed": "App Store-ku wuu haystaa iibka, laakiin Dawnlist weli kama xaqiijin adeegga rukhsadda. Isagu si toos ah ayuu mar kale isku dayi doonaa marka xigta ee Dawnlist la furo — laguuma qaadi doono lacag laba jeer.",
+  "tab.lost": "Lumay",
   "tab.needs_review": "U baahan dib u eegis",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "La diiday",
   "tab.screened_out": "Baaritaanka lagama gudbin",
   "tab.shortlist": "Liiska Kooban",
@@ -531,6 +533,5 @@
   "update.size": "Cabbirka soo dejinta: {size}",
   "update.title": "Cusboonaysiin ayaa la heli karaa",
   "voice.no_profile": "Wali ma jiro qaab-cod — ku dar qaar ka mid ah iimayladaada la diray",
-  "voice.profile_from": "Codka waxaa laga bartay {count} fariimood oo aad adigu dirtay",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "Codka waxaa laga bartay {count} fariimood oo aad adigu dirtay"
 }

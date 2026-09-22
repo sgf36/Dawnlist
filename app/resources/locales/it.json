@@ -514,7 +514,9 @@
   "storekit.not_saved": "Il tuo abbonamento è confermato, ma il Keychain di questo Mac non è riuscito a salvarlo. Dawnlist riproverà alla prossima apertura: non ti verrà addebitato due volte.",
   "storekit.nothing_to_restore": "Nessun acquisto da ripristinare su questo account.",
   "storekit.unconfirmed": "L'App Store ha registrato l'acquisto, ma Dawnlist non è ancora riuscito a confermarlo con il servizio di abbonamento. Riproverà automaticamente alla prossima apertura di Dawnlist: non ti verrà addebitato due volte.",
+  "tab.lost": "Perso",
   "tab.needs_review": "Da rivedere",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Respinti",
   "tab.screened_out": "Esclusi dallo screening",
   "tab.shortlist": "Selezionati",
@@ -531,6 +533,5 @@
   "update.size": "Dimensione del download: {size}",
   "update.title": "Aggiornamento disponibile",
   "voice.no_profile": "Nessun profilo di tono ancora — aggiungi alcune tue email inviate",
-  "voice.profile_from": "Tono appreso da {count} tuoi messaggi inviati",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "Tono appreso da {count} tuoi messaggi inviati"
 }

@@ -2678,8 +2678,14 @@ def _write_application(window, conn, opportunity_id: str,
         finally:
             worker_conn.close()
 
-    def failed(exc):
+    def _restore():
         QApplication.restoreOverrideCursor()
+        if hasattr(window, "btn_apply"):
+            window.btn_apply.setEnabled(True)
+            window.btn_brief.setEnabled(True)
+
+    def failed(exc):
+        _restore()
         if isinstance(exc, NoCVs):
             if _choose_cvs(window, str(exc)):
                 _write_application(window, conn, opportunity_id, want_brief)
@@ -2691,10 +2697,13 @@ def _write_application(window, conn, opportunity_id: str,
                                 f"{type(exc).__name__}: {exc}")
 
     def done(pack):
-        QApplication.restoreOverrideCursor()
+        _restore()
         _application_written(window, pack)
 
     QApplication.setOverrideCursor(Qt.WaitCursor)
+    if hasattr(window, "btn_apply"):
+        window.btn_apply.setEnabled(False)
+        window.btn_brief.setEnabled(False)
     window._application_task = run_in_background(work, on_done=done,
                                                  on_error=failed)
 
@@ -2762,7 +2771,8 @@ def _added_alerts(window, conn, paths) -> None:
 
 
 def _alerts_added(window, conn, result) -> None:
-    from app.ui.adapter import latest_run_id, rows_from_db
+    from app.ui.adapter import (declined_rows, latest_run_id, lost_rows,
+                                pursued_rows, rows_from_db)
 
     outcome, problems = result
 
@@ -2770,7 +2780,8 @@ def _alerts_added(window, conn, result) -> None:
     if outcome is None:
         window.funnel.set_counts({}, incomplete_note=note or "nothing was added")
         return
-    window.load(rows_from_db(conn),
+    window.load(rows_from_db(conn) + pursued_rows(conn)
+                + declined_rows(conn) + lost_rows(conn),
                 _stored_funnel(conn, latest_run_id(conn)),
                 incomplete_note=note)
 
@@ -2822,6 +2833,8 @@ def _open_board(parent, conn):
     belongs on it, and a board showing yesterday's rows reads as a lost
     decision.
     """
+    import sys
+
     from app.ui.board import BoardWindow
     from app.ui.board_adapter import board_rows
 
@@ -2834,6 +2847,15 @@ def _open_board(parent, conn):
         rows, findings = board_rows(conn)
         board.load(rows, findings)
     board.show()
+    if sys.platform == "win32":
+        # On Windows, raise_() and activateWindow() are unreliable when
+        # another window in the same process holds focus.  Minimising
+        # then restoring forces the window manager to bring the board to
+        # front without a flash because Qt suppresses the animation when
+        # the window is already NORMAL-sized.
+        from PySide6.QtCore import Qt
+        board.setWindowState(board.windowState() | Qt.WindowMinimized)
+        board.setWindowState(board.windowState() & ~Qt.WindowMinimized)
     board.raise_()
     board.activateWindow()
     return board
@@ -2963,7 +2985,8 @@ def _main_window(conn, *, open_board: bool):
     window in the same process, instead of leaving the user with nothing on
     screen and an application they have to start again.
     """
-    from app.ui.adapter import connect_window, latest_run_id, rows_from_db
+    from app.ui.adapter import (connect_window, declined_rows, latest_run_id,
+                                    lost_rows, pursued_rows, rows_from_db)
     from app.ui.board import BoardWindow
     from app.ui.board_adapter import board_rows, connect_board
     from app.ui.review import ReviewWindow
@@ -3007,7 +3030,9 @@ def _main_window(conn, *, open_board: bool):
             # empty in it — every posting the run assessed was on disk and
             # nothing put it on screen.
             run_id = latest_run_id(conn)
-            window.load(rows_from_db(conn), _stored_funnel(conn, run_id),
+            window.load(rows_from_db(conn) + pursued_rows(conn)
+                        + declined_rows(conn) + lost_rows(conn),
+                        _stored_funnel(conn, run_id),
                         notes=_screen_drift_notes(conn, run_id))
 
         window._daily_run = _wire_daily_run(window, conn, reload)

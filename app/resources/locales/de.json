@@ -514,7 +514,9 @@
   "storekit.not_saved": "Ihr Abonnement ist bestätigt, aber der Schlüsselbund dieses Macs konnte es nicht speichern. Dawnlist versucht es beim nächsten Start erneut — Sie werden nicht doppelt belastet.",
   "storekit.nothing_to_restore": "Für dieses Konto gibt es nichts wiederherzustellen.",
   "storekit.unconfirmed": "Der App Store hat den Kauf registriert, aber Dawnlist konnte ihn noch nicht beim Abonnementdienst bestätigen. Dawnlist versucht es beim nächsten Start automatisch erneut — Sie werden nicht doppelt belastet.",
+  "tab.lost": "Verloren",
   "tab.needs_review": "Zu prüfen",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Abgelehnt",
   "tab.screened_out": "Aussortiert",
   "tab.shortlist": "Shortlist",
@@ -531,6 +533,5 @@
   "update.size": "Downloadgröße: {size}",
   "update.title": "Update verfügbar",
   "voice.no_profile": "Noch kein Tonfallprofil — fügen Sie einige Ihrer gesendeten E-Mails hinzu",
-  "voice.profile_from": "Tonfall aus {count} Ihrer eigenen gesendeten Nachrichten gelernt",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "Tonfall aus {count} Ihrer eigenen gesendeten Nachrichten gelernt"
 }

@@ -514,7 +514,9 @@
   "storekit.not_saved": "Langganan sampeyan wis dikonfirmasi, nanging Keychain Mac iki ora bisa nyimpen. Dawnlist bakal nyoba maneh nalika dibukak sabanjure — sampeyan ora bakal ditagih kaping pindho.",
   "storekit.nothing_to_restore": "Ora ana sing bisa dibalekake ing akun iki.",
   "storekit.unconfirmed": "App Store wis nampa tukon, nanging Dawnlist durung bisa ngonfirmasi karo layanan langganan. Bakal nyoba dhewe maneh nalika Dawnlist dibukak sabanjure — sampeyan ora bakal ditagih kaping pindho.",
+  "tab.lost": "Ilang",
   "tab.needs_review": "Perlu Dipriksa",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Ditolak",
   "tab.screened_out": "Ora Lulus Saring",
   "tab.shortlist": "Dhaptar Pilihan",
@@ -531,6 +533,5 @@
   "update.size": "Ukuran unduhan: {size}",
   "update.title": "Pembaruan kasedhiya",
   "voice.no_profile": "Durung ana profil gaya basa — tambahaké sawetara email kiriman dhewe",
-  "voice.profile_from": "Gaya basa disinaoni saka {count} pesen sing wis dikirim dhewe",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "Gaya basa disinaoni saka {count} pesen sing wis dikirim dhewe"
 }

@@ -514,7 +514,9 @@
   "storekit.not_saved": "Uw abonnement is bevestigd, maar de Sleutelhanger van deze Mac kon het niet opslaan. Dawnlist probeert het opnieuw wanneer u de app de volgende keer opent — u wordt niet dubbel in rekening gebracht.",
   "storekit.nothing_to_restore": "Niets om te herstellen op dit account.",
   "storekit.unconfirmed": "De App Store heeft de aankoop geregistreerd, maar Dawnlist kon dit nog niet bevestigen bij de abonnementsservice. De app probeert dit automatisch opnieuw wanneer Dawnlist de volgende keer wordt geopend — u wordt niet dubbel in rekening gebracht.",
+  "tab.lost": "Verloren",
   "tab.needs_review": "Vereist controle",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Afgewezen",
   "tab.screened_out": "Uitgesloten",
   "tab.shortlist": "Shortlist",
@@ -531,6 +533,5 @@
   "update.size": "Downloadgrootte: {size}",
   "update.title": "Update beschikbaar",
   "voice.no_profile": "Nog geen toonprofiel — voeg enkele van uw eigen verzonden e-mails toe",
-  "voice.profile_from": "Toon geleerd van {count} van uw eigen verzonden berichten",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "Toon geleerd van {count} van uw eigen verzonden berichten"
 }

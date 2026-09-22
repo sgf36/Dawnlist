@@ -60,6 +60,7 @@ QListWidget#ruleList {{
 QListWidget#ruleList::item {{ padding: 3px 4px; }}
 QListWidget#ruleList::item:selected {{ background: {TEAL}; color: {CREAM}; }}
 QListWidget#ruleList:disabled {{ background: #f4f1ea; color: #45505a; }}
+QLabel#versionLabel {{ color: #8a8680; padding: 12px 0; }}
 """
 
 
@@ -685,6 +686,12 @@ class SettingsWindow(QWidget):
         layout.addWidget(_divider())
         self.report = ReportPanel()
         layout.addWidget(self.report)
+
+        from app.version import VERSION
+        ver = QLabel(f"Dawnlist {VERSION}")
+        ver.setObjectName("versionLabel")
+        ver.setAlignment(Qt.AlignCenter)
+        layout.addWidget(ver)
 
         self.setStyleSheet(SETTINGS_STYLESHEET)
 
@@ -2632,8 +2639,13 @@ class SearchesPanel(QWidget):
             self._say(tr("searches.export_empty"), ok=False)
             return
 
+        from PySide6.QtCore import QStandardPaths
+        docs = QStandardPaths.writableLocation(
+            QStandardPaths.DocumentsLocation)
+        default = (f"{docs}/dawnlist-searches.csv"
+                   if docs else "dawnlist-searches.csv")
         path, _filter = QFileDialog.getSaveFileName(
-            self, tr("searches.export_title"), "dawnlist-searches.csv",
+            self, tr("searches.export_title"), default,
             "CSV (*.csv)")
         if not path:
             return
@@ -2667,9 +2679,14 @@ class SearchesPanel(QWidget):
 
         from app.core.query_csv import write_template
 
+        from PySide6.QtCore import QStandardPaths
+        docs = QStandardPaths.writableLocation(
+            QStandardPaths.DocumentsLocation)
+        default = (f"{docs}/dawnlist-searches-template.csv"
+                   if docs else "dawnlist-searches-template.csv")
         path, _filter = QFileDialog.getSaveFileName(
-            self, tr("searches.template_title"),
-            "dawnlist-searches-template.csv", "CSV (*.csv)")
+            self, tr("searches.template_title"), default,
+            "CSV (*.csv)")
         if not path:
             return
 

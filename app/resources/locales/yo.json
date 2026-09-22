@@ -514,7 +514,9 @@
   "storekit.not_saved": "A ti fi ìdí ìforúkọsílẹ̀ rẹ múlẹ̀, ṣùgbọ́n Keychain Mac yìí kò fi í pamọ́. Dawnlist yóò tún gbìyànjú ní ìgbà tí ó bá tún ṣí — a kò ní gba owó lọ́wọ́ rẹ ní ìgbà méjì.",
   "storekit.nothing_to_restore": "Kò sí ohun kankan láti gbà padà lórí àkọọ́lẹ̀ yìí.",
   "storekit.unconfirmed": "App Store ní rírà náà, ṣùgbọ́n Dawnlist kò tíì lè fi í múlẹ̀ pẹ̀lú iṣẹ́ ìforúkọsílẹ̀. Yóò tún gbìyànjú fúnra rẹ̀ ní ìgbà tí Dawnlist bá tún ṣí — a kò ní gba owó lọ́wọ́ rẹ ní ìgbà méjì.",
+  "tab.lost": "Sọnù",
   "tab.needs_review": "Nílò Àtúnyẹ̀wò",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Tí a Kọ̀",
   "tab.screened_out": "Tí a Yọ Jáde",
   "tab.shortlist": "Àkọsílẹ̀ Yíyan",
@@ -531,6 +533,5 @@
   "update.size": "Ìwọ̀n ìgbàsílẹ̀: {size}",
   "update.title": "Ìmúdójúìwọ̀n wà",
   "voice.no_profile": "Kò sí àkọsílẹ̀ ohùn síbẹ̀ — fi díẹ̀ nínú àwọn ímeèlì tí o ti fi ránṣẹ́ kún",
-  "voice.profile_from": "A kọ́ ohùn láti inú {count} nínú àwọn ìránṣẹ́ tí o ti fi ránṣẹ́",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "A kọ́ ohùn láti inú {count} nínú àwọn ìránṣẹ́ tí o ti fi ránṣẹ́"
 }

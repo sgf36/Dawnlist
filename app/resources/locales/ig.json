@@ -514,7 +514,9 @@
   "storekit.not_saved": "Akwadoro ntinye aka gị, mana Keychain nke Mac a jụrụ ịchekwa ya. Dawnlist ga-anwa ọzọ mgbe ọ bụla ọ ga-emepe ọzọ — a gaghị akwụ gị ụgwọ ugboro abụọ.",
   "storekit.nothing_to_restore": "Ọ dịghị ihe dị iji weghachite na akaụntụ a.",
   "storekit.unconfirmed": "App Store nwere ịzụta ahụ, mana Dawnlist enwebeghị ike ịkwado ya na ọrụ ntinye aka. Ọ ga-anwa ọzọ n'onwe ya mgbe ọ bụla Dawnlist ga-emepe ọzọ — a gaghị akwụ gị ụgwọ ugboro abụọ.",
+  "tab.lost": "Furu",
   "tab.needs_review": "Chọrọ nyocha ọzọ",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Ajụrụ",
   "tab.screened_out": "Ewepụrụ na nyocha",
   "tab.shortlist": "Ndepụta ndị ahọpụtara",
@@ -531,6 +533,5 @@
   "update.size": "Ogo nbudata: {size}",
   "update.title": "Enwere mmelite",
   "voice.no_profile": "Enweghị profaịlụ ụda olu ka ugbu a — tinye ụfọdụ ozi-e gị ndị e ziputara",
-  "voice.profile_from": "Ụda olu mụtara site na {count} n'ime ozi gị ndị e zipụrụ",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "Ụda olu mụtara site na {count} n'ime ozi gị ndị e zipụrụ"
 }

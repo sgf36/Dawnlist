@@ -514,7 +514,9 @@
   "storekit.not_saved": "آپ کی سبسکرپشن کی تصدیق ہو چکی ہے، لیکن اس میک کی Keychain نے اسے محفوظ نہیں کیا۔ Dawnlist اگلی بار کھلنے پر دوبارہ کوشش کرے گا — آپ سے دو بار چارج نہیں کیا جائے گا۔",
   "storekit.nothing_to_restore": "اس اکاؤنٹ پر بحال کرنے کے لیے کچھ نہیں ہے۔",
   "storekit.unconfirmed": "App Store کے پاس خریداری موجود ہے، لیکن Dawnlist ابھی تک اسے سبسکرپشن سروس کے ساتھ تصدیق نہیں کر سکا۔ اگلی بار Dawnlist کھلنے پر یہ خود بخود دوبارہ کوشش کرے گا — آپ سے دو بار چارج نہیں کیا جائے گا۔",
+  "tab.lost": "کھو دیا",
   "tab.needs_review": "جائزے کی ضرورت",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "مسترد شدہ",
   "tab.screened_out": "مسترد شدہ (اسکریننگ)",
   "tab.shortlist": "شارٹ لسٹ",
@@ -531,6 +533,5 @@
   "update.size": "ڈاؤن لوڈ کا سائز: {size}",
   "update.title": "اپڈیٹ دستیاب ہے",
   "voice.no_profile": "ابھی تک کوئی لہجہ پروفائل نہیں — اپنے کچھ بھیجے گئے ای میلز شامل کریں",
-  "voice.profile_from": "لہجہ آپ کے {count} بھیجے گئے پیغامات سے سیکھا گیا",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "لہجہ آپ کے {count} بھیجے گئے پیغامات سے سیکھا گیا"
 }

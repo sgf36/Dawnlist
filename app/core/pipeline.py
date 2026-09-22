@@ -367,8 +367,6 @@ def persist_verdicts(conn: sqlite3.Connection, run_id: int, verdicts) -> None:
         if row is None:
             continue
         reason = v.reason
-        if v.downgrade_reason:
-            reason = f"{reason} [downgraded: {v.downgrade_reason}]"
         conn.execute(
             """INSERT INTO assessments(job_id, run_id, bucket, reason,
                    disqualifying_quote, requirement_checked, full_read,

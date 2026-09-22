@@ -514,7 +514,9 @@
   "storekit.not_saved": "המנוי שלך אושר, אך מחזור המפתחות של ה-Mac הזה לא הצליח לשמור אותו. Dawnlist ינסה שוב בפעם הבאה שהוא ייפתח — לא תחויב פעמיים.",
   "storekit.nothing_to_restore": "אין מה לשחזר בחשבון הזה.",
   "storekit.unconfirmed": "לאפ סטור יש את הרכישה, אך Dawnlist עדיין לא הצליח לאשר אותה מול שירות המנויים. הוא ינסה שוב באופן אוטומטי בפעם הבאה ש-Dawnlist ייפתח — לא תחויב פעמיים.",
+  "tab.lost": "אבוד",
   "tab.needs_review": "דורש בדיקה",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "נדחו",
   "tab.screened_out": "נפסלו בסינון",
   "tab.shortlist": "רשימה מקוצרת",
@@ -531,6 +533,5 @@
   "update.size": "גודל ההורדה: {size}",
   "update.title": "עדכון זמין",
   "voice.no_profile": "עדיין אין פרופיל טון — הוסף כמה מהמיילים שנשלחת בעצמך",
-  "voice.profile_from": "הטון נלמד מ-{count} מהודעות שנשלחו על ידך",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "הטון נלמד מ-{count} מהודעות שנשלחו על ידך"
 }

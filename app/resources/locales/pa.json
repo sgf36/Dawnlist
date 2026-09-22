@@ -514,7 +514,9 @@
   "storekit.not_saved": "ਤੁਹਾਡੀ ਸਬਸਕ੍ਰਿਪਸ਼ਨ ਦੀ ਪੁਸ਼ਟੀ ਹੋ ਗਈ ਹੈ, ਪਰ ਇਸ Mac ਦੇ Keychain ਨੇ ਇਸਨੂੰ ਸੰਭਾਲਿਆ ਨਹੀਂ। Dawnlist ਅਗਲੀ ਵਾਰ ਖੁੱਲ੍ਹਣ 'ਤੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੇਗਾ — ਤੁਹਾਡੇ ਤੋਂ ਦੋ ਵਾਰ ਪੈਸੇ ਨਹੀਂ ਲਏ ਜਾਣਗੇ।",
   "storekit.nothing_to_restore": "ਇਸ ਖਾਤੇ 'ਤੇ ਬਹਾਲ ਕਰਨ ਲਈ ਕੁਝ ਨਹੀਂ ਹੈ।",
   "storekit.unconfirmed": "App Store ਕੋਲ ਖਰੀਦ ਮੌਜੂਦ ਹੈ, ਪਰ Dawnlist ਅਜੇ ਇਸਦੀ ਪੁਸ਼ਟੀ ਸਬਸਕ੍ਰਿਪਸ਼ਨ ਸੇਵਾ ਨਾਲ ਨਹੀਂ ਕਰ ਸਕਿਆ। ਇਹ ਅਗਲੀ ਵਾਰ Dawnlist ਖੁੱਲ੍ਹਣ 'ਤੇ ਖੁਦ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੇਗਾ — ਤੁਹਾਡੇ ਤੋਂ ਦੋ ਵਾਰ ਪੈਸੇ ਨਹੀਂ ਲਏ ਜਾਣਗੇ।",
+  "tab.lost": "ਗੁਆਚਿਆ",
   "tab.needs_review": "ਸਮੀਖਿਆ ਲੋੜੀਂਦੀ",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "ਰੱਦ ਕੀਤੇ",
   "tab.screened_out": "ਸਕ੍ਰੀਨ ਆਊਟ",
   "tab.shortlist": "ਸ਼ਾਰਟਲਿਸਟ",
@@ -531,6 +533,5 @@
   "update.size": "ਡਾਊਨਲੋਡ ਆਕਾਰ: {size}",
   "update.title": "ਅੱਪਡੇਟ ਉਪਲਬਧ ਹੈ",
   "voice.no_profile": "ਹਾਲੇ ਕੋਈ ਲਹਿਜ਼ਾ ਪ੍ਰੋਫਾਈਲ ਨਹੀਂ — ਆਪਣੀਆਂ ਕੁਝ ਭੇਜੀਆਂ ਈਮੇਲਾਂ ਸ਼ਾਮਲ ਕਰੋ",
-  "voice.profile_from": "ਲਹਿਜ਼ਾ ਤੁਹਾਡੇ ਭੇਜੇ ਗਏ {count} ਸੁਨੇਹਿਆਂ ਤੋਂ ਸਿੱਖਿਆ ਗਿਆ",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "ਲਹਿਜ਼ਾ ਤੁਹਾਡੇ ਭੇਜੇ ਗਏ {count} ਸੁਨੇਹਿਆਂ ਤੋਂ ਸਿੱਖਿਆ ਗਿਆ"
 }

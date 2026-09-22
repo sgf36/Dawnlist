@@ -514,7 +514,9 @@
   "storekit.not_saved": "Usajili wako umethibitishwa, lakini Keychain ya Mac hii haikuweza kuuhifadhi. Dawnlist itajaribu tena wakati itakapofunguliwa tena — hutalipishwa mara mbili.",
   "storekit.nothing_to_restore": "Hakuna kitu cha kurejesha kwenye akaunti hii.",
   "storekit.unconfirmed": "App Store ina ununuzi huo, lakini Dawnlist haijaweza kuuthibitisha na huduma ya usajili bado. Itajaribu tena yenyewe wakati Dawnlist itakapofunguliwa tena — hutalipishwa mara mbili.",
+  "tab.lost": "Imepotea",
   "tab.needs_review": "Zinahitaji ukaguzi",
+  "tab.pursuing": "Pursuing",
   "tab.rejected": "Zilizokataliwa",
   "tab.screened_out": "Zilizokataliwa kwenye uchunguzi",
   "tab.shortlist": "Orodha fupi",
@@ -531,6 +533,5 @@
   "update.size": "Ukubwa wa upakuaji: {size}",
   "update.title": "Sasisho linapatikana",
   "voice.no_profile": "Bado hakuna wasifu wa sauti — ongeza baadhi ya barua pepe ulizotuma mwenyewe",
-  "voice.profile_from": "Sauti imejifunza kutoka kwa jumbe {count} ulizotuma mwenyewe",
-  "tab.pursuing": "Pursuing"
+  "voice.profile_from": "Sauti imejifunza kutoka kwa jumbe {count} ulizotuma mwenyewe"
 }

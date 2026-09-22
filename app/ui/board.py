@@ -30,7 +30,8 @@ from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox,
                                QLineEdit,
                                QMenu, QMessageBox,
                                QPlainTextEdit, QPushButton,
-                               QSizePolicy, QSplitter, QTextBrowser,
+                               QScrollArea, QSizePolicy, QSplitter,
+                               QTextBrowser,
                                QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
@@ -120,6 +121,11 @@ QPushButton#boardAction {{
     color: {INK};
 }}
 QPushButton#boardAction:hover {{ background: #f4f1ea; }}
+QPushButton#boardAction:disabled {{
+    background: #f4f1ea;
+    color: #b0aca4;
+    border-color: #e4e0d8;
+}}
 """
 
 
@@ -352,14 +358,7 @@ class BoardWindow(QWidget):
 
         actions = QHBoxLayout()
         actions.setSpacing(10)
-        # Dawnlist never sends, so it cannot observe that a message went out —
-        # only the user can say so. Without this the cadence sits at rung zero
-        # for ever: the same first-contact letter is redrafted every Tuesday
-        # and no follow-up is ever scheduled.
-        # The "Open task" column had no way to be filled: `add_task` existed
-        # and nothing called it, so the column was permanently blank. Tasks are
-        # for what the cadence cannot know — "prepare for the call" — so the
-        # user types them.
+        actions.setContentsMargins(4, 4, 4, 4)
         self.field_task = QLineEdit()
         self.field_task.setObjectName("taskField")
         self.field_task.setPlaceholderText(tr("board.task_placeholder"))
@@ -370,10 +369,6 @@ class BoardWindow(QWidget):
         self.btn_repair_bounce = QPushButton(tr("board.repair_stage"))
         self.btn_apply = QPushButton(tr("board.write_application"))
         self.btn_brief = QPushButton(tr("board.interview_brief"))
-        # An employer's answer. The stage is chosen rather than inferred: a
-        # reply and an interview invitation are both "they answered" and land
-        # two rungs apart, and guessing between them corrupts the pipeline
-        # read exactly as inferring a stage from a send would.
         self.combo_stage = QComboBox()
         self.combo_stage.setObjectName("stageCombo")
         for stage in (Stage.IN_DIALOGUE, Stage.PHONE_INTERVIEW,
@@ -392,7 +387,16 @@ class BoardWindow(QWidget):
             b.setEnabled(False)
             actions.addWidget(b)
         actions.addStretch(1)
-        outer.addLayout(actions)
+        action_widget = QWidget()
+        action_widget.setLayout(actions)
+        action_scroll = QScrollArea()
+        action_scroll.setWidget(action_widget)
+        action_scroll.setWidgetResizable(True)
+        action_scroll.setFrameShape(QFrame.NoFrame)
+        action_scroll.setFixedHeight(52)
+        action_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        action_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        outer.addWidget(action_scroll)
 
         self.setStyleSheet(BOARD_STYLESHEET)
 
@@ -661,8 +665,13 @@ class BoardWindow(QWidget):
     # -- export --------------------------------------------------------------
     def _export_csv(self):
         import csv
+
+        from PySide6.QtCore import QStandardPaths
+        docs = QStandardPaths.writableLocation(
+            QStandardPaths.DocumentsLocation)
+        default = f"{docs}/dawnlist_board.csv" if docs else "dawnlist_board.csv"
         path, _ = QFileDialog.getSaveFileName(
-            self, tr("board.export_title"), "dawnlist_board.csv",
+            self, tr("board.export_title"), default,
             "CSV (*.csv)")
         if not path:
             return
