@@ -68,15 +68,20 @@ def check_connection(host: str, port: int, email: str,
                      password: str) -> IMAPResult:
     try:
         conn = _connect(host, port, email, password)
+    except (imaplib.IMAP4.error, OSError) as exc:
+        return IMAPResult(False, str(exc))
+    try:
         folder = _find_drafts_folder(conn)
-        conn.logout()
         if folder:
             return IMAPResult(True, folder)
         return IMAPResult(True, "")
-    except imaplib.IMAP4.error as exc:
+    except (imaplib.IMAP4.error, OSError) as exc:
         return IMAPResult(False, str(exc))
-    except OSError as exc:
-        return IMAPResult(False, str(exc))
+    finally:
+        try:
+            conn.logout()
+        except Exception:
+            pass
 
 
 def place_draft(host: str, port: int, email: str, password: str,
@@ -84,20 +89,24 @@ def place_draft(host: str, port: int, email: str, password: str,
     """IMAP APPEND a message to the Drafts folder as an unsent draft."""
     try:
         conn = _connect(host, port, email, password)
+    except (imaplib.IMAP4.error, OSError) as exc:
+        return IMAPResult(False, str(exc))
+    try:
         folder = _find_drafts_folder(conn)
         if not folder:
-            conn.logout()
             return IMAPResult(False, "no Drafts folder found")
         raw = bytes(msg)
         status, detail = conn.append(f'"{folder}"', "\\Draft", None, raw)
-        conn.logout()
         if status == "OK":
             return IMAPResult(True, "draft placed")
         return IMAPResult(False, f"APPEND failed: {detail}")
-    except imaplib.IMAP4.error as exc:
+    except (imaplib.IMAP4.error, OSError) as exc:
         return IMAPResult(False, str(exc))
-    except OSError as exc:
-        return IMAPResult(False, str(exc))
+    finally:
+        try:
+            conn.logout()
+        except Exception:
+            pass
 
 
 def fetch_sent_bodies(host: str, port: int, email: str, password: str,
@@ -110,15 +119,16 @@ def fetch_sent_bodies(host: str, port: int, email: str, password: str,
     bodies: list[str] = []
     try:
         conn = _connect(host, port, email, password)
+    except (imaplib.IMAP4.error, OSError):
+        return bodies
+    try:
         folder = _find_sent_folder(conn)
         if not folder:
-            conn.logout()
             return bodies
         conn.select(f'"{folder}"', readonly=True)
         status, data = conn.search(None, "ALL")
         if status != "OK" or not data or not data[0]:
             conn.close()
-            conn.logout()
             return bodies
         ids = data[0].split()
         recent = ids[-limit:] if len(ids) > limit else ids
@@ -134,9 +144,13 @@ def fetch_sent_bodies(host: str, port: int, email: str, password: str,
                         bodies.append(body)
                     break
         conn.close()
-        conn.logout()
     except (imaplib.IMAP4.error, OSError):
         pass
+    finally:
+        try:
+            conn.logout()
+        except Exception:
+            pass
     return bodies
 
 
