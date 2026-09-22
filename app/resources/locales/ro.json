@@ -531,5 +531,6 @@
   "update.size": "Dimensiunea descărcării: {size}",
   "update.title": "Actualizare disponibilă",
   "voice.no_profile": "Încă niciun profil de ton — adaugă câteva dintre e-mailurile tale trimise",
-  "voice.profile_from": "Ton învățat din {count} dintre mesajele tale trimise"
+  "voice.profile_from": "Ton învățat din {count} dintre mesajele tale trimise",
+  "tab.pursuing": "Pursuing"
 }

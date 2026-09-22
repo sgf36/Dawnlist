@@ -531,5 +531,6 @@
   "update.size": "Velikost stažení: {size}",
   "update.title": "K dispozici je aktualizace",
   "voice.no_profile": "Zatím žádný profil tónu — přidejte některé své odeslané e-maily",
-  "voice.profile_from": "Tón se učí z {count} vašich odeslaných zpráv"
+  "voice.profile_from": "Tón se učí z {count} vašich odeslaných zpráv",
+  "tab.pursuing": "Pursuing"
 }

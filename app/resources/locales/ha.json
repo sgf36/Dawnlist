@@ -531,5 +531,6 @@
   "update.size": "Girman zazzagewa: {size}",
   "update.title": "Akwai sabuntawa",
   "voice.no_profile": "Babu bayanin salon magana tukuna — ƙara wasu daga cikin imel ɗin da ka aika",
-  "voice.profile_from": "An koyi salon magana daga {count} na saƙonnin da kake aikawa"
+  "voice.profile_from": "An koyi salon magana daga {count} na saƙonnin da kake aikawa",
+  "tab.pursuing": "Pursuing"
 }

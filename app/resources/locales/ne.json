@@ -531,5 +531,6 @@
   "update.size": "डाउनलोड साइज: {size}",
   "update.title": "अपडेट उपलब्ध छ",
   "voice.no_profile": "अझै कुनै स्वर प्रोफाइल छैन — आफ्ना केही पठाइएका इमेलहरू थप्नुहोस्",
-  "voice.profile_from": "तपाईंले पठाएका {count} सन्देशबाट स्वर सिकियो"
+  "voice.profile_from": "तपाईंले पठाएका {count} सन्देशबाट स्वर सिकियो",
+  "tab.pursuing": "Pursuing"
 }

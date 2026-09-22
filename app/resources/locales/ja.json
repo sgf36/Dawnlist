@@ -531,5 +531,6 @@
   "update.size": "ダウンロードサイズ: {size}",
   "update.title": "アップデートのお知らせ",
   "voice.no_profile": "文体プロファイルがまだありません ― ご自身の送信済みメールを追加してください",
-  "voice.profile_from": "ご自身が送信した {count} 件のメッセージから文体を学習しました"
+  "voice.profile_from": "ご自身が送信した {count} 件のメッセージから文体を学習しました",
+  "tab.pursuing": "Pursuing"
 }

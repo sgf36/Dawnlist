@@ -38,12 +38,11 @@ DEFAULT_POSTED_WITHIN_DAYS = 45
 MAX_RESULTS_PER_SEARCH = 100
 
 #: Maximum number of ENABLED (active) searches per install. Each search costs
-#: money per posting returned: 25 searches at 100 postings each is 2,500
-#: postings per sweep — already more than most plans allow. The Worker's
-#: per-plan daily cap is the real billing limit; this is the UI guardrail
-#: against accidentally enabling so many that a single morning run exhausts
-#: the day's allowance.
-MAX_ACTIVE_QUERIES = 25
+#: money per posting returned: 10 searches at 100 postings each is 1,000
+#: postings per sweep — within a standard plan's 700/day cap after dedup.
+#: Aligned with the Worker's standard plan maxSavedQueries=10
+#: (server/dawnlist-feed-worker/src/plans.js).
+MAX_ACTIVE_QUERIES = 10
 
 
 def _force_utf8_console() -> None:

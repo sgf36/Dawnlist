@@ -531,5 +531,6 @@
   "update.size": "다운로드 크기: {size}",
   "update.title": "업데이트 가능",
   "voice.no_profile": "아직 어조 프로필이 없습니다 — 보낸 이메일을 추가해 주세요",
-  "voice.profile_from": "보내신 메시지 {count}건에서 학습된 어조"
+  "voice.profile_from": "보내신 메시지 {count}건에서 학습된 어조",
+  "tab.pursuing": "Pursuing"
 }

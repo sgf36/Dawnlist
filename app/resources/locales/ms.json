@@ -531,5 +531,6 @@
   "update.size": "Saiz muat turun: {size}",
   "update.title": "Kemas kini tersedia",
   "voice.no_profile": "Belum ada profil nada — tambah beberapa e-mel hantar anda sendiri",
-  "voice.profile_from": "Nada dipelajari daripada {count} mesej hantar anda sendiri"
+  "voice.profile_from": "Nada dipelajari daripada {count} mesej hantar anda sendiri",
+  "tab.pursuing": "Pursuing"
 }

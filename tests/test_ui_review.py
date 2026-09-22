@@ -57,7 +57,7 @@ def test_screened_out_rows_are_browsable_not_deleted(win):
     win.load([row(str(i), bucket="screened-out", screen_reason="x")
               for i in range(9)], {"swept": 9})
     assert win.screened_out.topLevelItemCount() == 9
-    assert "9" in win.tabs.tabText(2)
+    assert "9" in win.tabs.tabText(3)
 
 
 def bar_text(win):
@@ -147,7 +147,7 @@ def test_decide_removes_row_and_updates_tab_counts(win):
     assert win.shortlist.topLevelItemCount() == 1
     assert win.rejected.topLevelItemCount() == 1
     assert "(1)" in win.tabs.tabText(0)
-    assert "(1)" in win.tabs.tabText(1)
+    assert "(1)" in win.tabs.tabText(2)
 
 
 def test_the_full_why_text_is_available_on_hover(win):
@@ -167,7 +167,7 @@ def test_an_unchecked_requirement_is_explained_not_hidden(win):
 
 def test_no_dangling_dash_when_there_is_no_reason(win):
     win.load([row("1", bucket="screened-out", screen_reason="x")], {})
-    win.tabs.setCurrentIndex(2)
+    win.tabs.setCurrentIndex(3)
     win.screened_out.setCurrentItem(win.screened_out.topLevelItem(0))
     assert "screened-out —" not in win.detail.toPlainText()
 

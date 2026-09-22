@@ -531,5 +531,6 @@
   "update.size": "Yuklama hajmi: {size}",
   "update.title": "Yangilanish mavjud",
   "voice.no_profile": "Hozircha ohang profili yo'q — o'zingiz yuborgan e-pochtalardan qo'shing",
-  "voice.profile_from": "Ohang sizning {count} ta yuborilgan xabaringizdan o'rganildi"
+  "voice.profile_from": "Ohang sizning {count} ta yuborilgan xabaringizdan o'rganildi",
+  "tab.pursuing": "Pursuing"
 }

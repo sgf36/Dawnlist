@@ -531,5 +531,6 @@
   "update.size": "Downloadgröße: {size}",
   "update.title": "Update verfügbar",
   "voice.no_profile": "Noch kein Tonfallprofil — fügen Sie einige Ihrer gesendeten E-Mails hinzu",
-  "voice.profile_from": "Tonfall aus {count} Ihrer eigenen gesendeten Nachrichten gelernt"
+  "voice.profile_from": "Tonfall aus {count} Ihrer eigenen gesendeten Nachrichten gelernt",
+  "tab.pursuing": "Pursuing"
 }

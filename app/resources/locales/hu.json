@@ -531,5 +531,6 @@
   "update.size": "Letöltés mérete: {size}",
   "update.title": "Frissítés elérhető",
   "voice.no_profile": "Még nincs hangnem-profil — adj hozzá néhány saját elküldött e-mailt",
-  "voice.profile_from": "A hangnem {count} saját elküldött üzenetedből tanulva"
+  "voice.profile_from": "A hangnem {count} saját elküldött üzenetedből tanulva",
+  "tab.pursuing": "Pursuing"
 }

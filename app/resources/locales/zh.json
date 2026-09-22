@@ -531,5 +531,6 @@
   "update.size": "下载大小：{size}",
   "update.title": "有可用更新",
   "voice.no_profile": "尚无语气画像 — 请添加一些您已发送的邮件",
-  "voice.profile_from": "语气已根据您发送的 {count} 条消息学习得出"
+  "voice.profile_from": "语气已根据您发送的 {count} 条消息学习得出",
+  "tab.pursuing": "Pursuing"
 }

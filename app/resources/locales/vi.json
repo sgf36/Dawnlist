@@ -531,5 +531,6 @@
   "update.size": "Kích thước tải xuống: {size}",
   "update.title": "Có bản cập nhật mới",
   "voice.no_profile": "Chưa có hồ sơ giọng văn — hãy thêm một số email bạn đã gửi",
-  "voice.profile_from": "Giọng văn học được từ {count} tin nhắn bạn đã gửi"
+  "voice.profile_from": "Giọng văn học được từ {count} tin nhắn bạn đã gửi",
+  "tab.pursuing": "Pursuing"
 }

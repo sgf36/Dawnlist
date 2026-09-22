@@ -531,5 +531,6 @@
   "update.size": "حجم دانلود: {size}",
   "update.title": "به‌روزرسانی موجود است",
   "voice.no_profile": "هنوز نمایه لحنی وجود ندارد — چند ایمیل ارسالی خودتان را اضافه کنید",
-  "voice.profile_from": "لحن از {count} پیام ارسالی خودتان آموخته شده"
+  "voice.profile_from": "لحن از {count} پیام ارسالی خودتان آموخته شده",
+  "tab.pursuing": "Pursuing"
 }

@@ -531,5 +531,6 @@
   "update.size": "Rozmiar pobierania: {size}",
   "update.title": "Dostępna aktualizacja",
   "voice.no_profile": "Brak profilu tonu — dodaj kilka swoich wysłanych e-maili",
-  "voice.profile_from": "Ton nauczony na podstawie {count} Twoich wysłanych wiadomości"
+  "voice.profile_from": "Ton nauczony na podstawie {count} Twoich wysłanych wiadomości",
+  "tab.pursuing": "Pursuing"
 }

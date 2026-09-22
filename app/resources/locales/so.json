@@ -531,5 +531,6 @@
   "update.size": "Cabbirka soo dejinta: {size}",
   "update.title": "Cusboonaysiin ayaa la heli karaa",
   "voice.no_profile": "Wali ma jiro qaab-cod — ku dar qaar ka mid ah iimayladaada la diray",
-  "voice.profile_from": "Codka waxaa laga bartay {count} fariimood oo aad adigu dirtay"
+  "voice.profile_from": "Codka waxaa laga bartay {count} fariimood oo aad adigu dirtay",
+  "tab.pursuing": "Pursuing"
 }

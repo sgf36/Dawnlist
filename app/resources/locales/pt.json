@@ -531,5 +531,6 @@
   "update.size": "Tamanho da transferência: {size}",
   "update.title": "Atualização disponível",
   "voice.no_profile": "Ainda sem perfil de tom de voz — adicione alguns dos seus e-mails enviados",
-  "voice.profile_from": "Tom de voz aprendido a partir de {count} das suas próprias mensagens enviadas"
+  "voice.profile_from": "Tom de voz aprendido a partir de {count} das suas próprias mensagens enviadas",
+  "tab.pursuing": "Pursuing"
 }

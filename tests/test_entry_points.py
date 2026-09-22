@@ -1305,7 +1305,7 @@ def test_active_query_cap(conn):
     from app.main import MAX_ACTIVE_QUERIES, enable_query, save_query
     for i in range(MAX_ACTIVE_QUERIES):
         save_query(conn, f"q{i}", ["manager"], countries=["GB"])
-    # All 25 are already enabled — trying to enable one more should fail
+    # All are already enabled — trying to enable one more should fail
     save_query(conn, "one too many", ["manager"], countries=["GB"],
                enabled=False)
     with pytest.raises(ValueError, match="at most"):

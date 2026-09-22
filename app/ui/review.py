@@ -15,6 +15,7 @@ a rejection is permanent (spec 4), which is why the button says so.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from PySide6.QtCore import Qt, Signal
@@ -41,6 +42,49 @@ INK = "#16212A"
 WARNING_MAX_WIDTH = 420
 
 BUCKET_ORDER = {"strong": 0, "possible": 1, "judgement-call": 2, "rejected": 3}
+
+_MD_LINK = re.compile(r'\[([^\]]+)\]\((https?://[^\s)]+)\)')
+_MD_BOLD = re.compile(r'\*\*(.+?)\*\*|__(.+?)__')
+_MD_ITALIC = re.compile(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)|(?<!_)_(?!_)(.+?)(?<!_)_(?!_)')
+
+
+def _md_to_html(text: str) -> str:
+    """Lightweight markdown-to-HTML for job descriptions in QTextBrowser."""
+    html_lines: list[str] = []
+    in_list = False
+    for line in text.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith(("# ", "## ", "### ")):
+            if in_list:
+                html_lines.append("</ul>")
+                in_list = False
+            level = len(stripped.split(" ", 1)[0])
+            tag = f"h{min(level + 1, 4)}"
+            html_lines.append(f"<{tag}>{stripped.lstrip('# ').strip()}</{tag}>")
+            continue
+        is_bullet = stripped.startswith(("- ", "* ", "• "))
+        if is_bullet:
+            if not in_list:
+                html_lines.append("<ul>")
+                in_list = True
+            html_lines.append(f"<li>{stripped[2:].strip()}</li>")
+            continue
+        if in_list:
+            html_lines.append("</ul>")
+            in_list = False
+        if not stripped:
+            html_lines.append("<br>")
+        else:
+            html_lines.append(f"{stripped}<br>")
+    if in_list:
+        html_lines.append("</ul>")
+    result = "".join(html_lines)
+    result = re.sub(r'(</(?:ul|h[2-4])>)(?:<br>)+', r'\1', result)
+    result = re.sub(r'(?:<br>)+(<(?:ul|h[2-4])[ >])', r'\1', result)
+    result = _MD_LINK.sub(r'<a href="\2">\1</a>', result)
+    result = _MD_BOLD.sub(lambda m: f"<b>{m.group(1) or m.group(2)}</b>", result)
+    result = _MD_ITALIC.sub(lambda m: f"<i>{m.group(1) or m.group(2)}</i>", result)
+    return result
 
 
 @dataclass
@@ -155,7 +199,26 @@ QTextBrowser#detailPane {{
     border-radius: 6px;
     padding: 4px 10px;
 }}
-QTabBar::tab {{ padding: 8px 14px; }}
+QTabBar::tab {{
+    padding: 8px 14px;
+    border: 1px solid transparent;
+    border-bottom: 2px solid transparent;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    margin-right: 2px;
+    color: #6b7280;
+}}
+QTabBar::tab:selected {{
+    background: {CREAM};
+    border: 1px solid #d8d4cc;
+    border-bottom: 2px solid {TEAL};
+    color: {TEAL};
+    font-weight: 600;
+}}
+QTabBar::tab:hover:!selected {{
+    background: #f9f7f3;
+    color: {INK};
+}}
 """
 
 #: The run controls, appended rather than written into the block above so the
@@ -502,10 +565,12 @@ class ReviewWindow(QMainWindow):
 
         self.tabs = QTabWidget()
         self.shortlist = self._make_tree()
+        self.pursuing = self._make_tree()
         self.rejected = self._make_tree()
         self.screened_out = self._make_tree()
         self.contained = self._make_tree()
         self.tabs.addTab(self.shortlist, tr("tab.shortlist"))
+        self.tabs.addTab(self.pursuing, tr("tab.pursuing"))
         self.tabs.addTab(self.rejected, tr("tab.rejected"))
         # spec 5.4: the unlikely pile is browsable, never erased.
         self.tabs.addTab(self.screened_out, tr("tab.screened_out"))
@@ -545,7 +610,8 @@ class ReviewWindow(QMainWindow):
         self.setStyleSheet(STYLESHEET)
         self.setCentralWidget(root)
 
-        for tree in (self.shortlist, self.rejected, self.screened_out, self.contained):
+        for tree in (self.shortlist, self.pursuing, self.rejected,
+                     self.screened_out, self.contained):
             tree.currentItemChanged.connect(self._show_detail)
         # AND ON A TAB CHANGE, which nothing did.
         #
@@ -580,8 +646,8 @@ class ReviewWindow(QMainWindow):
             self._select_next)
         QShortcut(QKeySequence("K"), self).activated.connect(
             self._select_prev)
-        # Tab switching: 1–4 jump to the four tabs.
-        for i in range(4):
+        # Tab switching: 1–5 jump to the five tabs.
+        for i in range(5):
             QShortcut(QKeySequence(str(i + 1)), self).activated.connect(
                 lambda idx=i: self.tabs.setCurrentIndex(idx))
 
@@ -633,7 +699,8 @@ class ReviewWindow(QMainWindow):
              incomplete_note: str = "",
              notes: list[str] | None = None) -> None:
         self._rows = {r.job_id: r for r in rows}
-        for tree in (self.shortlist, self.rejected, self.screened_out, self.contained):
+        for tree in (self.shortlist, self.pursuing, self.rejected,
+                     self.screened_out, self.contained):
             tree.clear()
 
         ordered = sorted(rows, key=lambda r: (BUCKET_ORDER.get(r.bucket, 9),
@@ -663,7 +730,9 @@ class ReviewWindow(QMainWindow):
         self.funnel.set_counts(counts, incomplete_note=incomplete_note,
                                notes=notes)
         for idx, (tree, key) in enumerate((
-                (self.shortlist, "tab.shortlist"), (self.rejected, "tab.rejected"),
+                (self.shortlist, "tab.shortlist"),
+                (self.pursuing, "tab.pursuing"),
+                (self.rejected, "tab.rejected"),
                 (self.screened_out, "tab.screened_out"),
                 (self.contained, "tab.needs_review"))):
             self.tabs.setTabText(idx, tr("tab.with_count", label=tr(key),
@@ -786,7 +855,7 @@ class ReviewWindow(QMainWindow):
                          + "</i></p>")
         parts.extend(self._gap_html(r))
         parts.append("<hr>")
-        parts.append(f"<div style='white-space:pre-wrap'>{r.description}</div>")
+        parts.append(f"<div>{_md_to_html(r.description)}</div>")
         self.detail.setHtml("".join(parts))
 
     def _gap_html(self, r) -> list[str]:
@@ -873,9 +942,9 @@ class ReviewWindow(QMainWindow):
 
         if decision == "reject":
             self.rejected.addTopLevelItem(item)
+        elif decision == "pursue":
+            self.pursuing.addTopLevelItem(item)
         elif decision == "later":
-            pass
-        else:
             pass
 
         self._refresh_tab_counts()
@@ -889,20 +958,23 @@ class ReviewWindow(QMainWindow):
 
     def _refresh_tab_counts(self):
         for idx, (tree, key) in enumerate((
-                (self.shortlist, "tab.shortlist"), (self.rejected, "tab.rejected"),
+                (self.shortlist, "tab.shortlist"),
+                (self.pursuing, "tab.pursuing"),
+                (self.rejected, "tab.rejected"),
                 (self.screened_out, "tab.screened_out"),
                 (self.contained, "tab.needs_review"))):
             self.tabs.setTabText(idx, tr("tab.with_count", label=tr(key),
                                          count=tree.topLevelItemCount()))
 
     # -- CSV export / import ------------------------------------------------
-    _TAB_NAMES = {0: "Shortlist", 1: "Rejected", 2: "Screened out",
-                  3: "Needs review"}
+    _TAB_NAMES = {0: "Shortlist", 1: "Pursuing", 2: "Rejected",
+                  3: "Screened out", 4: "Needs review"}
 
     def _all_rows_by_tab(self):
         """Yield (tab_name, ReviewRow) for every item across all tabs."""
-        for idx, tree in enumerate((self.shortlist, self.rejected,
-                                    self.screened_out, self.contained)):
+        for idx, tree in enumerate((self.shortlist, self.pursuing,
+                                    self.rejected, self.screened_out,
+                                    self.contained)):
             tab = self._TAB_NAMES.get(idx, "")
             for i in range(tree.topLevelItemCount()):
                 job_id = tree.topLevelItem(i).data(0, Qt.UserRole)
@@ -912,8 +984,12 @@ class ReviewWindow(QMainWindow):
 
     def _export_csv(self):
         import csv, io
+        from PySide6.QtCore import QStandardPaths
+        docs = QStandardPaths.writableLocation(
+            QStandardPaths.DocumentsLocation)
+        default = f"{docs}/dawnlist_review.csv" if docs else "dawnlist_review.csv"
         path, _ = QFileDialog.getSaveFileName(
-            self, tr("export.title"), "dawnlist_review.csv",
+            self, tr("export.title"), default,
             "CSV (*.csv)")
         if not path:
             return
@@ -927,13 +1003,17 @@ class ReviewWindow(QMainWindow):
         QMessageBox.information(self, tr("export.title"),
                                 tr("export.done", count=sum(
                                     t.topLevelItemCount() for t in (
-                                        self.shortlist, self.rejected,
-                                        self.screened_out, self.contained))))
+                                        self.shortlist, self.pursuing,
+                                        self.rejected, self.screened_out,
+                                        self.contained))))
 
     def _import_csv(self):
         import csv
+        from PySide6.QtCore import QStandardPaths
+        docs = QStandardPaths.writableLocation(
+            QStandardPaths.DocumentsLocation)
         path, _ = QFileDialog.getOpenFileName(
-            self, tr("import.title"), "",
+            self, tr("import.title"), docs or "",
             "CSV (*.csv)")
         if not path:
             return

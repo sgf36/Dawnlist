@@ -531,5 +531,6 @@
   "update.size": "Ukuran unduhan: {size}",
   "update.title": "Pembaruan kasedhiya",
   "voice.no_profile": "Durung ana profil gaya basa — tambahaké sawetara email kiriman dhewe",
-  "voice.profile_from": "Gaya basa disinaoni saka {count} pesen sing wis dikirim dhewe"
+  "voice.profile_from": "Gaya basa disinaoni saka {count} pesen sing wis dikirim dhewe",
+  "tab.pursuing": "Pursuing"
 }
