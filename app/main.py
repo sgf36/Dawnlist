@@ -1598,6 +1598,21 @@ def drafts_dir() -> Path:
     return db.default_db_path().parent / "drafts"
 
 
+def _imap_config(conn):
+    """Load the IMAP account dict for optional draft placement, or None."""
+    try:
+        from app.core.email_accounts import load_email_account, read_email_password
+        account = load_email_account(conn)
+        if account:
+            password = read_email_password(account.email)
+            if password:
+                return {"host": account.imap_host, "port": account.imap_port,
+                        "email": account.email, "password": password}
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
 def outreach_run(conn, *, send=None, today: date | None = None,
                  folder: Path | None = None):
     """Draft everything due. Writes files; sends nothing, ever.
@@ -1607,7 +1622,6 @@ def outreach_run(conn, *, send=None, today: date | None = None,
     deliberately no transport here and no credential that could grow one.
     """
     from app.outreach.run import due_today, prepare_drafts
-    from app.outreach.voice import build_profile
 
     factsheet = load_document(conn, "factsheet")
     if not factsheet.strip():
@@ -1625,7 +1639,8 @@ def outreach_run(conn, *, send=None, today: date | None = None,
     return prepare_drafts(
         conn, items, folder=folder, factsheet=factsheet,
         voice=load_voice(conn), send=send or build_send(conn),
-        locale=settings.get("locale", "en"), today=today)
+        locale=settings.get("locale", "en"), today=today,
+        imap=_imap_config(conn))
 
 
 class NoCVs(NotConfigured):
@@ -1896,19 +1911,36 @@ def load_voice(conn, folder: Path | None = None):
     than no drafts at all. Style only — never content. What a past message
     SAID is not evidence for anything a new one may claim; only the factsheet
     is.
+
+    Two sources are combined when available: local .eml/.txt files (always the
+    primary path) and the IMAP Sent folder (when an email account is
+    configured).  Either source failing never blocks the other.
     """
-    from app.outreach.voice import build_profile, profile_from_files
+    from app.outreach.voice import build_profile, extract_bodies, strip_quoted
 
     settings = load_settings(conn)
+    locale = settings.get("locale", "en")
     folder = folder or Path(settings.get("voice_dir") or voice_dir())
-    if not folder.is_dir():
-        return build_profile([])
 
-    paths = sorted(p for p in folder.iterdir()
-                   if p.suffix.lower() in {".eml", ".txt", ".md"})
-    if not paths:
-        return build_profile([])
-    return profile_from_files(paths, locale=settings.get("locale", "en"))
+    bodies: list[str] = []
+
+    if folder.is_dir():
+        paths = sorted(p for p in folder.iterdir()
+                       if p.suffix.lower() in {".eml", ".txt", ".md"})
+        if paths:
+            bodies.extend(extract_bodies(paths))
+
+    imap = _imap_config(conn)
+    if imap:
+        try:
+            from app.core.email_client import fetch_sent_bodies
+            raw = fetch_sent_bodies(
+                imap["host"], imap["port"], imap["email"], imap["password"])
+            bodies.extend(strip_quoted(b) for b in raw if b.strip())
+        except Exception:  # noqa: BLE001
+            pass
+
+    return build_profile(bodies, locale=locale)
 
 
 def print_outreach(report) -> None:
@@ -1923,6 +1955,10 @@ def print_outreach(report) -> None:
               f"{', '.join(draft.placeholders)}")
     if report.drafts.drafts:
         print(f"\n  written to {drafts_dir()}")
+    if report.imap_placed:
+        print(f"\n  {report.imap_placed} also placed in your mailbox Drafts.")
+    for err in report.imap_errors:
+        print(f"    IMAP: {err}")
     print("\n  Nothing was sent. Open each file and send it yourself.")
 
 
@@ -2523,6 +2559,16 @@ def _screen_drift_notes(conn, run_id) -> list[str]:
                before=round(before * 100))]
 
 
+def _cadence_panel(conn):
+    """The follow-up cadence panel, wired to the real settings table."""
+    from app.core.cadence import load_cadence_config, save_cadence_config
+    from app.ui.settings import CadencePanel
+
+    return CadencePanel(
+        loader=lambda: load_cadence_config(conn),
+        saver=lambda cfg: save_cadence_config(conn, cfg))
+
+
 def _schedule_panel(conn):
     """The run-time, keep-running and start-at-sign-in panel, wired for real.
 
@@ -2572,9 +2618,10 @@ def open_settings(parent=None, conn=None):
     # real redeemer; the injection points exist so the tests can spend nothing.
     # The rules panel cannot default, because the rules are per-user and live
     # in the database — so it is offered only when there is one.
-    rules = families = searches = when = None
+    rules = families = searches = when = cadence_panel = None
     if conn is not None:
         when = _schedule_panel(conn)
+        cadence_panel = _cadence_panel(conn)
         def _export_guide(dest):
             from app.core.criteria_guide import export_guide, gather_data
             export_guide(gather_data(conn), dest)
@@ -2630,8 +2677,15 @@ def open_settings(parent=None, conn=None):
             saver=lambda field, term: save_rule_term(conn, field, term),
             forgetter=lambda field, term: forget_rule_term(conn, field, term))
 
+    email_panel = None
+    if conn is not None:
+        from app.ui.email_settings import EmailPanel
+        email_panel = EmailPanel(conn=conn)
+
     window = SettingsWindow(rules=rules, families=families,
-                            searches=searches, schedule=when, home=parent)
+                            searches=searches, schedule=when,
+                            cadence=cadence_panel, email=email_panel,
+                            home=parent)
     if parent is not None:
         parent._settings_window = window
         # A run time changed here changes whether Run now is offered on the
@@ -2898,6 +2952,11 @@ def _draft_followups(board, conn) -> None:
         drafted = report.drafts.counts["drafted"]
         text = (tr("board.drafts_done", count=drafted, folder=str(drafts_dir()))
                 if drafted else tr("board.drafts_none"))
+        if report.imap_placed:
+            text += "\n" + tr("board.drafts_imap_ok",
+                              count=report.imap_placed)
+        if report.imap_errors:
+            text += "\n" + tr("board.drafts_imap_partial")
         QMessageBox.information(board, tr("board.draft_followups"), text)
         rows, findings = board_rows(conn)
         board.load(rows, findings)

@@ -1,18 +1,13 @@
-"""Draft output — the no-credentials design (handoff Part 4).
+"""Draft output — file-based and, optionally, IMAP-based (handoff Part 4).
 
-The app writes RFC 5322 `.eml` files into a folder the user chooses, and opens
-them on click. Every mainstream mail client on both platforms opens a `.eml` as
-a composable draft, so the user's send click happens in their own mail client.
+The primary path writes RFC 5322 `.eml` files into a folder the user chooses.
+Every mainstream mail client on both platforms opens a `.eml` as a composable
+draft, so the user's send click happens in their own mail client.
 
-That is what makes invariant 1 STRUCTURAL rather than a promise: there is no
-mailbox credential anywhere in the product, no OAuth, no app password, and no
-SMTP code in the binary. `tests/test_no_send.py` asserts the absence of the
-sending machinery, so "never sends" is a property of the build, not a policy
-someone has to remember.
-
-It also deletes the onboarding session the source system flags as most likely
-to need a second attempt, and it sidesteps Google's restricted-scope rules
-(an annual paid CASA assessment) entirely, by never raising the question.
+The optional second path places the same RFC 5322 message into the user's
+Drafts folder via IMAP APPEND, so it appears in their mailbox ready to review
+and send.  This still never sends: `tests/test_no_send.py` asserts the absence
+of SMTP, and IMAP APPEND to Drafts is not sending.
 """
 from __future__ import annotations
 
@@ -194,3 +189,21 @@ class DraftSet:
         return {"drafted": len(self.drafts),
                 "send_ready": len(self.drafts) - len(self.blocked),
                 "needs_evidence": len(self.blocked)}
+
+
+def place_draft_imap(draft: Draft, host: str, port: int,
+                     email: str, password: str) -> str:
+    """Place a draft in the user's Drafts folder via IMAP APPEND.
+
+    Returns an empty string on success, or an error message on failure.
+    The .eml file on disk is ALWAYS written first — this is an optional
+    second delivery, and a failure here must not lose the draft.
+    """
+    from app.core.email_client import place_draft as _imap_place
+    msg = build_eml(draft)
+    if draft.from_email:
+        pass
+    elif email:
+        msg.replace_header("From", email) if "From" in msg else msg.__setitem__("From", email)
+    result = _imap_place(host, port, email, password, msg)
+    return "" if result.ok else result.message

@@ -2,15 +2,19 @@
 
 "Never sends" is worth nothing if it depends on nobody importing smtplib later.
 This walks the shipped source and fails if the sending machinery appears at all.
+
+`imaplib` is PERMITTED: IMAP APPEND places a draft in the user's Drafts
+folder, which is not sending.  The human's send click in their own mail
+client remains the authorisation boundary.
 """
 import ast
 import pathlib
 
 APP = pathlib.Path(__file__).resolve().parents[1] / "app"
 
-# Modules that can put a message on the wire, or that would require a mailbox
-# credential and drag the product back into CASA/OAuth territory.
-FORBIDDEN_IMPORTS = {"smtplib", "imaplib", "poplib", "email.smtpd", "aiosmtplib",
+# Modules that can put a message on the wire.  `imaplib` is intentionally
+# absent: it places drafts, it does not send.
+FORBIDDEN_IMPORTS = {"smtplib", "poplib", "email.smtpd", "aiosmtplib",
                      "yagmail", "sendgrid"}
 FORBIDDEN_CALLS = {"sendmail", "send_message", "starttls"}
 

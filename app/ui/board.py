@@ -43,6 +43,20 @@ from app.ui.review import CREAM, GOLD, GOLD_DEEP, INK, TEAL, TEAL_LIFTED
 #: one of them.
 CLOSED_STAGES = {Stage.WON, Stage.LOST}
 
+# Per-stage colours — a teal gradient for the live pipeline, warm tones for
+# terminal states.  Darker teal = further along = more invested.
+STAGE_COLOURS = {
+    Stage.IDENTIFIED:           "#3D8B7A",   # lightest teal — new
+    Stage.CONTACTED:            "#2E7A6B",   # sent first outreach
+    Stage.IN_DIALOGUE:          "#24695C",   # conversation started
+    Stage.PHONE_INTERVIEW:      "#1F5C54",   # TEAL_LIFTED — interview stage
+    Stage.IN_PERSON_INTERVIEW:  "#1E4B45",   # TEAL — deep engagement
+    Stage.OFFER:                "#C98A3F",   # GOLD — exciting
+    Stage.WON:                  "#3d6b52",   # muted green — success
+    Stage.LOST:                 "#8b9199",   # grey — closed
+    Stage.ON_HOLD:              "#B07A2E",   # GOLD_DEEP — paused
+}
+
 
 def stage_text(stage: Stage) -> str:
     """The stage's name, in the reader's language.
@@ -445,13 +459,7 @@ class BoardWindow(QWidget):
             # nothing — but a selectable row that does nothing reads as a
             # broken click. Make it a heading, not a target.
             group.setFlags(group.flags() & ~Qt.ItemIsSelectable)
-            if stage in CLOSED_STAGES:
-                group.setForeground(0, QColor("#8b9199"))
-            elif stage.is_paused:
-                # Paused, not dead — it keeps the live colour.
-                group.setForeground(0, QColor(GOLD_DEEP))
-            else:
-                group.setForeground(0, QColor(TEAL))
+            group.setForeground(0, QColor(STAGE_COLOURS.get(stage, TEAL)))
             self.tree.addTopLevelItem(group)
             # AFTER the item is in the tree, not before. Qt resolves this
             # against the view, so calling it on a detached item is a silent
@@ -476,7 +484,7 @@ class BoardWindow(QWidget):
                         item.setForeground(status_at, QColor(GOLD_DEEP))
                         item.setToolTip(status_at, defect)
                 if stage in CLOSED_STAGES:
-                    item.setForeground(0, QColor("#8b9199"))
+                    item.setForeground(0, QColor(STAGE_COLOURS.get(stage, "#8b9199")))
                 group.addChild(item)
             group.setExpanded(True)
 

@@ -26,10 +26,12 @@ from pathlib import Path
 
 from app.core import db
 from app.core.board_repo import load_board, load_touches
-from app.core.cadence import Channel, NextStep, is_warm_route, next_step
+from app.core.cadence import (Channel, NextStep, is_warm_route,
+                              load_cadence_config, next_step)
 from app.core.tracker import JobCategory, Opportunity
 from app.outreach.compose import DraftBrief, build_drafting_request
-from app.outreach.drafts import Draft, DraftSet, revise_in_place, states_the_ask
+from app.outreach.drafts import (Draft, DraftSet, place_draft_imap,
+                                revise_in_place, states_the_ask)
 from app.outreach.voice import VoiceProfile
 
 
@@ -65,6 +67,8 @@ class OutreachReport:
     due: list[DueItem] = field(default_factory=list)
     drafts: DraftSet = field(default_factory=DraftSet)
     blocked: list[DueItem] = field(default_factory=list)
+    imap_placed: int = 0
+    imap_errors: list[str] = field(default_factory=list)
 
     @property
     def counts(self) -> dict[str, int]:
@@ -154,6 +158,7 @@ def due_today(conn: sqlite3.Connection, *, today: date | None = None) -> list[Du
     field — never left sitting as due, and never pattern-guessed.
     """
     today = today or date.today()
+    cfg = load_cadence_config(conn)
     items: list[DueItem] = []
 
     for opp in load_board(conn):
@@ -164,7 +169,7 @@ def due_today(conn: sqlite3.Connection, *, today: date | None = None) -> list[Du
             # still reply-checked elsewhere; it is not dead.
             continue
 
-        step = next_step(load_touches(conn, opp.id), today=today)
+        step = next_step(load_touches(conn, opp.id), today=today, config=cfg)
         if step.due_on is None or step.due_on > today:
             continue
 
@@ -191,7 +196,8 @@ def thread_key_for(opp: Opportunity, contact: Contact) -> str:
 def prepare_drafts(conn: sqlite3.Connection, items: list[DueItem], *,
                    folder: Path, factsheet: str, voice: VoiceProfile,
                    send, locale: str = "en",
-                   today: date | None = None) -> OutreachReport:
+                   today: date | None = None,
+                   imap: dict | None = None) -> OutreachReport:
     """Draft everything actionable. Writes files; sends nothing.
 
     `send(request) -> text` is injected, so the caller owns transport and the
@@ -256,6 +262,14 @@ def prepare_drafts(conn: sqlite3.Connection, items: list[DueItem], *,
             run.register_output(path, kind="draft")
             report.drafts.drafts.append(draft)
 
+            if imap and draft.send_ready:
+                err = place_draft_imap(
+                    draft, imap["host"], imap["port"],
+                    imap["email"], imap["password"])
+                if err:
+                    report.imap_errors.append(f"{contact.name}: {err}")
+                else:
+                    report.imap_placed += 1
 
         run.record_counts(swept=0)
     return report

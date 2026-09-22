@@ -19,7 +19,8 @@ import re
 from dataclasses import dataclass
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QFont, QFontMetrics, QKeySequence, QShortcut
+from PySide6.QtGui import (QAction, QColor, QFont, QFontMetrics, QIcon,
+                           QKeySequence, QPainter, QPixmap, QShortcut)
 from app.i18n import is_rtl, tr
 from PySide6.QtWidgets import (QApplication, QDialog, QFileDialog, QFrame,
                                QHBoxLayout, QLabel, QLineEdit,
@@ -38,10 +39,45 @@ GOLD_DEEP = "#B07A2E"
 CREAM = "#F0ECE4"
 INK = "#16212A"
 
+# Per-tab accent colours — within the teal/gold brand family.
+TAB_COLOURS = {
+    0: TEAL,            # Shortlist — primary positive
+    1: "#2A6B5E",       # Pursuing — brighter teal (active engagement)
+    2: GOLD_DEEP,       # Rejected — user said no
+    3: "#7a7267",       # Lost — muted warm grey (employer said no)
+    4: "#8b9199",       # Screened out — cool grey (automated)
+    5: "#8B6914",       # Needs review — dark gold (needs attention)
+}
+
+# Row-level accent colours for bucket decoration.
+BUCKET_COLOURS = {
+    "strong": TEAL,
+    "possible": "#2A6B5E",
+    "judgement-call": "#5C7A6A",
+    "rejected": GOLD_DEEP,
+    "declined": GOLD_DEEP,
+    "lost": "#7a7267",
+    "screened-out": "#8b9199",
+    "pursued": "#2A6B5E",
+}
+
 #: The warning chip must never push the funnel counts off the bar.
 WARNING_MAX_WIDTH = 420
 
 BUCKET_ORDER = {"strong": 0, "possible": 1, "judgement-call": 2, "rejected": 3}
+
+
+def _dot_icon(colour: str, size: int = 10) -> QIcon:
+    """A small filled circle in the given colour, for use as a tab icon."""
+    pm = QPixmap(size, size)
+    pm.fill(QColor(0, 0, 0, 0))
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.setBrush(QColor(colour))
+    p.setPen(Qt.NoPen)
+    p.drawEllipse(1, 1, size - 2, size - 2)
+    p.end()
+    return QIcon(pm)
 
 _MD_LINK = re.compile(r'\[([^\]]+)\]\((https?://[^\s)]+)\)')
 _MD_BOLD = re.compile(r'\*\*(.+?)\*\*|__(.+?)__')
@@ -577,6 +613,8 @@ class ReviewWindow(QMainWindow):
         # spec 5.4: the unlikely pile is browsable, never erased.
         self.tabs.addTab(self.screened_out, tr("tab.screened_out"))
         self.tabs.addTab(self.contained, tr("tab.needs_review"))
+        for idx, colour in TAB_COLOURS.items():
+            self.tabs.setTabIcon(idx, _dot_icon(colour))
         splitter.addWidget(self.tabs)
 
         right = QWidget()
@@ -733,6 +771,9 @@ class ReviewWindow(QMainWindow):
                 item.setFont(0, f)
             if r.downgrade_reason or r.contained:
                 item.setForeground(2, Qt.darkYellow)
+            bucket_colour = BUCKET_COLOURS.get(r.bucket)
+            if bucket_colour:
+                item.setForeground(0, QColor(bucket_colour))
             target.addTopLevelItem(item)
 
         self.funnel.set_counts(counts, incomplete_note=incomplete_note,
