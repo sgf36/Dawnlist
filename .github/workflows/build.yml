@@ -466,6 +466,42 @@ jobs:
           if-no-files-found: error
 
   # ---------------------------------------------------------------------------
+  # Partner Center screenshots, rendered ON WINDOWS.
+  #
+  # The same render_store.py that produces the Mac set, run on windows-latest so
+  # the fonts are Segoe UI and the controls are Windows native. Partner Center's
+  # only documented dimension rule is a 1366x768 minimum; the default logical
+  # size (1708x960) exceeds that.
+  # ---------------------------------------------------------------------------
+  windows-screenshots:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install --require-hashes -r requirements.lock.txt
+
+      - name: Render every captured locale
+        shell: bash
+        run: |
+          set -euo pipefail
+          for loc in en de es fr hi ja zh; do
+            python tools/render_store.py --locale "$loc" --out dist/windows-screenshots
+          done
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: windows-screenshots
+          path: dist/windows-screenshots
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
   # The subscription's App Review screenshot — RENDERED, not captured.
   #
   # The subscription cannot leave MISSING_METADATA without a screenshot of the
