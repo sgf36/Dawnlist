@@ -1868,6 +1868,13 @@ def _import_job(board, conn, url: str, pasted_text: str):
          name_key(job.company, job.title)))
     conn.commit()
 
+    job_row = conn.execute(
+        "SELECT id, company FROM jobs WHERE provider=? AND provider_job_id=?",
+        (job.provider, job.provider_job_id)).fetchone()
+    if job_row:
+        from app.ui.adapter import open_opportunity
+        open_opportunity(conn, job_row["id"])
+
     rows, findings = board_rows(conn)
     board.load(rows, findings)
 
@@ -3041,12 +3048,30 @@ def _launch_terms(app, conn, *, open_board: bool) -> int:
     return app.exec()
 
 
+def _ensure_foreground_app():
+    """Ensure macOS treats this process as a foreground GUI application.
+
+    PyInstaller's BUNDLE can set LSBackgroundOnly=true in Info.plist,
+    which makes the window appear but routes keyboard events elsewhere.
+    """
+    if sys.platform != "darwin":
+        return
+    try:
+        from AppKit import NSApplication, NSApplicationActivationPolicyRegular
+        ns = NSApplication.sharedApplication()
+        if ns.activationPolicy() != NSApplicationActivationPolicyRegular:
+            ns.setActivationPolicy_(NSApplicationActivationPolicyRegular)
+    except ImportError:
+        pass
+
+
 def _launch_ui(conn, *, open_board: bool, background: bool = False) -> int:
     from PySide6.QtWidgets import QApplication
 
     from app.onboarding import terms
     from app.onboarding.state import is_setup_finished
 
+    _ensure_foreground_app()
     app = QApplication.instance() or QApplication(sys.argv)
     from app.ui.branding import apply_icon
     apply_icon(app)

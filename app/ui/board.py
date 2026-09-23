@@ -30,7 +30,9 @@ from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox,
                                QLineEdit,
                                QMenu, QMessageBox,
                                QPlainTextEdit, QPushButton,
-                               QSizePolicy, QTreeWidget, QTreeWidgetItem,
+                               QScrollArea, QSizePolicy, QSplitter,
+                               QTextBrowser,
+                               QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 
 from app.core.tracker import Stage
@@ -123,6 +125,17 @@ QPushButton#boardAction:hover {{ background: #f4f1ea; }}
 
 
 @dataclass
+class ContactRow:
+    """One contact, flattened for display."""
+    id: int
+    name: str
+    email: str = ""
+    title: str = ""
+    phone: str = ""
+    mailing_address: str = ""
+
+
+@dataclass
 class BoardRow:
     """One opportunity, flattened for display."""
     opportunity_id: str
@@ -144,10 +157,12 @@ class BoardRow:
     location: str = ""
     salary: str = ""
     job_url: str = ""
+    description: str = ""
     posted_at: date | None = None
     created_at: date | None = None
     #: The newest OUTBOUND touch. Evidence of what was sent, not a plan.
     last_outbound_on: date | None = None
+    contacts: list[ContactRow] = field(default_factory=list)
 
     @property
     def has_defect(self) -> bool:
@@ -291,6 +306,10 @@ class BoardWindow(QWidget):
     #: never implies a reply, so without it every pursuit sits at Contacted for
     #: ever and the cadence chases a thread that ended weeks ago.
     determination_recorded = Signal(str, bool, int)
+    contact_added = Signal(str, str, str, str, str, str)
+    contact_updated = Signal(int, str, str, str, str, str)
+    contact_deleted = Signal(int)
+    refresh_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -304,6 +323,9 @@ class BoardWindow(QWidget):
         self.audit = AuditBanner()
         top = QHBoxLayout()
         top.addWidget(self.audit, 1)
+        self.btn_refresh = QPushButton(tr("board.refresh"))
+        self.btn_refresh.clicked.connect(self.refresh_requested)
+        top.addWidget(self.btn_refresh)
         self.btn_import = QPushButton(tr("board.import_job"))
         self.btn_import.clicked.connect(self._show_import_dialog)
         top.addWidget(self.btn_import)
@@ -341,7 +363,30 @@ class BoardWindow(QWidget):
         palette.setColor(QPalette.Inactive, QPalette.Highlight, QColor(TEAL))
         palette.setColor(QPalette.Inactive, QPalette.HighlightedText, QColor(CREAM))
         self.tree.setPalette(palette)
-        outer.addWidget(self.tree, 1)
+
+        splitter = QSplitter(Qt.Vertical)
+        splitter.addWidget(self.tree)
+
+        self.detail = QTextBrowser()
+        self.detail.setObjectName("boardDetail")
+        self.detail.setOpenExternalLinks(True)
+        self.detail.setMinimumHeight(0)
+        self.detail.hide()
+        enable_touch_scroll(self.detail)
+        splitter.addWidget(self.detail)
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 1)
+        outer.addWidget(splitter, 1)
+
+        contact_bar = QHBoxLayout()
+        contact_bar.setSpacing(8)
+        self.btn_add_contact = QPushButton(tr("board.add_contact"))
+        self.btn_add_contact.setObjectName("boardAction")
+        self.btn_add_contact.setEnabled(False)
+        self.btn_add_contact.clicked.connect(self._show_add_contact)
+        contact_bar.addWidget(self.btn_add_contact)
+        contact_bar.addStretch(1)
+        outer.addLayout(contact_bar)
 
         actions = QHBoxLayout()
         actions.setSpacing(10)
@@ -562,8 +607,86 @@ class BoardWindow(QWidget):
         self.combo_stage.setEnabled(live)
         self.btn_reply.setEnabled(live)
         self.btn_no_offer.setEnabled(live)
+        self.btn_add_contact.setEnabled(live)
+        self._show_detail(row)
         if row:
             self.opportunity_selected.emit(row.opportunity_id)
+
+    def _show_detail(self, row: BoardRow | None) -> None:
+        if row is None:
+            self.detail.hide()
+            return
+        self.detail.show()
+        url_link = (f'<a href="{row.job_url}">{row.job_url}</a>'
+                    if row.job_url else "—")
+        fields = [
+            (tr("board.col.company"), row.company),
+            (tr("board.col.role"), row.job_title or "—"),
+            (tr("board.detail.stage"), stage_text(row.stage)),
+            (tr("board.detail.status"), status_text(row.status) or "—"),
+            (tr("board.detail.next_step"), _next_step_text(row) or "—"),
+            (tr("board.detail.open_task"), row.open_task or "—"),
+            (tr("board.detail.location"), row.location or "—"),
+            (tr("board.detail.salary"), row.salary or "—"),
+            (tr("board.detail.posted"), _date(row.posted_at) or "—"),
+            (tr("board.detail.first_tracked"), _date(row.created_at) or "—"),
+            (tr("board.detail.last_contact"), _date(row.last_outbound_on) or "—"),
+        ]
+        td_label = (f'padding:4px 12px 4px 0;font-weight:600;'
+                    f'color:{TEAL};white-space:nowrap')
+        rows_html = "".join(
+            f'<tr><td style="{td_label}">{label}</td>'
+            f'<td style="padding:4px 0">{value}</td></tr>'
+            for label, value in fields)
+        html = (
+            f'<table style="margin:8px">{rows_html}'
+            f'<tr><td style="{td_label}">{tr("board.col.url")}</td>'
+            f'<td style="padding:4px 0">{url_link}</td></tr>'
+            f'</table>')
+
+        if row.contacts:
+            html += self._contacts_html(row.contacts)
+
+        if row.description:
+            desc = row.description.replace("&", "&amp;")
+            desc = desc.replace("<", "&lt;").replace(">", "&gt;")
+            desc = desc.replace("\n", "<br>")
+            html += (
+                f'<div style="margin:8px;border-top:1px solid #e4e0d8;'
+                f'padding-top:8px">'
+                f'<span style="font-weight:600;color:{TEAL}">'
+                f'{tr("board.detail.description")}</span>'
+                f'<div style="margin-top:4px;color:{INK};'
+                f'font-size:13px;line-height:1.4">{desc}</div></div>')
+
+        self.detail.setHtml(html)
+
+    def _contacts_html(self, contacts: list[ContactRow]) -> str:
+        td_label = (f'padding:2px 8px 2px 0;font-weight:600;'
+                    f'color:{TEAL};white-space:nowrap;font-size:12px')
+        td_val = 'padding:2px 0;font-size:12px'
+        rows = ""
+        for c in contacts:
+            parts = [c.name]
+            if c.title:
+                parts.append(f'<span style="color:#888">({c.title})</span>')
+            name_html = " ".join(parts)
+            details = []
+            if c.email:
+                details.append(f'<a href="mailto:{c.email}">{c.email}</a>')
+            if c.phone:
+                details.append(c.phone)
+            if c.mailing_address:
+                details.append(c.mailing_address)
+            detail_html = " · ".join(details) if details else "—"
+            rows += (f'<tr><td style="{td_val}">{name_html}</td>'
+                     f'<td style="{td_val}">{detail_html}</td></tr>')
+        return (
+            f'<div style="margin:8px;border-top:1px solid #e4e0d8;'
+            f'padding-top:8px">'
+            f'<span style="font-weight:600;color:{TEAL}">'
+            f'{tr("board.detail.contacts")}</span>'
+            f'<table style="margin-top:4px">{rows}</table></div>')
 
     def _emit_task(self):
         row = self._current()
@@ -627,6 +750,17 @@ class BoardWindow(QWidget):
         if row and row.bounce_defect:
             self.bounce_repair_requested.emit(row.opportunity_id)
 
+    def _show_add_contact(self):
+        row = self._current()
+        if row is None or not row.stage.is_live:
+            return
+        dlg = ContactDialog(self)
+        if dlg.exec() == QDialog.Accepted:
+            v = dlg.values()
+            self.contact_added.emit(
+                row.opportunity_id, v["name"], v["title"],
+                v["email"], v["phone"], v["mailing_address"])
+
 
 class ImportJobDialog(QDialog):
     """Paste a URL or the text of a job posting to bring it into the board."""
@@ -664,3 +798,54 @@ class ImportJobDialog(QDialog):
 
     def pasted_text(self) -> str:
         return self._text.toPlainText().strip()
+
+
+class ContactDialog(QDialog):
+    """Add or edit a contact for outreach."""
+
+    def __init__(self, parent=None, *, name="", title="", email="",
+                 phone="", mailing_address=""):
+        super().__init__(parent)
+        self.setWindowTitle(tr("board.contact_title"))
+        self.setMinimumWidth(420)
+        layout = QVBoxLayout(self)
+
+        layout.addWidget(QLabel(tr("board.contact_name")))
+        self._name = QLineEdit(name)
+        layout.addWidget(self._name)
+
+        layout.addWidget(QLabel(tr("board.contact_jobtitle")))
+        self._title = QLineEdit(title)
+        layout.addWidget(self._title)
+
+        layout.addWidget(QLabel(tr("board.contact_email")))
+        self._email = QLineEdit(email)
+        layout.addWidget(self._email)
+
+        layout.addWidget(QLabel(tr("board.contact_phone")))
+        self._phone = QLineEdit(phone)
+        layout.addWidget(self._phone)
+
+        layout.addWidget(QLabel(tr("board.contact_address")))
+        self._address = QPlainTextEdit(mailing_address)
+        self._address.setMaximumHeight(80)
+        layout.addWidget(self._address)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(self._validate)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    def _validate(self):
+        if self._name.text().strip():
+            self.accept()
+
+    def values(self) -> dict:
+        return {
+            "name": self._name.text().strip(),
+            "title": self._title.text().strip(),
+            "email": self._email.text().strip(),
+            "phone": self._phone.text().strip(),
+            "mailing_address": self._address.toPlainText().strip(),
+        }

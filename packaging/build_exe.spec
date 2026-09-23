@@ -225,6 +225,8 @@ if sys.platform == "darwin":
         info_plist={
             "CFBundleName": "Dawnlist",
             "CFBundleDisplayName": "Dawnlist",
+            "NSPrincipalClass": "NSApplication",
+            "LSBackgroundOnly": False,
             "NSHighResolutionCapable": True,
             # No microphone, camera, contacts or location usage strings: the
             # app requests none of those, and declaring one it does not use is
