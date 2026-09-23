@@ -4,13 +4,33 @@ from __future__ import annotations
 import sqlite3
 from datetime import date
 
-from app.core.board_repo import (add_task, audit_board,
-                                 commit_determination, determination_writes,
+from app.core.board_repo import (add_contact, add_task, audit_board,
+                                 commit_determination, delete_contact,
+                                 determination_writes,
                                  load_board, next_steps,
-                                 record_outbound, repair_mirror, set_stage)
+                                 record_outbound, repair_mirror, set_stage,
+                                 update_contact)
 from app.core.cadence import Channel
 from app.core.tracker import Stage, Write, open_children
-from app.ui.board import COLUMN_SETTING, BoardRow
+from app.ui.board import COLUMN_SETTING, BoardRow, ContactRow
+
+
+def _load_contacts(conn: sqlite3.Connection) -> dict[str, list[ContactRow]]:
+    """Load all contacts keyed by opportunity_id."""
+    out: dict[str, list[ContactRow]] = {}
+    for row in conn.execute(
+            "SELECT * FROM contacts ORDER BY id"):
+        oid = str(row["opportunity_id"])
+        out.setdefault(oid, []).append(ContactRow(
+            id=row["id"],
+            name=row["name"],
+            email=row["email"] or "",
+            title=row["title"] if "title" in row.keys() else "",
+            phone=row["phone"] if "phone" in row.keys() else "",
+            mailing_address=(row["mailing_address"]
+                             if "mailing_address" in row.keys() else ""),
+        ))
+    return out
 
 
 def board_rows(conn: sqlite3.Connection, *,
@@ -18,6 +38,7 @@ def board_rows(conn: sqlite3.Connection, *,
     opps = load_board(conn)
     findings = audit_board(conn)
     steps = next_steps(conn, opps, today=today)
+    all_contacts = _load_contacts(conn)
 
     parity = {d.opportunity_id: str(d) for d in findings["parity_defects"]}
     bounces = {d.opportunity_id: str(d) for d in findings["bounce_corrections"]}
@@ -41,9 +62,11 @@ def board_rows(conn: sqlite3.Connection, *,
             location=opp.location,
             salary=opp.salary,
             job_url=opp.job_url,
+            description=opp.job_description,
             posted_at=opp.posted_at,
             created_at=opp.created_at,
             last_outbound_on=opp.last_outbound_on,
+            contacts=all_contacts.get(opp.id, []),
         ))
     return rows, findings
 
@@ -102,11 +125,18 @@ def connect_board(window, conn: sqlite3.Connection) -> None:
         record_determination(window, conn, oid, positive=positive, stage=stage)
         _reload()
 
+    def _do_add_contact(oid, name, title, email, phone, addr):
+        add_contact(conn, oid, name, title=title, email=email,
+                    phone=phone, mailing_address=addr)
+        _reload()
+
     window.repair_requested.connect(_do_repair)
     window.bounce_repair_requested.connect(_do_bounce)
     window.sent_recorded.connect(_do_sent)
     window.task_added.connect(_do_task)
     window.determination_recorded.connect(_do_determination)
+    window.contact_added.connect(_do_add_contact)
+    window.refresh_requested.connect(_reload)
     # Restore the saved column set BEFORE wiring the save, or applying it
     # would immediately write back what was just read.
     saved = load_visible_columns(conn)

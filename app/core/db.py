@@ -357,6 +357,11 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         # column.
         "ALTER TABLE documents ADD COLUMN change_summary TEXT",
     )),
+    (6, (
+        "ALTER TABLE contacts ADD COLUMN title TEXT",
+        "ALTER TABLE contacts ADD COLUMN phone TEXT",
+        "ALTER TABLE contacts ADD COLUMN mailing_address TEXT",
+    )),
 )
 
 SCHEMA_VERSION = max(number for number, _ in MIGRATIONS)

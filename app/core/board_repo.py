@@ -72,7 +72,8 @@ def load_board(conn: sqlite3.Connection) -> list[Opportunity]:
                    j.url      AS job_url,
                    j.salary   AS job_salary,
                    j.locations_json AS job_locations,
-                   j.posted_at AS job_posted_at
+                   j.posted_at AS job_posted_at,
+                   j.description_text AS job_description
               FROM opportunities o
               LEFT JOIN jobs j ON j.id = o.job_id
              ORDER BY o.id"""):
@@ -88,6 +89,7 @@ def load_board(conn: sqlite3.Connection) -> list[Opportunity]:
             job_url=row["job_url"] or "",
             salary=row["job_salary"] or "",
             location=_first_location(row["job_locations"]),
+            job_description=row["job_description"] or "",
             posted_at=_as_date(row["job_posted_at"]),
             created_at=_as_date(row["created_at"]),
         )
@@ -183,6 +185,35 @@ def create_opportunity(conn: sqlite3.Connection, company: str, *,
          category, _now()))
     conn.commit()
     return cur.lastrowid
+
+
+def add_contact(conn: sqlite3.Connection, opportunity_id: str,
+                name: str, *, title: str = "", email: str = "",
+                phone: str = "", mailing_address: str = "") -> int:
+    cur = conn.execute(
+        """INSERT INTO contacts(opportunity_id, name, email, title, phone,
+               mailing_address, created_at)
+           VALUES(?,?,?,?,?,?,?)""",
+        (int(opportunity_id), name, email or None, title or None,
+         phone or None, mailing_address or None, _now()))
+    conn.commit()
+    return cur.lastrowid
+
+
+def update_contact(conn: sqlite3.Connection, contact_id: int,
+                   name: str, *, title: str = "", email: str = "",
+                   phone: str = "", mailing_address: str = "") -> None:
+    conn.execute(
+        """UPDATE contacts SET name=?, email=?, title=?, phone=?,
+               mailing_address=? WHERE id=?""",
+        (name, email or None, title or None, phone or None,
+         mailing_address or None, contact_id))
+    conn.commit()
+
+
+def delete_contact(conn: sqlite3.Connection, contact_id: int) -> None:
+    conn.execute("DELETE FROM contacts WHERE id=?", (contact_id,))
+    conn.commit()
 
 
 def set_stage(conn: sqlite3.Connection, opportunity_id: str,
