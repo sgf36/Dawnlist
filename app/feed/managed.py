@@ -176,7 +176,7 @@ class ManagedProvider(FeedProvider):
             "postedWithinDays": query.posted_within_days,
             "discoveredSince": (query.discovered_since.isoformat()
                                 if query.discovered_since else None),
-            "excludeJobIds": feed_job_ids(query.exclude_job_ids),
+            "excludeJobIds": [str(x) for x in feed_job_ids(query.exclude_job_ids)],
             "maxResults": query.max_results,
             "cities": list(query.cities),
             "excludeTitleTerms": list(query.exclude_title_terms),

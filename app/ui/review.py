@@ -15,13 +15,16 @@ a rejection is permanent (spec 4), which is why the button says so.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QFont, QFontMetrics, QKeySequence, QShortcut
+from PySide6.QtGui import (QAction, QColor, QFont, QFontMetrics, QIcon,
+                           QKeySequence, QPainter, QPixmap, QShortcut)
 from app.i18n import is_rtl, tr
-from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel,
-                               QMainWindow, QProgressBar,
+from PySide6.QtWidgets import (QApplication, QDialog, QFileDialog, QFrame,
+                               QHBoxLayout, QLabel, QLineEdit,
+                               QMainWindow, QMessageBox, QProgressBar,
                                QPushButton, QSizePolicy, QSplitter,
                                QTabWidget, QTextBrowser,
                                QTreeWidget, QTreeWidgetItem, QVBoxLayout,
@@ -36,10 +39,88 @@ GOLD_DEEP = "#B07A2E"
 CREAM = "#F0ECE4"
 INK = "#16212A"
 
+# Per-tab accent colours — within the teal/gold brand family.
+TAB_COLOURS = {
+    0: TEAL,            # Shortlist — primary positive
+    1: "#2A6B5E",       # Pursuing — brighter teal (active engagement)
+    2: GOLD_DEEP,       # Rejected — user said no
+    3: "#7a7267",       # Lost — muted warm grey (employer said no)
+    4: "#8b9199",       # Screened out — cool grey (automated)
+    5: "#8B6914",       # Needs review — dark gold (needs attention)
+}
+
+# Row-level accent colours for bucket decoration.
+BUCKET_COLOURS = {
+    "strong": TEAL,
+    "possible": "#2A6B5E",
+    "judgement-call": "#5C7A6A",
+    "rejected": GOLD_DEEP,
+    "declined": GOLD_DEEP,
+    "lost": "#7a7267",
+    "screened-out": "#8b9199",
+    "pursued": "#2A6B5E",
+}
+
 #: The warning chip must never push the funnel counts off the bar.
 WARNING_MAX_WIDTH = 420
 
 BUCKET_ORDER = {"strong": 0, "possible": 1, "judgement-call": 2, "rejected": 3}
+
+
+def _dot_icon(colour: str, size: int = 10) -> QIcon:
+    """A small filled circle in the given colour, for use as a tab icon."""
+    pm = QPixmap(size, size)
+    pm.fill(QColor(0, 0, 0, 0))
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.setBrush(QColor(colour))
+    p.setPen(Qt.NoPen)
+    p.drawEllipse(1, 1, size - 2, size - 2)
+    p.end()
+    return QIcon(pm)
+
+_MD_LINK = re.compile(r'\[([^\]]+)\]\((https?://[^\s)]+)\)')
+_MD_BOLD = re.compile(r'\*\*(.+?)\*\*|__(.+?)__')
+_MD_ITALIC = re.compile(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)|(?<!_)_(?!_)(.+?)(?<!_)_(?!_)')
+
+
+def _md_to_html(text: str) -> str:
+    """Lightweight markdown-to-HTML for job descriptions in QTextBrowser."""
+    html_lines: list[str] = []
+    in_list = False
+    for line in text.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith(("# ", "## ", "### ")):
+            if in_list:
+                html_lines.append("</ul>")
+                in_list = False
+            level = len(stripped.split(" ", 1)[0])
+            tag = f"h{min(level + 1, 4)}"
+            html_lines.append(f"<{tag}>{stripped.lstrip('# ').strip()}</{tag}>")
+            continue
+        is_bullet = stripped.startswith(("- ", "* ", "• "))
+        if is_bullet:
+            if not in_list:
+                html_lines.append("<ul>")
+                in_list = True
+            html_lines.append(f"<li>{stripped[2:].strip()}</li>")
+            continue
+        if in_list:
+            html_lines.append("</ul>")
+            in_list = False
+        if not stripped:
+            html_lines.append("<br>")
+        else:
+            html_lines.append(f"{stripped}<br>")
+    if in_list:
+        html_lines.append("</ul>")
+    result = "".join(html_lines)
+    result = re.sub(r'(</(?:ul|h[2-4])>)(?:<br>)+', r'\1', result)
+    result = re.sub(r'(?:<br>)+(<(?:ul|h[2-4])[ >])', r'\1', result)
+    result = _MD_LINK.sub(r'<a href="\2">\1</a>', result)
+    result = _MD_BOLD.sub(lambda m: f"<b>{m.group(1) or m.group(2)}</b>", result)
+    result = _MD_ITALIC.sub(lambda m: f"<i>{m.group(1) or m.group(2)}</i>", result)
+    return result
 
 
 @dataclass
@@ -154,7 +235,26 @@ QTextBrowser#detailPane {{
     border-radius: 6px;
     padding: 4px 10px;
 }}
-QTabBar::tab {{ padding: 8px 14px; }}
+QTabBar::tab {{
+    padding: 8px 14px;
+    border: 1px solid transparent;
+    border-bottom: 2px solid transparent;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    margin-right: 2px;
+    color: #6b7280;
+}}
+QTabBar::tab:selected {{
+    background: {CREAM};
+    border: 1px solid #d8d4cc;
+    border-bottom: 2px solid {TEAL};
+    color: {TEAL};
+    font-weight: 600;
+}}
+QTabBar::tab:hover:!selected {{
+    background: #f9f7f3;
+    color: {INK};
+}}
 """
 
 #: The run controls, appended rather than written into the block above so the
@@ -282,8 +382,70 @@ class FunnelBar(QFrame):
             self._warn_chip("⚠ " + note)
 
 
+_REJECT_REASONS = [
+    "reject.wrong_role",
+    "reject.wrong_company",
+    "reject.wrong_location",
+    "reject.not_relevant",
+]
+
+
+class RejectReasonDialog(QDialog):
+    """One-click reason picker shown when the user rejects a posting."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(tr("reject.title"))
+        self.setMinimumWidth(360)
+        self._reason = ""
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(tr("reject.hint")))
+
+        chips = QHBoxLayout()
+        for key in _REJECT_REASONS:
+            btn = QPushButton(tr(key))
+            btn.clicked.connect(lambda _=False, k=key: self._pick(tr(k)))
+            chips.addWidget(btn)
+        layout.addLayout(chips)
+
+        other_row = QHBoxLayout()
+        other_row.addWidget(QLabel(tr("reject.other")))
+        self._text = QLineEdit()
+        self._text.setPlaceholderText(tr("reject.placeholder"))
+        self._text.returnPressed.connect(self._submit_text)
+        other_row.addWidget(self._text)
+        layout.addLayout(other_row)
+
+        buttons = QHBoxLayout()
+        skip = QPushButton(tr("reject.skip"))
+        skip.clicked.connect(lambda: self._pick(""))
+        submit = QPushButton(tr("reject.submit"))
+        submit.setDefault(True)
+        submit.clicked.connect(self._submit_text)
+        buttons.addStretch()
+        buttons.addWidget(skip)
+        buttons.addWidget(submit)
+        layout.addLayout(buttons)
+
+    def _pick(self, reason: str):
+        self._reason = reason
+        self.accept()
+
+    def _submit_text(self):
+        self._reason = self._text.text().strip()
+        self.accept()
+
+    @staticmethod
+    def ask(parent=None) -> str | None:
+        dlg = RejectReasonDialog(parent)
+        if dlg.exec() == QDialog.Accepted:
+            return dlg._reason
+        return None
+
+
 class ReviewWindow(QMainWindow):
-    decided = Signal(str, str)          # (job_id, decision)
+    decided = Signal(str, str, str)     # (job_id, decision, note)
     settings_requested = Signal()
     #: Open the board. Until 2026-09-13 the board could be reached ONLY with
     #: the `--board` command-line flag, so on every shipped build a posting
@@ -410,6 +572,12 @@ class ReviewWindow(QMainWindow):
         self.calibration_note.setWordWrap(True)
         self.calibration_note.setTextFormat(Qt.PlainText)
         self.calibration_note.hide()
+        self.btn_export = QPushButton(tr("menu.export"))
+        self.btn_export.setObjectName("secondaryButton")
+        self.btn_export.clicked.connect(self._export_csv)
+        self.btn_import = QPushButton(tr("menu.import"))
+        self.btn_import.setObjectName("secondaryButton")
+        self.btn_import.clicked.connect(self._import_csv)
         self.btn_board = QPushButton(tr("menu.board"))
         self.btn_board.setObjectName("secondaryButton")
         self.btn_board.clicked.connect(self.board_requested)
@@ -421,6 +589,8 @@ class ReviewWindow(QMainWindow):
         run_row.addWidget(self.run_progress)
         run_row.addStretch(1)
         run_row.addWidget(self.btn_calibrate)
+        run_row.addWidget(self.btn_export)
+        run_row.addWidget(self.btn_import)
         run_row.addWidget(self.btn_board)
         run_row.addWidget(self.btn_settings)
         run_row.addWidget(self.btn_run_now)
@@ -431,14 +601,20 @@ class ReviewWindow(QMainWindow):
 
         self.tabs = QTabWidget()
         self.shortlist = self._make_tree()
+        self.pursuing = self._make_tree()
         self.rejected = self._make_tree()
+        self.lost = self._make_tree()
         self.screened_out = self._make_tree()
         self.contained = self._make_tree()
         self.tabs.addTab(self.shortlist, tr("tab.shortlist"))
+        self.tabs.addTab(self.pursuing, tr("tab.pursuing"))
         self.tabs.addTab(self.rejected, tr("tab.rejected"))
+        self.tabs.addTab(self.lost, tr("tab.lost"))
         # spec 5.4: the unlikely pile is browsable, never erased.
         self.tabs.addTab(self.screened_out, tr("tab.screened_out"))
         self.tabs.addTab(self.contained, tr("tab.needs_review"))
+        for idx, colour in TAB_COLOURS.items():
+            self.tabs.setTabIcon(idx, _dot_icon(colour))
         splitter.addWidget(self.tabs)
 
         right = QWidget()
@@ -474,7 +650,8 @@ class ReviewWindow(QMainWindow):
         self.setStyleSheet(STYLESHEET)
         self.setCentralWidget(root)
 
-        for tree in (self.shortlist, self.rejected, self.screened_out, self.contained):
+        for tree in (self.shortlist, self.pursuing, self.rejected,
+                     self.lost, self.screened_out, self.contained):
             tree.currentItemChanged.connect(self._show_detail)
         # AND ON A TAB CHANGE, which nothing did.
         #
@@ -509,8 +686,8 @@ class ReviewWindow(QMainWindow):
             self._select_next)
         QShortcut(QKeySequence("K"), self).activated.connect(
             self._select_prev)
-        # Tab switching: 1–4 jump to the four tabs.
-        for i in range(4):
+        # Tab switching: 1–6 jump to the six tabs.
+        for i in range(6):
             QShortcut(QKeySequence(str(i + 1)), self).activated.connect(
                 lambda idx=i: self.tabs.setCurrentIndex(idx))
 
@@ -562,13 +739,20 @@ class ReviewWindow(QMainWindow):
              incomplete_note: str = "",
              notes: list[str] | None = None) -> None:
         self._rows = {r.job_id: r for r in rows}
-        for tree in (self.shortlist, self.rejected, self.screened_out, self.contained):
+        for tree in (self.shortlist, self.pursuing, self.rejected,
+                     self.lost, self.screened_out, self.contained):
             tree.clear()
 
         ordered = sorted(rows, key=lambda r: (BUCKET_ORDER.get(r.bucket, 9),
                                               r.company.casefold()))
         for r in ordered:
-            if r.screen_reason and r.bucket == "screened-out":
+            if r.bucket == "pursued":
+                target = self.pursuing
+            elif r.bucket == "lost":
+                target = self.lost
+            elif r.bucket == "declined":
+                target = self.rejected
+            elif r.screen_reason and r.bucket == "screened-out":
                 target = self.contained if r.contained else self.screened_out
             elif r.bucket == "rejected":
                 target = self.rejected
@@ -587,12 +771,18 @@ class ReviewWindow(QMainWindow):
                 item.setFont(0, f)
             if r.downgrade_reason or r.contained:
                 item.setForeground(2, Qt.darkYellow)
+            bucket_colour = BUCKET_COLOURS.get(r.bucket)
+            if bucket_colour:
+                item.setForeground(0, QColor(bucket_colour))
             target.addTopLevelItem(item)
 
         self.funnel.set_counts(counts, incomplete_note=incomplete_note,
                                notes=notes)
         for idx, (tree, key) in enumerate((
-                (self.shortlist, "tab.shortlist"), (self.rejected, "tab.rejected"),
+                (self.shortlist, "tab.shortlist"),
+                (self.pursuing, "tab.pursuing"),
+                (self.rejected, "tab.rejected"),
+                (self.lost, "tab.lost"),
                 (self.screened_out, "tab.screened_out"),
                 (self.contained, "tab.needs_review"))):
             self.tabs.setTabText(idx, tr("tab.with_count", label=tr(key),
@@ -715,7 +905,7 @@ class ReviewWindow(QMainWindow):
                          + "</i></p>")
         parts.extend(self._gap_html(r))
         parts.append("<hr>")
-        parts.append(f"<div style='white-space:pre-wrap'>{r.description}</div>")
+        parts.append(f"<div>{_md_to_html(r.description)}</div>")
         self.detail.setHtml("".join(parts))
 
     def _gap_html(self, r) -> list[str]:
@@ -779,9 +969,138 @@ class ReviewWindow(QMainWindow):
             event.acceptProposedAction()
 
     def _decide(self, decision: str):
-        r = self._current_row()
-        if r is not None:
-            self.decided.emit(r.job_id, decision)
+        tree = self.tabs.currentWidget()
+        if not isinstance(tree, QTreeWidget):
+            return
+        item = tree.currentItem()
+        if item is None:
+            return
+        job_id = item.data(0, Qt.UserRole)
+        r = self._rows.get(job_id)
+        if r is None:
+            return
+
+        note = ""
+        if decision == "reject":
+            reason = RejectReasonDialog.ask(self)
+            if reason is None:
+                return
+            note = reason
+
+        idx = tree.indexOfTopLevelItem(item)
+        tree.takeTopLevelItem(idx)
+
+        if decision == "reject":
+            self.rejected.addTopLevelItem(item)
+        elif decision == "pursue":
+            self.pursuing.addTopLevelItem(item)
+        elif decision == "later":
+            pass
+
+        self._refresh_tab_counts()
+        self.decided.emit(r.job_id, decision, note)
+
+        if tree.topLevelItemCount():
+            nxt = min(idx, tree.topLevelItemCount() - 1)
+            tree.setCurrentItem(tree.topLevelItem(nxt))
+        else:
+            self._show_detail()
+
+    def _refresh_tab_counts(self):
+        for idx, (tree, key) in enumerate((
+                (self.shortlist, "tab.shortlist"),
+                (self.pursuing, "tab.pursuing"),
+                (self.rejected, "tab.rejected"),
+                (self.lost, "tab.lost"),
+                (self.screened_out, "tab.screened_out"),
+                (self.contained, "tab.needs_review"))):
+            self.tabs.setTabText(idx, tr("tab.with_count", label=tr(key),
+                                         count=tree.topLevelItemCount()))
+
+    # -- CSV export / import ------------------------------------------------
+    _TAB_NAMES = {0: "Shortlist", 1: "Pursuing", 2: "Rejected",
+                  3: "Lost", 4: "Screened out", 5: "Needs review"}
+
+    def _all_rows_by_tab(self):
+        """Yield (tab_name, ReviewRow) for every item across all tabs."""
+        for idx, tree in enumerate((self.shortlist, self.pursuing,
+                                    self.rejected, self.lost,
+                                    self.screened_out, self.contained)):
+            tab = self._TAB_NAMES.get(idx, "")
+            for i in range(tree.topLevelItemCount()):
+                job_id = tree.topLevelItem(i).data(0, Qt.UserRole)
+                r = self._rows.get(job_id)
+                if r:
+                    yield tab, r
+
+    def _export_csv(self):
+        import csv, io
+        from PySide6.QtCore import QStandardPaths
+        docs = QStandardPaths.writableLocation(
+            QStandardPaths.DocumentsLocation)
+        default = f"{docs}/dawnlist_review.csv" if docs else "dawnlist_review.csv"
+        path, _ = QFileDialog.getSaveFileName(
+            self, tr("export.title"), default,
+            "CSV (*.csv)")
+        if not path:
+            return
+        with open(path, "w", newline="", encoding="utf-8-sig") as f:
+            w = csv.writer(f)
+            w.writerow(["Tab", "Job ID", "Title", "Company", "Location",
+                         "URL", "Verdict", "Reason", "Decision"])
+            for tab, r in self._all_rows_by_tab():
+                w.writerow([tab, r.job_id, r.title, r.company, r.location,
+                            r.url, r.bucket, r.reason or r.screen_reason, ""])
+        QMessageBox.information(self, tr("export.title"),
+                                tr("export.done", count=sum(
+                                    t.topLevelItemCount() for t in (
+                                        self.shortlist, self.pursuing,
+                                        self.rejected, self.screened_out,
+                                        self.contained))))
+
+    def _import_csv(self):
+        import csv
+        from PySide6.QtCore import QStandardPaths
+        docs = QStandardPaths.writableLocation(
+            QStandardPaths.DocumentsLocation)
+        path, _ = QFileDialog.getOpenFileName(
+            self, tr("import.title"), docs or "",
+            "CSV (*.csv)")
+        if not path:
+            return
+        applied = 0
+        skipped = []
+        with open(path, newline="", encoding="utf-8-sig") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                decision = (row.get("Decision") or "").strip().lower()
+                if decision not in ("pursue", "reject", "later"):
+                    continue
+                job_id = (row.get("Job ID") or "").strip()
+                if not job_id or job_id not in self._rows:
+                    skipped.append(row.get("Title", job_id))
+                    continue
+                self.decided.emit(job_id, decision, "")
+                applied += 1
+                self._remove_from_trees(job_id, decision)
+        self._refresh_tab_counts()
+        self._show_detail()
+        msg = tr("import.done", applied=applied)
+        if skipped:
+            msg += "\n" + tr("import.skipped", count=len(skipped))
+        QMessageBox.information(self, tr("import.title"), msg)
+
+    def _remove_from_trees(self, job_id: str, decision: str):
+        """Remove a job from whichever tree it sits in; move to rejected if needed."""
+        for tree in (self.shortlist, self.rejected,
+                     self.screened_out, self.contained):
+            for i in range(tree.topLevelItemCount()):
+                item = tree.topLevelItem(i)
+                if item.data(0, Qt.UserRole) == job_id:
+                    tree.takeTopLevelItem(i)
+                    if decision == "reject":
+                        self.rejected.addTopLevelItem(item)
+                    return
 
 
 def main(rows: list[ReviewRow] | None = None, counts: dict | None = None) -> int:

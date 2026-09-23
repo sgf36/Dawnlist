@@ -60,6 +60,7 @@ QListWidget#ruleList {{
 QListWidget#ruleList::item {{ padding: 3px 4px; }}
 QListWidget#ruleList::item:selected {{ background: {TEAL}; color: {CREAM}; }}
 QListWidget#ruleList:disabled {{ background: #f4f1ea; color: #45505a; }}
+QLabel#versionLabel {{ color: #8a8680; padding: 12px 0; }}
 """
 
 
@@ -496,8 +497,8 @@ class SettingsWindow(QWidget):
     """
 
     def __init__(self, parent=None, *, variant=None, rules=None,
-                 families=None, searches=None, schedule=None, is_admin=None,
-                 home=None):
+                 families=None, searches=None, schedule=None, cadence=None,
+                 email=None, is_admin=None, home=None):
         super().__init__(parent)
         from app.core.build_variant import variant as read_variant
 
@@ -586,6 +587,16 @@ class SettingsWindow(QWidget):
         if schedule is not None:
             layout.addWidget(_divider())
             layout.addWidget(schedule)
+
+        self.cadence = cadence
+        if cadence is not None:
+            layout.addWidget(_divider())
+            layout.addWidget(cadence)
+
+        self.email = email
+        if email is not None:
+            layout.addWidget(_divider())
+            layout.addWidget(email)
 
         build = variant if variant is not None else read_variant()
         self.licence = (access_code_panel() if build == "store_iap"
@@ -685,6 +696,12 @@ class SettingsWindow(QWidget):
         layout.addWidget(_divider())
         self.report = ReportPanel()
         layout.addWidget(self.report)
+
+        from app.version import VERSION
+        ver = QLabel(f"Dawnlist {VERSION}")
+        ver.setObjectName("versionLabel")
+        ver.setAlignment(Qt.AlignCenter)
+        layout.addWidget(ver)
 
         self.setStyleSheet(SETTINGS_STYLESHEET)
 
@@ -2196,6 +2213,7 @@ class SearchesPanel(QWidget):
                  forgetter=None,
                  enabler=None, where_loader=None, where_saver=None,
                  guide_exporter=None, guide_importer=None,
+                 brief_saver=None,
                  connection_tester=None,
                  parent=None):
         super().__init__(parent)
@@ -2208,6 +2226,7 @@ class SearchesPanel(QWidget):
         self._where_save = where_saver or (lambda text: None)
         self._guide_export = guide_exporter
         self._guide_import = guide_importer
+        self._brief_saver = brief_saver
         self._test_connection = connection_tester
 
         layout = QVBoxLayout(self)
@@ -2274,6 +2293,11 @@ class SearchesPanel(QWidget):
         self.listing.setObjectName("ruleList")
         layout.addWidget(self.listing, 1)
 
+        self._cost_label = QLabel()
+        self._cost_label.setWordWrap(True)
+        self._cost_label.setStyleSheet("color:#6b5426;font-size:12px;")
+        layout.addWidget(self._cost_label)
+
         row = QHBoxLayout()
         row.setSpacing(6)
         self.field = QLineEdit()
@@ -2296,6 +2320,12 @@ class SearchesPanel(QWidget):
         type_row.addWidget(self.type_combo)
         type_row.addStretch(1)
         layout.addLayout(type_row)
+
+        self._both_warning = QLabel(tr("searches.both_warning"))
+        self._both_warning.setWordWrap(True)
+        self._both_warning.setStyleSheet("color:#6b5426;font-size:12px;")
+        self._both_warning.hide()
+        layout.addWidget(self._both_warning)
 
         self.dk_label = QLabel(tr("searches.dk_label"))
         self.dk_label.hide()
@@ -2381,6 +2411,8 @@ class SearchesPanel(QWidget):
 
     def refresh(self) -> None:
         self.listing.clear()
+        enabled_count = 0
+        both_count = 0
         if self._load_detail:
             for row in self._load_detail() or []:
                 label = row["label"]
@@ -2389,9 +2421,15 @@ class SearchesPanel(QWidget):
                 on = row["enabled"]
                 search_type = row.get("search_type", "title")
                 last_run = row.get("last_run")
+                if on:
+                    enabled_count += 1
+                    if search_type == "both":
+                        both_count += 1
                 state = tr("searches.on") if on else tr("searches.off")
-                type_tag = {"title": "T", "description": "D",
-                            "both": "T+D"}.get(search_type, "T")
+                type_tag = {"title": tr("searches.match_title"),
+                            "description": tr("searches.match_description"),
+                            "both": tr("searches.match_both"),
+                            }.get(search_type, tr("searches.match_title"))
                 run_info = _format_last_run(last_run) if last_run else ""
                 text = (f"{state}  [{type_tag}]  {label}"
                         f"  —  {', '.join(titles)}")
@@ -2405,9 +2443,15 @@ class SearchesPanel(QWidget):
         else:
             for label, titles, dk, on, *rest in self._load() or []:
                 search_type = rest[0] if rest else "title"
+                if on:
+                    enabled_count += 1
+                    if search_type == "both":
+                        both_count += 1
                 state = tr("searches.on") if on else tr("searches.off")
-                type_tag = {"title": "T", "description": "D",
-                            "both": "T+D"}.get(search_type, "T")
+                type_tag = {"title": tr("searches.match_title"),
+                            "description": tr("searches.match_description"),
+                            "both": tr("searches.match_both"),
+                            }.get(search_type, tr("searches.match_title"))
                 text = (f"{state}  [{type_tag}]  {label}"
                         f"  —  {', '.join(titles)}")
                 if dk:
@@ -2415,6 +2459,25 @@ class SearchesPanel(QWidget):
                 item = QListWidgetItem(text)
                 item.setData(Qt.UserRole, (label, on))
                 self.listing.addItem(item)
+        self._update_cost(enabled_count, both_count)
+
+    def _update_cost(self, enabled: int, both: int) -> None:
+        if not enabled:
+            self._cost_label.setText(tr("searches.cost_none"))
+            return
+        calls = enabled + both
+        if both:
+            self._cost_label.setText(tr(
+                "searches.cost_summary",
+                calls=calls, s="" if calls == 1 else "s",
+                queries=enabled, qs="" if enabled == 1 else "es",
+                both=both, page=100))
+        else:
+            self._cost_label.setText(tr(
+                "searches.cost_summary_simple",
+                calls=calls, s="" if calls == 1 else "s",
+                queries=enabled, qs="" if enabled == 1 else "es",
+                page=100))
 
     def _say(self, text: str, ok: bool) -> None:
         self.result.setObjectName("ok" if ok else "bad")
@@ -2428,6 +2491,7 @@ class SearchesPanel(QWidget):
         show_dk = st in ("description", "both")
         self.dk_label.setVisible(show_dk)
         self.dk_field.setVisible(show_dk)
+        self._both_warning.setVisible(st == "both")
 
     def add(self) -> None:
         text = self.field.text().strip()
@@ -2585,8 +2649,13 @@ class SearchesPanel(QWidget):
             self._say(tr("searches.export_empty"), ok=False)
             return
 
+        from PySide6.QtCore import QStandardPaths
+        docs = QStandardPaths.writableLocation(
+            QStandardPaths.DocumentsLocation)
+        default = (f"{docs}/dawnlist-searches.csv"
+                   if docs else "dawnlist-searches.csv")
         path, _filter = QFileDialog.getSaveFileName(
-            self, tr("searches.export_title"), "dawnlist-searches.csv",
+            self, tr("searches.export_title"), default,
             "CSV (*.csv)")
         if not path:
             return
@@ -2620,9 +2689,14 @@ class SearchesPanel(QWidget):
 
         from app.core.query_csv import write_template
 
+        from PySide6.QtCore import QStandardPaths
+        docs = QStandardPaths.writableLocation(
+            QStandardPaths.DocumentsLocation)
+        default = (f"{docs}/dawnlist-searches-template.csv"
+                   if docs else "dawnlist-searches-template.csv")
         path, _filter = QFileDialog.getSaveFileName(
-            self, tr("searches.template_title"),
-            "dawnlist-searches-template.csv", "CSV (*.csv)")
+            self, tr("searches.template_title"), default,
+            "CSV (*.csv)")
         if not path:
             return
 
@@ -2717,13 +2791,9 @@ class SearchesPanel(QWidget):
         # Apply changes
         applied = 0
         try:
-            if changes.fit_brief is not None:
-                from app.onboarding.interview import save_document
-                # The save_document function is injected via the import
-                # callback; the caller wires it to the real conn. This
-                # is the one place a reimport touches the fit_brief, and
-                # it creates a new version rather than updating in place.
-                pass  # Handled by the callback
+            if changes.fit_brief is not None and self._brief_saver:
+                self._brief_saver(changes.fit_brief)
+                applied += 1
 
             for label, titles, stype in changes.queries_added:
                 self._save(label, titles, search_type=stype)
@@ -2769,6 +2839,170 @@ class SearchesPanel(QWidget):
         ok, message = result
         self.btn_test_conn.setEnabled(True)
         self._say(message, ok=ok)
+
+
+class CadencePanel(QWidget):
+    """Edit the follow-up cadence: gap, OOO buffer, ladder rungs, tue/thu rule."""
+
+    changed = Signal()
+
+    def __init__(self, *, loader=None, saver=None, parent=None):
+        super().__init__(parent)
+        from app.core.cadence import CadenceConfig
+
+        self._load = loader or (lambda: CadenceConfig())
+        self._save = saver or (lambda cfg: None)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
+
+        heading = QLabel(tr("cadence.heading"))
+        heading.setObjectName("stepHeading")
+        layout.addWidget(heading)
+
+        body = QLabel(reflow(tr("cadence.body")))
+        body.setObjectName("stepBody")
+        body.setWordWrap(True)
+        layout.addWidget(body)
+
+        gap_row = QHBoxLayout()
+        gap_row.setSpacing(10)
+        gap_row.addWidget(QLabel(tr("cadence.gap")))
+        self.gap_spin = QSpinBox()
+        self.gap_spin.setRange(1, 30)
+        self.gap_spin.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        gap_row.addWidget(self.gap_spin)
+        gap_row.addStretch(1)
+        layout.addLayout(gap_row)
+
+        ooo_row = QHBoxLayout()
+        ooo_row.setSpacing(10)
+        ooo_row.addWidget(QLabel(tr("cadence.ooo_buffer")))
+        self.ooo_spin = QSpinBox()
+        self.ooo_spin.setRange(0, 30)
+        self.ooo_spin.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        ooo_row.addWidget(self.ooo_spin)
+        ooo_row.addStretch(1)
+        layout.addLayout(ooo_row)
+
+        self.tue_thu = QCheckBox(tr("cadence.tue_thu"))
+        layout.addWidget(self.tue_thu)
+
+        ladder_label = QLabel(tr("cadence.ladder_heading"))
+        ladder_label.setObjectName("stepBody")
+        f = ladder_label.font()
+        f.setWeight(QFont.DemiBold)
+        ladder_label.setFont(f)
+        layout.addWidget(ladder_label)
+
+        self.ladder_grid = QGridLayout()
+        self.ladder_grid.setSpacing(6)
+        layout.addLayout(self.ladder_grid)
+        self._rung_checks: list[dict[str, QCheckBox]] = []
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(10)
+        self.btn_reset = QPushButton(tr("cadence.reset"))
+        self.btn_reset.setObjectName("secondary")
+        btn_row.addWidget(self.btn_reset)
+        btn_row.addStretch(1)
+        layout.addLayout(btn_row)
+
+        self.result = QLabel()
+        self.result.setWordWrap(True)
+        self.result.hide()
+        layout.addWidget(self.result)
+        layout.addStretch(1)
+
+        self.setStyleSheet(SETTINGS_STYLESHEET)
+        self.refresh()
+        self.gap_spin.valueChanged.connect(self._commit)
+        self.ooo_spin.valueChanged.connect(self._commit)
+        self.tue_thu.toggled.connect(self._commit)
+        self.btn_reset.clicked.connect(self._reset)
+
+    def _build_ladder(self, ladder: list[list[str]]) -> None:
+        while self.ladder_grid.count():
+            item = self.ladder_grid.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self._rung_checks.clear()
+
+        channels = ["email", "letter", "call"]
+        labels = {
+            "email": tr("cadence.channel_email"),
+            "letter": tr("cadence.channel_letter"),
+            "call": tr("cadence.channel_call"),
+        }
+        for col, ch in enumerate(channels):
+            lbl = QLabel(labels[ch])
+            lbl.setAlignment(Qt.AlignCenter)
+            self.ladder_grid.addWidget(lbl, 0, col + 1)
+
+        for row_idx, rung in enumerate(ladder):
+            lbl = QLabel(tr("cadence.rung", n=row_idx + 1))
+            self.ladder_grid.addWidget(lbl, row_idx + 1, 0)
+            checks = {}
+            for col, ch in enumerate(channels):
+                cb = QCheckBox()
+                cb.setChecked(ch in rung)
+                cb.toggled.connect(self._commit)
+                self.ladder_grid.addWidget(cb, row_idx + 1, col + 1,
+                                           Qt.AlignCenter)
+                checks[ch] = cb
+            self._rung_checks.append(checks)
+
+    def _read_ladder(self) -> list[list[str]]:
+        ladder = []
+        for checks in self._rung_checks:
+            rung = [ch for ch in ("email", "letter", "call")
+                    if checks[ch].isChecked()]
+            ladder.append(rung)
+        return ladder
+
+    def refresh(self) -> None:
+        cfg = self._load()
+        self.gap_spin.blockSignals(True)
+        self.gap_spin.setValue(cfg.business_day_gap)
+        self.gap_spin.blockSignals(False)
+        self.ooo_spin.blockSignals(True)
+        self.ooo_spin.setValue(cfg.ooo_buffer_days)
+        self.ooo_spin.blockSignals(False)
+        self.tue_thu.blockSignals(True)
+        self.tue_thu.setChecked(cfg.tue_thu_only)
+        self.tue_thu.blockSignals(False)
+        self._build_ladder(cfg.ladder)
+
+    def _current_config(self):
+        from app.core.cadence import CadenceConfig
+        return CadenceConfig(
+            business_day_gap=self.gap_spin.value(),
+            ooo_buffer_days=self.ooo_spin.value(),
+            ladder=self._read_ladder(),
+            tue_thu_only=self.tue_thu.isChecked(),
+        )
+
+    def _commit(self, *_args) -> None:
+        cfg = self._current_config()
+        self._save(cfg)
+        self._say(tr("cadence.saved"))
+        self.changed.emit()
+
+    def _reset(self) -> None:
+        from app.core.cadence import CadenceConfig
+        cfg = CadenceConfig()
+        self._save(cfg)
+        self.refresh()
+        self._say(tr("cadence.reset_done"))
+        self.changed.emit()
+
+    def _say(self, text: str, ok: bool = True) -> None:
+        self.result.setObjectName("ok" if ok else "bad")
+        self.result.setText(text)
+        self.result.style().unpolish(self.result)
+        self.result.style().polish(self.result)
+        self.result.show()
 
 
 class SchedulePanel(QWidget):

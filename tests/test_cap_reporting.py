@@ -66,22 +66,21 @@ def test_capped_names_the_cap_and_the_numbers():
     r = FetchResult(jobs=[job(str(i)) for i in range(50)], pages_fetched=1,
                     exhausted=False, matched=340, not_fetched=290, capped=True)
     s = r.shortfall
-    assert "capped" in s
-    assert "340" in s and "50" in s and "290" in s
-    assert "daily limit" in s
+    assert "daily posting limit" in s
+    assert "340" in s and "50" in s
 
 
 def test_partial_without_a_cap_does_not_blame_the_plan():
     r = FetchResult(jobs=[job("a")], pages_fetched=1, exhausted=False,
                     matched=90, not_fetched=89, capped=False)
     s = r.shortfall
-    assert "capped" not in s
+    assert "posting limit" not in s
     assert "89" in s and "90" in s
 
 
 def test_unpaginated_still_reports_even_when_unsized():
     r = FetchResult(jobs=[job("a")], pages_fetched=1, exhausted=False)
-    assert r.shortfall == "partial: pagination did not reach exhaustion"
+    assert r.shortfall == "not all matching jobs could be read this run"
 
 
 def test_matched_none_is_not_treated_as_zero():
@@ -91,7 +90,7 @@ def test_matched_none_is_not_treated_as_zero():
     r = FetchResult(jobs=[job("a")], pages_fetched=1, exhausted=False,
                     not_fetched=5, capped=True, matched=None)
     assert "?" in r.shortfall
-    assert " 0 postings matched" not in r.shortfall
+    assert " 0 matching" not in r.shortfall
 
 
 # --- and it has to reach the run --------------------------------------------
@@ -105,7 +104,7 @@ def test_a_capped_run_is_not_reported_as_clean(conn):
                       send=_send)
 
     assert out.fetch_errors, "a capped run must carry a reported shortfall"
-    assert any("capped" in e and "339" in e for e in out.fetch_errors), \
+    assert any("posting limit" in e and "340" in e for e in out.fetch_errors), \
         f"the cap must be named with its numbers, got {out.fetch_errors}"
     assert not out.complete, "a capped run is never a complete run"
 

@@ -11,13 +11,18 @@ pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from app.ui.review import ReviewRow, ReviewWindow  # noqa: E402
+from app.ui.review import RejectReasonDialog, ReviewRow, ReviewWindow  # noqa: E402
 
 
 @pytest.fixture(scope="module")
 def qapp():
     app = QApplication.instance() or QApplication([])
     yield app
+
+
+@pytest.fixture(autouse=True)
+def _no_reject_dialog(monkeypatch):
+    monkeypatch.setattr(RejectReasonDialog, "ask", staticmethod(lambda parent=None: ""))
 
 
 @pytest.fixture()
@@ -52,7 +57,7 @@ def test_screened_out_rows_are_browsable_not_deleted(win):
     win.load([row(str(i), bucket="screened-out", screen_reason="x")
               for i in range(9)], {"swept": 9})
     assert win.screened_out.topLevelItemCount() == 9
-    assert "9" in win.tabs.tabText(2)
+    assert "9" in win.tabs.tabText(4)
 
 
 def bar_text(win):
@@ -115,14 +120,34 @@ def test_strong_verdicts_sort_above_rejections(win):
 
 
 def test_deciding_emits_the_job_id_and_decision(win):
-    win.load([row("42", bucket="strong", reason="fits")], {})
+    win.load([row("A", bucket="strong", reason="a"),
+              row("B", bucket="strong", reason="b"),
+              row("C", bucket="strong", reason="c")], {})
     win.tabs.setCurrentIndex(0)
-    win.shortlist.setCurrentItem(win.shortlist.topLevelItem(0))
     seen = []
-    win.decided.connect(lambda j, d: seen.append((j, d)))
+    win.decided.connect(lambda j, d, n: seen.append((j, d)))
+
+    win.shortlist.setCurrentItem(win.shortlist.topLevelItem(0))
     win.btn_pursue.click()
+    win.shortlist.setCurrentItem(win.shortlist.topLevelItem(0))
     win.btn_reject.click()
-    assert seen == [("42", "pursue"), ("42", "reject")]
+    win.shortlist.setCurrentItem(win.shortlist.topLevelItem(0))
+    win.btn_later.click()
+
+    assert seen == [("A", "pursue"), ("B", "reject"), ("C", "later")]
+
+
+def test_decide_removes_row_and_updates_tab_counts(win):
+    win.load([row("1", bucket="strong"), row("2", bucket="strong")], {})
+    win.tabs.setCurrentIndex(0)
+    assert win.shortlist.topLevelItemCount() == 2
+    win.shortlist.setCurrentItem(win.shortlist.topLevelItem(0))
+    win.decided.connect(lambda *_: None)
+    win.btn_reject.click()
+    assert win.shortlist.topLevelItemCount() == 1
+    assert win.rejected.topLevelItemCount() == 1
+    assert "(1)" in win.tabs.tabText(0)
+    assert "(1)" in win.tabs.tabText(2)
 
 
 def test_the_full_why_text_is_available_on_hover(win):
@@ -142,7 +167,7 @@ def test_an_unchecked_requirement_is_explained_not_hidden(win):
 
 def test_no_dangling_dash_when_there_is_no_reason(win):
     win.load([row("1", bucket="screened-out", screen_reason="x")], {})
-    win.tabs.setCurrentIndex(2)
+    win.tabs.setCurrentIndex(3)
     win.screened_out.setCurrentItem(win.screened_out.topLevelItem(0))
     assert "screened-out —" not in win.detail.toPlainText()
 
@@ -327,7 +352,7 @@ def test_the_pane_and_the_buttons_never_disagree(qapp):
     what the reader is looking at."""
     w = _two_tab_window(qapp)
     decided = []
-    w.decided.connect(lambda job_id, d: decided.append(job_id))
+    w.decided.connect(lambda job_id, d, n: decided.append(job_id))
 
     for i in range(w.tabs.count()):
         if w.tabs.widget(i) is w.screened_out:

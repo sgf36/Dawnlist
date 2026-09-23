@@ -141,5 +141,18 @@
   "onboarding.profile_contract_only": "A radio button. An employment contract type: a fixed-term or interim engagement. NOT 'contract' as in a legal document to sign.",
   "onboarding.profile_salary": "A label beside a number box. The minimum annual salary the user will consider. 'Floor' means the lowest acceptable amount, not a storey of a building.",
   "onboarding.profile_seniority": "A label beside a dropdown. The career level the user is targeting. 'Band' means tier or level, not a musical group.",
-  "onboarding.draft_saved": "A brief flash confirmation shown after an auto-save. Keep the checkmark ✓ exactly. Very short - it must fit in a small label."
+  "onboarding.draft_saved": "A brief flash confirmation shown after an auto-save. Keep the checkmark ✓ exactly. Very short - it must fit in a small label.",
+  "board.detail.posted": "A label in a detail panel. Same meaning as board.col.posted: the date the job advert was PUBLISHED. Use the same word you used for that column heading.",
+  "board.detail.first_tracked": "A label in a detail panel. Same meaning as board.col.first_tracked: when this employer was added to the tracker. Use the same word you used for that column heading.",
+  "board.detail.last_contact": "A label in a detail panel. Same meaning as board.col.last_contact: the date the user last sent something OUT to the employer. Use the same word you used for that column heading.",
+  "board.detail.stage": "A label in a detail panel. The pipeline stage this opportunity is at (Identified, Contacted, etc.). Not 'stage' as in a theatre stage.",
+  "board.detail.no_selection": "Placeholder shown in the detail panel when no row is selected in the board. An instruction to the user, not a label.",
+  "board.export_done": "{count} is a whole number. A confirmation shown after writing a CSV file. 'Opportunities' means job opportunities being tracked.",
+  "reject.title": "Title of a dialog shown when the user permanently rejects a job posting. They are explaining WHY they rejected it.",
+  "reject.hint": "Subtitle under the dialog title. Explains that providing a reason is optional and will improve future AI recommendations. The dash is a dash, not a minus.",
+  "reject.wrong_role": "A chip button. The job's ROLE or SENIORITY LEVEL does not match what the user wants. 'Level' is seniority, not a game level.",
+  "reject.not_relevant": "A chip button. A catch-all for a posting that does not match at all.",
+  "reject.submit": "A button. Confirms the rejection AND saves the note. Not 'submit an application'.",
+  "run.incomplete_status": "{note} is a short technical reason already in English. 'Some jobs may have been missed' means the daily search could not read every matching posting - it is a warning, not a failure.",
+  "funnel.narrow_search": "A warning banner. Tells the user their search matches MORE postings than can be read in one daily run. 'Settings' is the app's Settings screen. The tone is a suggestion, not an error."
 }

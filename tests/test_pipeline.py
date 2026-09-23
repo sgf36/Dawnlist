@@ -88,7 +88,7 @@ def test_unexhausted_pagination_is_surfaced(conn):
         jobs=[job("a")], pages_fetched=1, exhausted=False)})
     out = run_morning(conn, provider, [Q], RULES, fit_brief="b", factsheet="f",
                       send=strong_send)
-    assert any("exhaustion" in e for e in out.fetch_errors)
+    assert any("not all matching jobs" in e for e in out.fetch_errors)
     assert not out.complete
 
 
@@ -191,7 +191,7 @@ def test_persist_writes_verdicts_and_marks_downgrades(conn):
     persist(conn, out)
     row = conn.execute("SELECT bucket, reason FROM assessments").fetchone()
     assert row["bucket"] == "judgement-call"
-    assert "downgraded" in row["reason"]
+    assert row["reason"] == "needs an MBA"
 
 
 def test_a_run_output_written_but_not_registered_is_caught(conn, tmp_path):

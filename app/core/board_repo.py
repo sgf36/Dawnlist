@@ -14,7 +14,8 @@ import json
 import sqlite3
 from datetime import date, datetime, timezone
 
-from app.core.cadence import Channel, Direction, Touch, next_step
+from app.core.cadence import (CadenceConfig, Channel, Direction, Touch,
+                              load_cadence_config, next_step)
 from app.core.tracker import (STAGE_BY_LABEL, STATUS_MIRROR, JobCategory,
                               Opportunity, Stage, Task, TrackerError, Write,
                               advance_for_outbound, apply_determination, audit,
@@ -156,11 +157,13 @@ def next_steps(conn: sqlite3.Connection, opps: list[Opportunity],
     Only opportunities carrying an active cadence are computed. On Hold is
     skipped here but is NOT dead — it still gets a reply check elsewhere.
     """
+    cfg = load_cadence_config(conn)
     out: dict[str, object] = {}
     for opp in opps:
         if not opp.stage.is_live or opp.category == JobCategory.MUTUAL_POC:
             continue
-        out[opp.id] = next_step(load_touches(conn, opp.id), today=today)
+        out[opp.id] = next_step(load_touches(conn, opp.id), today=today,
+                                config=cfg)
     return out
 
 

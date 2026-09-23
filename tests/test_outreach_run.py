@@ -266,3 +266,60 @@ def test_the_rung_reaches_the_draft(conn, tmp_path):
                    voice=VOICE, send=capture, today=LATER)
     assert "FOLLOW-UP" in seen["content"]
     assert TUE.isoformat() in seen["content"]
+
+
+# -- IMAP draft placement ---------------------------------------------------
+IMAP_CFG = {"host": "imap.example.com", "port": 993,
+            "email": "me@example.com", "password": "pw"}
+
+
+def test_imap_places_send_ready_drafts(conn, tmp_path):
+    from unittest.mock import patch
+    oid = create_opportunity(conn, "Acme")
+    add_contact(conn, oid)
+    with patch("app.outreach.run.place_draft_imap", return_value="") as m:
+        report = prepare_drafts(conn, due_today(conn, today=TUE),
+                                folder=tmp_path, factsheet=FACTS,
+                                voice=VOICE, send=sends(), imap=IMAP_CFG)
+    assert report.imap_placed == 1
+    m.assert_called_once()
+
+
+def test_imap_skips_drafts_with_placeholders(conn, tmp_path):
+    from unittest.mock import patch
+    oid = create_opportunity(conn, "Acme")
+    add_contact(conn, oid)
+    body = GOOD_BODY + " I delivered [[figure]] at [[employer]]."
+    with patch("app.outreach.run.place_draft_imap") as m:
+        report = prepare_drafts(conn, due_today(conn, today=TUE),
+                                folder=tmp_path, factsheet=FACTS,
+                                voice=VOICE, send=sends(body), imap=IMAP_CFG)
+    m.assert_not_called()
+    assert report.imap_placed == 0
+
+
+def test_imap_errors_are_recorded_but_do_not_block(conn, tmp_path):
+    from unittest.mock import patch
+    oid = create_opportunity(conn, "Acme")
+    add_contact(conn, oid)
+    with patch("app.outreach.run.place_draft_imap",
+               return_value="no Drafts folder"):
+        report = prepare_drafts(conn, due_today(conn, today=TUE),
+                                folder=tmp_path, factsheet=FACTS,
+                                voice=VOICE, send=sends(), imap=IMAP_CFG)
+    assert report.imap_placed == 0
+    assert len(report.imap_errors) == 1
+    assert "Drafts" in report.imap_errors[0]
+    assert report.counts["drafted"] == 1, "the .eml file is still written"
+
+
+def test_no_imap_when_not_configured(conn, tmp_path):
+    from unittest.mock import patch
+    oid = create_opportunity(conn, "Acme")
+    add_contact(conn, oid)
+    with patch("app.outreach.run.place_draft_imap") as m:
+        report = prepare_drafts(conn, due_today(conn, today=TUE),
+                                folder=tmp_path, factsheet=FACTS,
+                                voice=VOICE, send=sends())
+    m.assert_not_called()
+    assert report.imap_placed == 0

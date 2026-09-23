@@ -173,8 +173,12 @@ def run_morning(
             if not result.ok:
                 # spec 6.2: never "no new jobs". Recorded on the run, and the
                 # run cannot later be reported as a clean one.
-                outcome.fetch_errors.append(f"{q.label}: {result.error}")
-                run.record_fetch_failure(f"{q.label}: {result.error}")
+                error_text = result.error
+                if result.refusal:
+                    error_text = "today's search limit was reached"
+                msg = f"{q.label}: {error_text}"
+                outcome.fetch_errors.append(msg)
+                run.record_fetch_failure(msg)
             else:
                 if result.shortfall:
                     # spec 6.2 again, and the wording carries weight. A capped
@@ -363,8 +367,6 @@ def persist_verdicts(conn: sqlite3.Connection, run_id: int, verdicts) -> None:
         if row is None:
             continue
         reason = v.reason
-        if v.downgrade_reason:
-            reason = f"{reason} [downgraded: {v.downgrade_reason}]"
         conn.execute(
             """INSERT INTO assessments(job_id, run_id, bucket, reason,
                    disqualifying_quote, requirement_checked, full_read,

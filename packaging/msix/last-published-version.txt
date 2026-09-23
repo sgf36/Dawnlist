@@ -8,5 +8,7 @@
 #
 # Read off Partner Center rather than assumed. History: 1.0.0.0 was live and
 # 1.0.2.0 staged on 2026-09-09; 1.1.0.0 is published as at 2026-09-11;
-# 1.1.5.0 is published as at 2026-09-14.
-1.1.5.0
+# 1.1.5.0 is published as at 2026-09-14; 1.2.3.0 is published as at
+# 2026-09-22 (confirmed by Partner Centre rejecting a same-version upload);
+# 1.2.4.0 is published as at 2026-09-22.
+1.2.4.0

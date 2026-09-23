@@ -130,14 +130,13 @@ class FetchResult:
         """
         if self.capped:
             total = self.matched if self.matched is not None else "?"
-            return (f"capped: {total} postings matched today, "
-                    f"{len(self.jobs)} fetched, {self.not_fetched} not fetched "
-                    f"— the plan's daily limit was reached")
+            return (f"your plan's daily posting limit was reached "
+                    f"— {len(self.jobs)} of {total} matching jobs were read")
         if self.not_fetched:
-            return (f"partial: {self.not_fetched} of {self.matched} matched "
-                    f"postings were not fetched")
+            return (f"{self.not_fetched} of {self.matched} matching jobs "
+                    f"could not be read this run")
         if not self.exhausted:
-            return "partial: pagination did not reach exhaustion"
+            return "not all matching jobs could be read this run"
         return None
 
     def raise_if_failed(self) -> "FetchResult":

@@ -26,7 +26,7 @@ from typing import Callable
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import (QComboBox, QDialog, QDialogButtonBox,
-                               QFrame, QHBoxLayout, QLabel,
+                               QFileDialog, QFrame, QHBoxLayout, QLabel,
                                QLineEdit,
                                QMenu, QMessageBox,
                                QPlainTextEdit, QPushButton,
@@ -42,6 +42,20 @@ from app.ui.review import CREAM, GOLD, GOLD_DEEP, INK, TEAL, TEAL_LIFTED
 #: Stages that read as finished, and are dimmed accordingly. On Hold is NOT
 #: one of them.
 CLOSED_STAGES = {Stage.WON, Stage.LOST}
+
+# Per-stage colours — a teal gradient for the live pipeline, warm tones for
+# terminal states.  Darker teal = further along = more invested.
+STAGE_COLOURS = {
+    Stage.IDENTIFIED:           "#3D8B7A",   # lightest teal — new
+    Stage.CONTACTED:            "#2E7A6B",   # sent first outreach
+    Stage.IN_DIALOGUE:          "#24695C",   # conversation started
+    Stage.PHONE_INTERVIEW:      "#1F5C54",   # TEAL_LIFTED — interview stage
+    Stage.IN_PERSON_INTERVIEW:  "#1E4B45",   # TEAL — deep engagement
+    Stage.OFFER:                "#C98A3F",   # GOLD — exciting
+    Stage.WON:                  "#3d6b52",   # muted green — success
+    Stage.LOST:                 "#8b9199",   # grey — closed
+    Stage.ON_HOLD:              "#B07A2E",   # GOLD_DEEP — paused
+}
 
 
 def stage_text(stage: Stage) -> str:
@@ -121,6 +135,11 @@ QPushButton#boardAction {{
     color: {INK};
 }}
 QPushButton#boardAction:hover {{ background: #f4f1ea; }}
+QPushButton#boardAction:disabled {{
+    background: #f4f1ea;
+    color: #b0aca4;
+    border-color: #e4e0d8;
+}}
 """
 
 
@@ -326,6 +345,9 @@ class BoardWindow(QWidget):
         self.btn_refresh = QPushButton(tr("board.refresh"))
         self.btn_refresh.clicked.connect(self.refresh_requested)
         top.addWidget(self.btn_refresh)
+        self.btn_export = QPushButton(tr("board.export_csv"))
+        self.btn_export.clicked.connect(self._export_csv)
+        top.addWidget(self.btn_export)
         self.btn_import = QPushButton(tr("board.import_job"))
         self.btn_import.clicked.connect(self._show_import_dialog)
         top.addWidget(self.btn_import)
@@ -336,35 +358,25 @@ class BoardWindow(QWidget):
         top.addWidget(self.btn_drafts)
         outer.addLayout(top)
 
+        splitter = QSplitter(Qt.Vertical)
+
         self.tree = QTreeWidget()
         self.tree.setObjectName("boardTree")
         self._visible: list[str] = [c.key for c in COLUMNS if c.default_visible]
         self._apply_columns()
         self.tree.header().setStretchLastSection(True)
-        # Right-click the header to choose columns. Qt's own convention, so it
-        # needs no button and no explaining, and it is where a user who wants
-        # more columns will look first.
         self.tree.header().setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree.header().customContextMenuRequested.connect(self._column_menu)
-        # Alternating row colours OFF. With setFirstColumnSpanned group headers
-        # they made a non-selected row paint as if selected — the widget state
-        # said one row was selected while two were painted. The stylesheet's
-        # per-item bottom border already separates rows, so nothing is lost.
         self.tree.setAlternatingRowColors(False)
         self.tree.setUniformRowHeights(True)
         from app.ui import enable_touch_scroll
         enable_touch_scroll(self.tree)
-        # The ::item:selected stylesheet rule paints the item, not the strip
-        # beyond the last column, so the default highlight shows through there
-        # and a selected row comes out two colours. Set the palette too.
         palette = self.tree.palette()
         palette.setColor(QPalette.Highlight, QColor(TEAL))
         palette.setColor(QPalette.HighlightedText, QColor(CREAM))
         palette.setColor(QPalette.Inactive, QPalette.Highlight, QColor(TEAL))
         palette.setColor(QPalette.Inactive, QPalette.HighlightedText, QColor(CREAM))
         self.tree.setPalette(palette)
-
-        splitter = QSplitter(Qt.Vertical)
         splitter.addWidget(self.tree)
 
         self.detail = QTextBrowser()
@@ -390,14 +402,7 @@ class BoardWindow(QWidget):
 
         actions = QHBoxLayout()
         actions.setSpacing(10)
-        # Dawnlist never sends, so it cannot observe that a message went out —
-        # only the user can say so. Without this the cadence sits at rung zero
-        # for ever: the same first-contact letter is redrafted every Tuesday
-        # and no follow-up is ever scheduled.
-        # The "Open task" column had no way to be filled: `add_task` existed
-        # and nothing called it, so the column was permanently blank. Tasks are
-        # for what the cadence cannot know — "prepare for the call" — so the
-        # user types them.
+        actions.setContentsMargins(4, 4, 4, 4)
         self.field_task = QLineEdit()
         self.field_task.setObjectName("taskField")
         self.field_task.setPlaceholderText(tr("board.task_placeholder"))
@@ -408,10 +413,6 @@ class BoardWindow(QWidget):
         self.btn_repair_bounce = QPushButton(tr("board.repair_stage"))
         self.btn_apply = QPushButton(tr("board.write_application"))
         self.btn_brief = QPushButton(tr("board.interview_brief"))
-        # An employer's answer. The stage is chosen rather than inferred: a
-        # reply and an interview invitation are both "they answered" and land
-        # two rungs apart, and guessing between them corrupts the pipeline
-        # read exactly as inferring a stage from a send would.
         self.combo_stage = QComboBox()
         self.combo_stage.setObjectName("stageCombo")
         for stage in (Stage.IN_DIALOGUE, Stage.PHONE_INTERVIEW,
@@ -430,7 +431,16 @@ class BoardWindow(QWidget):
             b.setEnabled(False)
             actions.addWidget(b)
         actions.addStretch(1)
-        outer.addLayout(actions)
+        action_widget = QWidget()
+        action_widget.setLayout(actions)
+        action_scroll = QScrollArea()
+        action_scroll.setWidget(action_widget)
+        action_scroll.setWidgetResizable(True)
+        action_scroll.setFrameShape(QFrame.NoFrame)
+        action_scroll.setFixedHeight(52)
+        action_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        action_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        outer.addWidget(action_scroll)
 
         self.setStyleSheet(BOARD_STYLESHEET)
 
@@ -479,13 +489,7 @@ class BoardWindow(QWidget):
             # nothing — but a selectable row that does nothing reads as a
             # broken click. Make it a heading, not a target.
             group.setFlags(group.flags() & ~Qt.ItemIsSelectable)
-            if stage in CLOSED_STAGES:
-                group.setForeground(0, QColor("#8b9199"))
-            elif stage.is_paused:
-                # Paused, not dead — it keeps the live colour.
-                group.setForeground(0, QColor(GOLD_DEEP))
-            else:
-                group.setForeground(0, QColor(TEAL))
+            group.setForeground(0, QColor(STAGE_COLOURS.get(stage, TEAL)))
             self.tree.addTopLevelItem(group)
             # AFTER the item is in the tree, not before. Qt resolves this
             # against the view, so calling it on a detached item is a silent
@@ -510,7 +514,7 @@ class BoardWindow(QWidget):
                         item.setForeground(status_at, QColor(GOLD_DEEP))
                         item.setToolTip(status_at, defect)
                 if stage in CLOSED_STAGES:
-                    item.setForeground(0, QColor("#8b9199"))
+                    item.setForeground(0, QColor(STAGE_COLOURS.get(stage, "#8b9199")))
                 group.addChild(item)
             group.setExpanded(True)
 
@@ -739,6 +743,31 @@ class BoardWindow(QWidget):
         box.setStandardButtons(QMessageBox.Yes | QMessageBox.Cancel)
         box.setDefaultButton(QMessageBox.Cancel)
         return box.exec() == QMessageBox.Yes
+
+    # -- export --------------------------------------------------------------
+    def _export_csv(self):
+        import csv
+
+        from PySide6.QtCore import QStandardPaths
+        docs = QStandardPaths.writableLocation(
+            QStandardPaths.DocumentsLocation)
+        default = f"{docs}/dawnlist_board.csv" if docs else "dawnlist_board.csv"
+        path, _ = QFileDialog.getSaveFileName(
+            self, tr("board.export_title"), default,
+            "CSV (*.csv)")
+        if not path:
+            return
+        cols = list(COLUMNS)
+        with open(path, "w", newline="", encoding="utf-8-sig") as f:
+            w = csv.writer(f)
+            w.writerow(["Stage"] + [tr(c.label_key) for c in cols])
+            for row in sorted(self._rows.values(),
+                              key=lambda r: (r.stage.value, r.company.casefold())):
+                w.writerow([stage_text(row.stage)]
+                           + [c.value(row) for c in cols])
+        QMessageBox.information(
+            self, tr("board.export_title"),
+            tr("board.export_done", count=len(self._rows)))
 
     def _emit_repair(self):
         row = self._current()
