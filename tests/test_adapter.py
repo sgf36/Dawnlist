@@ -105,13 +105,13 @@ def test_a_downgrade_reaches_the_user(conn):
     assert "does not appear in the description" in row.downgrade_reason
 
 
-def test_a_contained_match_is_marked_for_review(conn):
+def test_a_contained_match_passes_through_to_assessment(conn):
     rules = RuleTable(unsupported_titles=["office manager"])
     out = run_morning(conn, Stub({"strategy": ok(
         [job("a", title="Assistant Front Office Manager")])}), [Q], rules,
         fit_brief="b", factsheet="f", send=strong_send)
     row = rows_from_outcome(out)[0]
-    assert row.contained and row.bucket == SCREENED_OUT
+    assert not row.contained and row.bucket == "strong"
 
 
 # -- the warning ------------------------------------------------------------

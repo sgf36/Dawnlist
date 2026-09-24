@@ -35,8 +35,10 @@ Rules, in order of force:
    stated requirement (a years floor, a credential, a hard skill), a line
    showing the role is a different function, or a whole field line such as
    "salary: ...". Quote a clause, not a word or two — at least about twenty
-   characters, or the whole field line. If you cannot quote it, you may not
-   reject.
+   characters, or the whole field line. COPY the text character-for-character
+   from the posting block above — do not paraphrase, summarise, or reconstruct
+   from memory. If no quotable line exists in the posting, you may not reject:
+   use judgement-call instead.
 
 4. NEVER INFER A BAR THE POSTING DOES NOT STATE. Do not assume a requirement is
    implied by seniority or sector. One senior posting explicitly said the
@@ -59,6 +61,26 @@ Rules, in order of force:
    brief's line in your reason. A field that says "not stated" breaks nothing
    (rule 5), and where the description contradicts a field, the description
    wins (rule 2).
+
+8. NEVER COMPUTE THE CANDIDATE'S EXPERIENCE OR QUALIFICATIONS. The factsheet
+   states them. Your reason must be about the posting, never about the
+   candidate: do not calculate tenure, infer career stage, or characterise the
+   candidate as overqualified, underqualified, mid-career, senior, or junior.
+   If a posting sets a years floor, quote the floor (rule 3) — do not compute
+   whether the candidate meets it.
+
+9. SENIORITY IS A LOOKUP, NOT A GUESS. If the brief includes a seniority band
+   table, match the posting's level against it and name the rung in your
+   reason. AVP maps to Associate Director, not to a step below the band. Do
+   not infer seniority from context or title conventions at one employer — two
+   firms use the same title at different levels.
+
+Check in this order — most rejections resolve early and cheaply:
+  a. Sector and function: is this role in the right domain?
+  b. Seniority: does the level fall within the band?
+  c. Quoted requirement gate (rule 3): quote the disqualifying line.
+  d. Hard constraints (rule 7): location, contract, salary, recency.
+Stop at the first decisive check — do not pile up reasons.
 
 Buckets:
   strong          — clearly fits the brief; the reader should look at this today
@@ -119,7 +141,8 @@ VERDICT_SCHEMA = {
 }
 
 
-def system_prefix(fit_brief: str, factsheet: str) -> list[dict]:
+def system_prefix(fit_brief: str, factsheet: str,
+                   seniority_table: str = "") -> list[dict]:
     """The cached prefix. Order is fixed; contents must be byte-stable.
 
     The cache breakpoint goes on the LAST block, so everything above it is
@@ -144,15 +167,19 @@ def system_prefix(fit_brief: str, factsheet: str) -> list[dict]:
     request's recorded usage (`model_calls`,
     `AssessmentReport.cached_prefix_tokens`), never assumed from the marker.
     """
-    return [
+    blocks = [
         {"type": "text", "text": ASSESSMENT_RULES},
         {"type": "text", "text": f"# Fit brief\n\n{fit_brief.strip()}"},
-        {
-            "type": "text",
-            "text": f"# Background factsheet\n\n{factsheet.strip()}",
-            "cache_control": {"type": "ephemeral"},
-        },
     ]
+    if seniority_table:
+        blocks.append({"type": "text",
+                        "text": f"# Seniority band\n\n{seniority_table.strip()}"})
+    blocks.append({
+        "type": "text",
+        "text": f"# Background factsheet\n\n{factsheet.strip()}",
+        "cache_control": {"type": "ephemeral"},
+    })
+    return blocks
 
 
 #: The first pass reads a description whole up to here.
