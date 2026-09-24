@@ -2165,6 +2165,11 @@ def main(argv: list[str] | None = None) -> int:
     from app.core.build_variant import variant
     from app.core.sign_in import launched_at_sign_in
 
+    # PySide6 must be imported BEFORE launched_at_sign_in: the WinRT
+    # activation projection it loads initialises COM in a way that
+    # crashes Qt's own native module load.
+    import PySide6.QtWidgets  # noqa: F401
+
     # The Store's startup task passes no arguments, so it is recognised from
     # how Windows activated the package; the direct build's Run command
     # carries --background itself.
