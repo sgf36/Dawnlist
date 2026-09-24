@@ -26,6 +26,7 @@ from pathlib import Path
 
 from app.core import db
 from app.core.board_repo import load_board, load_touches
+from app.core.text_hygiene import strip_invisible_unicode
 from app.core.cadence import (Channel, NextStep, is_warm_route,
                               load_cadence_config, next_step)
 from app.core.tracker import JobCategory, Opportunity
@@ -239,6 +240,8 @@ def prepare_drafts(conn: sqlite3.Connection, items: list[DueItem], *,
                 item.blocked = f"drafting failed: {type(exc).__name__}: {exc}"
                 report.blocked.append(item)
                 continue
+
+            body = strip_invisible_unicode(body)
 
             if not states_the_ask(body):
                 # spec 9.4. An abstract, commentary-led opening reads as a
