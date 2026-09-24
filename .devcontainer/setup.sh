@@ -4,7 +4,7 @@ set -euo pipefail
 # PySide6 needs these system libraries even in headless/offscreen mode.
 sudo apt-get update -qq
 sudo apt-get install -y -qq --no-install-recommends \
-    libegl1 libgl1-mesa-glx libglib2.0-0 libfontconfig1 \
+    libegl1 libgl1 libglib2.0-0 libfontconfig1 \
     libxkbcommon0 libdbus-1-3 libxcb-xinerama0 libxcb-cursor0 \
     libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 >/dev/null
 

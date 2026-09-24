@@ -52,7 +52,8 @@ _PUNCT = re.compile(r"[^a-z0-9 ]")
 #: Corporate suffixes that vary between sources for the same employer.
 _COMPANY_NOISE = re.compile(
     r"\b(ltd|limited|llc|inc|incorporated|plc|gmbh|bv|nv|sa|ag|srl|pty|pte|"
-    r"holdings|group|international|hotels?|resorts?|careers?)\b")
+    r"holdings|group|international|hotels?|resorts?|careers?|corporation|"
+    r"and|&)\b")
 
 #: Words carrying no distinguishing weight in a job title.
 _TITLE_STOPWORDS = frozenset({"the", "of", "and", "for", "a", "an", "at",
