@@ -1,0 +1,103 @@
+name: AI provenance gate
+
+# Inspect changed text files for invisible Unicode markers and high
+# AI-density stylometry. Fails the check if any file carries markers that
+# should have been cleaned before commit.
+#
+# Uses the vendored scripts from .claude/skills/clean-user-facing-text —
+# stdlib-only, no Docker, no service dependency.
+
+on:
+  pull_request:
+  push:
+    branches: [master, main]
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 2
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Inspect changed files for AI provenance markers
+        run: |
+          SCRIPTS=".claude/skills/clean-user-facing-text/scripts"
+          EXIT=0
+
+          # Get changed files (PR diff or last-commit diff)
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            FILES=$(git diff --name-only --diff-filter=ACMR HEAD~1 HEAD)
+          else
+            FILES=$(git diff --name-only --diff-filter=ACMR HEAD~1 HEAD 2>/dev/null || git ls-files)
+          fi
+
+          for f in $FILES; do
+            # Only inspect text-like files
+            case "$f" in
+              *.py|*.md|*.txt|*.rst|*.html|*.htm|*.css|*.js|*.ts|*.json|*.yml|*.yaml|*.toml|*.cfg|*.ini|*.eml)
+                ;;
+              *)
+                continue
+                ;;
+            esac
+
+            [ -f "$f" ] || continue
+
+            # Run the vendored inspector (JSON mode for machine-readable output)
+            RESULT=$(python3 "$SCRIPTS/inspect_text.py" "$f" --json --stylometry 2>/dev/null) || true
+
+            if [ -z "$RESULT" ]; then
+              continue
+            fi
+
+            # Check for suspicious Unicode hits
+            HITS=$(echo "$RESULT" | python3 -c "
+          import json, sys
+          try:
+              d = json.load(sys.stdin)
+              total = d.get('suspicious_total', 0)
+              tier = d.get('stylometry', {}).get('density_tier', 'uncalibrated')
+              if total > 0:
+                  hits = d.get('hits', [])
+                  labels = [h['label'] for h in hits[:3]]
+                  print(f'UNICODE:{total}:' + ';'.join(labels))
+              if tier == 'high':
+                  score = d.get('stylometry', {}).get('score', '?')
+                  print(f'STYLOMETRY:{score}:{tier}')
+          except Exception:
+              pass
+          ")
+
+            if [ -n "$HITS" ]; then
+              while IFS= read -r line; do
+                KIND=$(echo "$line" | cut -d: -f1)
+                if [ "$KIND" = "UNICODE" ]; then
+                  COUNT=$(echo "$line" | cut -d: -f2)
+                  LABELS=$(echo "$line" | cut -d: -f3)
+                  echo "::error file=$f::$COUNT invisible Unicode marker(s) found: $LABELS"
+                  EXIT=1
+                elif [ "$KIND" = "STYLOMETRY" ]; then
+                  SCORE=$(echo "$line" | cut -d: -f2)
+                  echo "::warning file=$f::High AI-density stylometry score ($SCORE) — consider running the clean-user-facing-text skill"
+                fi
+              done <<< "$HITS"
+            fi
+          done
+
+          if [ $EXIT -ne 0 ]; then
+            echo ""
+            echo "::error::Files contain invisible Unicode markers that should be stripped before commit."
+            echo "Fix: run 'python3 .claude/skills/clean-user-facing-text/scripts/clean_text.py FILE -o FILE --no-normalize-spaces'"
+            echo "Or use the PostToolUse hook which strips them automatically."
+          fi
+
+          exit $EXIT
