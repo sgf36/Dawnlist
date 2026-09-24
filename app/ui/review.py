@@ -758,7 +758,7 @@ class ReviewWindow(QMainWindow):
                 target = self.rejected
             else:
                 target = self.shortlist
-            why = r.reason or r.screen_reason
+            why = r.reason or (f"[screen] {r.screen_reason}" if r.screen_reason else "")
             item = QTreeWidgetItem([r.title, r.company, why])
             item.setData(0, Qt.UserRole, r.job_id)
             # The elided column is still fully readable on hover.
@@ -1047,10 +1047,11 @@ class ReviewWindow(QMainWindow):
         with open(path, "w", newline="", encoding="utf-8-sig") as f:
             w = csv.writer(f)
             w.writerow(["Tab", "Job ID", "Title", "Company", "Location",
-                         "URL", "Verdict", "Reason", "Decision"])
+                         "URL", "Verdict", "Reason", "Screen Reason",
+                         "Decision"])
             for tab, r in self._all_rows_by_tab():
                 w.writerow([tab, r.job_id, r.title, r.company, r.location,
-                            r.url, r.bucket, r.reason or r.screen_reason, ""])
+                            r.url, r.bucket, r.reason, r.screen_reason, ""])
         QMessageBox.information(self, tr("export.title"),
                                 tr("export.done", count=sum(
                                     t.topLevelItemCount() for t in (

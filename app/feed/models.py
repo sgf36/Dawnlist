@@ -52,7 +52,7 @@ _PUNCT = re.compile(r"[^a-z0-9 ]")
 #: Corporate suffixes that vary between sources for the same employer.
 _COMPANY_NOISE = re.compile(
     r"\b(ltd|limited|llc|inc|incorporated|plc|gmbh|bv|nv|sa|ag|srl|pty|pte|"
-    r"holdings|group|international)\b")
+    r"holdings|group|international|hotels?|resorts?|careers?)\b")
 
 #: Words carrying no distinguishing weight in a job title.
 _TITLE_STOPWORDS = frozenset({"the", "of", "and", "for", "a", "an", "at",
@@ -117,6 +117,7 @@ def name_key(company: str, title: str) -> str:
     company_norm = company_key(company)
 
     title_norm = _WS.sub(" ", _PUNCT.sub(" ", (title or "").lower())).strip()
+    title_norm = re.sub(r"^copy\s+of\s+", "", title_norm)
     tokens = sorted(_singular(w) for w in title_norm.split()
                     if w and w not in _TITLE_STOPWORDS)
     return f"{company_norm} :: {' '.join(tokens)}"

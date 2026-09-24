@@ -37,11 +37,9 @@ class ScreenResult:
     verdict: Verdict
     tier: Tier
     reason: str
-    #: The kill term matched INSIDE a longer role name — "office manager"
-    #: firing on "Assistant Front Office Manager". Still killed, so the screen
-    #: stays cheap and predictable, but surfaced for review: this is the
-    #: failure mode that removes roles the user wanted, and it is invisible
-    #: unless something names it.
+    #: Legacy flag — contained matches now fall through to assessment instead
+    #: of being killed by the screen, so this is never set True by screen_one().
+    #: Kept for the UI routing path; the "Needs Review" tab remains but is empty.
     contained: bool = False
 
     @property
@@ -61,14 +59,9 @@ def screen_one(job: Job, rules: CompiledRules) -> ScreenResult:
     # --- Tier 1: unsupported title, regardless of employer -------------------
     if rules.unsupported:
         m = rules.unsupported.search(title)
-        if m:
-            contained = is_contained_match(title, m.start())
-            reason = f"unsupported title term {m.group(0)!r}"
-            if contained:
-                reason += (" — matched INSIDE a longer role name; "
-                           "review before trusting this kill")
+        if m and not is_contained_match(title, m.start()):
             return ScreenResult(job, Verdict.UNLIKELY, Tier.UNSUPPORTED_TITLE,
-                                reason, contained=contained)
+                                f"unsupported title term {m.group(0)!r}")
 
     # --- Tier 1b: kill families (employer + wrong function) ------------------
     # SAVES is evaluated inside the family, before KILL.
@@ -76,12 +69,8 @@ def screen_one(job: Job, rules: CompiledRules) -> ScreenResult:
         hit = fam.match(company, title)
         if hit:
             why, start = hit
-            contained = is_contained_match(title, start)
-            if contained:
-                why += (" — matched INSIDE a longer role name; "
-                        "review before trusting this kill")
-            return ScreenResult(job, Verdict.UNLIKELY, Tier.KILL_FAMILY, why,
-                                contained=contained)
+            if not is_contained_match(title, start):
+                return ScreenResult(job, Verdict.UNLIKELY, Tier.KILL_FAMILY, why)
 
     # --- Tier 2: known employer ---------------------------------------------
     hit = rules.known_employer(company)
@@ -121,7 +110,8 @@ def screen_one(job: Job, rules: CompiledRules) -> ScreenResult:
             "no screening rules yet — every posting is read until enough "
             "decisions exist for the screen to have a pattern to apply")
 
-    return ScreenResult(job, Verdict.UNLIKELY, Tier.NO_SIGNAL, "no matching term")
+    return ScreenResult(job, Verdict.UNLIKELY, Tier.NO_SIGNAL,
+                        "no keyword matched in title, company or description")
 
 
 @dataclass

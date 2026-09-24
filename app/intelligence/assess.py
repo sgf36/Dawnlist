@@ -264,6 +264,20 @@ def quote_is_substantial(quote: str, rendered: str) -> bool:
             or text in _field_lines(rendered))
 
 
+_CANDIDATE_FACT_PATTERN = re.compile(
+    r"overqualified|underqualified|mid[- ]career"
+    r"|(?:candidate|spencer|applicant)\s+(?:is|has|lacks|holds)"
+    r"|\b\d+\+?\s*years?\b.*(?:post|since|after)\b",
+    re.IGNORECASE,
+)
+
+
+def _reason_computes_candidate_facts(reason: str) -> bool:
+    """True when the reason attributes experience or career stage to the
+    candidate instead of quoting a posting requirement."""
+    return bool(_CANDIDATE_FACT_PATTERN.search(reason))
+
+
 def enforce_quote_rule(raw: dict, job: Job, rendered: str | None = None) -> Verdict:
     """Turn one model verdict into a trusted one, or downgrade it.
 
@@ -285,7 +299,8 @@ def enforce_quote_rule(raw: dict, job: Job, rendered: str | None = None) -> Verd
     bucket = raw.get("bucket") or "judgement-call"
     if bucket not in BUCKETS:
         bucket = "judgement-call"
-    reason = (raw.get("reason") or "").strip() or "no reason given"
+    raw_reason = (raw.get("reason") or "").strip()
+    reason = raw_reason or "no reason given"
     quote = raw.get("disqualifying_quote") or None
     checked = bool(raw.get("requirement_checked", True))
 
@@ -297,6 +312,21 @@ def enforce_quote_rule(raw: dict, job: Job, rendered: str | None = None) -> Verd
         v.downgrade_reason = (
             "requirement could not be checked; an unfetchable requirement is "
             "'not checked', never a failure")
+        return v
+
+    if bucket == "rejected" and not raw_reason:
+        v.downgraded_from, v.bucket = "rejected", "judgement-call"
+        v.downgrade_reason = (
+            "a rejection with no stated reason is unauditable — treating "
+            "it as unverified")
+        return v
+
+    if bucket == "rejected" and _reason_computes_candidate_facts(reason):
+        v.downgraded_from, v.bucket = "rejected", "judgement-call"
+        v.downgrade_reason = (
+            "the reason attributes experience or career stage to the "
+            "candidate rather than quoting a posting requirement — "
+            "treating it as unverified")
         return v
 
     if bucket != "rejected":
@@ -500,9 +530,58 @@ def assess(jobs: list[Job], fit_brief: str, factsheet: str, *,
         missing = [j for j in chunk if job_ref(j) not in judged]
         report.unread.extend(missing)
 
+    _retry_downgraded(report, fit_brief, factsheet, send=send, model=model,
+                      on_batch=on_batch, on_call=on_call)
     _second_pass(report, fit_brief, factsheet, send=send, model=model,
                  on_batch=on_batch, on_call=on_call)
     return report
+
+
+def _retry_downgraded(report: "AssessmentReport", fit_brief: str,
+                      factsheet: str, *, send, model: str,
+                      on_batch: Callable[[list[Verdict]], None] | None = None,
+                      on_call: Callable[[ModelCall], None] | None = None,
+                      ) -> None:
+    """Re-assess verdicts that were downgraded from rejected.
+
+    A downgraded rejection means the model's evidence was wrong (hallucinated
+    quote, missing quote, empty reason, candidate-fact invention). Letting the
+    downgraded verdict stand as judgement-call is cosmetic: the model had one
+    shot and produced bad evidence. A second shot, on the same posting, often
+    produces a correct answer — either a clean rejection with a real quote, or
+    a non-rejected verdict the model chose once the hallucination path was gone.
+
+    Each downgraded verdict is re-sent individually so a failure affects only
+    one posting. If the retry is ALSO downgraded, the downgraded version stands
+    — the model had two chances and could not produce evidence.
+    """
+    pending = [v for v in report.verdicts if v.downgraded_from == "rejected"]
+    if not pending:
+        return
+
+    for original in pending:
+        job = original.job
+        ref = job_ref(job)
+        by_ref = {ref: job}
+        rendered = {ref: render_job(job, full=True)}
+        try:
+            reply = send(build_request([job], fit_brief, factsheet,
+                                       model=model, full=True))
+            _record_call(report, reply, model, True, on_call)
+            payload = _reply_payload(reply)
+        except Exception:  # noqa: BLE001
+            continue
+
+        fresh_list, _ = parse_verdicts(payload, by_ref, rendered)
+        if not fresh_list:
+            continue
+        fresh = fresh_list[0]
+        fresh.full_read = True
+        fresh.model = model
+        if fresh.bucket != original.bucket or not fresh.downgraded_from:
+            report.verdicts[report.verdicts.index(original)] = fresh
+            if on_batch:
+                on_batch([fresh])
 
 
 def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
