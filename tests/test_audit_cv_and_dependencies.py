@@ -18,6 +18,10 @@ import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
+#: Modules vendored inside the repo (not under ``app/``) that the AST scanner
+#: would otherwise flag as unresolved third-party imports.
+VENDORED_LOCAL = {"text_unicode", "common"}
+
 #: Import name -> the distribution that provides it, as named in the lock.
 #: A NEW third-party import fails the test below until it is added here AND to
 #: requirements.txt, which is the point: it cannot be forgotten.
@@ -59,7 +63,7 @@ def _third_party_imports():
                 continue
             for name in names:
                 top = name.split(".")[0]
-                if top in std or top == "app":
+                if top in std or top == "app" or top in VENDORED_LOCAL:
                     continue
                 found.setdefault(name, path.relative_to(ROOT).as_posix())
     return found
