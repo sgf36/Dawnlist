@@ -397,7 +397,13 @@ def migrate(conn: sqlite3.Connection) -> None:
         conn.execute("BEGIN")
         try:
             for statement in statements:
-                conn.execute(statement)
+                try:
+                    conn.execute(statement)
+                except sqlite3.OperationalError as e:
+                    msg = str(e)
+                    if "duplicate column name" in msg or "already exists" in msg:
+                        continue
+                    raise
             conn.execute(
                 "INSERT INTO settings(key, value) VALUES('schema_version', ?) "
                 "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
