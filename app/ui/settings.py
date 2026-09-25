@@ -272,6 +272,185 @@ class KeyPanel(QWidget):
             self.refresh()
 
 
+class ClickUpPanel(QWidget):
+    """Connect the user's own ClickUp workspace for board sync."""
+
+    connected = Signal(bool)
+
+    def __init__(self, *, conn=None, parent=None):
+        super().__init__(parent)
+        self._conn = conn
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(10)
+
+        heading = QLabel(tr("settings.clickup_heading"))
+        heading.setObjectName("stepHeading")
+        layout.addWidget(heading)
+
+        body = QLabel(reflow(tr("settings.clickup_body")))
+        body.setObjectName("stepBody")
+        body.setWordWrap(True)
+        body.setOpenExternalLinks(True)
+        layout.addWidget(body)
+
+        self.stored = QLabel()
+        self.stored.setObjectName("storedKey")
+        layout.addWidget(self.stored)
+
+        # Token row
+        token_row = QHBoxLayout()
+        token_row.setSpacing(10)
+        self.token_field = QLineEdit()
+        self.token_field.setObjectName("sentence")
+        self.token_field.setEchoMode(QLineEdit.Password)
+        self.token_field.setPlaceholderText(tr("settings.clickup_placeholder"))
+        self.btn_save = QPushButton(tr("settings.clickup_save"))
+        self.btn_save.setObjectName("primary")
+        self.btn_save.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.btn_forget = QPushButton(tr("settings.key_forget"))
+        self.btn_forget.setObjectName("secondary")
+        self.btn_forget.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        token_row.addWidget(self.token_field, 1)
+        token_row.addWidget(self.btn_save)
+        token_row.addWidget(self.btn_forget)
+        layout.addLayout(token_row)
+
+        # List ID row
+        list_row = QHBoxLayout()
+        list_row.setSpacing(10)
+        self.list_field = QLineEdit()
+        self.list_field.setObjectName("sentence")
+        self.list_field.setPlaceholderText(
+            tr("settings.clickup_list_placeholder"))
+        self.btn_connect = QPushButton(tr("settings.clickup_connect"))
+        self.btn_connect.setObjectName("primary")
+        self.btn_connect.setSizePolicy(
+            QSizePolicy.Preferred, QSizePolicy.Fixed)
+        list_row.addWidget(self.list_field, 1)
+        list_row.addWidget(self.btn_connect)
+        layout.addLayout(list_row)
+
+        self.result = QLabel()
+        self.result.setWordWrap(True)
+        layout.addWidget(self.result)
+        layout.addStretch(1)
+
+        self.setStyleSheet(SETTINGS_STYLESHEET)
+        self.btn_save.clicked.connect(self._save_token)
+        self.btn_forget.clicked.connect(self._forget_token)
+        self.token_field.returnPressed.connect(self._save_token)
+        self.btn_connect.clicked.connect(self._connect)
+        self.refresh()
+
+    def refresh(self) -> None:
+        import keyring
+        from app.integrations.clickup import (
+            CLICKUP_ACCOUNT, CLICKUP_SERVICE, has_token)
+
+        existing = keyring.get_password(CLICKUP_SERVICE, CLICKUP_ACCOUNT)
+        self.stored.setText(
+            tr("settings.clickup_stored", key=masked(existing)) if existing
+            else tr("settings.clickup_none"))
+        self.btn_forget.setVisible(bool(existing))
+
+        if self._conn is not None:
+            from app.integrations.clickup_fields import load_field_map
+            fmap = load_field_map(self._conn)
+            if fmap is not None and fmap.is_usable:
+                self.list_field.setText(fmap.list_id)
+                self.list_field.setEnabled(False)
+                self.btn_connect.setText(tr("settings.clickup_reconnect"))
+                self.btn_connect.setEnabled(bool(existing))
+            else:
+                self.list_field.setEnabled(bool(existing))
+                self.btn_connect.setEnabled(bool(existing))
+        else:
+            self.list_field.setEnabled(False)
+            self.btn_connect.setEnabled(False)
+
+        self.connected.emit(bool(existing))
+
+    def _save_token(self) -> None:
+        entered = self.token_field.text().strip()
+        if not entered or not self.btn_save.isEnabled():
+            return
+
+        import keyring
+        from app.integrations.clickup import CLICKUP_ACCOUNT, CLICKUP_SERVICE
+
+        try:
+            keyring.set_password(CLICKUP_SERVICE, CLICKUP_ACCOUNT, entered)
+        except Exception:  # noqa: BLE001
+            self.result.setObjectName("bad")
+            self.result.setText(tr("settings.clickup_store_failed"))
+            self.result.style().unpolish(self.result)
+            self.result.style().polish(self.result)
+            return
+
+        self.result.setObjectName("ok")
+        self.result.setText(tr("settings.clickup_token_saved"))
+        self.result.style().unpolish(self.result)
+        self.result.style().polish(self.result)
+        self.token_field.clear()
+        self.refresh()
+
+    def _forget_token(self) -> None:
+        import keyring
+        from app.integrations.clickup import CLICKUP_ACCOUNT, CLICKUP_SERVICE
+
+        try:
+            keyring.delete_password(CLICKUP_SERVICE, CLICKUP_ACCOUNT)
+        except keyring.errors.PasswordDeleteError:
+            pass
+        self.token_field.clear()
+        self.result.setObjectName("")
+        self.result.setText(tr("settings.clickup_forgotten"))
+        self.result.style().unpolish(self.result)
+        self.result.style().polish(self.result)
+        self.refresh()
+
+    def _connect(self) -> None:
+        list_id = self.list_field.text().strip()
+        if not list_id:
+            return
+
+        self.btn_connect.setEnabled(False)
+        self.result.setObjectName("")
+        self.result.setText(tr("settings.clickup_discovering"))
+        self.result.style().unpolish(self.result)
+        self.result.style().polish(self.result)
+
+        def discover():
+            from app.integrations.clickup import ClickUpClient
+            from app.integrations.clickup_fields import discover_field_map
+            client = ClickUpClient()
+            return discover_field_map(client, list_id)
+
+        def on_done(fmap):
+            if self._conn is not None:
+                from app.integrations.clickup_fields import save_field_map
+                save_field_map(self._conn, fmap)
+            n = len(fmap.field_ids)
+            self.result.setObjectName("ok")
+            self.result.setText(
+                tr("settings.clickup_connected", fields=n))
+            self.result.style().unpolish(self.result)
+            self.result.style().polish(self.result)
+            self.refresh()
+
+        def on_error(exc):
+            self.btn_connect.setEnabled(True)
+            self.result.setObjectName("bad")
+            self.result.setText(str(exc))
+            self.result.style().unpolish(self.result)
+            self.result.style().polish(self.result)
+
+        self._discover_task = run_in_background(
+            discover, on_done=on_done, on_error=on_error)
+
+
 class LicencePanel(QWidget):
     """Enter a licence key, or redeem an override code for one."""
 
@@ -497,7 +676,7 @@ class SettingsWindow(QWidget):
 
     def __init__(self, parent=None, *, variant=None, rules=None,
                  families=None, searches=None, schedule=None, is_admin=None,
-                 home=None):
+                 home=None, conn=None):
         super().__init__(parent)
         from app.core.build_variant import variant as read_variant
 
@@ -586,6 +765,11 @@ class SettingsWindow(QWidget):
         if schedule is not None:
             layout.addWidget(_divider())
             layout.addWidget(schedule)
+
+        self.clickup = ClickUpPanel(conn=conn) if conn is not None else None
+        if self.clickup is not None:
+            layout.addWidget(_divider())
+            layout.addWidget(self.clickup)
 
         build = variant if variant is not None else read_variant()
         self.licence = (access_code_panel() if build == "store_iap"

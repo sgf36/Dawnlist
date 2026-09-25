@@ -282,6 +282,9 @@ class BoardWindow(QWidget):
     #: was reachable only as `--draft` on a command line, while every store
     #: listing said Dawnlist "drafts your follow-ups". Found by audit.
     drafts_requested = Signal()
+    letters_requested = Signal()
+    today_requested = Signal()
+    sync_requested = Signal()
     import_requested = Signal(str, str)   # (url, pasted_text)
     #: The employer answered. (opportunity_id, positive, stage) — `stage` is
     #: the Stage value to advance to and is meaningless when `positive` is
@@ -312,6 +315,18 @@ class BoardWindow(QWidget):
         self.btn_drafts.setToolTip(tr("draft.never_sends"))
         self.btn_drafts.clicked.connect(self.drafts_requested)
         top.addWidget(self.btn_drafts)
+        self.btn_letters = QPushButton(tr("board.generate_letters"))
+        self.btn_letters.setObjectName("boardAction")
+        self.btn_letters.clicked.connect(self.letters_requested)
+        top.addWidget(self.btn_letters)
+        self.btn_today = QPushButton(tr("board.today_actions"))
+        self.btn_today.setObjectName("boardAction")
+        self.btn_today.clicked.connect(self.today_requested)
+        top.addWidget(self.btn_today)
+        self.btn_sync = QPushButton(tr("board.sync_clickup"))
+        self.btn_sync.setObjectName("boardAction")
+        self.btn_sync.clicked.connect(self.sync_requested)
+        top.addWidget(self.btn_sync)
         outer.addLayout(top)
 
         self.tree = QTreeWidget()
