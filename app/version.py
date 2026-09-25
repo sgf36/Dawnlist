@@ -28,7 +28,7 @@ from __future__ import annotations
 import os
 
 #: The marketing version. Bump this and nothing else.
-VERSION = "1.2.6"
+VERSION = "1.3.0"
 
 
 def marketing_version() -> str:

@@ -359,8 +359,12 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
     )),
     (6, (
         "ALTER TABLE contacts ADD COLUMN title TEXT",
+        "ALTER TABLE contacts ADD COLUMN first_name TEXT",
+        "ALTER TABLE contacts ADD COLUMN last_name TEXT",
+        "ALTER TABLE contacts ADD COLUMN job_title TEXT",
         "ALTER TABLE contacts ADD COLUMN phone TEXT",
         "ALTER TABLE contacts ADD COLUMN mailing_address TEXT",
+        "ALTER TABLE opportunities ADD COLUMN clickup_task_id TEXT",
     )),
 )
 

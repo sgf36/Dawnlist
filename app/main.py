@@ -2697,7 +2697,7 @@ def open_settings(parent=None, conn=None):
     window = SettingsWindow(rules=rules, families=families,
                             searches=searches, schedule=when,
                             cadence=cadence_panel, email=email_panel,
-                            home=parent)
+                            home=parent, conn=conn)
     if parent is not None:
         parent._settings_window = window
         # A run time changed here changes whether Run now is offered on the
@@ -2886,6 +2886,9 @@ def _wire_board(board, conn) -> None:
     board.application_requested.connect(
         lambda oid, brief: _write_application(board, conn, oid, brief))
     board.drafts_requested.connect(lambda: _draft_followups(board, conn))
+    board.letters_requested.connect(lambda: _generate_letters(board, conn))
+    board.today_requested.connect(lambda: _generate_today(board, conn))
+    board.sync_requested.connect(lambda: _sync_clickup(board, conn))
     board.import_requested.connect(
         lambda url, text: _import_job(board, conn, url, text))
     rows, findings = board_rows(conn)
@@ -2976,6 +2979,188 @@ def _draft_followups(board, conn) -> None:
     board.btn_drafts.setEnabled(False)
     QApplication.setOverrideCursor(Qt.WaitCursor)
     board._drafts_task = run_in_background(work, on_done=done, on_error=failed)
+
+
+def _generate_letters(board, conn) -> None:
+    """Generate letter .docx + EasyPost batch .xlsx for letters due today."""
+    from datetime import date
+
+    from PySide6.QtWidgets import QMessageBox
+
+    from app.export.batch import build_batch_xlsx
+    from app.export.letters import build_letters_docx, letters_due
+    from app.i18n import tr
+    from app.ui.background import run_in_background
+
+    path = database_path(conn)
+    folder = applications_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    today = date.today().isoformat()
+    letters_path = folder / f"letters_{today}.docx"
+    batch_path = folder / f"batch_{today}.xlsx"
+
+    board.btn_letters.setEnabled(False)
+
+    def work():
+        worker_conn = db.connect(path)
+        try:
+            specs = letters_due(worker_conn)
+            if not specs:
+                return None
+            build_letters_docx(specs, letters_path)
+            build_batch_xlsx(specs, batch_path)
+            return len(specs)
+        finally:
+            worker_conn.close()
+
+    def done(count):
+        board.btn_letters.setEnabled(True)
+        if count is None:
+            QMessageBox.information(board, tr("board.generate_letters"),
+                                    "No letters are due today.")
+            return
+        QMessageBox.information(
+            board, tr("board.generate_letters"),
+            f"{count} letter(s) generated.\n\n"
+            f"Letters: {letters_path}\nBatch: {batch_path}")
+
+    def failed(exc):
+        board.btn_letters.setEnabled(True)
+        QMessageBox.warning(board, tr("board.generate_letters"),
+                            f"{type(exc).__name__}: {exc}")
+
+    board._letters_task = run_in_background(work, on_done=done, on_error=failed)
+
+
+def _generate_today(board, conn) -> None:
+    """Generate the do-today sheet as both .docx and .xlsx."""
+    from datetime import date
+
+    from PySide6.QtWidgets import QMessageBox
+
+    from app.export.today import build_today_docx, build_today_xlsx, tasks_due_today
+    from app.i18n import tr
+    from app.ui.background import run_in_background
+
+    path = database_path(conn)
+    folder = applications_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    today = date.today().isoformat()
+    docx_path = folder / f"do_today_{today}.docx"
+    xlsx_path = folder / f"do_today_{today}.xlsx"
+
+    board.btn_today.setEnabled(False)
+
+    def work():
+        worker_conn = db.connect(path)
+        try:
+            spec = tasks_due_today(worker_conn)
+            if not spec.rows and not spec.footer:
+                return None
+            build_today_docx(spec, docx_path)
+            build_today_xlsx(spec, xlsx_path)
+            return (len(spec.rows), len(spec.footer))
+        finally:
+            worker_conn.close()
+
+    def done(result):
+        board.btn_today.setEnabled(True)
+        if result is None:
+            QMessageBox.information(board, tr("board.today_actions"),
+                                    "Nothing due today.")
+            return
+        total, blocked = result
+        msg = f"{total} action(s) due"
+        if blocked:
+            msg += f", {blocked} blocked"
+        msg += f".\n\n.docx: {docx_path}\n.xlsx: {xlsx_path}"
+        QMessageBox.information(board, tr("board.today_actions"), msg)
+
+    def failed(exc):
+        board.btn_today.setEnabled(True)
+        QMessageBox.warning(board, tr("board.today_actions"),
+                            f"{type(exc).__name__}: {exc}")
+
+    board._today_task = run_in_background(work, on_done=done, on_error=failed)
+
+
+def _sync_clickup(board, conn) -> None:
+    """Pull from ClickUp into Dawnlist, off the UI thread.
+
+    First sync on a new install discovers the field map from the user's
+    ClickUp list. Subsequent syncs reuse the stored mapping.
+    """
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication, QInputDialog, QMessageBox
+
+    from app.i18n import tr
+    from app.ui.background import run_in_background
+    from app.ui.board_adapter import board_rows
+
+    from app.integrations.clickup import ClickUpClient, has_token
+    from app.integrations.clickup_fields import (
+        discover_field_map, load_field_map, save_field_map)
+
+    if not has_token():
+        QMessageBox.warning(
+            board, tr("board.sync_clickup"),
+            "No ClickUp API token configured.\n\n"
+            "Open Settings and enter your ClickUp personal API token\n"
+            "in the ClickUp section.")
+        return
+
+    fmap = load_field_map(conn)
+    if fmap is None or not fmap.is_usable:
+        list_id, ok = QInputDialog.getText(
+            board, tr("board.sync_clickup"),
+            "First-time setup: enter your ClickUp List ID.\n\n"
+            "This is the list created from the Dawnlist board template.\n"
+            "Find it in your ClickUp list URL after /li/")
+        if not ok or not list_id.strip():
+            return
+        try:
+            client = ClickUpClient()
+            fmap = discover_field_map(client, list_id.strip())
+            save_field_map(conn, fmap)
+        except Exception as exc:
+            QMessageBox.warning(board, tr("board.sync_clickup"),
+                                f"Setup failed: {exc}")
+            return
+
+    path = database_path(conn)
+    stored_map_json = fmap.to_json()
+
+    def work():
+        from app.integrations.clickup_fields import ClickUpFieldMap
+        from app.integrations.clickup_sync import pull_from_clickup
+        worker_conn = db.connect(path)
+        try:
+            worker_fmap = ClickUpFieldMap.from_json(stored_map_json)
+            return pull_from_clickup(worker_conn, fmap=worker_fmap)
+        finally:
+            worker_conn.close()
+
+    def failed(exc):
+        QApplication.restoreOverrideCursor()
+        board.btn_sync.setEnabled(True)
+        QMessageBox.warning(board, tr("board.sync_clickup"),
+                            f"{type(exc).__name__}: {exc}")
+
+    def done(result):
+        QApplication.restoreOverrideCursor()
+        board.btn_sync.setEnabled(True)
+        msg = (f"Imported {result.imported}, updated {result.updated}, "
+               f"skipped {result.skipped}.")
+        if result.errors:
+            msg += f"\n\n{len(result.errors)} error(s):\n"
+            msg += "\n".join(result.errors[:5])
+        QMessageBox.information(board, tr("board.sync_clickup"), msg)
+        rows, findings = board_rows(conn)
+        board.load(rows, findings)
+
+    board.btn_sync.setEnabled(False)
+    QApplication.setOverrideCursor(Qt.WaitCursor)
+    board._sync_task = run_in_background(work, on_done=done, on_error=failed)
 
 
 def restart_setup(conn) -> None:
