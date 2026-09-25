@@ -55,12 +55,15 @@ export const PLANS = {
    * headroom and the cap does not quietly become the thing that decides
    * coverage. A user on this plan searching one country should never see a
    * cap message at all — if they do, the number is wrong, not the user.
+   *
+   * Refreshes are 2× saved queries so the scheduled run + one manual "Run
+   * now" never binds. The postings cap is the real cost control.
    */
   standard: {
     key: 'standard',
     priceEnv: 'PADDLE_PRICE_STANDARD',
     maxPostingsPerDay: 700,
-    maxRefreshesPerDay: 3,
+    maxRefreshesPerDay: 20,
     maxSavedQueries: 10,
   },
 
@@ -83,7 +86,7 @@ export const PLANS = {
     key: 'global',
     priceEnv: 'PADDLE_PRICE_GLOBAL',
     maxPostingsPerDay: 2500,
-    maxRefreshesPerDay: 6,
+    maxRefreshesPerDay: 60,
     maxSavedQueries: 30,
   },
 
@@ -98,7 +101,7 @@ export const PLANS = {
   trial: {
     key: 'trial',
     maxPostingsPerDay: 30,
-    maxRefreshesPerDay: 2,
+    maxRefreshesPerDay: 6,
     maxSavedQueries: 3,
   },
 
@@ -130,7 +133,7 @@ export const PLANS = {
   owner: {
     key: 'owner',
     maxPostingsPerDay: 2000,
-    maxRefreshesPerDay: 24,
+    maxRefreshesPerDay: 200,
     maxSavedQueries: 100,
   },
 };
