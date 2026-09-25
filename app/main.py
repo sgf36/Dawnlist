@@ -2888,79 +2888,104 @@ def _draft_followups(board, conn) -> None:
 def _generate_letters(board, conn) -> None:
     """Generate letter .docx + EasyPost batch .xlsx for letters due today."""
     from datetime import date
-    from pathlib import Path
 
     from PySide6.QtWidgets import QMessageBox
 
-    from app.export.letters import build_letters_docx, letters_due
     from app.export.batch import build_batch_xlsx
+    from app.export.letters import build_letters_docx, letters_due
     from app.i18n import tr
+    from app.ui.background import run_in_background
 
-    specs = letters_due(conn)
-    if not specs:
-        QMessageBox.information(board, tr("board.generate_letters"),
-                                "No letters are due today.")
-        return
-
+    path = database_path(conn)
     folder = applications_dir()
     folder.mkdir(parents=True, exist_ok=True)
     today = date.today().isoformat()
-
     letters_path = folder / f"letters_{today}.docx"
     batch_path = folder / f"batch_{today}.xlsx"
 
-    try:
-        build_letters_docx(specs, letters_path)
-        build_batch_xlsx(specs, batch_path)
-    except Exception as exc:
+    board.btn_letters.setEnabled(False)
+
+    def work():
+        worker_conn = db.connect(path)
+        try:
+            specs = letters_due(worker_conn)
+            if not specs:
+                return None
+            build_letters_docx(specs, letters_path)
+            build_batch_xlsx(specs, batch_path)
+            return len(specs)
+        finally:
+            worker_conn.close()
+
+    def done(count):
+        board.btn_letters.setEnabled(True)
+        if count is None:
+            QMessageBox.information(board, tr("board.generate_letters"),
+                                    "No letters are due today.")
+            return
+        QMessageBox.information(
+            board, tr("board.generate_letters"),
+            f"{count} letter(s) generated.\n\n"
+            f"Letters: {letters_path}\nBatch: {batch_path}")
+
+    def failed(exc):
+        board.btn_letters.setEnabled(True)
         QMessageBox.warning(board, tr("board.generate_letters"),
                             f"{type(exc).__name__}: {exc}")
-        return
 
-    QMessageBox.information(
-        board, tr("board.generate_letters"),
-        f"{len(specs)} letter(s) generated.\n\n"
-        f"Letters: {letters_path}\nBatch: {batch_path}")
+    board._letters_task = run_in_background(work, on_done=done, on_error=failed)
 
 
 def _generate_today(board, conn) -> None:
     """Generate the do-today sheet as both .docx and .xlsx."""
     from datetime import date
-    from pathlib import Path
 
     from PySide6.QtWidgets import QMessageBox
 
     from app.export.today import build_today_docx, build_today_xlsx, tasks_due_today
     from app.i18n import tr
+    from app.ui.background import run_in_background
 
-    spec = tasks_due_today(conn)
-    if not spec.rows and not spec.footer:
-        QMessageBox.information(board, tr("board.today_actions"),
-                                "Nothing due today.")
-        return
-
+    path = database_path(conn)
     folder = applications_dir()
     folder.mkdir(parents=True, exist_ok=True)
     today = date.today().isoformat()
-
     docx_path = folder / f"do_today_{today}.docx"
     xlsx_path = folder / f"do_today_{today}.xlsx"
 
-    try:
-        build_today_docx(spec, docx_path)
-        build_today_xlsx(spec, xlsx_path)
-    except Exception as exc:
+    board.btn_today.setEnabled(False)
+
+    def work():
+        worker_conn = db.connect(path)
+        try:
+            spec = tasks_due_today(worker_conn)
+            if not spec.rows and not spec.footer:
+                return None
+            build_today_docx(spec, docx_path)
+            build_today_xlsx(spec, xlsx_path)
+            return (len(spec.rows), len(spec.footer))
+        finally:
+            worker_conn.close()
+
+    def done(result):
+        board.btn_today.setEnabled(True)
+        if result is None:
+            QMessageBox.information(board, tr("board.today_actions"),
+                                    "Nothing due today.")
+            return
+        total, blocked = result
+        msg = f"{total} action(s) due"
+        if blocked:
+            msg += f", {blocked} blocked"
+        msg += f".\n\n.docx: {docx_path}\n.xlsx: {xlsx_path}"
+        QMessageBox.information(board, tr("board.today_actions"), msg)
+
+    def failed(exc):
+        board.btn_today.setEnabled(True)
         QMessageBox.warning(board, tr("board.today_actions"),
                             f"{type(exc).__name__}: {exc}")
-        return
 
-    total = len(spec.rows)
-    blocked = len(spec.footer)
-    msg = f"{total} action(s) due"
-    if blocked:
-        msg += f", {blocked} blocked"
-    msg += f".\n\n.docx: {docx_path}\n.xlsx: {xlsx_path}"
-    QMessageBox.information(board, tr("board.today_actions"), msg)
+    board._today_task = run_in_background(work, on_done=done, on_error=failed)
 
 
 def _sync_clickup(board, conn) -> None:
