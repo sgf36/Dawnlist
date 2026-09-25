@@ -1,8 +1,10 @@
-"""Regression set — 20 postings with known-correct verdicts.
+"""Regression set — 40 postings with known-correct verdicts.
 
 Audit rec 9: "Twenty postings with known-correct verdicts and reasons, run
 on every prompt change. Every defect above would have been caught by a fixed
-set of twenty."
+set of twenty." Extended to 40 to cover more credential requirements,
+language requirements, seniority computation, field-line quoting, and
+retry-downgraded flow edge cases.
 
 These exercise the full guard chain (enforce_quote_rule + candidate-fact
 guard + retry logic) against fixture postings whose correct outcome is
@@ -393,3 +395,399 @@ def test_20_candidate_has_phrasing_is_caught():
          "requirement_checked": True}, EMERSON)
     assert v.bucket == "judgement-call"
     assert "candidate" in v.downgrade_reason
+
+
+# ── 21. CFA credential requirement stands ──────────────────────────────────
+
+ABERDEEN = _job(
+    "21", "Investment Director, Real Assets", "abrdn",
+    "abrdn seeks an Investment Director for its Real Assets platform. "
+    "The successful candidate will lead origination and execution of "
+    "direct real estate investments across Europe. CFA charterholder "
+    "or equivalent professional qualification required.")
+
+
+def test_21_cfa_credential_requirement_stands():
+    v = enforce_quote_rule(
+        {"bucket": "rejected", "reason": "requires CFA",
+         "disqualifying_quote": "CFA charterholder or equivalent professional "
+         "qualification required",
+         "requirement_checked": True}, ABERDEEN)
+    assert v.bucket == "rejected"
+    assert v.downgraded_from is None
+
+
+# ── 22. FCA authorisation requirement stands ───────────────────────────────
+
+SAVILLS_IM = _job(
+    "22", "Fund Manager", "Savills Investment Management",
+    "Savills Investment Management seeks a Fund Manager. Must be FCA "
+    "CF30 authorised or hold equivalent regulatory approval. "
+    "Responsible for a £500m UK commercial real estate portfolio.")
+
+
+def test_22_fca_authorisation_requirement_stands():
+    v = enforce_quote_rule(
+        {"bucket": "rejected", "reason": "FCA CF30 authorisation required",
+         "disqualifying_quote": "Must be FCA CF30 authorised or hold equivalent "
+         "regulatory approval",
+         "requirement_checked": True}, SAVILLS_IM)
+    assert v.bucket == "rejected"
+    assert v.downgraded_from is None
+
+
+# ── 23. French language requirement stands ─────────────────────────────────
+
+ACCOR_FR = _job(
+    "23", "Responsable Revenue Management", "Accor",
+    "Accor recherche un(e) Responsable Revenue Management pour ses "
+    "hôtels parisiens. Maîtrise du français indispensable. "
+    "Expérience en revenue management hôtelier requise.")
+
+
+def test_23_french_language_requirement_stands():
+    v = enforce_quote_rule(
+        {"bucket": "rejected", "reason": "French language requirement",
+         "disqualifying_quote": "Maîtrise du français indispensable",
+         "requirement_checked": True}, ACCOR_FR)
+    assert v.bucket == "rejected"
+    assert v.downgraded_from is None
+
+
+# ── 24. Mandarin language requirement stands ───────────────────────────────
+
+ROSEWOOD_HK = _job(
+    "24", "Assistant Director of Revenue", "Rosewood Hotel Group",
+    "Rosewood Hotel Group seeks an Assistant Director of Revenue for "
+    "its Hong Kong property. Must be fluent in Mandarin and Cantonese. "
+    "Revenue management experience in luxury hospitality required.")
+
+
+def test_24_mandarin_language_requirement_stands():
+    v = enforce_quote_rule(
+        {"bucket": "rejected", "reason": "Mandarin and Cantonese required",
+         "disqualifying_quote": "Must be fluent in Mandarin and Cantonese",
+         "requirement_checked": True}, ROSEWOOD_HK)
+    assert v.bucket == "rejected"
+    assert v.downgraded_from is None
+
+
+# ── 25. "Spencer is" phrasing is caught ────────────────────────────────────
+
+ARES = _job(
+    "25", "Vice President, Real Estate Debt", "Ares Management",
+    "Ares Management seeks a VP for its Real Estate Debt team. "
+    "Underwriting and origination of senior and mezzanine loans "
+    "across European markets. 8+ years of CRE debt experience.")
+
+
+def test_25_spencer_is_phrasing_is_caught():
+    v = enforce_quote_rule(
+        {"bucket": "rejected",
+         "reason": "Spencer is an equity investor, not a debt specialist",
+         "disqualifying_quote": "8+ years of CRE debt experience",
+         "requirement_checked": True}, ARES)
+    assert v.bucket == "judgement-call"
+    assert "candidate" in v.downgrade_reason
+
+
+# ── 26. "applicant lacks" phrasing is caught ───────────────────────────────
+
+CBRE_IM = _job(
+    "26", "Portfolio Manager, EMEA", "CBRE Investment Management",
+    "CBRE Investment Management seeks a Portfolio Manager for its "
+    "EMEA real estate portfolio. Responsible for asset-level strategy "
+    "and NOI performance across 15 assets.")
+
+
+def test_26_applicant_lacks_phrasing_is_caught():
+    v = enforce_quote_rule(
+        {"bucket": "rejected",
+         "reason": "applicant lacks multi-asset portfolio management experience",
+         "disqualifying_quote": None,
+         "requirement_checked": True}, CBRE_IM)
+    assert v.bucket == "judgement-call"
+    assert "candidate" in v.downgrade_reason
+
+
+# ── 27. Seniority — VP at a bank is in band, should not reject ─────────────
+
+JPMORGAN = _job(
+    "27", "Vice President, Real Estate Banking", "J.P. Morgan",
+    "J.P. Morgan seeks a Vice President for its Real Estate Banking "
+    "team. Coverage of UK and European real estate sponsors. "
+    "Financial modelling and deal execution.")
+
+
+def test_27_vp_seniority_reason_without_candidate_claim_stands():
+    v = enforce_quote_rule(
+        {"bucket": "possible",
+         "reason": "banking-side VP, partial function overlap",
+         "disqualifying_quote": None,
+         "requirement_checked": True}, JPMORGAN)
+    assert v.bucket == "possible"
+    assert v.downgraded_from is None
+
+
+# ── 28. Seniority — "too junior" is a candidate-fact claim ─────────────────
+
+STARWOOD = _job(
+    "28", "Analyst, European Acquisitions", "Starwood Capital Group",
+    "Starwood Capital Group seeks an Analyst. Financial modelling "
+    "and underwriting of European hotel and resort acquisitions. "
+    "Recent graduate or 1-2 years of experience.")
+
+
+def test_28_too_junior_claim_is_downgraded():
+    v = enforce_quote_rule(
+        {"bucket": "rejected",
+         "reason": "candidate is too senior for this analyst-level role",
+         "disqualifying_quote": "Recent graduate or 1-2 years of experience",
+         "requirement_checked": True}, STARWOOD)
+    assert v.bucket == "judgement-call"
+    assert "candidate" in v.downgrade_reason
+
+
+# ── 29. Strong verdict with unchecked requirement passes ───────────────────
+
+FOUR_SEASONS = _job(
+    "29", "Director of Finance", "Four Seasons Hotels and Resorts",
+    "Four Seasons Hotels and Resorts seeks a Director of Finance "
+    "for its London property. Full P&L oversight, budgeting, and "
+    "financial reporting for a 190-room luxury hotel.")
+
+
+def test_29_strong_with_unchecked_requirement_passes():
+    v = enforce_quote_rule(
+        {"bucket": "strong",
+         "reason": "luxury hotel finance leadership, London",
+         "disqualifying_quote": None,
+         "requirement_checked": False}, FOUR_SEASONS)
+    assert v.bucket == "strong"
+    assert v.downgraded_from is None
+
+
+# ── 30. Rejection with fabricated salary quote is caught ───────────────────
+
+IHG = _job(
+    "30", "Revenue Manager, UK Managed Hotels", "IHG",
+    "IHG seeks a Revenue Manager for its UK managed portfolio. "
+    "Revenue strategy, pricing and demand forecasting across "
+    "multiple properties. Competitive salary and benefits.")
+
+
+def test_30_fabricated_salary_quote_is_caught():
+    v = enforce_quote_rule(
+        {"bucket": "rejected",
+         "reason": "salary below brief minimum",
+         "disqualifying_quote": "salary: £35,000 per annum",
+         "requirement_checked": True}, IHG)
+    assert v.bucket == "judgement-call"
+    assert "does not appear" in v.downgrade_reason
+
+
+# ── 31. Rejection quoting a real employment-type field line stands ─────────
+
+PART_TIME = _job(
+    "31", "Night Auditor", "The Dorchester",
+    "The Dorchester seeks a Night Auditor for overnight front desk "
+    "operations. Part-time, 3 nights per week.",
+    raw_criteria={"employment_statuses": ["part_time"]})
+
+
+def test_31_employment_type_field_line_stands():
+    v = enforce_quote_rule(
+        {"bucket": "rejected", "reason": "brief: full-time only",
+         "disqualifying_quote": "employment type: part_time",
+         "requirement_checked": True}, PART_TIME)
+    assert v.bucket == "rejected"
+    assert v.downgraded_from is None
+
+
+# ── 32. "mid-career" label is a candidate-fact ─────────────────────────────
+
+HENDERSON = _job(
+    "32", "Associate Director, Alternatives", "Henderson Park",
+    "Henderson Park seeks an Associate Director. Real estate private "
+    "equity, pan-European acquisitions and asset management.")
+
+
+def test_32_mid_career_label_is_caught():
+    v = enforce_quote_rule(
+        {"bucket": "rejected",
+         "reason": "mid-career role below the target seniority",
+         "disqualifying_quote": None,
+         "requirement_checked": True}, HENDERSON)
+    assert v.bucket == "judgement-call"
+    assert "candidate" in v.downgrade_reason
+
+
+# ── 33. Legitimate sector mismatch with real quote stands ──────────────────
+
+DELOITTE = _job(
+    "33", "Manager, Forensic Accounting", "Deloitte",
+    "Deloitte seeks a Manager in its Forensic Accounting practice. "
+    "Investigating financial irregularities and supporting litigation. "
+    "ACA/ACCA qualified with forensic accounting experience.")
+
+
+def test_33_sector_mismatch_with_real_quote_stands():
+    v = enforce_quote_rule(
+        {"bucket": "rejected",
+         "reason": "forensic accounting, not hospitality or real estate",
+         "disqualifying_quote": "Investigating financial irregularities and "
+         "supporting litigation",
+         "requirement_checked": True}, DELOITTE)
+    assert v.bucket == "rejected"
+    assert v.downgraded_from is None
+
+
+# ── 34. Retry succeeds on second attempt ───────────────────────────────────
+
+LANGHAM = _job(
+    "34", "Director of Sales", "The Langham London",
+    "The Langham London seeks a Director of Sales. Drive corporate "
+    "and leisure revenue, manage a team of 8, and oversee RFP "
+    "responses. Minimum 5 years hotel sales leadership experience.")
+
+
+def test_34_retry_fixes_fabricated_quote():
+    calls = []
+
+    def send(request):
+        calls.append(request)
+        if len(calls) == 1:
+            return {"verdicts": [{"job_ref": "theirstack:34",
+                                  "bucket": "rejected",
+                                  "reason": "requires 10 years hotel experience",
+                                  "disqualifying_quote": "10 years in hotel "
+                                  "sales management required",
+                                  "requirement_checked": True}]}
+        return {"verdicts": [{"job_ref": "theirstack:34",
+                              "bucket": "rejected",
+                              "reason": "5 years hotel sales leadership floor",
+                              "disqualifying_quote": "Minimum 5 years hotel "
+                              "sales leadership experience",
+                              "requirement_checked": True}]}
+
+    report = assess([LANGHAM], "brief", "facts", send=send)
+    assert len(calls) >= 2
+    final = report.verdicts[0]
+    assert final.bucket == "rejected"
+    assert "5 years" in final.reason
+
+
+# ── 35. Legitimate years floor with compound phrasing stands ───────────────
+
+INVESCO = _job(
+    "35", "Managing Director, Real Estate", "Invesco Real Estate",
+    "Invesco Real Estate seeks a Managing Director. 15+ years of "
+    "direct real estate investment experience across European markets. "
+    "Track record in fund management and investor relations.")
+
+
+def test_35_compound_years_floor_stands():
+    v = enforce_quote_rule(
+        {"bucket": "rejected",
+         "reason": "15-year experience floor exceeds brief range",
+         "disqualifying_quote": "15+ years of direct real estate investment "
+         "experience across European markets",
+         "requirement_checked": True}, INVESCO)
+    assert v.bucket == "rejected"
+    assert v.downgraded_from is None
+
+
+# ── 36. Computed "10+ years post-graduation" is caught ─────────────────────
+
+HILTON_GRAD = _job(
+    "36", "Graduate Development Programme", "Hilton",
+    "Hilton's Graduate Development Programme. Rotational placements "
+    "across hotel operations, revenue and commercial functions. "
+    "Open to graduates from the class of 2026.")
+
+
+def test_36_computed_post_graduation_tenure_is_caught():
+    v = enforce_quote_rule(
+        {"bucket": "rejected",
+         "reason": "10+ years post-graduation since Spencer graduated in 2016",
+         "disqualifying_quote": "Open to graduates from the class of 2026",
+         "requirement_checked": True}, HILTON_GRAD)
+    assert v.bucket == "judgement-call"
+    assert "candidate" in v.downgrade_reason
+
+
+# ── 37. Arabic language requirement stands ─────────────────────────────────
+
+JUMEIRAH = _job(
+    "37", "Director of Revenue Management", "Jumeirah Group",
+    "Jumeirah Group seeks a Director of Revenue Management for its "
+    "Dubai portfolio. Must be fluent in Arabic. Experience with "
+    "Opera and IDeaS revenue management systems.")
+
+
+def test_37_arabic_language_requirement_stands():
+    v = enforce_quote_rule(
+        {"bucket": "rejected", "reason": "Arabic language requirement",
+         "disqualifying_quote": "Must be fluent in Arabic",
+         "requirement_checked": True}, JUMEIRAH)
+    assert v.bucket == "rejected"
+    assert v.downgraded_from is None
+
+
+# ── 38. PE qualification requirement stands ────────────────────────────────
+
+LaSALLE = _job(
+    "38", "Head of Research, Europe", "LaSalle Investment Management",
+    "LaSalle Investment Management seeks a Head of Research. Lead "
+    "the European research function, produce market forecasts and "
+    "investment strategy papers. Must hold IPF Diploma or equivalent "
+    "real estate research qualification.")
+
+
+def test_38_ipf_diploma_requirement_stands():
+    v = enforce_quote_rule(
+        {"bucket": "rejected", "reason": "requires IPF Diploma",
+         "disqualifying_quote": "Must hold IPF Diploma or equivalent real "
+         "estate research qualification",
+         "requirement_checked": True}, LaSALLE)
+    assert v.bucket == "rejected"
+    assert v.downgraded_from is None
+
+
+# ── 39. Judgement-call with partial function overlap passes through ─────────
+
+CUSHWAKE = _job(
+    "39", "Head of Hospitality Valuation, EMEA", "Cushman & Wakefield",
+    "Cushman & Wakefield seeks a Head of Hospitality Valuation for "
+    "EMEA. Lead hotel valuation mandates for institutional investors, "
+    "lenders and operators. RICS-accredited valuer preferred.")
+
+
+def test_39_judgement_call_with_partial_overlap_passes():
+    v = enforce_quote_rule(
+        {"bucket": "judgement-call",
+         "reason": "valuation advisory, not asset management, but sector fit",
+         "disqualifying_quote": None,
+         "requirement_checked": True}, CUSHWAKE)
+    assert v.bucket == "judgement-call"
+    assert v.downgraded_from is None
+
+
+# ── 40. Rejection quoting a real posted-date field line stands ─────────────
+
+from datetime import date
+
+STALE_POSTING = _job(
+    "40", "Asset Manager, Hospitality", "Patrizia AG",
+    "Patrizia AG seeks an Asset Manager for its hospitality "
+    "portfolio across Germany and Austria.",
+    posted_at=date(2025, 3, 1))
+
+
+def test_40_stale_posting_date_field_line_stands():
+    v = enforce_quote_rule(
+        {"bucket": "rejected", "reason": "brief: postings from last 30 days only",
+         "disqualifying_quote": "posted: 2025-03-01",
+         "requirement_checked": True}, STALE_POSTING)
+    assert v.bucket == "rejected"
+    assert v.downgraded_from is None
