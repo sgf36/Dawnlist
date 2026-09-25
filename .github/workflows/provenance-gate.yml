@@ -64,10 +64,14 @@ jobs:
           import json, sys
           try:
               d = json.load(sys.stdin)
-              total = d.get('suspicious_total', 0)
               tier = d.get('stylometry', {}).get('density_tier', 'uncalibrated')
+              hits = d.get('hits', [])
+              path = '$f'
+              is_locale = '/locales/' in path and path.endswith('.json')
+              if is_locale:
+                  hits = [h for h in hits if h.get('kind') not in ('bidi', 'space')]
+              total = sum(h.get('count', 1) for h in hits)
               if total > 0:
-                  hits = d.get('hits', [])
                   labels = [h['label'] for h in hits[:3]]
                   print(f'UNICODE:{total}:' + ';'.join(labels))
               if tier == 'high':
