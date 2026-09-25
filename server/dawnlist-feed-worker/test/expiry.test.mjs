@@ -3,7 +3,7 @@
  * Run: node test/expiry.test.mjs
  *
  * What these protect, in one line each:
- *   - a trial licence works for fourteen days and is refused after;
+ *   - a trial licence works for one day and is refused after;
  *   - other licences, and an administrator's, have no end date;
  *   - a code minted without an expiry lapses in thirty days, unless it is an
  *     administrator's or the owner's;
@@ -70,14 +70,13 @@ const nearly = (iso, expectedMs, label) => assert.ok(
 
 console.log('licences');
 
-await test('a trial licence works for fourteen days and is refused after', async () => {
+await test('a trial licence works for one day and is refused after', async () => {
   const DB = makeD1();
   const key = await redeem(DB, { role: 'managed', plan: 'trial' });
-  nearly(expiryOf(DB, key), RealDate.now() + 14 * DAY, 'written on issue');
+  nearly(expiryOf(DB, key), RealDate.now() + 1 * DAY, 'written on issue');
 
-  assert.equal(await licenceStatus(DB, key), 200, 'day one');
-  assert.equal(await later(13 * DAY, () => licenceStatus(DB, key)), 200, 'day thirteen');
-  const res = await later(14 * DAY + 60 * 1000, () => call(DB, '/v1/licence', { key }));
+  assert.equal(await licenceStatus(DB, key), 200, 'hour one');
+  const res = await later(1 * DAY + 60 * 1000, () => call(DB, '/v1/licence', { key }));
   assert.equal(res.status, 403);
   const out = await res.json();
   assert.equal(out.error, 'licence_inactive', 'the code the app already handles');
@@ -87,7 +86,7 @@ await test('a trial licence works for fourteen days and is refused after', async
 await test('an expired trial cannot search either', async () => {
   const DB = makeD1();
   const key = await redeem(DB, { role: 'managed', plan: 'trial' });
-  const res = await later(15 * DAY, () => call(DB, '/v1/search', { key, body: { titles: ['a'] } }));
+  const res = await later(2 * DAY, () => call(DB, '/v1/search', { key, body: { titles: ['a'] } }));
   assert.equal(res.status, 403);
 });
 

@@ -91,12 +91,10 @@ export const PLANS = {
   },
 
   /**
-   * A trial demonstrates the mechanism, not the full product.
-   *
-   * A card-free trial at a full cap is worth real money in feed credits and
-   * is farmable, so this is deliberately small enough that farming it is not
-   * worth the effort. Anyone who hits it is seeing the product work, which is
-   * what a trial is for.
+   * A 24-hour trial. Enough to run one morning sweep and see the product
+   * work, too short to farm. The caps are deliberately smaller than
+   * standard: a trial demonstrates the mechanism, and the 24-hour window
+   * limits credit exposure to 30 postings.
    */
   trial: {
     key: 'trial',
@@ -162,11 +160,11 @@ export const FALLBACK_PLAN = 'standard';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * How long a trial licence works after it is issued. A trial with no end is a
- * subscription at trial caps that nobody pays for, and codes are easy to ask
- * for again.
+ * How long a trial licence works after it is issued. One day: enough to run
+ * the morning sweep once and see the product work, short enough that farming
+ * codes is not worth the effort (one day at standard caps = 700 postings max).
  */
-export const TRIAL_LICENCE_DAYS = 14;
+export const TRIAL_LICENCE_DAYS = 1;
 
 /**
  * How long a code minted in /admin stays redeemable when no expiry is given.

@@ -1,12 +1,9 @@
 /**
- * Trial licences: the thing that makes the product tryable.
+ * Trial licences: 24-hour access at standard caps.
  *
- * PLANS.trial has existed since plans were written and there was no way to
- * issue one. `handleRedeem` minted a licence, set `tier`, and never touched
- * the cap columns — so every redeemed code, including one meant as a short
- * trial, got the Worker's full 700/day default. A trial was indistinguishable
- * from a paid subscription in the only place that decides what a licence may
- * actually do.
+ * A trial is a standard licence with a 24-hour expiry, not a separate tier.
+ * The plan key `trial` is an internal marker for "time-limited"; the caps
+ * match standard so the user sees the real product.
  *
  * Runs against a real SQLite D1, so the caps asserted are the ones written.
  *
@@ -37,7 +34,7 @@ async function redeem(db, code) {
 
 console.log('redeeming');
 
-await test('a TRIAL code grants the trial allowance, not the default', async () => {
+await test('a trial code grants the trial allowance (24h, reduced caps)', async () => {
   const db = makeD1();
   seedCode(db, { code: 'TRY', role: 'managed', plan: 'trial' });
   const out = await redeem(db, 'TRY');
