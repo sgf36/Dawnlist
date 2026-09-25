@@ -517,6 +517,59 @@ def test_two_sources_sharing_an_id_are_never_confused():
 
 
 # -- a rejection proves itself with a real line, not a fragment or nothing ---
+def test_a_rejection_with_no_reason_is_downgraded():
+    """86 of 124 rejected rows in a real run had completely empty reasons.
+    An unreasoned rejection is unauditable and must not stand."""
+    empty = enforce_quote_rule(
+        {"bucket": "rejected", "reason": "",
+         "disqualifying_quote": "minimum of 10 years' experience in real estate",
+         "requirement_checked": True}, job())
+    assert empty.bucket == "judgement-call" and empty.downgraded_from == "rejected"
+    assert "no stated reason" in empty.downgrade_reason
+
+    none_ = enforce_quote_rule(
+        {"bucket": "rejected", "reason": None,
+         "disqualifying_quote": "minimum of 10 years' experience in real estate",
+         "requirement_checked": True}, job())
+    assert none_.bucket == "judgement-call" and none_.downgraded_from == "rejected"
+
+    # A rejection WITH a reason and a valid quote stands.
+    good = enforce_quote_rule(
+        {"bucket": "rejected", "reason": "years floor too high",
+         "disqualifying_quote": "minimum of 10 years' experience in real estate",
+         "requirement_checked": True}, job())
+    assert good.bucket == "rejected" and good.downgraded_from is None
+
+
+def test_a_rejection_computing_candidate_facts_is_downgraded():
+    """The model said 'Spencer is mid-career (10+ years post-Peninsula
+    Beverly Hills)' — fabricating tenure from student work. A reason must
+    be about the posting, never the candidate."""
+    overqualified = enforce_quote_rule(
+        {"bucket": "rejected", "reason": "candidate is overqualified for this role",
+         "disqualifying_quote": "minimum of 10 years' experience in real estate",
+         "requirement_checked": True}, job())
+    assert overqualified.bucket == "judgement-call"
+    assert overqualified.downgraded_from == "rejected"
+    assert "candidate" in overqualified.downgrade_reason
+
+    mid_career = enforce_quote_rule(
+        {"bucket": "rejected",
+         "reason": "Spencer is mid-career (10+ years post-Peninsula Beverly Hills)",
+         "disqualifying_quote": "minimum of 10 years' experience in real estate",
+         "requirement_checked": True}, job())
+    assert mid_career.bucket == "judgement-call"
+    assert mid_career.downgraded_from == "rejected"
+
+    # A rejection that quotes a posting's years floor WITHOUT computing the
+    # candidate's own tenure is legitimate and must stand.
+    posting_quote = enforce_quote_rule(
+        {"bucket": "rejected", "reason": "years floor too high",
+         "disqualifying_quote": "minimum of 10 years' experience in real estate",
+         "requirement_checked": True}, job())
+    assert posting_quote.bucket == "rejected" and posting_quote.downgraded_from is None
+
+
 def test_a_rejection_that_quotes_nothing_is_not_trusted():
     """The quote was verified only when there was one. A rejection with no
     quote at all stood as given, so the check caught a model that quoted the

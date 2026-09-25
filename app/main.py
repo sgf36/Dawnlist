@@ -38,12 +38,11 @@ DEFAULT_POSTED_WITHIN_DAYS = 45
 MAX_RESULTS_PER_SEARCH = 100
 
 #: Maximum number of ENABLED (active) searches per install. Each search costs
-#: money per posting returned: 25 searches at 100 postings each is 2,500
-#: postings per sweep — already more than most plans allow. The Worker's
-#: per-plan daily cap is the real billing limit; this is the UI guardrail
-#: against accidentally enabling so many that a single morning run exhausts
-#: the day's allowance.
-MAX_ACTIVE_QUERIES = 25
+#: money per posting returned: 10 searches at 100 postings each is 1,000
+#: postings per sweep — within a standard plan's 700/day cap after dedup.
+#: Aligned with the Worker's standard plan maxSavedQueries=10
+#: (server/dawnlist-feed-worker/src/plans.js).
+MAX_ACTIVE_QUERIES = 10
 
 
 def _force_utf8_console() -> None:
@@ -1434,11 +1433,11 @@ def calibration_sample(conn, *, provider=None, send=None):
 
 def morning_run(conn, *, provider=None, send=None, today: date | None = None):
     """One morning run, with the gates the stored state implies."""
-    from app.ui.adapter import rejected_keys
+    from app.ui.adapter import recent_reject_notes, rejected_keys
 
     from app.onboarding.calibration import is_calibrated
 
-    brief = load_document(conn, "fit_brief")
+    brief = load_document(conn, "fit_brief") + recent_reject_notes(conn)
     factsheet = load_document(conn, "factsheet")
     if not brief.strip():
         from app.i18n import tr
@@ -1599,6 +1598,21 @@ def drafts_dir() -> Path:
     return db.default_db_path().parent / "drafts"
 
 
+def _imap_config(conn):
+    """Load the IMAP account dict for optional draft placement, or None."""
+    try:
+        from app.core.email_accounts import load_email_account, read_email_password
+        account = load_email_account(conn)
+        if account:
+            password = read_email_password(account.email)
+            if password:
+                return {"host": account.imap_host, "port": account.imap_port,
+                        "email": account.email, "password": password}
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
 def outreach_run(conn, *, send=None, today: date | None = None,
                  folder: Path | None = None):
     """Draft everything due. Writes files; sends nothing, ever.
@@ -1608,7 +1622,6 @@ def outreach_run(conn, *, send=None, today: date | None = None,
     deliberately no transport here and no credential that could grow one.
     """
     from app.outreach.run import due_today, prepare_drafts
-    from app.outreach.voice import build_profile
 
     factsheet = load_document(conn, "factsheet")
     if not factsheet.strip():
@@ -1626,7 +1639,8 @@ def outreach_run(conn, *, send=None, today: date | None = None,
     return prepare_drafts(
         conn, items, folder=folder, factsheet=factsheet,
         voice=load_voice(conn), send=send or build_send(conn),
-        locale=settings.get("locale", "en"), today=today)
+        locale=settings.get("locale", "en"), today=today,
+        imap=_imap_config(conn))
 
 
 class NoCVs(NotConfigured):
@@ -1868,6 +1882,13 @@ def _import_job(board, conn, url: str, pasted_text: str):
          name_key(job.company, job.title)))
     conn.commit()
 
+    job_row = conn.execute(
+        "SELECT id, company FROM jobs WHERE provider=? AND provider_job_id=?",
+        (job.provider, job.provider_job_id)).fetchone()
+    if job_row:
+        from app.ui.adapter import open_opportunity
+        open_opportunity(conn, job_row["id"])
+
     rows, findings = board_rows(conn)
     board.load(rows, findings)
 
@@ -1897,19 +1918,36 @@ def load_voice(conn, folder: Path | None = None):
     than no drafts at all. Style only — never content. What a past message
     SAID is not evidence for anything a new one may claim; only the factsheet
     is.
+
+    Two sources are combined when available: local .eml/.txt files (always the
+    primary path) and the IMAP Sent folder (when an email account is
+    configured).  Either source failing never blocks the other.
     """
-    from app.outreach.voice import build_profile, profile_from_files
+    from app.outreach.voice import build_profile, extract_bodies, strip_quoted
 
     settings = load_settings(conn)
+    locale = settings.get("locale", "en")
     folder = folder or Path(settings.get("voice_dir") or voice_dir())
-    if not folder.is_dir():
-        return build_profile([])
 
-    paths = sorted(p for p in folder.iterdir()
-                   if p.suffix.lower() in {".eml", ".txt", ".md"})
-    if not paths:
-        return build_profile([])
-    return profile_from_files(paths, locale=settings.get("locale", "en"))
+    bodies: list[str] = []
+
+    if folder.is_dir():
+        paths = sorted(p for p in folder.iterdir()
+                       if p.suffix.lower() in {".eml", ".txt", ".md"})
+        if paths:
+            bodies.extend(extract_bodies(paths))
+
+    imap = _imap_config(conn)
+    if imap:
+        try:
+            from app.core.email_client import fetch_sent_bodies
+            raw = fetch_sent_bodies(
+                imap["host"], imap["port"], imap["email"], imap["password"])
+            bodies.extend(strip_quoted(b) for b in raw if b.strip())
+        except Exception:  # noqa: BLE001
+            pass
+
+    return build_profile(bodies, locale=locale)
 
 
 def print_outreach(report) -> None:
@@ -1924,6 +1962,10 @@ def print_outreach(report) -> None:
               f"{', '.join(draft.placeholders)}")
     if report.drafts.drafts:
         print(f"\n  written to {drafts_dir()}")
+    if report.imap_placed:
+        print(f"\n  {report.imap_placed} also placed in your mailbox Drafts.")
+    for err in report.imap_errors:
+        print(f"    IMAP: {err}")
     print("\n  Nothing was sent. Open each file and send it yourself.")
 
 
@@ -2122,6 +2164,11 @@ def main(argv: list[str] | None = None) -> int:
 
     from app.core.build_variant import variant
     from app.core.sign_in import launched_at_sign_in
+
+    # PySide6 must be imported BEFORE launched_at_sign_in: the WinRT
+    # activation projection it loads initialises COM in a way that
+    # crashes Qt's own native module load.
+    import PySide6.QtWidgets  # noqa: F401
 
     # The Store's startup task passes no arguments, so it is recognised from
     # how Windows activated the package; the direct build's Run command
@@ -2524,6 +2571,16 @@ def _screen_drift_notes(conn, run_id) -> list[str]:
                before=round(before * 100))]
 
 
+def _cadence_panel(conn):
+    """The follow-up cadence panel, wired to the real settings table."""
+    from app.core.cadence import load_cadence_config, save_cadence_config
+    from app.ui.settings import CadencePanel
+
+    return CadencePanel(
+        loader=lambda: load_cadence_config(conn),
+        saver=lambda cfg: save_cadence_config(conn, cfg))
+
+
 def _schedule_panel(conn):
     """The run-time, keep-running and start-at-sign-in panel, wired for real.
 
@@ -2573,9 +2630,10 @@ def open_settings(parent=None, conn=None):
     # real redeemer; the injection points exist so the tests can spend nothing.
     # The rules panel cannot default, because the rules are per-user and live
     # in the database — so it is offered only when there is one.
-    rules = families = searches = when = None
+    rules = families = searches = when = cadence_panel = None
     if conn is not None:
         when = _schedule_panel(conn)
+        cadence_panel = _cadence_panel(conn)
         def _export_guide(dest):
             from app.core.criteria_guide import export_guide, gather_data
             export_guide(gather_data(conn), dest)
@@ -2585,6 +2643,10 @@ def open_settings(parent=None, conn=None):
             data = gather_data(conn)
             text = read_guide(path)
             return diff_guide(data, text)
+
+        def _save_brief(body):
+            from app.onboarding.interview import save_document
+            save_document(conn, "fit_brief", body)
 
         def _test_feed_connection():
             """Verify the feed by calling plan() — lightweight, no billing."""
@@ -2616,6 +2678,7 @@ def open_settings(parent=None, conn=None):
                 conn, parse_where(text, keep=load_scope(conn))),
             guide_exporter=_export_guide,
             guide_importer=_import_guide,
+            brief_saver=_save_brief,
             connection_tester=_test_feed_connection)
         families = FamiliesPanel(
             loader=lambda: load_rules(conn).kill_families,
@@ -2626,9 +2689,15 @@ def open_settings(parent=None, conn=None):
             saver=lambda field, term: save_rule_term(conn, field, term),
             forgetter=lambda field, term: forget_rule_term(conn, field, term))
 
+    email_panel = None
+    if conn is not None:
+        from app.ui.email_settings import EmailPanel
+        email_panel = EmailPanel(conn=conn)
+
     window = SettingsWindow(rules=rules, families=families,
-                            searches=searches, schedule=when, home=parent,
-                            conn=conn)
+                            searches=searches, schedule=when,
+                            cadence=cadence_panel, email=email_panel,
+                            home=parent, conn=conn)
     if parent is not None:
         parent._settings_window = window
         # A run time changed here changes whether Run now is offered on the
@@ -2675,8 +2744,14 @@ def _write_application(window, conn, opportunity_id: str,
         finally:
             worker_conn.close()
 
-    def failed(exc):
+    def _restore():
         QApplication.restoreOverrideCursor()
+        if hasattr(window, "btn_apply"):
+            window.btn_apply.setEnabled(True)
+            window.btn_brief.setEnabled(True)
+
+    def failed(exc):
+        _restore()
         if isinstance(exc, NoCVs):
             if _choose_cvs(window, str(exc)):
                 _write_application(window, conn, opportunity_id, want_brief)
@@ -2688,10 +2763,13 @@ def _write_application(window, conn, opportunity_id: str,
                                 f"{type(exc).__name__}: {exc}")
 
     def done(pack):
-        QApplication.restoreOverrideCursor()
+        _restore()
         _application_written(window, pack)
 
     QApplication.setOverrideCursor(Qt.WaitCursor)
+    if hasattr(window, "btn_apply"):
+        window.btn_apply.setEnabled(False)
+        window.btn_brief.setEnabled(False)
     window._application_task = run_in_background(work, on_done=done,
                                                  on_error=failed)
 
@@ -2759,7 +2837,8 @@ def _added_alerts(window, conn, paths) -> None:
 
 
 def _alerts_added(window, conn, result) -> None:
-    from app.ui.adapter import latest_run_id, rows_from_db
+    from app.ui.adapter import (declined_rows, latest_run_id, lost_rows,
+                                pursued_rows, rows_from_db)
 
     outcome, problems = result
 
@@ -2767,7 +2846,8 @@ def _alerts_added(window, conn, result) -> None:
     if outcome is None:
         window.funnel.set_counts({}, incomplete_note=note or "nothing was added")
         return
-    window.load(rows_from_db(conn),
+    window.load(rows_from_db(conn) + pursued_rows(conn)
+                + declined_rows(conn) + lost_rows(conn),
                 _stored_funnel(conn, latest_run_id(conn)),
                 incomplete_note=note)
 
@@ -2822,6 +2902,8 @@ def _open_board(parent, conn):
     belongs on it, and a board showing yesterday's rows reads as a lost
     decision.
     """
+    import sys
+
     from app.ui.board import BoardWindow
     from app.ui.board_adapter import board_rows
 
@@ -2834,6 +2916,15 @@ def _open_board(parent, conn):
         rows, findings = board_rows(conn)
         board.load(rows, findings)
     board.show()
+    if sys.platform == "win32":
+        # On Windows, raise_() and activateWindow() are unreliable when
+        # another window in the same process holds focus.  Minimising
+        # then restoring forces the window manager to bring the board to
+        # front without a flash because Qt suppresses the animation when
+        # the window is already NORMAL-sized.
+        from PySide6.QtCore import Qt
+        board.setWindowState(board.windowState() | Qt.WindowMinimized)
+        board.setWindowState(board.windowState() & ~Qt.WindowMinimized)
     board.raise_()
     board.activateWindow()
     return board
@@ -2876,6 +2967,11 @@ def _draft_followups(board, conn) -> None:
         drafted = report.drafts.counts["drafted"]
         text = (tr("board.drafts_done", count=drafted, folder=str(drafts_dir()))
                 if drafted else tr("board.drafts_none"))
+        if report.imap_placed:
+            text += "\n" + tr("board.drafts_imap_ok",
+                              count=report.imap_placed)
+        if report.imap_errors:
+            text += "\n" + tr("board.drafts_imap_partial")
         QMessageBox.information(board, tr("board.draft_followups"), text)
         rows, findings = board_rows(conn)
         board.load(rows, findings)
@@ -3145,7 +3241,8 @@ def _main_window(conn, *, open_board: bool):
     window in the same process, instead of leaving the user with nothing on
     screen and an application they have to start again.
     """
-    from app.ui.adapter import connect_window, latest_run_id, rows_from_db
+    from app.ui.adapter import (connect_window, declined_rows, latest_run_id,
+                                    lost_rows, pursued_rows, rows_from_db)
     from app.ui.board import BoardWindow
     from app.ui.board_adapter import board_rows, connect_board
     from app.ui.review import ReviewWindow
@@ -3189,7 +3286,9 @@ def _main_window(conn, *, open_board: bool):
             # empty in it — every posting the run assessed was on disk and
             # nothing put it on screen.
             run_id = latest_run_id(conn)
-            window.load(rows_from_db(conn), _stored_funnel(conn, run_id),
+            window.load(rows_from_db(conn) + pursued_rows(conn)
+                        + declined_rows(conn) + lost_rows(conn),
+                        _stored_funnel(conn, run_id),
                         notes=_screen_drift_notes(conn, run_id))
 
         window._daily_run = _wire_daily_run(window, conn, reload)
@@ -3227,12 +3326,30 @@ def _launch_terms(app, conn, *, open_board: bool) -> int:
     return app.exec()
 
 
+def _ensure_foreground_app():
+    """Ensure macOS treats this process as a foreground GUI application.
+
+    PyInstaller's BUNDLE can set LSBackgroundOnly=true in Info.plist,
+    which makes the window appear but routes keyboard events elsewhere.
+    """
+    if sys.platform != "darwin":
+        return
+    try:
+        from AppKit import NSApplication, NSApplicationActivationPolicyRegular
+        ns = NSApplication.sharedApplication()
+        if ns.activationPolicy() != NSApplicationActivationPolicyRegular:
+            ns.setActivationPolicy_(NSApplicationActivationPolicyRegular)
+    except ImportError:
+        pass
+
+
 def _launch_ui(conn, *, open_board: bool, background: bool = False) -> int:
     from PySide6.QtWidgets import QApplication
 
     from app.onboarding import terms
     from app.onboarding.state import is_setup_finished
 
+    _ensure_foreground_app()
     app = QApplication.instance() or QApplication(sys.argv)
     from app.ui.branding import apply_icon
     apply_icon(app)

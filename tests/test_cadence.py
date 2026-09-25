@@ -129,6 +129,57 @@ def test_a_later_successful_send_supersedes_the_bounce():
     assert step.due_on > WED
 
 
+# -- configurable cadence ---------------------------------------------------
+def test_config_changes_the_gap():
+    from app.core.cadence import CadenceConfig
+    cfg = CadenceConfig(business_day_gap=3)
+    step = next_step([out(TUE)], today=TUE, config=cfg)
+    assert step.due_on == date(2026, 9, 15)  # 3bd from Tue = Fri, shifted to next Tue
+
+
+def test_config_changes_the_ladder():
+    from app.core.cadence import CadenceConfig
+    cfg = CadenceConfig(ladder=[["email"], ["call"]])
+    step = next_step([out(TUE)], today=TUE, config=cfg)
+    assert step.channels == (Channel.CALL,)
+
+
+def test_config_disables_tue_thu_rule():
+    from app.core.cadence import CadenceConfig
+    cfg = CadenceConfig(tue_thu_only=False)
+    step = next_step([], today=MON, config=cfg)
+    assert step.due_on == MON
+
+
+def test_config_round_trips_through_json():
+    from app.core.cadence import CadenceConfig
+    cfg = CadenceConfig(business_day_gap=3, ooo_buffer_days=14,
+                        ladder=[["email"], ["call"]], tue_thu_only=False)
+    restored = CadenceConfig.from_json(cfg.to_json())
+    assert restored.business_day_gap == 3
+    assert restored.ooo_buffer_days == 14
+    assert restored.ladder == [["email"], ["call"]]
+    assert restored.tue_thu_only is False
+
+
+def test_config_persists_to_db(tmp_path):
+    from app.core.cadence import (CadenceConfig, load_cadence_config,
+                                  save_cadence_config)
+    from app.core import db
+    conn = db.connect(tmp_path / "test.sqlite3")
+    db.migrate(conn)
+
+    default = load_cadence_config(conn)
+    assert default.business_day_gap == 5
+
+    custom = CadenceConfig(business_day_gap=3, ooo_buffer_days=10)
+    save_cadence_config(conn, custom)
+    loaded = load_cadence_config(conn)
+    assert loaded.business_day_gap == 3
+    assert loaded.ooo_buffer_days == 10
+    conn.close()
+
+
 # -- warm routes ------------------------------------------------------------
 def test_an_unresponsive_mutual_is_not_a_warm_route():
     assert not is_warm_route(contact_ever_replied=False)

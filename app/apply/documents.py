@@ -35,6 +35,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.core.text_hygiene import strip_invisible_unicode
 from app.intelligence.assess import DRAFTING_MODEL
 from app.outreach.drafts import (LOOSE_PLACEHOLDER, PLACEHOLDER, NotSendReady,
                                  _is_editorial, safe_stem)
@@ -250,6 +251,7 @@ def parse_document(kind: str, payload, *, company: str,
     # CV is ``` and nobody notices until it is attached.
     text = re.sub(r"^\s*```(?:markdown|md)?\s*\n", "", text)
     text = re.sub(r"\n```\s*$", "", text)
+    text = strip_invisible_unicode(text)
 
     return ApplyDocument(kind=kind, company=company,
                          posting_title=posting_title, body=text.strip())

@@ -114,10 +114,10 @@ await test('positive control: the ends of the maxResults range are accepted', as
   await accepted({ ...APP_BODY, maxResults: 1000 });
 });
 
-await test('excludeJobIds is capped at 2,000 strings', async () => {
+await test('excludeJobIds is capped at 2,000 items; integers are normalised to strings', async () => {
   const ids = (n) => Array.from({ length: n }, (_, i) => String(i));
   await refused({ ...APP_BODY, excludeJobIds: ids(2001) }, 'invalid_field', /excludeJobIds/);
-  await refused({ ...APP_BODY, excludeJobIds: [123] }, 'invalid_field', /excludeJobIds/);
+  await accepted({ ...APP_BODY, excludeJobIds: [123] });
   await accepted({ ...APP_BODY, excludeJobIds: ids(2000) });
 });
 

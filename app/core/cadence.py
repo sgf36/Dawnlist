@@ -19,12 +19,71 @@ Two rules do most of the work, and both exist because a cached field lied:
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
+import sqlite3
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from enum import Enum
 
 BUSINESS_DAY_GAP = 5
 OOO_RETURN_BUFFER_DAYS = 7
+
+DEFAULT_LADDER: list[list[str]] = [
+    ["email"],
+    ["email", "letter"],
+    ["email", "letter"],
+    ["call"],
+]
+
+CADENCE_KEY = "cadence_config"
+
+
+@dataclass
+class CadenceConfig:
+    """User-editable cadence parameters, persisted in the settings table."""
+    business_day_gap: int = BUSINESS_DAY_GAP
+    ooo_buffer_days: int = OOO_RETURN_BUFFER_DAYS
+    ladder: list[list[str]] = field(default_factory=lambda: [
+        ["email"],
+        ["email", "letter"],
+        ["email", "letter"],
+        ["call"],
+    ])
+    tue_thu_only: bool = True
+
+    def to_json(self) -> str:
+        return json.dumps({
+            "business_day_gap": self.business_day_gap,
+            "ooo_buffer_days": self.ooo_buffer_days,
+            "ladder": self.ladder,
+            "tue_thu_only": self.tue_thu_only,
+        })
+
+    @classmethod
+    def from_json(cls, text: str) -> CadenceConfig:
+        d = json.loads(text)
+        return cls(
+            business_day_gap=int(d.get("business_day_gap", BUSINESS_DAY_GAP)),
+            ooo_buffer_days=int(d.get("ooo_buffer_days", OOO_RETURN_BUFFER_DAYS)),
+            ladder=d.get("ladder", DEFAULT_LADDER),
+            tue_thu_only=bool(d.get("tue_thu_only", True)),
+        )
+
+
+def load_cadence_config(conn: sqlite3.Connection) -> CadenceConfig:
+    row = conn.execute(
+        "SELECT value FROM settings WHERE key=?", (CADENCE_KEY,)).fetchone()
+    if row:
+        return CadenceConfig.from_json(row[0])
+    return CadenceConfig()
+
+
+def save_cadence_config(conn: sqlite3.Connection, cfg: CadenceConfig) -> None:
+    conn.execute(
+        "INSERT INTO settings(key, value) VALUES(?,?) "
+        "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        (CADENCE_KEY, cfg.to_json()))
+    conn.commit()
 
 MONDAY, FRIDAY, SATURDAY, SUNDAY = 0, 4, 5, 6
 
@@ -113,8 +172,9 @@ def rung_from_touches(touches: list[Touch]) -> int:
     return len({t.occurred_on for t in touches if t.is_evidenced_outbound})
 
 
-def _ooo_override(touches: list[Touch]) -> date | None:
-    """Out-of-office with a stated return date -> return + 7 days.
+def _ooo_override(touches: list[Touch], *,
+                   buffer_days: int = OOO_RETURN_BUFFER_DAYS) -> date | None:
+    """Out-of-office with a stated return date -> return + buffer days.
 
     No stated date -> no override, and the caller flags it.
     """
@@ -122,12 +182,36 @@ def _ooo_override(touches: list[Touch]) -> date | None:
              if t.is_auto_reply and t.ooo_return_on is not None]
     if not dates:
         return None
-    return max(dates) + timedelta(days=OOO_RETURN_BUFFER_DAYS)
+    return max(dates) + timedelta(days=buffer_days)
 
 
-def next_step(touches: list[Touch], *, today: date | None = None) -> NextStep:
+def _shift(d: date, cfg: CadenceConfig | None) -> date:
+    if cfg is None or cfg.tue_thu_only:
+        return shift_to_tue_thu(d)
+    return d
+
+
+def _channels_for_rung(rung: int, cfg: CadenceConfig | None
+                        ) -> tuple[tuple[Channel, ...], str, bool]:
+    """Return (channels, reason, pivot) for a given rung from the ladder."""
+    ladder = cfg.ladder if cfg else DEFAULT_LADDER
+    idx = rung
+    if idx < 0 or idx >= len(ladder):
+        return ((), "ladder exhausted: pivot to an alternate contact, "
+                "preferring a warm mutual intro", True)
+    names = ladder[idx]
+    channels = tuple(Channel(n) for n in names)
+    label = ", ".join(names)
+    why = f"rung {rung}: {label}" if rung > 0 else label
+    return channels, why, False
+
+
+def next_step(touches: list[Touch], *, today: date | None = None,
+              config: CadenceConfig | None = None) -> NextStep:
     """The next due touch, computed from evidence alone."""
     today = today or date.today()
+    gap = config.business_day_gap if config else BUSINESS_DAY_GAP
+    ooo_buf = config.ooo_buffer_days if config else OOO_RETURN_BUFFER_DAYS
 
     if has_genuine_reply(touches):
         return NextStep(None, (), rung_from_touches(touches),
@@ -140,7 +224,7 @@ def next_step(touches: list[Touch], *, today: date | None = None) -> NextStep:
                            and t.occurred_on > max(b.occurred_on for b in bounced)
                            for t in touches):
         return NextStep(
-            shift_to_tue_thu(today),
+            _shift(today, config),
             (Channel.LETTER,),
             rung_from_touches(touches),
             "email bounced: the address is dead, pivot immediately; the "
@@ -150,32 +234,25 @@ def next_step(touches: list[Touch], *, today: date | None = None) -> NextStep:
 
     last = last_evidenced_outbound(touches)
     if last is None:
-        return NextStep(shift_to_tue_thu(today), (Channel.EMAIL,), 0,
+        return NextStep(_shift(today, config), (Channel.EMAIL,), 0,
                         "no outbound yet: initial email")
 
     rung = rung_from_touches(touches)
-    due = add_business_days(last.occurred_on, BUSINESS_DAY_GAP)
+    due = add_business_days(last.occurred_on, gap)
 
-    override = _ooo_override(touches)
+    override = _ooo_override(touches, buffer_days=ooo_buf)
     if override is not None and override > due:
         due = override
 
-    if rung == 1:
-        channels, why = (Channel.EMAIL, Channel.LETTER), "first dual touch"
-    elif rung == 2:
-        channels, why = (Channel.EMAIL, Channel.LETTER), "second dual touch"
-    elif rung == 3:
-        channels, why = (Channel.CALL,), "phone call"
-    else:
-        return NextStep(shift_to_tue_thu(due), (), rung,
-                        "ladder exhausted: pivot to an alternate contact, "
-                        "preferring a warm mutual intro",
+    channels, why, pivot = _channels_for_rung(rung, config)
+    if pivot:
+        return NextStep(_shift(due, config), (), rung, why,
                         pivot_to_alternate_contact=True)
 
     if override is not None:
-        why += " (out-of-office: return date + 7 days)"
+        why += " (out-of-office: return date + buffer)"
 
-    return NextStep(shift_to_tue_thu(due), channels, rung, why)
+    return NextStep(_shift(due, config), channels, rung, why)
 
 
 def is_warm_route(contact_ever_replied: bool) -> bool:

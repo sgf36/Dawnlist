@@ -136,12 +136,14 @@ def test_office_manager_is_refused_admission():
 
 
 def test_word_boundaries_alone_would_not_have_caught_it():
-    """Documents WHY the guard exists, so nobody 'simplifies' it away later."""
+    """Documents WHY the guard exists, so nobody 'simplifies' it away later.
+    A contained match now falls through to assessment instead of killing."""
     table = RuleTable(unsupported_titles=["office manager"])
     r = screen_one(job("Assistant Front Office Manager", company="Grand Hotel"),
                    table.compiled())
-    assert r.verdict is Verdict.UNLIKELY
-    assert r.tier is Tier.UNSUPPORTED_TITLE
+    assert r.verdict is Verdict.LIKELY, (
+        "a contained match must not kill — the term matched inside a longer "
+        "role name, so the posting passes to assessment")
 
 
 def test_a_clean_table_passes_the_golden_set():
@@ -202,13 +204,15 @@ def test_name_key_collapses_whitespace_and_ampersands():
 # `assert_no_conflicts` protects a user who already HAS pursue history. On day
 # one that history is empty, so containment must be detectable structurally.
 # --------------------------------------------------------------------------
-def test_containment_is_flagged_for_review_on_a_brand_new_user():
+def test_contained_match_passes_to_assessment():
+    """A kill term that matched inside a longer role name does not kill the
+    posting — it falls through to the next tier. 'Assistant Front Office
+    Manager' is not 'Office Manager'."""
     table = RuleTable(unsupported_titles=["office manager"])
     r = screen_one(job("Assistant Front Office Manager", company="Grand Hotel"),
                    table.compiled())
-    assert r.verdict is Verdict.UNLIKELY      # still killed: cheap + predictable
-    assert r.contained and r.needs_review
-    assert "INSIDE a longer role name" in r.reason
+    assert r.verdict is Verdict.LIKELY
+    assert not r.contained
 
 
 def test_a_clean_kill_is_not_flagged():
@@ -237,21 +241,25 @@ def test_a_linking_word_means_the_term_is_the_head_noun():
 
 
 def test_kill_families_are_containment_checked_too():
+    """A kill family term that matched inside a longer role name does not
+    kill — the posting falls through, same as tier 1."""
     fam = KillFamily(name="qsr", employers=("Burgerly",),
                      kill_titles=("office manager",), saves_titles=("strategy",),
                      precedents=(("Burgerly", "A"), ("Burgerly", "B")),
                      adopted=True)
     r = screen_one(job("Assistant Front Office Manager", company="Burgerly"),
                    RuleTable(kill_families=[fam]).compiled())
-    assert r.contained
+    assert r.verdict is Verdict.LIKELY
 
 
-def test_report_surfaces_contained_kills_in_the_counts():
+def test_contained_match_does_not_inflate_the_unlikely_count():
+    """A contained match passes through to assessment, so the unlikely count
+    reflects only clean kills."""
     table = RuleTable(unsupported_titles=["office manager"])
     rep = screen_all([job("Office Manager", jid="a"),
                       job("Assistant Front Office Manager", jid="b")], table)
-    assert rep.counts["contained_needs_review"] == 1
-    assert len(rep.contained) == 1
+    assert len(rep.unlikely) == 1, "only the clean kill is screened out"
+    assert len(rep.likely) == 1, "the contained match passes to assessment"
 
 
 # -- the unconfigured table -------------------------------------------------

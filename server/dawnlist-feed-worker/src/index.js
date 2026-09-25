@@ -120,8 +120,11 @@ async function fetchPaged(base, asked, env) {
       }),
     });
     if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      const snippet = errBody.slice(0, 200);
+      console.error('theirstack error', { status: res.status, body: snippet });
       throw new HttpError(502, 'provider_error',
-        `theirstack returned ${res.status}`);
+        `theirstack returned ${res.status}: ${snippet}`);
     }
     const payload = await res.json();
     const rows = payload.data || [];
@@ -197,6 +200,12 @@ async function readSearch(request) {
   checkWholeNumber(body, 'maxResults', 1, MAX_RESULTS_PER_SEARCH);
   checkWholeNumber(body, 'limit', 1, MAX_RESULTS_PER_SEARCH);
   checkWholeNumber(body, 'postedWithinDays', 1, MAX_POSTED_WITHIN_DAYS);
+
+  // The app's feed_job_ids() returns integers; normalise before validation.
+  if (Array.isArray(body.excludeJobIds)) {
+    body.excludeJobIds = body.excludeJobIds.map((v) =>
+      typeof v === 'number' && Number.isInteger(v) ? String(v) : v);
+  }
 
   for (const [field, cap] of Object.entries(SEARCH_LISTS)) {
     const list = body[field];
@@ -438,9 +447,11 @@ const ADAPTERS = {
       if (q.excludeTitleTerms?.length) base.job_title_not = q.excludeTitleTerms;
       if (q.excludeCompanies?.length) base.company_name_not = q.excludeCompanies;
       if (q.descriptionKeywords?.length) base.job_description_contains_or = q.descriptionKeywords;
-      if (q.postedWithinDays) base.posted_at_max_age_days = q.postedWithinDays;
+      // TheirStack requires at least one mandatory time or identity filter
+      // (E-024). Always send posted_at_max_age_days so no request is rejected.
+      base.posted_at_max_age_days = q.postedWithinDays || 30;
       if (q.discoveredSince) base.discovered_at_gte = q.discoveredSince;
-      if (q.excludeJobIds?.length) base.job_id_not = q.excludeJobIds;
+      if (q.excludeJobIds?.length) base.job_id_not = q.excludeJobIds.map(Number);
 
       // "both" means title OR description. TheirStack ANDs different filter
       // groups in one request, so two separate requests merged by job id is
@@ -566,7 +577,10 @@ async function resolvePlace(env, name, countries, budget) {
       headers: { authorization: `Bearer ${env.THEIRSTACK_API_KEY}` },
     });
     if (!res.ok) {
-      throw new HttpError(502, 'provider_error', `place lookup returned ${res.status}`);
+      const errBody = await res.text().catch(() => '');
+      console.error('place lookup error', { status: res.status, body: errBody.slice(0, 200) });
+      throw new HttpError(502, 'provider_error',
+        `place lookup returned ${res.status}: ${errBody.slice(0, 200)}`);
     }
     const payload = await res.json();
     const rows = Array.isArray(payload) ? payload : (payload.data || payload.result || []);

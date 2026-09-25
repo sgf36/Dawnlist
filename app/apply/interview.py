@@ -31,6 +31,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from app.core.text_hygiene import strip_invisible_unicode
 from app.intelligence.assess import DRAFTING_MODEL
 
 BRIEF_RULES = """\
@@ -131,6 +132,7 @@ def parse_brief(payload, gaps=None) -> InterviewBrief:
 
     text = re.sub(r"^\s*```(?:markdown|md)?\s*\n", "", text)
     text = re.sub(r"\n```\s*$", "", text)
+    text = strip_invisible_unicode(text)
 
     exposed = ()
     if gaps is not None and not getattr(gaps, "is_empty", True):

@@ -190,6 +190,11 @@ def check_plist(app: Path) -> None:
         if not info.get(key):
             fail(f"Info.plist is missing {key}. The upload would be rejected "
                  f"after the build appeared to succeed.")
+    if info.get("LSBackgroundOnly"):
+        fail("Info.plist has LSBackgroundOnly=true. The app will appear on "
+             "screen but macOS won't route keyboard events to it — the "
+             "reviewer cannot type into any field. Set LSBackgroundOnly "
+             "to false in the BUNDLE info_plist dict.")
     print(f"  version {info['CFBundleShortVersionString']} "
           f"(build {info['CFBundleVersion']}), id {info['CFBundleIdentifier']}")
 

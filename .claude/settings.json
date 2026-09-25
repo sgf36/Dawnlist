@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "command": "python3 .claude/hooks/clean_written_text.py"
+      }
+    ]
+  }
+}

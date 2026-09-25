@@ -168,6 +168,55 @@ def gather_data(conn) -> GuideData:
     )
 
 
+def _strip_docx_metadata(path: Path) -> None:
+    """Remove authoring metadata from a saved .docx.
+
+    python-docx writes core properties (creator, lastModifiedBy, revision) and
+    an app-properties part (Application, AppVersion) that name the tool chain.
+    A file emailed to an agency does not need to say "python-docx" or carry a
+    creator string the user did not set.
+    """
+    import zipfile
+    from io import BytesIO
+    from xml.etree import ElementTree as ET
+
+    buf = BytesIO(path.read_bytes())
+    out = BytesIO()
+
+    with zipfile.ZipFile(buf, "r") as zin, \
+         zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+
+            if item.filename == "docProps/core.xml":
+                root = ET.fromstring(data)
+                ns = {
+                    "cp": "http://schemas.openxmlformats.org/package/2006/metadata/core-properties",
+                    "dc": "http://purl.org/dc/elements/1.1/",
+                    "dcterms": "http://purl.org/dc/terms/",
+                }
+                for tag in ["dc:creator", "cp:lastModifiedBy", "cp:revision",
+                            "dc:description", "dc:subject"]:
+                    prefix, local = tag.split(":")
+                    el = root.find(tag, ns)
+                    if el is not None:
+                        el.text = ""
+                data = ET.tostring(root, xml_declaration=True, encoding="UTF-8")
+
+            elif item.filename == "docProps/app.xml":
+                root = ET.fromstring(data)
+                app_ns = "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
+                for local in ["Application", "AppVersion", "Company", "Manager"]:
+                    el = root.find(f"{{{app_ns}}}{local}")
+                    if el is not None:
+                        el.text = ""
+                data = ET.tostring(root, xml_declaration=True, encoding="UTF-8")
+
+            zout.writestr(item, data)
+
+    path.write_bytes(out.getvalue())
+
+
 def export_guide(data: GuideData, dest: Path) -> None:
     """Build the criteria guide .docx and write it to *dest*."""
     doc = Document()
@@ -297,8 +346,9 @@ def export_guide(data: GuideData, dest: Path) -> None:
     )
     _set_run_font(run, size=Pt(10), italic=True, color=GOLD)
 
-    # Save
+    # Save, then strip document metadata that leaks the authoring tool chain.
     doc.save(str(dest))
+    _strip_docx_metadata(dest)
 
 
 # ---------------------------------------------------------------------------

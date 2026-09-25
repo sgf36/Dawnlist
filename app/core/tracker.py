@@ -166,6 +166,7 @@ class Opportunity:
     job_url: str = ""
     salary: str = ""
     location: str = ""
+    job_description: str = ""
     posted_at: date | None = None
 
     #: When this employer was first tracked, and when something last went OUT.

@@ -358,6 +358,7 @@ MIGRATIONS: tuple[tuple[int, tuple[str, ...]], ...] = (
         "ALTER TABLE documents ADD COLUMN change_summary TEXT",
     )),
     (6, (
+        "ALTER TABLE contacts ADD COLUMN title TEXT",
         "ALTER TABLE contacts ADD COLUMN first_name TEXT",
         "ALTER TABLE contacts ADD COLUMN last_name TEXT",
         "ALTER TABLE contacts ADD COLUMN job_title TEXT",

@@ -256,6 +256,35 @@ def test_diff_detects_scope_change(tmp_path):
     assert changes.scope_countries == ["GB", "US"]
 
 
+def test_export_strips_metadata(tmp_path):
+    """Exported .docx must not leak authoring tool or identity metadata."""
+    import zipfile
+    from xml.etree import ElementTree as ET
+
+    dest = tmp_path / "guide.docx"
+    export_guide(_sample_data(), dest)
+
+    with zipfile.ZipFile(dest, "r") as zf:
+        if "docProps/core.xml" in zf.namelist():
+            root = ET.fromstring(zf.read("docProps/core.xml"))
+            ns = {
+                "cp": "http://schemas.openxmlformats.org/package/2006/metadata/core-properties",
+                "dc": "http://purl.org/dc/elements/1.1/",
+            }
+            for tag in ["dc:creator", "cp:lastModifiedBy", "cp:revision"]:
+                el = root.find(tag, ns)
+                if el is not None:
+                    assert not el.text, f"{tag} should be blank, got {el.text!r}"
+
+        if "docProps/app.xml" in zf.namelist():
+            root = ET.fromstring(zf.read("docProps/app.xml"))
+            app_ns = "http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
+            for local in ["Application", "AppVersion"]:
+                el = root.find(f"{{{app_ns}}}{local}")
+                if el is not None:
+                    assert not el.text, f"{local} should be blank, got {el.text!r}"
+
+
 def test_diff_detects_brief_change(tmp_path):
     data = _sample_data()
     dest = tmp_path / "guide.docx"

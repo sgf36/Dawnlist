@@ -226,7 +226,7 @@ def test_a_brief_that_came_back_empty_is_named_not_omitted():
     send, _ = recorder("   ")
     pack = prepare_application(JOB, factsheet=FACTSHEET, cv_text=CV,
                                send=send, want_brief=True)
-    assert "EMPTY" in summarise(pack)
+    assert "not available" in summarise(pack)
 
 
 def test_no_brief_asked_for_means_no_line_about_one():
