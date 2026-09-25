@@ -534,7 +534,7 @@
   "settings.subscribe_length": "මාස 1",
   "settings.subscribe_restore": "මිලදී ගැනීම ප්‍රතිස්ථාපනය කරන්න",
   "settings.subscribe_still_waiting": "App Store එකින් තවම ප්‍රතිචාරයක් ලැබී නැත. මිලදී ගැනීමේ කවුළුවක් නොපෙන්වුවහොත්, App Store යෙදුම විවෘත කර, ඔබ ලොග් වී ඇති බව තහවුරු කර, නැවත 'දායක වන්න' ඔබන්න. ඔබට කලින් සිදු කළ මිලදී ගැනීමක් ප්‍රතිසාධනය කිරීමටද, හෝ පසුව දායක වීමට ඉදිරියට යාමටද හැකිය.",
-  "settings.subscribe_terms": "{title} — {length}. ඔබ අවලංගු කරන තෙක් එය එකම මිලට ස්වයංක්‍රීයව අලුත් වේ. ඔබට ඕනෑම වේලාවක Podධති සැකසීම් (System Settings) හරහා එය අවලංගු කළ හැක.",
+  "settings.subscribe_terms": "{title} — {length}. ඔබ අවලංගු කරන තෙක් එය එකම මිලට ස්වයංක්‍රීයව අලුත් වේ. ඔබට ඕනෑම වේලාවක Pod­ධති සැකසීම් (System Settings) හරහා එය අවලංගු කළ හැක.",
   "settings.subscribe_unavailable": "මේ මොහොතේ මෙම Mac එකේ App Store හට මිලදී ගැනීමක් සිදු කළ නොහැක.",
   "settings.subscribe_working": "App Store සමඟ සම්බන්ධ වෙමින්…",
   "settings.title": "ඩෝන්ලිස්ට් — සැකසුම්",
