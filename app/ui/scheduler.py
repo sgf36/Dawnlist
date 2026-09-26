@@ -255,7 +255,17 @@ class RunBinding(QObject):
                                    to_local=self._to_local)
             self._window.set_run_status(text)
             self._report_shown = text
+        else:
+            self._maybe_request_review()
         if self._notify is not None and not self._window.isVisible():
             # Hidden in the tray, the window cannot say it; the tray can.
             self._notify(describe_report(report, now=self._clock(),
                                          to_local=self._to_local))
+
+    def _maybe_request_review(self) -> None:
+        from app.core.review_prompt import request
+        try:
+            hwnd = int(self._window.winId()) if hasattr(self._window, "winId") else None
+        except Exception:
+            hwnd = None
+        request(self._conn, hwnd=hwnd)
