@@ -182,6 +182,51 @@ def system_prefix(fit_brief: str, factsheet: str,
     return blocks
 
 
+_SENIORITY_LEVELS = [
+    "Analyst / Junior",
+    "Senior Analyst / Associate",
+    "Senior Associate / Manager",
+    "Senior Manager / Lead / Principal",
+    "Head of / Department Lead",
+    "Director / Senior Director",
+    "VP / SVP / C-suite",
+]
+
+
+def seniority_band_table(target_index: int) -> str:
+    """Build the structured seniority band table from the user's selection.
+
+    ``target_index`` is 1-based (0 = "Any", which produces no table).
+    The table maps each level to its relationship to the target, so
+    Rule 9 can enforce the band without guessing.
+    """
+    if target_index <= 0 or target_index > len(_SENIORITY_LEVELS):
+        return ""
+
+    target = target_index - 1
+    lines = [f"Target: {_SENIORITY_LEVELS[target]}", ""]
+    for i, level in enumerate(_SENIORITY_LEVELS):
+        diff = i - target
+        if diff <= -2:
+            tag = "well below the target band → reject unless the description shows a higher operating level (rule 1)"
+        elif diff == -1:
+            tag = "one step below the target band → possible, not strong"
+        elif diff == 0:
+            tag = "target level → no cap"
+        elif diff == 1:
+            tag = "one step above → no cap"
+        else:
+            tag = "well above the target band → no cap"
+        lines.append(f"- {level}: {tag}")
+
+    lines.append("")
+    lines.append(
+        "A role below the target band is capped even when it otherwise "
+        "fits the brief. Name the level and the cap in your reason."
+    )
+    return "\n".join(lines)
+
+
 #: The first pass reads a description whole up to here.
 #:
 #: It was 1,200. Descriptions average about 7,400 characters, so every first

@@ -2505,7 +2505,9 @@ class OnboardingWizard(QWidget):
         wizard stays database-free: it knows the SHAPE of the data but never
         the storage.
         """
-        self.scope_ready.emit(self.profile.as_scope_parts())
+        parts = self.profile.as_scope_parts()
+        parts["seniority_index"] = self.profile.seniority.currentIndex()
+        self.scope_ready.emit(parts)
 
     # -- what setup remembers ----------------------------------------------
     def _touch(self) -> None:

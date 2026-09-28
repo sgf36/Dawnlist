@@ -158,7 +158,8 @@ def test_a_pack_is_produced_and_written(conn, advert, cvfolder, tmp_path,
 
     pack = apply_run(conn, "pasted:" + _job_id(conn), send=send, folder=out)
 
-    assert len(sent) == 2, "a CV and a letter, and no brief unless asked"
+    gen_sent = [r for r in sent if "tools" not in r]
+    assert len(gen_sent) == 2, "a CV and a letter, and no brief unless asked"
     assert pack.complete
     assert sorted(p.name.split("-")[-1] for p in out.iterdir()) == [
         "cv.md", "letter.md"]

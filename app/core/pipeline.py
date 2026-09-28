@@ -313,6 +313,7 @@ def run_morning(
     clock: Callable[[], datetime] = _utcnow,
     requeued: Sequence[Job] = (),
     kind: str = "sweep",
+    seniority_table: str = "",
 ) -> RunOutcome:
     """One morning run, recorded end to end."""
     with db.run(conn, kind=kind) as run:
@@ -392,7 +393,8 @@ def run_morning(
             likely, fit_brief, factsheet, send=send,
             already_judged=already_judged,
             on_batch=lambda verdicts: persist_verdicts(conn, run.id, verdicts),
-            on_call=lambda call: persist_call(conn, run.id, call))
+            on_call=lambda call: persist_call(conn, run.id, call),
+            seniority_table=seniority_table)
         run.record_counts(assessed=len(outcome.assessment.verdicts))
 
         # --- close it honestly ---------------------------------------------

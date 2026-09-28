@@ -412,13 +412,15 @@ def batches(seq: Sequence[Job], size: int = BATCH_SIZE, *,
 
 
 def build_request(jobs: list[Job], fit_brief: str, factsheet: str, *,
-                  model: str = ASSESSMENT_MODEL, full: bool = False) -> dict:
+                  model: str = ASSESSMENT_MODEL, full: bool = False,
+                  seniority_table: str = "") -> dict:
     """One Messages request. `custom_id` keying is the caller's job."""
     postings = "\n\n".join(render_job(j, full=full) for j in jobs)
     return {
         "model": model,
         "max_tokens": 8000,
-        "system": system_prefix(fit_brief, factsheet),
+        "system": system_prefix(fit_brief, factsheet,
+                                seniority_table=seniority_table),
         "messages": [{"role": "user", "content": postings}],
         "output_config": {
             "format": {
@@ -468,6 +470,7 @@ def assess(jobs: list[Job], fit_brief: str, factsheet: str, *,
            model: str = ASSESSMENT_MODEL,
            on_batch: Callable[[list[Verdict]], None] | None = None,
            on_call: Callable[[ModelCall], None] | None = None,
+           seniority_table: str = "",
            ) -> AssessmentReport:
     """Assess every job in `jobs`. Resumable, and honest about what it missed.
 
@@ -496,7 +499,8 @@ def assess(jobs: list[Job], fit_brief: str, factsheet: str, *,
         by_ref = {job_ref(j): j for j in chunk}
         rendered = {ref: render_job(j) for ref, j in by_ref.items()}
         try:
-            reply = send(build_request(chunk, fit_brief, factsheet, model=model))
+            reply = send(build_request(chunk, fit_brief, factsheet, model=model,
+                                      seniority_table=seniority_table))
             _record_call(report, reply, model, False, on_call)
             payload = _reply_payload(reply)
         except Exception as exc:  # noqa: BLE001
@@ -531,9 +535,11 @@ def assess(jobs: list[Job], fit_brief: str, factsheet: str, *,
         report.unread.extend(missing)
 
     _retry_downgraded(report, fit_brief, factsheet, send=send, model=model,
-                      on_batch=on_batch, on_call=on_call)
+                      on_batch=on_batch, on_call=on_call,
+                      seniority_table=seniority_table)
     _second_pass(report, fit_brief, factsheet, send=send, model=model,
-                 on_batch=on_batch, on_call=on_call)
+                 on_batch=on_batch, on_call=on_call,
+                 seniority_table=seniority_table)
     return report
 
 
@@ -541,6 +547,7 @@ def _retry_downgraded(report: "AssessmentReport", fit_brief: str,
                       factsheet: str, *, send, model: str,
                       on_batch: Callable[[list[Verdict]], None] | None = None,
                       on_call: Callable[[ModelCall], None] | None = None,
+                      seniority_table: str = "",
                       ) -> None:
     """Re-assess verdicts that were downgraded from rejected.
 
@@ -566,7 +573,8 @@ def _retry_downgraded(report: "AssessmentReport", fit_brief: str,
         rendered = {ref: render_job(job, full=True)}
         try:
             reply = send(build_request([job], fit_brief, factsheet,
-                                       model=model, full=True))
+                                       model=model, full=True,
+                                       seniority_table=seniority_table))
             _record_call(report, reply, model, True, on_call)
             payload = _reply_payload(reply)
         except Exception:  # noqa: BLE001
@@ -587,7 +595,8 @@ def _retry_downgraded(report: "AssessmentReport", fit_brief: str,
 def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
                  send, model: str,
                  on_batch: Callable[[list[Verdict]], None] | None = None,
-                 on_call: Callable[[ModelCall], None] | None = None) -> None:
+                 on_call: Callable[[ModelCall], None] | None = None,
+                 seniority_table: str = "") -> None:
     """spec 7.6 — re-read in full any verdict formed on a cut-off description.
 
     The first pass reads a description whole up to FIRST_PASS_CHARS, which is
@@ -619,7 +628,8 @@ def _second_pass(report: "AssessmentReport", fit_brief: str, factsheet: str, *,
     for index, chunk in enumerate(chunks):
         try:
             reply = send(build_request(chunk, fit_brief, factsheet,
-                                       model=model, full=True))
+                                       model=model, full=True,
+                                       seniority_table=seniority_table))
             _record_call(report, reply, model, True, on_call)
             payload = _reply_payload(reply)
         except Exception as exc:  # noqa: BLE001

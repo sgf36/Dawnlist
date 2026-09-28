@@ -1182,6 +1182,10 @@ def ingest_alerts(conn, paths, *, send=None, today: date | None = None):
             for r in conn.execute(
                 "SELECT provider, provider_job_id FROM seen_jobs")}
 
+    from app.intelligence.prompts import seniority_band_table
+    settings = load_settings(conn)
+    sen_table = seniority_band_table(int(settings.get("seniority_index", "0")))
+
     outcome = run_morning(
         conn, AlertProvider(jobs),
         [SearchQuery(label="job alerts", titles=[])],
@@ -1194,6 +1198,7 @@ def ingest_alerts(conn, paths, *, send=None, today: date | None = None):
         # Dropped files, not a sweep: no refresh of the feed was spent, so an
         # import must not stand in for the day's search.
         kind=db.ALERTS,
+        seniority_table=sen_table,
     )
     persist(conn, outcome)
     db.prune_seen(conn)
@@ -1496,6 +1501,10 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
     from app.core import api_key
     from app.core.pipeline import judged_refs, unassessed_likely
     from app.intelligence.assess import anthropic_transport
+    from app.intelligence.prompts import seniority_band_table
+
+    settings = load_settings(conn)
+    sen_table = seniority_band_table(int(settings.get("seniority_index", "0")))
 
     # `run_morning` stores what it fetched and screened before any model call,
     # stores verdicts batch by batch, and advances each search's mark once its
@@ -1514,6 +1523,7 @@ def morning_run(conn, *, provider=None, send=None, today: date | None = None):
         already_seen=seen,
         already_judged=judged_refs(conn),
         requeued=unassessed_likely(conn),
+        seniority_table=sen_table,
     )
 
     # `seen_jobs` is a rolling window, not a permanent record — rejections live
@@ -2453,6 +2463,12 @@ def build_onboarding(conn, *, on_finished=None):
 
     def save_profile_scope(parts):
         from app.core.search_scope import SearchScope, save_scope as _save_scope
+        sen_idx = parts.pop("seniority_index", 0)
+        conn.execute(
+            "INSERT INTO settings(key, value) VALUES('seniority_index', ?) "
+            "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (str(sen_idx),))
+        conn.commit()
         scope = SearchScope.from_parts(**parts)
         if scope.is_set:
             _save_scope(conn, scope)

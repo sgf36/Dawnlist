@@ -255,3 +255,124 @@ def parse_document(kind: str, payload, *, company: str,
 
     return ApplyDocument(kind=kind, company=company,
                          posting_title=posting_title, body=text.strip())
+
+
+# ---------------------------------------------------------------------------
+# Post-generation verification
+# ---------------------------------------------------------------------------
+
+VERIFY_SYSTEM = """\
+You are a fact-checker reviewing a document written about a person's career.
+
+You have been given the EVIDENCE — a background factsheet and a curriculum vitae.
+You have also been given a DOCUMENT that was generated from this evidence.
+
+Your job: find every factual claim in the document that is NOT supported by the
+evidence. A factual claim is an employer name, a job title, a date, a figure, a
+team size, a qualification, a technology, or any statement about what the person
+did, achieved, or was responsible for.
+
+For each unsupported claim, output a JSON object with:
+  - "original": the exact substring from the document (verbatim, character for
+    character, long enough to be unique — at least 30 characters if possible)
+  - "problem": one sentence saying what is wrong
+  - "replacement": a corrected version using ONLY evidence, or the original text
+    with the unsupported part replaced by [[description of what is missing]].
+    The replacement must be the same length class as the original — do not
+    delete whole sentences unless the sentence is entirely fabricated.
+
+IMPORTANT DISTINCTIONS:
+- "Coordinated" upgraded to "managed" or "led" → unsupported
+- A figure described as "identified" recast as "delivered" or "saved" → unsupported
+- A qualifier like "supported" recast as "owned" or "drove" → unsupported
+- Reordering or shortening existing evidence → fine
+- Omitting a detail that the evidence contains → fine (that is editorial choice)
+
+If the document is clean, return an empty array.
+
+Return ONLY a JSON array, no commentary."""
+
+
+VERIFY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "unsupported_claims": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "original": {"type": "string"},
+                    "problem": {"type": "string"},
+                    "replacement": {"type": "string"},
+                },
+                "required": ["original", "problem", "replacement"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["unsupported_claims"],
+    "additionalProperties": False,
+}
+
+
+def build_verify_request(document_body: str, factsheet: str, cv_text: str,
+                         *, model: str = DRAFTING_MODEL) -> dict:
+    """A request that checks a generated document against the evidence."""
+    return {
+        "model": model,
+        "max_tokens": 4000,
+        "system": [{"type": "text", "text": VERIFY_SYSTEM}],
+        "messages": [{"role": "user", "content": (
+            f"# Evidence\n\n{_evidence_block(factsheet, cv_text)}\n\n"
+            f"# Document to verify\n\n{document_body}"
+        )}],
+        "tool_choice": {"type": "tool", "name": "verify_claims"},
+        "tools": [{
+            "name": "verify_claims",
+            "description": "Report unsupported claims found in the document.",
+            "input_schema": VERIFY_SCHEMA,
+        }],
+    }
+
+
+def apply_corrections(body: str, claims: list[dict]) -> str:
+    """Replace unsupported claims with their corrected text."""
+    for claim in claims:
+        original = claim.get("original", "")
+        replacement = claim.get("replacement", "")
+        if original and replacement and original in body:
+            body = body.replace(original, replacement, 1)
+    return body
+
+
+def verify_document(doc: ApplyDocument, factsheet: str, cv_text: str,
+                    send, *, model: str = DRAFTING_MODEL) -> list[dict]:
+    """Check a generated document for unsupported claims.
+
+    Returns the list of claims found. If any are found, the document's body
+    is updated in place with corrections (which will contain [[placeholder]]
+    markers that trigger the existing blocking mechanism).
+    """
+    import json as _json
+
+    req = build_verify_request(doc.body, factsheet, cv_text, model=model)
+    try:
+        payload = send(req)
+    except Exception:  # noqa: BLE001
+        return []
+
+    if isinstance(payload, dict):
+        content = payload.get("content", [])
+    else:
+        return []
+
+    for block in content:
+        if (isinstance(block, dict) and block.get("type") == "tool_use"
+                and block.get("name") == "verify_claims"):
+            result = block.get("input", {})
+            claims = result.get("unsupported_claims", [])
+            if claims:
+                doc.body = apply_corrections(doc.body, claims)
+            return claims
+
+    return []

@@ -34,7 +34,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from app.apply.documents import (ApplyDocument, build_document_request,
-                                 parse_document, write_document)
+                                 parse_document, verify_document,
+                                 write_document)
 from app.apply.interview import (InterviewBrief, build_brief_request,
                                  parse_brief)
 from app.apply.keywords import GapReport, analyse
@@ -115,6 +116,10 @@ def prepare_application(job: Job, *, factsheet: str, cv_text: str, send,
             continue
         doc = parse_document(kind, payload, company=job.company,
                              posting_title=job.title)
+        try:
+            verify_document(doc, factsheet, cv_text, send)
+        except Exception:  # noqa: BLE001
+            pass
         setattr(pack, kind, doc)
         if folder is not None:
             write_document(doc, folder)

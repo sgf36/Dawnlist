@@ -39,8 +39,9 @@ def test_the_gap_analysis_runs_first_and_reaches_both_documents():
     that reaches for "exposure to" as a way of implying one."""
     send, seen = recorder()
     prepare_application(JOB, factsheet=FACTSHEET, cv_text=CV, send=send)
-    assert len(seen) == 2
-    for request in seen:
+    gen_requests = [r for r in seen if "tools" not in r]
+    assert len(gen_requests) == 2
+    for request in gen_requests:
         user = request["messages"][0]["content"]
         assert "do not claim these" in user.lower()
         assert "revenue management" in user.lower()
@@ -59,14 +60,16 @@ def test_the_brief_is_not_produced_unless_asked_for():
     send, seen = recorder()
     pack = prepare_application(JOB, factsheet=FACTSHEET, cv_text=CV, send=send)
     assert pack.brief is None
-    assert len(seen) == 2
+    gen_requests = [r for r in seen if "tools" not in r]
+    assert len(gen_requests) == 2
 
 
 def test_asking_for_the_brief_adds_exactly_one_request():
     send, seen = recorder()
     pack = prepare_application(JOB, factsheet=FACTSHEET, cv_text=CV,
                                send=send, want_brief=True)
-    assert len(seen) == 3
+    gen_requests = [r for r in seen if "tools" not in r]
+    assert len(gen_requests) == 3
     assert pack.brief is not None
     assert "revenue management" in [e.casefold() for e in pack.brief.exposed_on]
 
@@ -75,7 +78,8 @@ def test_a_caller_can_ask_for_the_letter_alone():
     send, seen = recorder()
     pack = prepare_application(JOB, factsheet=FACTSHEET, cv_text=CV,
                                send=send, want_cv=False)
-    assert len(seen) == 1
+    gen_requests = [r for r in seen if "tools" not in r]
+    assert len(gen_requests) == 1
     assert pack.cv is None and pack.letter is not None
 
 
@@ -209,7 +213,8 @@ def test_a_letter_alone_does_not_need_the_cv():
     pack = prepare_application(JOB, factsheet=FACTSHEET, cv_text="",
                                send=send, want_cv=False)
     assert pack.letter is not None
-    assert len(seen) == 1
+    gen_requests = [r for r in seen if "tools" not in r]
+    assert len(gen_requests) == 1
 
 
 def test_the_summary_reports_the_brief_when_one_was_asked_for():
