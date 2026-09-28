@@ -1,4 +1,4 @@
-# ReleaseNotes — en-GB source, for 1.3.0
+# ReleaseNotes — en-GB source, for 1.4.0
 
 Release notes are read by people deciding whether to update, and by the
 reviewer deciding whether to pass. Everything here is user-facing; nothing
@@ -8,26 +8,23 @@ British English, no Oxford commas, no abbreviations.
 
 ---
 
-Export your board to a spreadsheet — one click gives you every posting, its
-status, scores and notes in a file you can open anywhere.
+Searches now spread your credits evenly across all your queries, so one
+broad search no longer consumes the entire budget.
 
-Sync your board with ClickUp, so postings flow into your task list without
-retyping them.
+Seniority filtering now works as configured — postings below your target
+level are flagged correctly instead of being let through unchecked.
 
-Generate letters and daily summaries from the board, now without freezing the
-window while they are being prepared.
-
-Settings is now reachable from the main window, with all configuration in one
-place.
+Tailored CVs and covering letters are now verified against your evidence
+before they are saved, so unsupported claims are caught and marked rather
+than going out unnoticed.
 
 ---
 
 ## What this deliberately does not say
 
-- **No mention of the refresh cap or trial plan changes.** Server-side,
-  invisible to the customer.
-- **No mention of the migration resilience fix.** An internal robustness
-  change, not a feature.
-- **No mention of locale key fixes.** The buyer never saw the gap.
-- **No claim count or "X new features".** Every line says what it does; a
-  number on top adds nothing.
+- **No mention of the verification mechanism.** The buyer sees that claims
+  are caught; how is an implementation detail.
+- **No mention of the seniority band table.** The buyer configured a
+  seniority level in setup; this release makes it work.
+- **No mention of the budget balancer algorithm.** The buyer sees fair
+  credit distribution; multi-pass redistribution is internal.
