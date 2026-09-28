@@ -40,6 +40,165 @@ class Gate:
 
 
 
+_MAX_REBALANCE_PASSES = 5
+
+
+def _run_budget(provider, queries: Sequence[SearchQuery]) -> int:
+    """The global fetch budget for this run.
+
+    Derived from the plan's remaining daily allowance when the provider
+    reports one, otherwise the sum of all queries' individual caps.  The
+    plan is the natural constraint: it is the number of postings the user
+    has paid for today and has not yet used.
+    """
+    plan_fn = getattr(provider, "plan", None)
+    if callable(plan_fn):
+        try:
+            status = plan_fn()
+            if status.postings_remaining > 0:
+                return status.postings_remaining
+        except Exception:  # noqa: BLE001 - a failed lookup must not fail the run
+            pass
+    return sum(q.max_results for q in queries)
+
+
+def _balanced_fetch(
+    provider: FeedProvider,
+    queries: Sequence[SearchQuery],
+    outcome: RunOutcome,
+    run,
+    clock: Callable[[], datetime] = _utcnow,
+) -> tuple[list[Job], dict[str, list[Job]]]:
+    """Fetch with multi-pass equal-share budget balancing.
+
+    Pass 1 divides the budget equally across queries.  Queries that return
+    fewer than their share release the surplus.  Surplus is redistributed
+    to queries that hit their cap and still have matches available
+    upstream.  Repeats until the budget is exhausted or every query is
+    satisfied.
+
+    Re-fetch passes use ``exclude_job_ids`` to avoid re-buying jobs the
+    run has already received — the same billing-control mechanism the
+    delta pull uses between runs.
+    """
+    budget = _run_budget(provider, queries)
+
+    all_jobs: list[Job] = []
+    per_query: dict[str, list[Job]] = {}
+    fetched_ids: dict[str, set[str]] = {}
+    pass_results: dict[str, list[FetchResult]] = {}
+    started_at: dict[str, datetime] = {}
+
+    for q in queries:
+        per_query[q.label] = []
+        fetched_ids[q.label] = set()
+        pass_results[q.label] = []
+
+    active = list(queries)
+    remaining = budget
+
+    for _ in range(_MAX_REBALANCE_PASSES):
+        if not active or remaining <= 0:
+            break
+
+        share = remaining // len(active)
+        if share == 0:
+            active = active[:remaining]
+            share = 1
+            if not active:
+                break
+
+        surplus = 0
+        hungry: list[SearchQuery] = []
+
+        for q in active:
+            cap = q.max_results - len(per_query[q.label])
+            pass_limit = min(share, cap) if cap > 0 else 0
+            if pass_limit <= 0:
+                surplus += share
+                continue
+
+            if q.label not in started_at:
+                started_at[q.label] = clock()
+
+            pass_query = SearchQuery(
+                label=q.label,
+                titles=list(q.titles),
+                countries=list(q.countries),
+                companies=list(q.companies),
+                posted_within_days=q.posted_within_days,
+                discovered_since=q.discovered_since,
+                exclude_job_ids=tuple(
+                    set(q.exclude_job_ids) | fetched_ids[q.label]),
+                max_results=pass_limit,
+                cities=list(q.cities),
+                exclude_title_terms=list(q.exclude_title_terms),
+                exclude_companies=list(q.exclude_companies),
+                description_keywords=list(q.description_keywords),
+                search_type=q.search_type,
+            )
+
+            result = provider.search(pass_query)
+            pass_results[q.label].append(result)
+
+            if result.ok:
+                per_query[q.label].extend(result.jobs)
+                all_jobs.extend(result.jobs)
+                for j in result.jobs:
+                    fetched_ids[q.label].add(j.provider_job_id)
+
+                returned = len(result.jobs)
+                if returned < pass_limit:
+                    surplus += pass_limit - returned
+                elif result.not_fetched > 0 and not result.capped:
+                    hungry.append(q)
+            else:
+                surplus += pass_limit
+
+        remaining = surplus
+        active = hungry
+
+    for q in queries:
+        passes = pass_results[q.label]
+        if not passes:
+            continue
+
+        first_ok = next((r for r in passes if r.ok), None)
+        last_ok = next((r for r in reversed(passes) if r.ok), None)
+
+        combined = FetchResult(
+            jobs=per_query[q.label],
+            pages_fetched=sum(r.pages_fetched for r in passes),
+            exhausted=(last_ok.exhausted if last_ok else False),
+            credits_estimate=len(per_query[q.label]),
+            error=next((r.error for r in passes if not r.ok), None),
+            refusal=next((r.refusal for r in passes if r.refusal), None),
+            matched=(first_ok.matched if first_ok else None),
+            not_fetched=(last_ok.not_fetched if last_ok else 0),
+            capped=any(r.capped for r in passes),
+        )
+
+        outcome.fetch[q.label] = combined
+        if not combined.ok:
+            error_text = combined.error
+            if combined.refusal:
+                error_text = "today's search limit was reached"
+            msg = f"{q.label}: {error_text}"
+            outcome.fetch_errors.append(msg)
+            run.record_fetch_failure(msg)
+        else:
+            if combined.shortfall:
+                message = f"{q.label}: {combined.shortfall}"
+                if combined.not_fetched and not combined.capped:
+                    outcome.unfetched[q.label] = combined.not_fetched
+                    message += f" — {tr('funnel.narrow_search')}"
+                outcome.fetch_errors.append(message)
+            if not combined.capped and q.label in started_at:
+                outcome.marks[q.label] = started_at[q.label]
+
+    return all_jobs, per_query
+
+
 def cap_remedy(provider) -> str:
     """The sentence that follows "you were capped": what would lift it.
 
@@ -159,48 +318,9 @@ def run_morning(
     with db.run(conn, kind=kind) as run:
         outcome = RunOutcome(run_id=run.id)
 
-        # --- fetch ---------------------------------------------------------
-        all_jobs: list[Job] = []
-        per_query: dict[str, list[Job]] = {}
-        for q in queries:
-            # Taken BEFORE this query's fetch. A mark stamped when the whole
-            # run ended skipped every posting indexed while earlier searches
-            # were fetching and the batch was being assessed: none of them was
-            # in what this fetch read, and the next run started after them.
-            started = clock()
-            result = provider.search(q)
-            outcome.fetch[q.label] = result
-            if not result.ok:
-                # spec 6.2: never "no new jobs". Recorded on the run, and the
-                # run cannot later be reported as a clean one.
-                error_text = result.error
-                if result.refusal:
-                    error_text = "today's search limit was reached"
-                msg = f"{q.label}: {error_text}"
-                outcome.fetch_errors.append(msg)
-                run.record_fetch_failure(msg)
-            else:
-                if result.shortfall:
-                    # spec 6.2 again, and the wording carries weight. A capped
-                    # run and an under-paginated one are both partial, but only
-                    # one of them is the user's own plan doing what it was
-                    # bought to do — so the reason is named, with its numbers,
-                    # rather than flattened into "results are partial".
-                    message = f"{q.label}: {result.shortfall}"
-                    if result.not_fetched and not result.capped:
-                        outcome.unfetched[q.label] = result.not_fetched
-                        message += f" — {tr('funnel.narrow_search')}"
-                    outcome.fetch_errors.append(message)
-                # The window this fetch read is done, even when it matched
-                # more than one page: holding the mark back re-requested the
-                # same oversize window every morning and never moved on. A
-                # CAPPED fetch keeps its mark, because the plan's daily ceiling
-                # stopped it rather than the search, and tomorrow's allowance
-                # reads the rest while the exclusion list stops a re-buy.
-                if not result.capped:
-                    outcome.marks[q.label] = started
-            per_query[q.label] = result.jobs
-            all_jobs.extend(result.jobs)
+        # --- fetch (budget-balanced) ------------------------------------------
+        all_jobs, per_query = _balanced_fetch(
+            provider, queries, outcome, run, clock=clock)
 
         # Once per run, not per query: if the plan's ceiling is what stopped
         # any of them, say what would lift it. A cap message without a remedy

@@ -220,6 +220,107 @@ def test_a_run_output_written_but_not_registered_is_caught(conn, tmp_path):
     assert db.orphan_outputs(conn, out_dir) == [stranded]
 
 
+def test_budget_balancer_divides_equally(conn):
+    """Each query gets an equal share of the plan's remaining budget."""
+    call_log = []
+
+    class BudgetProvider(FeedProvider):
+        name = "theirstack"
+
+        def search(self, query):
+            call_log.append((query.label, query.max_results))
+            return FetchResult(jobs=[job(f"{query.label}-1")],
+                               pages_fetched=1, exhausted=True,
+                               credits_estimate=1)
+
+        def credits_used(self):
+            return 0
+
+        def plan(self):
+            from app.feed.managed import PlanStatus
+            return PlanStatus(plan="test", plan_assigned=True, tier="t",
+                              postings_per_day=100, postings_used=0,
+                              postings_remaining=100, refreshes_per_day=10,
+                              refreshes_used=0)
+
+    qs = [SearchQuery(label="alpha", titles=["alpha"]),
+          SearchQuery(label="beta", titles=["beta"])]
+    rules = RuleTable(strong_terms=["alpha", "beta"])
+    out = run_morning(conn, BudgetProvider(), qs, rules,
+                      fit_brief="b", factsheet="f", send=strong_send)
+    assert out.complete
+    # 100 remaining / 2 queries = 50 each
+    assert call_log == [("alpha", 50), ("beta", 50)]
+
+
+def test_budget_balancer_redistributes_surplus(conn):
+    """A query returning fewer than its share releases surplus to hungry ones."""
+    call_log = []
+
+    class RedistributeProvider(FeedProvider):
+        name = "theirstack"
+
+        def search(self, query):
+            call_log.append((query.label, query.max_results))
+            if query.label == "small":
+                return FetchResult(jobs=[job("s1")], pages_fetched=1,
+                                   exhausted=True, credits_estimate=1)
+            # "big" has more available than its share
+            n = query.max_results
+            jobs = [job(f"b{i}") for i in range(n)]
+            return FetchResult(jobs=jobs, pages_fetched=1, exhausted=False,
+                               credits_estimate=n, matched=200,
+                               not_fetched=200 - n)
+
+        def credits_used(self):
+            return 0
+
+        def plan(self):
+            from app.feed.managed import PlanStatus
+            return PlanStatus(plan="test", plan_assigned=True, tier="t",
+                              postings_per_day=100, postings_used=0,
+                              postings_remaining=100, refreshes_per_day=10,
+                              refreshes_used=0)
+
+    qs = [SearchQuery(label="small", titles=["strategy"]),
+          SearchQuery(label="big", titles=["strategy"])]
+    rules = RuleTable(strong_terms=["strategy"])
+    out = run_morning(conn, RedistributeProvider(), qs, rules,
+                      fit_brief="b", factsheet="f", send=strong_send)
+    # Pass 1: 100/2 = 50 each. "small" returns 1 → surplus = 49.
+    # Pass 2: "big" gets 49 more.
+    assert call_log[0] == ("small", 50)
+    assert call_log[1] == ("big", 50)
+    assert len(call_log) == 3, "a second pass should fetch more for 'big'"
+    assert call_log[2] == ("big", 49)
+
+
+def test_budget_balancer_falls_back_without_plan(conn):
+    """Without a plan() method the budget is the sum of query defaults."""
+    call_log = []
+
+    class NoPlanProvider(FeedProvider):
+        name = "theirstack"
+
+        def search(self, query):
+            call_log.append((query.label, query.max_results))
+            return FetchResult(jobs=[job(f"{query.label}-1")],
+                               pages_fetched=1, exhausted=True,
+                               credits_estimate=1)
+
+        def credits_used(self):
+            return 0
+
+    qs = [SearchQuery(label="one", titles=["strategy"], max_results=200),
+          SearchQuery(label="two", titles=["strategy"], max_results=300)]
+    rules = RuleTable(strong_terms=["strategy"])
+    out = run_morning(conn, NoPlanProvider(), qs, rules,
+                      fit_brief="b", factsheet="f", send=strong_send)
+    # Budget = 200 + 300 = 500. 500/2 = 250 each, but capped by per-query
+    # max_results: one gets min(250,200)=200, two gets min(250,300)=250.
+    assert call_log == [("one", 200), ("two", 250)]
+
+
 def test_a_failed_query_gets_no_yield_rate(conn):
     """The 58.1% bug: a P0 run counted rate-limit failures as coverage misses.
 
