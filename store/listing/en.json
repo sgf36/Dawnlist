@@ -7,6 +7,8 @@
     "Learns your judgement from corrections, not just keywords",
     "Reads job feeds, not scraped pages",
     "Add job-alert emails yourself for anything the feeds miss",
+    "Build boolean search queries for LinkedIn with the query generator",
+    "Import a job posting straight from its LinkedIn URL",
     "Tracks every company you pursue, with an evidence log",
     "Follow-up dates computed from what was actually sent",
     "Never schedules a message for a Monday or a Friday",
@@ -20,7 +22,7 @@
     "Uses your own Anthropic key — you hold it, you see the usage"
   ],
   "short_description": "Dawnlist reads the job feeds every morning, judges each posting against a brief it builds with you from your own CVs, and hands you a ranked shortlist with the reasons stated. Rejections stay visible. It drafts your follow-ups and never sends them. Runs on your own Anthropic API key.",
-  "release_notes": "Import and export your searches as a spreadsheet, so you can build a set in a CSV file and load them all at once rather than typing each one.\n\nExport your fit criteria as a formatted document, edit it outside the app and reimport it — useful when somebody else is helping you shape what you are looking for.\n\nTest your connection from Settings without waiting for the morning run. One button checks your API key and feed access and tells you immediately whether everything is working.\n\nEach search now shows when it last ran, so you can see at a glance which ones are active and which have gone quiet.\n\nKeyboard shortcuts on the calibration screen: P to pursue, L for later, R to reject, J and K to move between postings, 1 through 4 to switch tabs.\n\nSearches can now match on the job title, the description or both, and you can add description keywords to narrow what comes back.\n\nSetup now shows a progress bar, so you know how far through the steps you are.",
+  "release_notes": "Build boolean search queries with the LinkedIn query generator — combine keywords, titles and exclusions into a single expression and paste it straight into LinkedIn.\n\nImport a job posting from its LinkedIn URL. Paste the link and Dawnlist adds it to your tracker with the title, company and description filled in.\n\nMore job sources behind the scenes. Dawnlist now draws from multiple feeds and keeps the richer version when the same posting appears twice.\n\nImport and export your searches as a spreadsheet, so you can build a set in a CSV file and load them all at once rather than typing each one.\n\nExport your fit criteria as a formatted document, edit it outside the app and reimport it — useful when somebody else is helping you shape what you are looking for.\n\nTest your connection from Settings without waiting for the morning run. One button checks your API key and feed access and tells you immediately whether everything is working.\n\nSearches can now match on the job title, the description or both, and you can add description keywords to narrow what comes back.",
   "screenshot_captions": [
     "Your shortlist, with the reasons — and the rejections still visible",
     "When a rule reaches too far, it tells you",

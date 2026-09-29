@@ -433,6 +433,11 @@ jobs:
         run: pip install --require-hashes -r requirements.lock.txt
 
       - name: Render every captured locale
+        env:
+          # The global QT_QPA_PLATFORM=offscreen is for the test suite. The
+          # offscreen platform renders every glyph as tofu — render_store.py
+          # uses WA_DontShowOnScreen instead, which needs the native platform.
+          QT_QPA_PLATFORM: ""
         run: |
           set -euo pipefail
           for loc in en de es fr hi ja zh; do
@@ -489,6 +494,9 @@ jobs:
 
       - name: Render every captured locale
         shell: bash
+        env:
+          # See the mac screenshots job — offscreen produces tofu.
+          QT_QPA_PLATFORM: ""
         run: |
           set -euo pipefail
           for loc in en de es fr hi ja zh; do
@@ -533,6 +541,8 @@ jobs:
       # sees — USA, $79.00. A screenshot showing a price the App Store does not
       # charge is a rejection.
       - name: Render the purchase screen
+        env:
+          QT_QPA_PLATFORM: ""
         run: python tools/render_subscribe.py --price '$79.00' --out dist/review
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
