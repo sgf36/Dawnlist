@@ -2713,7 +2713,10 @@ def open_settings(parent=None, conn=None):
     window = SettingsWindow(rules=rules, families=families,
                             searches=searches, schedule=when,
                             cadence=cadence_panel, email=email_panel,
-                            home=parent, conn=conn)
+                            home=parent, conn=conn,
+                            linkedin_query_loader=(
+                                (lambda: load_queries(conn))
+                                if conn is not None else None))
     if parent is not None:
         parent._settings_window = window
         # A run time changed here changes whether Run now is offered on the
@@ -2866,6 +2869,35 @@ def _alerts_added(window, conn, result) -> None:
                 + declined_rows(conn) + lost_rows(conn),
                 _stored_funnel(conn, latest_run_id(conn)),
                 incomplete_note=note)
+
+
+def _added_linkedin_imports(window, conn, jobs) -> None:
+    """Persist LinkedIn-imported jobs and reload the review window."""
+    import json
+
+    from app.feed.models import name_key
+    from app.ui.adapter import (declined_rows, latest_run_id, lost_rows,
+                                pursued_rows, rows_from_db)
+
+    for job in jobs:
+        conn.execute(
+            """INSERT INTO jobs(provider, provider_job_id, title, company,
+                   locations_json, description_text, salary, url,
+                   raw_criteria_json, name_key, funnel_status)
+               VALUES (?,?,?,?,?,?,?,?,?,?, 'likely')
+               ON CONFLICT(provider, provider_job_id) DO UPDATE SET
+                   title=excluded.title, company=excluded.company,
+                   description_text=excluded.description_text,
+                   salary=excluded.salary, url=excluded.url""",
+            (job.provider, job.provider_job_id, job.title, job.company,
+             json.dumps(list(job.locations)), job.description_text, job.salary,
+             job.url, json.dumps(job.raw_criteria),
+             name_key(job.company, job.title)))
+    conn.commit()
+
+    window.load(rows_from_db(conn) + pursued_rows(conn)
+                + declined_rows(conn) + lost_rows(conn),
+                _stored_funnel(conn, latest_run_id(conn)))
 
 
 def _wire_daily_run(window, conn, reload, *, tray_available=None):
@@ -3293,6 +3325,9 @@ def _main_window(conn, *, open_board: bool):
         window.restore_requested.connect(lambda: open_settings(window, conn))
         window.alerts_dropped.connect(
             lambda paths: _added_alerts(window, conn, paths))
+        window._conn = conn
+        window.linkedin_imported.connect(
+            lambda jobs: _added_linkedin_imports(window, conn, jobs))
         connect_window(window, conn)
 
         def reload():

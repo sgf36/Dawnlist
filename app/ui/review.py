@@ -24,7 +24,7 @@ from PySide6.QtGui import (QAction, QColor, QFont, QFontMetrics, QIcon,
 from app.i18n import is_rtl, tr
 from PySide6.QtWidgets import (QApplication, QDialog, QFileDialog, QFrame,
                                QHBoxLayout, QLabel, QLineEdit,
-                               QMainWindow, QMessageBox, QProgressBar,
+                               QMainWindow, QMenu, QMessageBox, QProgressBar,
                                QPushButton, QSizePolicy, QSplitter,
                                QTabWidget, QTextBrowser,
                                QTreeWidget, QTreeWidgetItem, QVBoxLayout,
@@ -467,6 +467,7 @@ class ReviewWindow(QMainWindow):
     #: "add job-alert emails yourself for anything the feeds miss", and the
     #: parser for them was complete and reachable from nowhere.
     alerts_dropped = Signal(list)
+    linkedin_imported = Signal(list)
     #: Run now was pressed. The window never decides whether a run may start;
     #: whoever owns the schedule does, and tells it through `set_run_state`.
     run_now_requested = Signal()
@@ -577,7 +578,12 @@ class ReviewWindow(QMainWindow):
         self.btn_export.clicked.connect(self._export_csv)
         self.btn_import = QPushButton(tr("menu.import"))
         self.btn_import.setObjectName("secondaryButton")
-        self.btn_import.clicked.connect(self._import_csv)
+        self._import_menu = QMenu(self)
+        self._import_menu.addAction(
+            tr("menu.import_csv"), self._import_csv)
+        self._import_menu.addAction(
+            tr("menu.import_linkedin"), self._import_linkedin)
+        self.btn_import.setMenu(self._import_menu)
         self.btn_board = QPushButton(tr("menu.board"))
         self.btn_board.setObjectName("secondaryButton")
         self.btn_board.clicked.connect(self.board_requested)
@@ -1090,6 +1096,23 @@ class ReviewWindow(QMainWindow):
         if skipped:
             msg += "\n" + tr("import.skipped", count=len(skipped))
         QMessageBox.information(self, tr("import.title"), msg)
+
+    def _import_linkedin(self):
+        from app.linkedin.import_jobs import DAILY_IMPORT_CAP, _DailyCounter
+        from app.ui.linkedin_import_dialog import LinkedInImportDialog
+
+        remaining = DAILY_IMPORT_CAP
+        conn = getattr(self, '_conn', None)
+        if conn is not None:
+            try:
+                remaining = _DailyCounter(conn).remaining()
+            except Exception:  # noqa: BLE001
+                pass
+
+        dlg = LinkedInImportDialog(
+            conn=conn, remaining=remaining, parent=self)
+        dlg.imported.connect(self.linkedin_imported)
+        dlg.exec()
 
     def _remove_from_trees(self, job_id: str, decision: str):
         """Remove a job from whichever tree it sits in; move to rejected if needed."""
