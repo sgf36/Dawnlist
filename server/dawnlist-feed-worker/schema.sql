@@ -103,6 +103,10 @@ INSERT INTO providers (name, enabled, priority, note) VALUES
     ('theirstack', 1, 10, 'Primary. P0 gate: cohort A 23/23, cohort B 18/22.')
 ON CONFLICT(name) DO NOTHING;
 
+INSERT INTO providers (name, enabled, priority, note) VALUES
+    ('linkedin', 0, 20, 'Job Library API (Ad Library). Paid/sponsored posts only. Token expires ~60 days.')
+ON CONFLICT(name) DO NOTHING;
+
 -- Webhook idempotency. Paddle retries on any non-2xx, and a retry that issues a
 -- SECOND licence for one payment is worse than a missed one: the customer holds
 -- two keys, the usage meter is split across them, and nothing looks wrong from

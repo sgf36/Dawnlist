@@ -493,7 +493,165 @@ const ADAPTERS = {
       return fetchPaged(base, asked, env);
     },
   },
+
+  /**
+   * LinkedIn Job Library (Ad Library sub-API). Returns only paid/sponsored
+   * job posts. Free, no per-row billing. Token is a 3-legged OAuth member
+   * token stored as a Wrangler secret; expires in ~60 days, cannot be
+   * refreshed after expiry — the `token_expired` refusal tells the app.
+   */
+  linkedin: {
+    async search(env, q, headroom) {
+      const token = env.LINKEDIN_ACCESS_TOKEN;
+      if (!token) {
+        throw new HttpError(503, 'provider_not_configured',
+          'LinkedIn access token is not set');
+      }
+      const asked = Math.max(1, Math.min(q.maxResults ?? q.limit ?? 24, headroom, 240));
+      const PAGE = 24;
+      const jobs = [];
+      let total = null;
+      let pages = 0;
+
+      while (jobs.length < asked) {
+        const count = Math.min(PAGE, asked - jobs.length);
+        const start = pages * PAGE;
+        const params = linkedinParams(q, start, count);
+        const qs = Object.entries(params)
+          .map(([k, v]) => `${k}=${encodeLinkedIn(v)}`)
+          .join('&');
+        const res = await fetch(`https://api.linkedin.com/rest/jobLibrary?${qs}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'X-RestLi-Protocol-Version': '2.0.0',
+            'Linkedin-Version': '202607',
+          },
+        });
+        if (res.status === 401) {
+          throw new HttpError(502, 'token_expired',
+            'LinkedIn token expired or invalid');
+        }
+        if (!res.ok) {
+          const errBody = await res.text().catch(() => '');
+          throw new HttpError(502, 'provider_error',
+            `linkedin returned ${res.status}: ${errBody.slice(0, 200)}`);
+        }
+        const payload = await res.json();
+        const paging = payload.paging || {};
+        if (total === null) total = paging.total ?? null;
+
+        const elements = payload.elements || [];
+        for (const el of elements) {
+          if (el.isRestricted) continue;
+          const job = normaliseLinkedIn(el);
+          if (job) jobs.push(job);
+        }
+        pages++;
+        if (elements.length < count) break;
+        if (!paging.links?.length) break;
+      }
+      return { jobs, total };
+    },
+  },
 };
+
+const COUNTRY_REMAP = { uk: 'gb' };
+
+function linkedinParams(q, start, count) {
+  const params = {
+    'q': 'criteria',
+    'start': String(start),
+    'count': String(count),
+    'sortBy.field': 'LISTED_TIME',
+    'sortBy.order': 'DESCENDING',
+  };
+  const keywords = [...(q.titles || [])];
+  if (q.descriptionKeywords?.length) keywords.push(...q.descriptionKeywords);
+  if (keywords.length) params.keyword = keywords.join(' ');
+  if (q.companies?.length) params.organization = q.companies[0];
+  if (q.countries?.length) {
+    const urns = q.countries.map((c) => {
+      const code = COUNTRY_REMAP[c.toLowerCase()] || c.toLowerCase();
+      return `urn:li:country:${code}`;
+    });
+    params.countries = `(value:List(${urns.join(',')}))`;
+  }
+  return params;
+}
+
+function encodeLinkedIn(v) {
+  return encodeURIComponent(v).replace(/%28/gi, '(').replace(/%29/gi, ')')
+    .replace(/%2C/gi, ',').replace(/%3A/gi, ':');
+}
+
+function normaliseLinkedIn(el) {
+  const d = el.jobDetails;
+  if (!d) return null;
+  const title = d.jobTitle || '';
+  if (title.startsWith('This information is not available')) return null;
+  const location = d.jobLocation || '';
+  const locations = (location && !location.startsWith('This information'))
+    ? [location] : [];
+
+  let description = d.jobDescription || '';
+  if (description.startsWith('This information is not available')) description = '';
+
+  const postedMs = d.jobListTimeInMilliseconds;
+  let posted_at = null;
+  if (postedMs) {
+    posted_at = new Date(postedMs).toISOString().slice(0, 10);
+  }
+
+  const url = el.jobPostingUrl || '';
+  let job_id = '';
+  if (url) {
+    const parts = url.replace(/\/+$/, '').split('/');
+    const last = parts[parts.length - 1];
+    if (/^\d+$/.test(last)) job_id = last;
+  }
+  if (!job_id) job_id = url;
+
+  const raw = {};
+  const targeting = d.jobTargeting || [];
+  for (const t of targeting) {
+    if (t.facetName === 'Location' && t.includedSegments?.length) {
+      raw.target_locations = t.includedSegments;
+    }
+  }
+  const stats = d.jobStatistics || {};
+  if (stats.totalImpressions) raw.impressions = stats.totalImpressions;
+  if (d.jobApplyMethod) raw.apply_method = d.jobApplyMethod;
+  if (d.payerName) raw.payer = d.payerName;
+  if (d.jobBenefits?.length) raw.benefits = d.jobBenefits;
+
+  const sal = d.jobSalaryRange;
+  let salary = null;
+  if (sal) {
+    const lo = sal.minBaseSalary;
+    const hi = sal.maxBaseSalary;
+    const cur = sal.currencyCode || '';
+    let period = sal.payPeriod || '';
+    period = period.replace('CompensationPeriod_', '');
+    const suffix = (period && period !== 'YEARLY')
+      ? ` (${period.toLowerCase()})` : '';
+    if (lo && hi) salary = `${cur} ${lo}–${hi}${suffix}`.trim();
+    else if (lo) salary = `${cur} ${lo}+${suffix}`.trim();
+    else if (hi) salary = `Up to ${cur} ${hi}${suffix}`.trim();
+  }
+
+  return {
+    provider: 'linkedin-joblibrary',
+    provider_job_id: job_id,
+    title,
+    company: d.organizationName || '',
+    locations,
+    description_text: description,
+    posted_at,
+    salary,
+    url,
+    raw_criteria: raw,
+  };
+}
 
 function normaliseTheirStack(row) {
   return {
