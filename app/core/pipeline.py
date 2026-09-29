@@ -18,7 +18,7 @@ from datetime import date, datetime, timezone
 from typing import Callable, Sequence
 
 from app.core import db
-from app.core.dedup import DedupResult, dedup
+from app.core.dedup import DedupResult, cross_provider_merge, dedup
 from app.core.rules import RuleTable
 from app.core.screen import ScreenReport, screen_all, yield_rate
 from app.feed.base import FeedProvider, FetchResult, SearchQuery
@@ -262,6 +262,8 @@ class RunOutcome:
     #: Postings an earlier run bought and screened in but never judged, put
     #: back in front of the gates and the screen at the start of this one.
     requeued: list[Job] = field(default_factory=list)
+    #: Cross-provider near-duplicates resolved by richness score.
+    cross_provider_superseded: list[tuple[Job, str]] = field(default_factory=list)
 
     @property
     def complete(self) -> bool:
@@ -337,6 +339,11 @@ def run_morning(
         outcome.deduped = dedup(all_jobs, already_seen=already_seen)
         survivors = outcome.deduped.unique
         run.record_counts(swept=len(all_jobs), deduped=len(survivors))
+
+        # --- cross-provider merge -----------------------------------------
+        xp = cross_provider_merge(survivors, conn)
+        survivors = xp.kept
+        outcome.cross_provider_superseded = xp.superseded
 
         # Postings already held, so dedup would drop them, and never judged:
         # without this a posting whose batch failed, whose run was stopped, or
