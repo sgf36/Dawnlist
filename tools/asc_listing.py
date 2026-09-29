@@ -43,65 +43,61 @@ KEYWORDS = ("job search,jobs,career,job tracker,applications,job alerts,"
             "hiring,recruitment,CV,resume")
 
 #: 170 characters maximum.
-PROMOTIONAL = ("Reads the world's job feeds each morning, judges every posting "
-               "against a brief it builds with you, and drafts your follow-ups "
-               "for you to send yourself.")
+PROMOTIONAL = ("Reads job feeds each morning, judges every posting against a "
+               "brief it builds with you, and drafts follow-ups for you to "
+               "send yourself.")
 
 DESCRIPTION = """BEFORE YOU SUBSCRIBE — WHAT DAWNLIST DEPENDS ON
 
-Dawnlist uses generative AI to read job postings, to judge them against your brief, and to draft your messages. It runs on your own Anthropic API key. You will need one, and Anthropic bills you directly for what Dawnlist reads — typically a few pounds a month at ordinary use. Creating a key takes a couple of minutes at console.anthropic.com. Dawnlist takes no cut and adds no markup. If you would rather not hold an API key, this app is not for you.
+Dawnlist uses AI to read job postings, judge them against your brief, and draft messages. It runs on your own Anthropic API key — you will need one. Anthropic bills you directly, typically a few pounds a month. Create a key at console.anthropic.com. If you would rather not hold an API key, this app is not for you.
 
-Dawnlist reads job feeds every morning, judges every posting against a fit brief it builds with you, and hands you a ranked shortlist before you have finished your coffee.
-
-It never sends anything. Every message it writes is a draft you open and send from your own mail app. That is a deliberate boundary, not a limitation: you stay the person who decides what goes out under your name.
+It never sends anything. Every message is a draft you send from your own mail app. You decide what goes out under your name.
 
 
 WHAT IT DOES
 
 A shortlist every morning
-Dawnlist sweeps job feeds, removes what you have already seen or already turned down, and reads what is left. You get a ranked shortlist with reasons — and, unusually, the rejections stay visible too, each with the reason it was set aside. Nothing disappears quietly.
+Dawnlist sweeps job feeds, removes what you have seen or turned down, and reads the rest. You get a ranked shortlist with reasons. Rejections stay visible too, each with its reason. Nothing disappears quietly.
 
 More sources than feeds alone
-Paste a LinkedIn URL and Dawnlist pulls in the posting with title, company and description filled in. The query generator builds boolean search strings for LinkedIn — combine keywords, titles and exclusions into one expression ready to paste.
+Paste a LinkedIn URL and Dawnlist pulls in the posting. The query generator builds boolean search strings — combine keywords, titles and exclusions into one expression.
 
 It shows its working
-Every run shows the whole funnel: how many postings were swept, deduplicated, filtered, screened and assessed. A count is never shown without what it excludes, so you can always see how a shortlist of four came from a sweep of a thousand.
+Every run shows the whole funnel: swept, deduplicated, filtered, screened, assessed. A count is never shown without what it excludes.
 
 It learns your judgement, not just your keywords
-Before the first run, Dawnlist shows you ten live postings and its verdict on each. Where you disagree, you tell it what sentence would have got it right, and that sentence goes into your brief. Every correction afterwards does the same. This is the part that makes it yours rather than generic.
+Before the first run, Dawnlist shows ten live postings and its verdict on each. Where you disagree, you say what sentence would have got it right, and it goes into your brief. Every correction afterwards does the same.
 
 A tracker that reflects reality
-Every company you pursue, with its stage, an evidence log of what was actually sent, and what is due next. Follow-up dates are computed from the touches you have actually recorded — never from a stale field — and never land on a Monday or a Friday.
+Every company you pursue, with its stage, what was sent, and what is due next. Follow-up dates come from recorded touches, never a stale field, and never land on a Monday or a Friday.
 
 Drafts in your voice, in your language
-Dawnlist writes follow-ups in the register you actually use, learned from your own sent messages that you add yourself. It works in fifty languages. And every factual claim comes from a background factsheet built from your own CVs; where the evidence does not support a claim, it leaves a visible gap rather than inventing something.
+Dawnlist writes follow-ups in your own register, learned from sent messages you add yourself. It works in fifty languages. Every claim comes from a factsheet built from your CVs; where evidence is lacking, it leaves a gap rather than inventing.
 
 
 WHAT IT DOES NOT DO
 
-It does not send. There is no sending code in the app at all.
-It does not read your mailbox. No passwords, no inbox access, nothing to connect.
-It does not apply on your behalf, or fill in forms, or message anyone for you.
+It does not send. There is no sending code in the app.
+It does not read your mailbox. No passwords, no inbox access.
+It does not apply on your behalf or fill in forms.
 It does not scrape job boards.
 
 
 HOW YOUR DATA IS HANDLED
 
-Your CVs, your brief and your tracker live on your own Mac.
-
-Job descriptions and your fit brief are sent to Anthropic's API to be assessed, under YOUR OWN API key — so that traffic is between you and Anthropic, and Dawnlist is not a party to it. Job searches go through Dawnlist's feed service, which records usage counts and never content.
+Your CVs, brief and tracker live on your own Mac. Job descriptions go to Anthropic's API under YOUR OWN key — traffic is between you and Anthropic. Job searches go through Dawnlist's feed service, which records usage counts, never content.
 
 
 REPORTING WHAT DAWNLIST WRITES
 
-Because Dawnlist's verdicts and drafts are generated by AI, there is a route to tell us when it produces something inappropriate, offensive or plainly wrong. Open Settings and use "Report AI-generated content". A report is written by a person, not sent by the app — describing what happened is enough.
+Dawnlist's verdicts and drafts are AI-generated. To report something inappropriate or wrong, open Settings and use "Report AI-generated content".
 
 
 WHAT YOU PAY FOR
 
-One subscription, and the whole app. Nothing is held back and no feature is locked behind a second payment. The job feed is included, and searching costs real money every day Dawnlist runs, which is what the subscription pays for.
+One subscription, the whole app. Nothing held back, no second payment. The job feed is included.
 
-The reading and drafting are separate, and you pay Anthropic directly on your own API key. You hold the key, you see the usage, and you can revoke it at any moment. Dawnlist never sees that bill and takes no share of it."""
+Reading and drafting are separate — you pay Anthropic on your own key. You hold it, see the usage, and can revoke it at any moment. Dawnlist never sees that bill."""
 
 
 def put(kind, rid, attrs):
