@@ -910,6 +910,12 @@ def build_provider(conn):
     # where a key had once been stored for testing. The keyring is not even
     # read unless a developer asks for this route by name.
     if os.environ.get(DEVELOPER_FEED_ENV) == "1":
+        feed = os.environ.get(DEVELOPER_FEED_PROVIDER, "theirstack")
+        if feed == "linkedin":
+            token = keyring.get_password("linkedin-api", "access_token")
+            if token:
+                from app.linkedin.job_library import LinkedInJobLibraryProvider
+                return LinkedInJobLibraryProvider(token)
         key = keyring.get_password("dawnlist-feed", "api-key")
         if key:
             return TheirStackProvider(key)
@@ -929,6 +935,8 @@ def build_provider(conn):
 #: An environment variable, because no customer sets one by accident and no
 #: build can ship with it on.
 DEVELOPER_FEED_ENV = "DAWNLIST_DEVELOPER_FEED"
+#: Which developer provider to use. "theirstack" (default) or "linkedin".
+DEVELOPER_FEED_PROVIDER = "DAWNLIST_DEVELOPER_FEED_PROVIDER"
 
 
 def save_locale(conn, code: str) -> str:

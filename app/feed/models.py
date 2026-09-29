@@ -38,6 +38,25 @@ class Job:
         """Rule 9 / spec 6.6: dedup is (provider, provider_job_id). Exact."""
         return (self.provider, self.provider_job_id)
 
+    @property
+    def richness_score(self) -> int:
+        """How much useful data this posting carries, for cross-provider dedup.
+
+        Higher wins. Weights reflect screening value: a description is worth
+        more than a location tag because the model reads descriptions.
+        """
+        s = 0
+        s += min(len(self.description_text), 2000) // 100  # 0–20
+        if self.salary:
+            s += 5
+        if self.posted_at:
+            s += 2
+        s += min(len(self.locations), 3)  # 0–3
+        if self.url:
+            s += 1
+        s += min(len(self.raw_criteria), 5)  # 0–5
+        return s
+
     def as_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["locations"] = list(self.locations)
