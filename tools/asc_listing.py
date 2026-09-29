@@ -61,6 +61,9 @@ WHAT IT DOES
 A shortlist every morning
 Dawnlist sweeps job feeds, removes what you have already seen or already turned down, and reads what is left. You get a ranked shortlist with reasons — and, unusually, the rejections stay visible too, each with the reason it was set aside. Nothing disappears quietly.
 
+More sources than feeds alone
+Paste a LinkedIn URL and Dawnlist pulls in the posting with title, company and description filled in. The query generator builds boolean search strings for LinkedIn — combine keywords, titles and exclusions into one expression ready to paste.
+
 It shows its working
 Every run shows the whole funnel: how many postings were swept, deduplicated, filtered, screened and assessed. A count is never shown without what it excludes, so you can always see how a shortlist of four came from a sweep of a thousand.
 
