@@ -677,7 +677,8 @@ class SettingsWindow(QWidget):
 
     def __init__(self, parent=None, *, variant=None, rules=None,
                  families=None, searches=None, schedule=None, cadence=None,
-                 email=None, is_admin=None, home=None, conn=None):
+                 email=None, is_admin=None, home=None, conn=None,
+                 linkedin_query_loader=None):
         super().__init__(parent)
         from app.core.build_variant import variant as read_variant
 
@@ -744,6 +745,16 @@ class SettingsWindow(QWidget):
         if searches is not None:
             layout.addWidget(_divider())
             layout.addWidget(searches, 1)
+
+        if linkedin_query_loader is not None:
+            from app.ui.linkedin_panel import LinkedInPanel
+            self.linkedin = LinkedInPanel(query_loader=linkedin_query_loader)
+            layout.addWidget(_divider())
+            layout.addWidget(self.linkedin)
+            if searches is not None and hasattr(searches, 'changed'):
+                searches.changed.connect(self.linkedin.refresh)
+        else:
+            self.linkedin = None
 
         # Only when a database is available: the rules live per-user in the
         # database, and a panel wired to nothing would offer to save terms and
@@ -2583,6 +2594,12 @@ class SearchesPanel(QWidget):
             self.btn_test_conn.clicked.connect(self.test_connection)
             conn_row.addWidget(self.btn_test_conn)
             layout.addLayout(conn_row)
+
+        powered = QLabel(reflow(tr("searches.powered_by")))
+        powered.setObjectName("hint")
+        powered.setWordWrap(True)
+        powered.setOpenExternalLinks(True)
+        layout.addWidget(powered)
 
         self.setStyleSheet(SETTINGS_STYLESHEET)
         self.btn_add.clicked.connect(self.add)
