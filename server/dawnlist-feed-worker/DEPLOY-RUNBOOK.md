@@ -88,6 +88,7 @@ npx wrangler d1 execute dawnlist --remote --file migrations/010-apple-transactio
 npx wrangler d1 execute dawnlist --remote --file migrations/011-apple-offer-codes.sql
 npx wrangler d1 execute dawnlist --remote --file migrations/012-apple-comp.sql
 npx wrangler d1 execute dawnlist --remote --file migrations/013-microsoft-transactions.sql
+npx wrangler d1 execute dawnlist --remote --file migrations/014-linkedin-provider.sql
 ```
 
 **Do not use `wrangler d1 migrations apply`.** It tracks its own state in a
@@ -131,7 +132,6 @@ logs, which record whole command lines.
 
 ### Optional, and worth setting
 
-
 ```
 npx wrangler secret put CLIENT_HASH_SECRET
 ```
@@ -140,6 +140,20 @@ Unset, failed code attempts are keyed by a SHA-256 with a salt fixed in
 `src/codes.js`. That still keeps addresses out of the table, but anybody holding
 the source and a copy of the table can hash candidate addresses and match them.
 Setting this closes that.
+
+```
+npx wrangler secret put LINKEDIN_ACCESS_TOKEN
+```
+
+3-legged OAuth member token for the LinkedIn Job Library API (Ad Library
+product, App ID 266550517). Expires in ~60 days, cannot be refreshed after
+expiry — regenerate at developers.linkedin.com and re-push. The `linkedin`
+provider row is inserted disabled (migration 014); enable it in D1 to
+activate:
+
+```sql
+UPDATE providers SET enabled = 1 WHERE name = 'linkedin';
+```
 
 ### Required for Mac purchases to work at all — four of them
 

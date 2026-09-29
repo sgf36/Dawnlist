@@ -78,8 +78,8 @@ await test('a fresh install applies cleanly', async () => {
 await test('it can be run twice without failing', async () => {
   const d1 = makeD1();
   d1.sqlite.exec(SCHEMA);
-  assert.equal(d1.query('SELECT COUNT(*) AS n FROM providers')[0].n, 1,
-    'the seed row is not duplicated either');
+  assert.equal(d1.query('SELECT COUNT(*) AS n FROM providers')[0].n, 2,
+    'the seed rows are not duplicated either');
 });
 
 await test('it carries no ALTER TABLE, which is what stopped a second run', async () => {
