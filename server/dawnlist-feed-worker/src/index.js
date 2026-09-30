@@ -756,6 +756,57 @@ async function resolvePlace(env, name, countries, budget) {
   return null;
 }
 
+/**
+ * Cities whose everyday meaning is the whole county-level region round them,
+ * with the region's place id, by country. AN EXPLICIT TABLE, NOT A NAME RULE.
+ *
+ * WHY. A posting carries ONE city id plus the county (ADM2) it is filed under,
+ * and the feed matches an id against either. Searching "London" sent only the
+ * city id, so every posting filed under a borough or district — Romford, West
+ * Drayton (Heathrow), Hammersmith and Fulham, Richmond, Ilford, the City of
+ * Westminster, Edgware, and some literally filed as "Greater London" — never
+ * came back. Measured 2026-09-30, "hotel manager", 45 days: the London city id
+ * returned 41, Greater London (ADM2 2648110) returned 53, and adding the City of
+ * London on top still returned 53. All 12 missing were real London jobs, and
+ * nothing said so: a smaller list reads as a quiet market.
+ *
+ * WHY NOT "look up Greater <name> for every city". Tried and REJECTED: a name
+ * pattern widens searches nobody asked to widen, and the feed bills per row.
+ * "Greater Sudbury" is a whole merged municipality, "Greater Noida" is a
+ * different city, and a search must never be widened past what the user named
+ * (see `resolvePlaces`). An entry belongs here only when someone has MEASURED
+ * the city id against the region and confirmed the extra rows are the same
+ * place under other names. Add one by running both counts, not by guessing.
+ *
+ * Keyed by the place NAME as the user gave it, lower-case. Applied only for the
+ * countries the search names, so "London" with `CA` alone stays Ontario.
+ */
+const METRO_REGIONS = {
+  GB: {
+    // Each measured 2026-09-30 with tools/metro_candidates.py (a generic
+    // "manager" query, 30 days): postings for the city id vs the region id.
+    london: 2648110,      // Greater London: 17,035 vs 18,833 (x1.11); "hotel manager" 41 vs 53
+    bournemouth: 12165737, // Bournemouth, Christchurch and Poole: 153 vs 291 (x1.9), one conurbation
+    oldham: 3333179,      // Borough of Oldham: 55 vs 71 (x1.29)
+    'st helens': 3333201, // St. Helens borough: 43 vs 58 (x1.35)
+    wigan: 3333219,       // Borough of Wigan: 52 vs 74 (x1.42)
+    // MEASURED AND DELIBERATELY NOT INCLUDED (the region is a different place):
+    //   northampton -> West Northamptonshire (x1.24): also Daventry and Brackley.
+    //   birkenhead  -> Wirral borough (x3.59): really all of Wirral.
+    //   aberdeen    -> Aberdeen City (x1.07): nothing to gain.
+  },
+};
+
+function regionIdsFor(name, countries) {
+  const key = name.trim().toLowerCase();
+  const ids = [];
+  for (const country of countries) {
+    const id = METRO_REGIONS[country]?.[key];
+    if (id !== undefined && !ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
+
 async function resolvePlaces(env, names, countries) {
   const ids = [];
   const budget = { spent: 0 };
@@ -769,6 +820,9 @@ async function resolvePlaces(env, names, countries) {
         + (countries.length ? ` in ${countries.join(', ')}` : ''));
     }
     if (!ids.includes(id)) ids.push(id);
+    for (const region of regionIdsFor(name, countries)) {
+      if (!ids.includes(region)) ids.push(region);
+    }
   }
   return ids;
 }
@@ -783,6 +837,12 @@ async function resolvePlaces(env, names, countries) {
 
 function cacheKeyFor(query) {
   const canonical = JSON.stringify({
+    // BUMP THIS WHEN A CHANGE ALTERS WHAT THE SAME QUERY RETURNS. Results are
+    // kept for six hours and the key is the query, not how its places resolve,
+    // so without a version a fix to place resolution (v2: Greater London is
+    // searched with the London city id) would sit behind every result cached
+    // before the deploy, and the tests would pass while nobody saw the change.
+    v: 2,
     t: [...(query.titles || [])].sort(),
     c: [...(query.countries || [])].sort(),
     co: [...(query.companies || [])].sort(),

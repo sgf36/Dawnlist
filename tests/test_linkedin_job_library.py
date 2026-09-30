@@ -12,6 +12,7 @@ from app.linkedin.job_library import (
     PROVIDER_NAME,
     LinkedInJobLibraryProvider,
     _build_params,
+    _encode_query,
     _country_urn,
     _parse_salary,
     _to_job,
@@ -73,14 +74,27 @@ def test_build_params_no_titles_no_keyword():
     p = _build_params(q, 0, 24)
     assert "keyword" not in p
 
-def test_build_params_sort_descending():
-    q = SearchQuery(label="test", titles=["PM"])
+def test_build_params_sends_no_sort_params():
+    # The live API rejects sortBy.* with QUERY_PARAM_NOT_ALLOWED.
+    q = SearchQuery(label="t", titles=["PM"])
     p = _build_params(q, 0, 24)
-    assert p["sortBy.field"] == "LISTED_TIME"
-    assert p["sortBy.order"] == "DESCENDING"
+    assert not any(k.startswith("sortBy") for k in p)
 
 
-# -- salary parsing --------------------------------------------------------
+def test_encode_query_matches_the_form_the_live_api_accepts():
+    q = SearchQuery(label="t", titles=["Hotel Manager"], countries=["gb"])
+    qs = _encode_query(_build_params(q, 0, 24))
+    assert "countries=List(urn%3Ali%3Acountry%3Agb)" in qs
+    assert "keyword=Hotel%20Manager" in qs
+    assert "(value:" not in qs
+
+
+def test_search_without_keyword_is_refused_locally():
+    from app.linkedin.job_library import LinkedInJobLibraryProvider
+    res = LinkedInJobLibraryProvider("tok").search(
+        SearchQuery(label="t", countries=["gb"]))
+    assert not res.ok and res.pages_fetched == 0
+
 
 def test_parse_salary_range():
     assert _parse_salary({
@@ -270,7 +284,8 @@ def test_search_skips_restricted():
 
     with patch.object(provider, "_call", return_value=(200, response)):
         result = provider.search(
-            SearchQuery(label="test", titles=["test"], max_results=24))
+            SearchQuery(label="test", titles=["Hotel General Manager"],
+                        max_results=24))
 
     assert len(result.jobs) == 1
 
@@ -437,3 +452,125 @@ def test_cross_provider_empty_input():
     result = cross_provider_merge([], conn)
     assert len(result.kept) == 0
     assert len(result.superseded) == 0
+
+
+def test_short_page_with_next_link_keeps_paging():
+    # Live API returned 23 of 24 rows on page one with more behind it; the
+    # adapter used to call that the end and under-fetched every search.
+    provider = LinkedInJobLibraryProvider("fake-token")
+    pages = [_mock_response([SAMPLE_ELEMENT] * 23, total=100, has_next=True),
+             _mock_response([SAMPLE_ELEMENT] * 24, total=100, has_next=False)]
+
+    with patch.object(provider, "_call", side_effect=[(200, p) for p in pages]):
+        result = provider.search(SearchQuery(
+            label="t", titles=["Hotel Manager"], max_results=47))
+
+    assert len(result.jobs) == 47
+
+
+# -- client-side filters: the API has no city, title or date filter ---------
+
+def _el(title, location="London, England, United Kingdom", ms=None, org="Acme"):
+    import time
+    return {"jobPostingUrl": f"https://www.linkedin.com/ad-library/job/detail/{abs(hash(title + location)) % 10**9}",
+            "jobDetails": {"jobTitle": title, "jobLocation": location,
+                           "organizationName": org, "jobDescription": "x",
+                           "jobListTimeInMilliseconds": ms or int(time.time() * 1000)}}
+
+
+def _search(elements, **kw):
+    provider = LinkedInJobLibraryProvider("fake-token")
+    resp = _mock_response(elements, total=len(elements), has_next=False)
+    with patch.object(provider, "_call", return_value=(200, resp)):
+        return provider.search(SearchQuery(label="t", max_results=50, **kw))
+
+
+def test_title_filter_rejects_a_keyword_that_only_matched_the_description():
+    r = _search([_el("Hotel Manager"), _el("Supermarket Assistant")],
+                titles=["Hotel Manager"])
+    assert [j.title for j in r.jobs] == ["Hotel Manager"]
+    assert r.scanned == 2
+
+
+def test_title_filter_treats_manager_and_management_alike_in_any_order():
+    r = _search([_el("VP - European Hotel Asset Management"),
+                 _el("Manager, Hotel"), _el("Hotel Chef")],
+                titles=["Hotel Asset Manager", "Hotel Manager"])
+    assert {j.title for j in r.jobs} == {
+        "VP - European Hotel Asset Management", "Manager, Hotel"}
+
+
+def test_description_search_skips_the_title_filter():
+    r = _search([_el("Supermarket Assistant")], titles=["Hotel Manager"],
+                search_type="description")
+    assert len(r.jobs) == 1
+
+
+def test_city_filter_keeps_every_london_spelling_and_drops_the_rest():
+    r = _search([_el("Hotel Manager", "London Area, United Kingdom"),
+                 _el("Hotel Manager", "Greater London, England, United Kingdom"),
+                 _el("Hotel Manager", "Cirencester, England, United Kingdom")],
+                titles=["Hotel Manager"], cities=["London"])
+    assert len(r.jobs) == 2
+
+
+def test_city_filter_keeps_boroughs_and_districts_the_api_files_them_under():
+    """Measured: ~150 of 4,800 UK postings were Greater London under a name
+    other than London, and a test for the word 'London' dropped every one."""
+    places_ = ["Croydon, England, United Kingdom", "Canary Wharf, England",
+               "Camden Town, England, United Kingdom",
+               "HA3 0AA, Harrow, England, United Kingdom",
+               "London Borough of Hammersmith and Fulham, England, United Kingdom",
+               "West Drayton UB7 0HJ"]
+    r = _search([_el("Hotel Manager", p) for p in places_],
+                titles=["Hotel Manager"], cities=["London"])
+    assert len(r.jobs) == len(places_)
+
+
+def test_city_filter_does_not_confuse_namesakes_or_commuter_towns():
+    away = ["Watford, England, United Kingdom", "Slough, England, United Kingdom",
+            "Sutton Coldfield, England, United Kingdom",
+            "Kingston Upon Hull, England, United Kingdom",
+            "Brentwood, England, United Kingdom"]
+    r = _search([_el("Hotel Manager", p) for p in away],
+                titles=["Hotel Manager"], cities=["London"])
+    assert r.jobs == []
+
+
+def test_a_posting_with_no_place_below_country_is_kept_and_marked():
+    r = _search([_el("Hotel Manager", "United Kingdom")],
+                titles=["Hotel Manager"], cities=["London"])
+    assert len(r.jobs) == 1
+    assert r.jobs[0].raw_criteria["location_unresolved"] is True
+
+
+def test_posted_within_days_drops_old_postings():
+    import time
+    old = int((time.time() - 40 * 86400) * 1000)
+    r = _search([_el("Hotel Manager", ms=old), _el("Hotel Manager Two")],
+                titles=["Hotel Manager"], posted_within_days=14)
+    assert [j.title for j in r.jobs] == ["Hotel Manager Two"]
+
+
+def test_exclude_title_terms_uses_word_boundaries():
+    r = _search([_el("Hotel Manager Trainee"), _el("Hotel Manager Traineeship X")],
+                titles=["Hotel Manager"], exclude_title_terms=["trainee"])
+    assert [j.title for j in r.jobs] == ["Hotel Manager Traineeship X"]
+
+
+def test_country_tag_is_set_so_the_location_gate_can_read_it():
+    r = _search([_el("Hotel Manager")], titles=["Hotel Manager"],
+                countries=["gb"])
+    assert r.jobs[0].raw_criteria["country_codes"] == ["GB"]
+
+
+def test_page_budget_bounds_the_scan_and_says_it_was_not_exhausted():
+    from app.linkedin import job_library as jl
+    provider = LinkedInJobLibraryProvider("fake-token")
+    page = _mock_response([_el("Cashier")] * 24, total=45000, has_next=True)
+    with patch.object(provider, "_call", return_value=(200, page)) as call:
+        r = provider.search(SearchQuery(label="t", titles=["Hotel Manager"],
+                                        max_results=50))
+    assert call.call_count == jl.PAGE_BUDGET
+    assert r.jobs == [] and not r.exhausted and r.scanned == 24 * jl.PAGE_BUDGET
+    assert r.shortfall  # a truncated scan is never reported as "nothing more"

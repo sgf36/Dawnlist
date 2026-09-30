@@ -11,13 +11,15 @@ postings that reach the assessment are the ones the rules already believe in.
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import sqlite3
+import time
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from typing import Callable, Sequence
 
-from app.core import db
+from app.core import db, diagnostics
 from app.core.dedup import DedupResult, cross_provider_merge, dedup
 from app.core.rules import RuleTable
 from app.core.screen import ScreenReport, screen_all, yield_rate
@@ -264,6 +266,11 @@ class RunOutcome:
     requeued: list[Job] = field(default_factory=list)
     #: Cross-provider near-duplicates resolved by richness score.
     cross_provider_superseded: list[tuple[Job, str]] = field(default_factory=list)
+    #: Wall-clock seconds per stage and for the whole run, so "it finished very
+    #: fast" can be answered with a number instead of a feeling, and so a run
+    #: that read nothing can say how long it spent reading nothing.
+    stage_seconds: dict[str, float] = field(default_factory=dict)
+    elapsed_seconds: float = 0.0
 
     @property
     def complete(self) -> bool:
@@ -300,6 +307,17 @@ class RunOutcome:
         return [q for q, y in self.per_query_yield.items() if y < threshold]
 
 
+@contextlib.contextmanager
+def _stage(outcome: "RunOutcome", name: str):
+    """Time one stage onto the outcome and, when diagnostics are on, the log."""
+    started = time.perf_counter()
+    try:
+        with diagnostics.span(f"pipeline.{name}", run_id=outcome.run_id) as extra:
+            yield extra
+    finally:
+        outcome.stage_seconds[name] = round(time.perf_counter() - started, 3)
+
+
 def run_morning(
     conn: sqlite3.Connection,
     provider: FeedProvider,
@@ -318,12 +336,26 @@ def run_morning(
     seniority_table: str = "",
 ) -> RunOutcome:
     """One morning run, recorded end to end."""
+    run_started = time.perf_counter()
     with db.run(conn, kind=kind) as run:
         outcome = RunOutcome(run_id=run.id)
+        diagnostics.event(
+            "run.start", run_id=run.id, kind=kind, provider=provider.name,
+            searches=[q.label for q in queries], requeued=len(requeued))
 
         # --- fetch (budget-balanced) ------------------------------------------
-        all_jobs, per_query = _balanced_fetch(
-            provider, queries, outcome, run, clock=clock)
+        with _stage(outcome, "fetch") as extra:
+            all_jobs, per_query = _balanced_fetch(
+                provider, queries, outcome, run, clock=clock)
+            extra["postings"] = len(all_jobs)
+        for label, result in outcome.fetch.items():
+            diagnostics.event(
+                "fetch.search", run_id=run.id, search=label, ok=result.ok,
+                matched=result.matched, kept=len(result.jobs),
+                scanned=result.scanned, pages=result.pages_fetched,
+                exhausted=result.exhausted, not_fetched=result.not_fetched,
+                capped=result.capped, refusal=result.refusal,
+                error=result.error)
 
         # Once per run, not per query: if the plan's ceiling is what stopped
         # any of them, say what would lift it. A cap message without a remedy
@@ -336,14 +368,18 @@ def run_morning(
         run.record_counts(swept=len(all_jobs))
 
         # --- dedup ---------------------------------------------------------
-        outcome.deduped = dedup(all_jobs, already_seen=already_seen)
-        survivors = outcome.deduped.unique
+        with _stage(outcome, "dedup") as extra:
+            outcome.deduped = dedup(all_jobs, already_seen=already_seen)
+            survivors = outcome.deduped.unique
+            extra.update(before=len(all_jobs), after=len(survivors))
         run.record_counts(swept=len(all_jobs), deduped=len(survivors))
 
         # --- cross-provider merge -----------------------------------------
-        xp = cross_provider_merge(survivors, conn)
-        survivors = xp.kept
-        outcome.cross_provider_superseded = xp.superseded
+        with _stage(outcome, "cross_provider") as extra:
+            xp = cross_provider_merge(survivors, conn)
+            survivors = xp.kept
+            outcome.cross_provider_superseded = xp.superseded
+            extra["superseded"] = len(xp.superseded)
 
         # Postings already held, so dedup would drop them, and never judged:
         # without this a posting whose batch failed, whose run was stopped, or
@@ -355,17 +391,26 @@ def run_morning(
 
         # --- mechanical gates ----------------------------------------------
         kept: list[Job] = []
-        for job in survivors + outcome.requeued:
-            for gate in gates:
-                if not gate.predicate(job):
-                    outcome.gated_out.append((job, gate.reason))
-                    break
-            else:
-                kept.append(job)
+        with _stage(outcome, "gates") as extra:
+            for job in survivors + outcome.requeued:
+                for gate in gates:
+                    if not gate.predicate(job):
+                        outcome.gated_out.append((job, gate.reason))
+                        break
+                else:
+                    kept.append(job)
+            reasons: dict[str, int] = {}
+            for _job, reason in outcome.gated_out:
+                reasons[reason] = reasons.get(reason, 0) + 1
+            extra.update(kept=len(kept), removed=len(outcome.gated_out),
+                         reasons=reasons)
         run.record_counts(gated=len(outcome.gated_out))
 
         # --- deterministic screen (zero tokens) ----------------------------
-        outcome.screen = screen_all(kept, rules)
+        with _stage(outcome, "screen") as extra:
+            outcome.screen = screen_all(kept, rules)
+            extra.update(likely=len(outcome.screen.likely),
+                         unlikely=len(outcome.screen.unlikely))
         likely = [r.job for r in outcome.screen.likely]
         run.record_counts(screened_likely=len(likely),
                           screened_out=len(outcome.screen.unlikely))
@@ -396,12 +441,17 @@ def run_morning(
             outcome.per_query_yield[label] = yield_rate(len(jobs), hits)
 
         # --- assessment ----------------------------------------------------
-        outcome.assessment = assess(
-            likely, fit_brief, factsheet, send=send,
-            already_judged=already_judged,
-            on_batch=lambda verdicts: persist_verdicts(conn, run.id, verdicts),
-            on_call=lambda call: persist_call(conn, run.id, call),
-            seniority_table=seniority_table)
+        with _stage(outcome, "assess") as extra:
+            outcome.assessment = assess(
+                likely, fit_brief, factsheet, send=send,
+                already_judged=already_judged,
+                on_batch=lambda verdicts: persist_verdicts(conn, run.id, verdicts),
+                on_call=lambda call: persist_call(conn, run.id, call),
+                seniority_table=seniority_table)
+            extra.update(sent=len(likely),
+                         verdicts=len(outcome.assessment.verdicts),
+                         unread=len(outcome.assessment.unread),
+                         errors=list(outcome.assessment.errors))
         run.record_counts(assessed=len(outcome.assessment.verdicts))
 
         # --- close it honestly ---------------------------------------------
@@ -421,6 +471,11 @@ def run_morning(
             conn.execute("UPDATE runs SET status='incomplete' WHERE id=?", (run.id,))
             conn.commit()
 
+    outcome.elapsed_seconds = round(time.perf_counter() - run_started, 3)
+    diagnostics.event(
+        "run.end", run_id=outcome.run_id, complete=outcome.complete,
+        seconds=outcome.elapsed_seconds, stages=outcome.stage_seconds,
+        funnel=outcome.funnel(), fetch_errors=outcome.fetch_errors)
     return outcome
 
 
@@ -521,6 +576,11 @@ def persist_call(conn: sqlite3.Connection, run_id: int, call) -> None:
     written anywhere, so neither what a run cost nor whether the cached prefix
     ever cached could be read back.
     """
+    diagnostics.event(
+        "model.call", run_id=run_id, model=call.model,
+        stop_reason=call.stop_reason, full_read=bool(call.full_read),
+        input_tokens=call.input_tokens, output_tokens=call.output_tokens,
+        cache_read_tokens=call.cache_read_tokens)
     conn.execute(
         """INSERT INTO model_calls(run_id, model, stop_reason, full_read,
                input_tokens, output_tokens, cache_read_tokens,

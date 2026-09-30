@@ -39,6 +39,24 @@ class RunReport:
     kind: str
     detail: str = ""
     refreshes_per_day: int | None = None
+    #: What the run actually did, so a run that "completed" without reading
+    #: anything can say so. Zero everywhere means the figures were not
+    #: measured (an error before a run existed), not that nothing happened.
+    swept: int = 0
+    searches: int = 0
+    empty_searches: int = 0
+    assessed: int = 0
+    seconds: float = 0.0
+
+    @property
+    def thin(self) -> bool:
+        """A run that finished cleanly but fetched nothing, or came back empty
+        from at least half of its searches. Not an error — a quiet market and a
+        search too narrow to find anything look identical from here — but never
+        something to file under "up to date"."""
+        if self.kind != COMPLETE or not self.searches:
+            return False
+        return self.swept == 0 or self.empty_searches * 2 >= self.searches
 
     @property
     def ok(self) -> bool:
@@ -51,25 +69,37 @@ def _refreshes_stated(message: str | None) -> int:
     return int(found.group(1)) if found else DEFAULT_REFRESHES_PER_DAY
 
 
+def _measured(outcome) -> dict:
+    fetched = list(outcome.fetch.values())
+    return dict(
+        swept=sum(len(r.jobs) for r in fetched),
+        searches=len(fetched),
+        empty_searches=sum(1 for r in fetched if r.ok and not r.jobs),
+        assessed=len(outcome.assessment.verdicts) if outcome.assessment else 0,
+        seconds=float(getattr(outcome, "elapsed_seconds", 0.0) or 0.0))
+
+
 def report_from_outcome(outcome) -> RunReport:
     fetched = list(outcome.fetch.values())
+    facts = _measured(outcome)
     capped = [r for r in fetched if r.refusal == REFRESH_CAP]
     if capped:
         # Named even when other searches got through. The rest of today's
         # searches did not run, and the fix — waiting for the UTC day — is
         # different from anything a partial fetch would suggest.
         return RunReport(LIMIT, detail=capped[0].error or "",
-                         refreshes_per_day=_refreshes_stated(capped[0].error))
+                         refreshes_per_day=_refreshes_stated(capped[0].error),
+                         **facts)
     if fetched and all(not r.ok for r in fetched):
-        return RunReport(FETCH_FAILED, detail=outcome.fetch_errors[0])
+        return RunReport(FETCH_FAILED, detail=outcome.fetch_errors[0], **facts)
     if not outcome.complete:
         detail = ""
         if outcome.fetch_errors:
             detail = outcome.fetch_errors[0]
         elif outcome.assessment and outcome.assessment.errors:
             detail = outcome.assessment.errors[0]
-        return RunReport(PARTIAL, detail=detail)
-    return RunReport(COMPLETE)
+        return RunReport(PARTIAL, detail=detail, **facts)
+    return RunReport(COMPLETE, **facts)
 
 
 def report_from_error(exc: BaseException) -> RunReport:

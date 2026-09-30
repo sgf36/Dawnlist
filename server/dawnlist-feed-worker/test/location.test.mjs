@@ -100,8 +100,9 @@ await test('a place reaches the feed as its place id, not as text', async () => 
   const res = await worker.fetch(req({ titles: ['asset manager'],
     countries: ['GB'], cities: ['London'] }), { DB: makeDB() }, ctx);
   assert.equal(res.status, 200);
-  assert.deepEqual(calls.search[0].job_location_or, [{ id: 2643743 }],
-    'the city itself, not the City of London or London Colney');
+  assert.deepEqual(calls.search[0].job_location_or, [{ id: 2643743 }, { id: 2648110 }],
+    'the city itself, not the City of London or London Colney, plus the ' +
+    'measured Greater London region so boroughs and districts are not lost');
   assert.deepEqual(calls.search[0].job_country_code_or, ['GB']);
 });
 
@@ -111,6 +112,68 @@ await test('the city is taken over a region of the same name, and a metro id nev
   await worker.fetch(req({ titles: ['marketing manager'], countries: ['DE'],
     cities: ['Berlin'] }), { DB: makeDB() }, ctx);
   assert.deepEqual(calls.search[0].job_location_or, [{ id: 2950159 }]);
+});
+
+await test('a city is never widened by a name rule: only measured regions are added', async () => {
+  makeCaches();
+  const calls = stubUpstream({ available: 2 });
+  await worker.fetch(req({ titles: ['a'], countries: ['DE'], cities: ['Berlin'] }),
+    { DB: makeDB() }, ctx);
+  assert.deepEqual(calls.search[0].job_location_or, [{ id: 2950159 }]);
+  assert.deepEqual(calls.places, ['Berlin'], 'no "Greater Berlin" lookup was made');
+});
+
+await test('every measured GB region is added for its own city and nothing else', async () => {
+  const expected = { wigan: 3333219, oldham: 3333179, bournemouth: 12165737,
+                     'st helens': 3333201 };
+  for (const [name, region] of Object.entries(expected)) {
+    makeCaches();
+    const calls = stubUpstream({ available: 1 });
+    PLACES[name] = [{ id: 1000 + region % 1000, name, feature_code: 'PPLA2' }];
+    await worker.fetch(req({ titles: ['a'], countries: ['GB'], cities: [name] }),
+      { DB: makeDB() }, ctx);
+    const ids = calls.search[0].job_location_or.map((l) => l.id);
+    assert.ok(ids.includes(region), `${name} should add region ${region}`);
+    assert.equal(ids.length, 2, `${name}: the city and one region, no more`);
+  }
+});
+
+await test('cities measured and rejected are NOT widened', async () => {
+  for (const name of ['northampton', 'birkenhead', 'aberdeen']) {
+    makeCaches();
+    const calls = stubUpstream({ available: 1 });
+    PLACES[name] = [{ id: 555, name, feature_code: 'PPLA2' }];
+    await worker.fetch(req({ titles: ['a'], countries: ['GB'], cities: [name] }),
+      { DB: makeDB() }, ctx);
+    assert.deepEqual(calls.search[0].job_location_or, [{ id: 555 }], name);
+  }
+});
+
+await test('the search cache key carries a resolution version', async () => {
+  // A cached pre-fix London result must not be served after the fix. The key
+  // is opaque to callers, so this reads it the way the cache does.
+  makeCaches();
+  stubUpstream({ available: 1 });
+  const seen = [];
+  const store = globalThis.caches.default;
+  const put = store.put.bind(store);
+  store.put = async (r, res) => { seen.push(r.url); return put(r, res); };
+  await worker.fetch(req({ titles: ['a'], countries: ['GB'], cities: ['London'] }),
+    { DB: makeDB() }, ctx);
+  await settle();
+  const searchKey = seen.find((u) => u.includes('/search?q='));
+  assert.ok(searchKey, 'a search result was cached');
+  assert.equal(JSON.parse(decodeURIComponent(searchKey.split('q=')[1])).v, 2);
+});
+
+await test('London is not widened to the UK region when the search is not for the UK', async () => {
+  makeCaches();
+  const calls = stubUpstream({ available: 2 });
+  await worker.fetch(req({ titles: ['a'], cities: ['London'] }), { DB: makeDB() }, ctx);
+  assert.deepEqual(calls.search[0].job_location_or, [{ id: 2643743 }]);
+  await worker.fetch(req({ titles: ['b'], countries: ['CA'], cities: ['London'] }),
+    { DB: makeDB() }, ctx);
+  assert.ok(!calls.search[1].job_location_or?.some((l) => l.id === 2648110));
 });
 
 await test('an unknown place is refused before anything is paid for', async () => {

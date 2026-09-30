@@ -93,8 +93,13 @@ def export_queries(rows: list[tuple], dest: str | Path, *,
                    scope_params: dict | None = None) -> Path:
     """Export the current saved searches to a CSV.
 
-    `rows` is ``(label, titles, enabled, search_type)`` as ``all_queries``
-    returns. `scope_params` is the install-wide scope dict for
+    `rows` is what ``all_queries`` returns: ``(label, titles,
+    description_keywords, enabled, search_type)``. The shorter
+    ``(label, titles, enabled[, search_type])`` shapes are still accepted.
+    The exporter used to read the 5-tuple as the 4-tuple, so the description
+    keywords were written as `enabled` and `enabled` as `search_type`: every
+    export said ``enabled=0`` and ``search_type=True``, and the app's own
+    importer then refused the file it had just written. `scope_params` is the install-wide scope dict for
     countries/cities and exclusions.
     """
     dest = Path(dest)
@@ -110,10 +115,12 @@ def export_queries(rows: list[tuple], dest: str | Path, *,
         writer = csv.DictWriter(f, fieldnames=COLUMNS)
         writer.writeheader()
         for row_data in rows:
-            label = row_data[0]
-            titles = row_data[1]
-            enabled = row_data[2]
-            search_type = row_data[3] if len(row_data) > 3 else "title"
+            label, titles = row_data[0], row_data[1]
+            if len(row_data) >= 5:
+                enabled, search_type = row_data[3], row_data[4]
+            else:
+                enabled = row_data[2]
+                search_type = row_data[3] if len(row_data) > 3 else "title"
             writer.writerow({
                 "label": label,
                 "titles": CELL_SEP.join(titles),
