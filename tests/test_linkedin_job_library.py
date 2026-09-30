@@ -624,3 +624,16 @@ def test_page_budget_bounds_the_scan_and_says_it_was_not_exhausted():
     assert call.call_count == jl.PAGE_BUDGET
     assert r.jobs == [] and not r.exhausted and r.scanned == 24 * jl.PAGE_BUDGET
     assert r.shortfall  # a truncated scan is never reported as "nothing more"
+
+
+def test_a_429_is_the_daily_quota_not_a_generic_failure():
+    provider = LinkedInJobLibraryProvider("fake-token")
+    with patch.object(provider, "_call", return_value=(429, '{"code":"TOO_MANY_REQUESTS"}')):
+        result = provider.search(SearchQuery(label="t", titles=["Hotel Manager"], max_results=24))
+    assert not result.ok and result.refusal == "rate_limited"
+    assert "quota" in result.error and "00:00 UTC" in result.error
+
+
+def test_the_default_page_budget_is_a_small_slice_of_a_shared_daily_quota():
+    from app.linkedin import job_library as jl
+    assert jl.PAGE_BUDGET <= 12

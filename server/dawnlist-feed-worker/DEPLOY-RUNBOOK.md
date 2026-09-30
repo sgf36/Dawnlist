@@ -45,15 +45,42 @@ query.** A change that alters what the same query returns must bump `v` in
 after a deploy can also land on the previous version while it rolls out:
 re-run it before believing it.
 
-**The Worker's `linkedin` provider is a fallback that does not work.** It runs
-only when TheirStack throws, and it sends `countries=(value:List(...))` and
-`sortBy.*`, both of which the LinkedIn API rejects (400), so today it fails and
-the request ends in `all_providers_failed`, as it did before the provider
-existed. Do not "fix" it by correcting the request alone: with no city, title
-or age filter it would answer a London search with UK-wide, keyword-loose
-sponsored postings, and the result would be cached for six hours for
-everyone. The Python adapter (`app/linkedin/job_library.py`) shows what the
-filtering needs.
+**Every enabled provider is searched on every search, and the results are
+combined** (before 2026-10 the Worker failed over: the first provider that
+answered won). TheirStack is billed per row and is the only provider whose rows
+draw on a licence's allowance; LinkedIn (`src/linkedin.js`) is free, cached
+under its own key, and never metered. One provider failing does not lose the
+other's rows: the response carries `degraded` and the app says so on the run
+banner. Switch a provider off with
+`UPDATE providers SET enabled = 0 WHERE name = 'linkedin';` (no deploy).
+
+The app keeps ONE copy of a role both providers returned, the richer one
+(`merge_same_run` in `app/core/dedup.py`): same company/title key, a strict 1:1
+pair, compatible places and the same description text. A hotel group's several
+similar roles are all kept.
+
+**LinkedIn has a DAILY QUOTA, and it is the real limit on this provider.** The
+Job Library is throttled per application and per member per UTC day (HTTP 429,
+"Resource level throttle APPLICATION_AND_MEMBER DAY limit ... is reached"). The
+number is unpublished and not customisable: read it in the Developer Portal
+(your app, then Analytics, after making one call to the endpoint that day).
+Ordinary testing exhausted it on 2026-09-30, and there is ONE token for the whole
+Worker, so every customer's searches share one pool, and so do `app/linkedin`
+developer runs (same token: do not test against production quota).
+The Worker therefore: scans a small page budget (`PAGE_BUDGET` = 8, override with
+the plain var `LINKEDIN_PAGE_BUDGET`, capped at 48), keeps LinkedIn answers for 24
+hours (TheirStack's for 6), reports a 429 as `degraded` with code `rate_limited`
+instead of failing the search, and after a 429 stops asking until 00:00 UTC
+(a marker in the data centre's cache). If `rate_limited` shows up in the
+diagnostics log before the day is out, lower the budget or switch the provider
+off; raising it will only make that happen sooner.
+
+**LinkedIn's token expires about 60 days after it was generated and cannot be
+refreshed.** When it does, every search still succeeds on TheirStack alone and
+`degraded` names `linkedin` with code `token_expired`: watch for it in the
+diagnostics log (`fetch.search` events) rather than waiting for a customer.
+Regenerate at developers.linkedin.com and `wrangler secret put
+LINKEDIN_ACCESS_TOKEN` (value at the prompt only).
 
 Everything runs from this directory:
 

@@ -347,6 +347,7 @@
   "run.now": "Jalankan sekarang",
   "run.now_tip": "Cari sekarang. Ditawarkan saat waktu run hari ini telah lewat dan belum ada run yang berjalan hari ini.",
   "run.offer": "Run hari ini seharusnya dilakukan pada {time} dan belum terjadi. Pilih Jalankan sekarang untuk mencari.",
+  "run.provider_note": "{provider} tidak dapat dicari kali ini, sehingga daftar lowongannya tidak muncul pada proses ini. Semua penyedia lainnya telah dicari secara normal.",
   "run.partial": "Run selesai, tetapi tidak semuanya terbaca: {reason}",
   "run.running": "Sedang mencari — ini bisa memakan waktu beberapa menit.",
   "cadence.body": "Irama tindak lanjut mengontrol kapan dan bagaimana Dawnlist menyarankan Anda menghubungi setiap orang. Setiap anak tangga aktif setelah jeda di bawah, dan opsi Selasa/Kamis menjaga pesan Anda dari kotak masuk Senin dan akhir kerja Jumat.",

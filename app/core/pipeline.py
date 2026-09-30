@@ -179,9 +179,15 @@ def _balanced_fetch(
             matched=(first_ok.matched if first_ok else None),
             not_fetched=(last_ok.not_fetched if last_ok else 0),
             capped=any(r.capped for r in passes),
+            scanned=sum(r.scanned for r in passes),
+            degraded=_unique_degraded(passes),
         )
 
         outcome.fetch[q.label] = combined
+        for d in combined.degraded:
+            if not any(x["provider"] == d["provider"]
+                       for x in outcome.provider_degraded):
+                outcome.provider_degraded.append(d)
         if not combined.ok:
             error_text = combined.error
             if combined.refusal:
@@ -272,6 +278,8 @@ class RunOutcome:
     #: that read nothing can say how long it spent reading nothing.
     stage_seconds: dict[str, float] = field(default_factory=dict)
     elapsed_seconds: float = 0.0
+    #: Providers that could not be searched although others answered, once each.
+    provider_degraded: list[dict] = field(default_factory=list)
 
     @property
     def complete(self) -> bool:
@@ -306,6 +314,16 @@ class RunOutcome:
         feed billing that is a cash cost per wasted posting, so the remedy is
         to rewrite the query, never to raise a page cap."""
         return [q for q, y in self.per_query_yield.items() if y < threshold]
+
+
+def _unique_degraded(results) -> list[dict]:
+    """The providers that failed in ANY pass of one search, once each."""
+    out: list[dict] = []
+    for r in results:
+        for d in getattr(r, "degraded", []) or []:
+            if not any(x["provider"] == d["provider"] for x in out):
+                out.append(d)
+    return out
 
 
 @contextlib.contextmanager
@@ -356,7 +374,7 @@ def run_morning(
                 scanned=result.scanned, pages=result.pages_fetched,
                 exhausted=result.exhausted, not_fetched=result.not_fetched,
                 capped=result.capped, refusal=result.refusal,
-                error=result.error)
+                error=result.error, degraded=result.degraded)
 
         # Once per run, not per query: if the plan's ceiling is what stopped
         # any of them, say what would lift it. A cap message without a remedy

@@ -36,7 +36,7 @@ function makeCaches() {
 const PLACES = { london: [{ id: 2643743, name: 'London', feature_code: 'PPLC' }] };
 
 /** Routes every outbound call. Each provider can succeed, fail or be counted. */
-function upstream({ ts = 3, li = 2, tsStatus = 200, liStatus = 200, liPartial = false, liIds = null } = {}) {
+function upstream({ ts = 3, li = 2, tsStatus = 200, liStatus = 200, liPartial = false, liIds = null, liFailStatus = 503 } = {}) {
   const calls = { theirstack: 0, linkedin: 0, places: 0, tsBodies: [] };
   globalThis.fetch = async (url, init) => {
     const u = new URL(url);
@@ -60,7 +60,7 @@ function upstream({ ts = 3, li = 2, tsStatus = 200, liStatus = 200, liPartial = 
       calls.linkedin++;
       if (liStatus !== 200) return new Response('{"message":"no"}', { status: liStatus });
       const start = Number(u.searchParams.get('start'));
-      if (liPartial && start >= 6 * 24) return new Response('{}', { status: 429 });
+      if (liPartial && start >= 6 * 24) return new Response('{}', { status: liFailStatus });
       const filler = (i) => ({
         jobPostingUrl: `https://www.linkedin.com/ad-library/job/detail/${4500000000 + start + i}`,
         jobDetails: { jobTitle: 'Cashier', jobLocation: 'Leeds, England', organizationName: 'Shop',
@@ -224,6 +224,58 @@ await test('a partial LinkedIn scan is not cached, so the next search tries agai
   const liBefore = calls.linkedin;
   await search(DB, { maxResults: 500 });
   assert.ok(calls.linkedin > liBefore, 'LinkedIn was asked again');
+});
+
+console.log("LinkedIn daily quota");
+
+await test('a spent quota degrades as rate_limited and TheirStack still delivers', async () => {
+  makeCaches();
+  upstream({ ts: 3, liStatus: 429 });
+  const { res, out } = await search(dbWith());
+  assert.equal(res.status, 200);
+  assert.equal(out.jobs.length, 3);
+  assert.equal(out.degraded[0].provider, 'linkedin');
+  assert.equal(out.degraded[0].code, 'rate_limited');
+});
+
+await test('after a 429 LinkedIn is not asked again until the day rolls over', async () => {
+  makeCaches();
+  const calls = upstream({ ts: 3, liStatus: 429 });
+  const DB = dbWith();
+  await search(DB);
+  const liAfterFirst = calls.linkedin;
+  const { out } = await search(DB, { titles: ['a different search'] });
+  assert.equal(calls.linkedin, liAfterFirst, 'every further call is refused and counts against nothing useful');
+  assert.equal(out.degraded[0].code, 'rate_limited');
+  assert.match(out.degraded[0].error, /00:00 UTC/);
+  assert.ok(out.jobs.length > 0, 'TheirStack was still searched');
+});
+
+await test('a 429 after some rows were read keeps them, trips the breaker and is not cached', async () => {
+  const store = makeCaches();
+  const calls = upstream({ liPartial: true, li: 2, liFailStatus: 429 });
+  const DB = dbWith();
+  const { out } = await search(DB, { maxResults: 500 });
+  assert.ok(out.jobs.some((j) => j.provider === 'linkedin-joblibrary'));
+  assert.ok(![...store.keys()].some((k) => k.includes('&p=linkedin')), 'a partial scan was cached');
+  assert.ok([...store.keys()].some((k) => k.includes('/throttle/linkedin')), 'the breaker was not set');
+  const before = calls.linkedin;
+  await search(DB, { maxResults: 500, titles: ['another'] });
+  assert.equal(calls.linkedin, before);
+});
+
+await test('LinkedIn answers are kept for a day, TheirStack for six hours', async () => {
+  const headers = {};
+  makeCaches();
+  const inner = globalThis.caches.default;
+  globalThis.caches = { default: { match: inner.match.bind(inner),
+    async put(req, res) { headers[req.url] = res.headers.get('cache-control'); return inner.put(req, res); } } };
+  upstream();
+  await search(dbWith());
+  const li = Object.entries(headers).find(([k]) => k.includes('&p=linkedin'));
+  const ts = Object.entries(headers).find(([k]) => k.includes('/search?q=') && !k.includes('&p='));
+  assert.equal(li[1], 'max-age=86400');
+  assert.equal(ts[1], 'max-age=21600');
 });
 
 console.log('the guards that predate this');

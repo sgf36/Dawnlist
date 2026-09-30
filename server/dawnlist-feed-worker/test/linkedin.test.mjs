@@ -14,7 +14,7 @@
 import assert from 'node:assert';
 import {
   makeLinkedInAdapter, keywordsFor, linkedinParams, encodeQuery, titleMatches,
-  PAGE_BUDGET, PAGE_SIZE, PARALLEL, MAX_KEYWORDS, PROVIDER,
+  PAGE_BUDGET, MAX_PAGE_BUDGET, CACHE_TTL_SECONDS, PAGE_SIZE, PARALLEL, MAX_KEYWORDS, PROVIDER,
 } from '../src/linkedin.js';
 
 let passed = 0, failed = 0;
@@ -238,6 +238,49 @@ await test('stops fetching once enough postings are kept', async () => {
 });
 
 // --- failures ---------------------------------------------------------------------------
+
+console.log('the daily quota');
+
+await test('the default budget is small: it is a slice of one shared daily quota', async () => {
+  assert.ok(PAGE_BUDGET <= 12, `${PAGE_BUDGET} pages a search would exhaust a shared quota fast`);
+  const f = fakeFetch(() => ok(page([el('Cashier')])));
+  await run({ titles: ['Hotel Manager'] }, f);
+  assert.ok(f.calls.length <= PAGE_BUDGET);
+});
+
+await test('the budget can be raised or lowered by an environment variable, and is capped', async () => {
+  for (const [setting, expected] of [['3', 3], ['200', MAX_PAGE_BUDGET], ['0', PAGE_BUDGET], ['abc', PAGE_BUDGET]]) {
+    const f = fakeFetch(() => ok(page([el('Cashier')])));
+    await adapter.search({ ...env, LINKEDIN_PAGE_BUDGET: setting }, { titles: ['Hotel Manager'], maxResults: 100 }, 100,
+      { fetch: f, today: TODAY });
+    assert.ok(f.calls.length <= expected, `${setting}: ${f.calls.length} > ${expected}`);
+  }
+});
+
+await test('the budget is shared between titles, not multiplied by them', async () => {
+  const f = fakeFetch(() => ok(page([el('Cashier')])));
+  await run({ titles: ['A one', 'B two', 'C three'] }, f);
+  assert.ok(f.calls.length <= PAGE_BUDGET, `${f.calls.length} pages for three titles`);
+});
+
+await test('a 429 on the first page is rate_limited, not a generic provider error', async () => {
+  await assert.rejects(() => run({ titles: ['x'] }, fakeFetch(() => bad(429, '{}'))),
+    (e) => e.code === 'rate_limited');
+});
+
+await test('a 429 after rows were read keeps them and says the quota ended the scan', async () => {
+  const f = fakeFetch((c) => c.start < PARALLEL * PAGE_SIZE ? ok(page([el(`Hotel Manager ${c.start}`)])) : bad(429));
+  const r = await adapter.search({ ...env, LINKEDIN_PAGE_BUDGET: '12' }, { titles: ['Hotel Manager'], maxResults: 500 }, 500,
+    { fetch: f, today: TODAY });
+  assert.ok(r.jobs.length > 0 && r.partial && r.throttled === true);
+});
+
+await test("its answers are kept longer than the per-row-billed feed answers", () => {
+  assert.equal(adapter.cacheTtl, CACHE_TTL_SECONDS);
+  assert.ok(CACHE_TTL_SECONDS > 6 * 3600);
+  assert.equal(adapter.quotaLimited, true);
+  assert.equal(adapter.billed, false);
+});
 
 console.log('failures');
 

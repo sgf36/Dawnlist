@@ -347,6 +347,7 @@
   "run.now": "Sesha manje",
   "run.now_tip": "Sesha manje. Kunikezwa lapho isikhathi sohambo lwanamuhla sesidlulile futhi akukabi bikho uhambo namuhla.",
   "run.offer": "Uhambo lwanamuhla belulindeleke ngo-{time} futhi alukenzeki. Khetha u-Sesha manje ukuze usesha.",
+  "run.provider_note": "I-{provider} ayikwazanga ukuseshwa kulokhu, ngakho izinhlu zayo azikho kulokhu kusebenza. Konke okunye kusesheshwe ngokujwayelekile.",
   "run.partial": "Uhambo luqedile, kodwa akukho konke okufundiwe: {reason}",
   "run.running": "Iyasesha — lokhu kungathatha imizuzu embalwa.",
   "cadence.body": "Isivinini sokulandelela silawula ukuthi Dawnlist isikisela nini futhi kanjani ukuxhumana nomuntu ngamunye. Isinyathelo ngasinye sisebenza ngemuva kwesikhala esingezansi, futhi inketho yoLwesibili/uLwesine igcina imilayezo yakho ingangeni emabhokisini oLwesibili nasekupheleni komsebenzi ngoLwesihlanu.",

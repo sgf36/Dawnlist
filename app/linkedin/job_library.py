@@ -28,14 +28,13 @@ from app.feed.models import Job
 PROVIDER_NAME = "linkedin-joblibrary"
 BASE = "https://api.linkedin.com/rest/jobLibrary"
 PAGE_SIZE = 24
-#: Raw pages scanned per search, however few postings survive the filters.
-#: The API is relevance-ranked over descriptions with no city, title or date
-#: filter, so a search like "Hotel Manager" matches ~45,000 UK postings of
-#: which a few dozen are hotel-manager jobs in London. Reading them all is
-#: ~1,900 requests; this bounds the cost (~0.7 s a page) and `exhausted` stays
-#: False when the budget, not the data, ended the scan — a truncated scan is
-#: never presented as "nothing more".
-PAGE_BUDGET = 30
+#: Raw pages scanned per search, shared across its titles. SMALL ON PURPOSE:
+#: LinkedIn throttles this resource per application and member per UTC day (HTTP
+#: 429, "Resource level throttle ... DAY limit"), the limit is unpublished and
+#: not customisable, and the Worker uses the SAME token, so a developer run
+#: spends the quota production searches need. Ordinary testing exhausted it on
+#: 2026-09-30. Developer Portal > the app > Analytics shows the real number.
+PAGE_BUDGET = 8
 
 _COUNTRY_URNS = {
     "gb": "urn:li:country:gb",
@@ -347,6 +346,13 @@ class LinkedInJobLibraryProvider(FeedProvider):
                         error="LinkedIn token expired or invalid — "
                               "regenerate at developers.linkedin.com",
                         refusal="token_expired")
+
+                if status == 429:
+                    return FetchResult(
+                        jobs=jobs, pages_fetched=pages,
+                        error="LinkedIn's daily quota for this resource is "
+                              "reached; it resets at 00:00 UTC",
+                        refusal="rate_limited")
 
                 if status != 200 or not isinstance(payload, dict):
                     return FetchResult(

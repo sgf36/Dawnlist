@@ -746,6 +746,26 @@ async function handleSearch(request, env, ctx) {
   return json(delivered.body);
 }
 
+const throttleKey = (name) =>
+  new Request(`https://cache.dawnlist.internal/throttle/${encodeURIComponent(name)}`);
+
+/** Seconds until 00:00 UTC, when LinkedIn's daily quota resets. */
+function secondsToUtcMidnight(now = new Date()) {
+  const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+  return Math.max(60, Math.ceil((next - now.getTime()) / 1000));
+}
+
+/**
+ * Remember that a provider's daily quota is spent, until it resets. Per data
+ * centre (the Cache API is not global), which is enough: the aim is to stop
+ * hammering a limit, not to account for it exactly.
+ */
+async function tripThrottle(cache, name) {
+  await cache.put(throttleKey(name), new Response('1', {
+    headers: { 'cache-control': `max-age=${secondsToUtcMidnight()}` },
+  }));
+}
+
 /**
  * Every enabled provider is searched on every search, and the results are
  * combined. (It used to be FAILOVER: the first provider that answered won, so a
@@ -792,13 +812,21 @@ async function deliverSearch(env, ctx, query, caps, enabled) {
     if (slot.cached) {
       return { ...slot, jobs: slot.cached.jobs, total: slot.cached.total, fromCache: true };
     }
+    // A provider with a daily quota that has been used up is not asked again
+    // until the day rolls over: every further call is refused and counts.
+    if (slot.adapter.quotaLimited && await cache.match(throttleKey(slot.name))) {
+      return { ...slot, failed: { provider: slot.name, code: 'rate_limited',
+        error: 'daily quota reached; not asked again until 00:00 UTC' } };
+    }
     try {
       const budget = slot.adapter.billed
         ? caps.reserved
         : (query.maxResults ?? query.limit ?? MAX_PAGE);
       const result = await slot.adapter.search(env, query, budget);
+      if (result.throttled) ctx.waitUntil(tripThrottle(cache, slot.name));
       return { ...slot, ...result, fromCache: false };
     } catch (err) {
+      if (err.code === 'rate_limited') ctx.waitUntil(tripThrottle(cache, slot.name));
       return { ...slot, failed: { provider: slot.name, error: err.message, code: err.code } };
     }
   }));
@@ -857,7 +885,7 @@ async function deliverSearch(env, ctx, query, caps, enabled) {
     if (cacheable) {
       ctx.waitUntil(cache.put(o.key, new Response(
         JSON.stringify({ jobs: o.jobs, total: o.total }), {
-          headers: { 'cache-control': `max-age=${SEARCH_TTL_SECONDS}`,
+          headers: { 'cache-control': `max-age=${o.adapter.cacheTtl ?? SEARCH_TTL_SECONDS}`,
                      'content-type': 'application/json' },
         })));
     }

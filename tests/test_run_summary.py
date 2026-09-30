@@ -138,3 +138,77 @@ def test_diagnostics_record_a_run_end_to_end(conn, tmp_path):  # noqa: F811
     assert end["funnel"]["swept"] == 2 and "fetch" in end["stages"]
     # a job description is never in the log
     assert "description" not in json.dumps(events).lower() or "[text len=" in json.dumps(events)
+
+
+# -- a provider that could not be searched is said, not silently missing -------
+
+from app.core.run_report import PROVIDER_LABELS  # noqa: E402
+from app.feed.managed import ManagedProvider  # noqa: E402
+
+
+def _worker_answer(degraded):
+    return 200, {"jobs": [{"provider": "theirstack", "provider_job_id": "1", "title": "Hotel Manager",
+                           "company": "Acme"}],
+                 "counts": {"postings_used": 1, "matched": 1}, "degraded": degraded}
+
+
+def test_the_app_reads_the_workers_degraded_report(monkeypatch):
+    prov = ManagedProvider("DAWN-TEST-KEY", base="https://example.invalid")
+    monkeypatch.setattr(prov, "_call", lambda *a, **k: _worker_answer(
+        [{"provider": "linkedin", "code": "token_expired", "error": "LinkedIn token expired"}]))
+    from app.feed.base import SearchQuery
+    result = prov.search(SearchQuery(label="q"))
+    assert result.ok and len(result.jobs) == 1
+    assert result.degraded == [{"provider": "linkedin", "code": "token_expired",
+                                "error": "LinkedIn token expired"}]
+
+
+def test_no_degraded_field_means_nothing_degraded(monkeypatch):
+    prov = ManagedProvider("DAWN-TEST-KEY", base="https://example.invalid")
+    payload = _worker_answer(None)[1]
+    payload.pop("degraded")
+    monkeypatch.setattr(prov, "_call", lambda *a, **k: (200, payload))
+    from app.feed.base import SearchQuery
+    assert prov.search(SearchQuery(label="q")).degraded == []
+
+
+class Degraded(Stub):
+    def search(self, query):
+        r = super().search(query)
+        r.degraded = [{"provider": "linkedin", "code": "token_expired", "error": "expired"}]
+        return r
+
+
+def test_a_run_carries_the_failed_provider_once_not_per_search(conn):  # noqa: F811
+    seed(conn)
+    add_query(conn, "zz second search")
+    outcome = outcome_of(conn, Degraded(ok([job("a")])))
+    assert [d["provider"] for d in outcome.provider_degraded] == ["linkedin"]
+    assert report_from_outcome(outcome).degraded == (PROVIDER_LABELS["linkedin"],)
+
+
+def test_the_banner_names_the_missing_provider_in_plain_words():
+    said = text(RunReport(COMPLETE, swept=40, searches=10, empty_searches=1, assessed=38,
+                          seconds=83, degraded=("LinkedIn Jobs",)))
+    assert "40 postings from 10 searches" in said
+    assert "LinkedIn Jobs could not be searched this time" in said
+    assert "token" not in said.lower() and "expired" not in said.lower()
+
+
+def test_a_run_with_a_failed_provider_is_shown_as_a_problem_not_a_quiet_success():
+    """set_run_status(problem=...) is driven by `thin or degraded`."""
+    import inspect
+    from app.ui import scheduler
+    assert "report.degraded" in inspect.getsource(scheduler.RunBinding.finished)
+
+
+def test_diagnostics_record_the_failed_provider_and_its_reason(conn, tmp_path):  # noqa: F811
+    seed(conn)
+    diagnostics.enable(tmp_path, hook_network=False, hook_exceptions=False)
+    outcome_of(conn, Degraded(ok([job("a")])))
+    events = []
+    for f in (tmp_path / diagnostics.SUBDIR).glob("*.jsonl"):
+        events += [json.loads(x) for x in f.read_text(encoding="utf-8").splitlines()]
+    fetch = [e for e in events if e["event"] == "fetch.search"][-1]
+    assert fetch["degraded"][0]["provider"] == "linkedin"
+    assert fetch["degraded"][0]["code"] == "token_expired"

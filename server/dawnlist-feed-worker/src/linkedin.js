@@ -20,14 +20,32 @@
  *   - it tolerates a dozen pages in flight at once.
  *
  * SUBREQUEST BUDGET. A Worker request may make 50 subrequests on the free plan.
- * A search spends at most PAGE_BUDGET pages here, one call to TheirStack (two
+ * A search spends at most the page budget here, one call to TheirStack (two
  * with paging) and up to a few place lookups, so it stays under it.
+ *
+ * THE DAILY QUOTA IS THE REAL LIMIT. LinkedIn throttles this resource per
+ * application and per member per UTC day ("Resource level throttle
+ * APPLICATION_AND_MEMBER DAY limit ... is reached", HTTP 429), the number is
+ * not published (Developer Portal > the app > Analytics shows it), and it is not
+ * customisable. Ordinary testing exhausted it on 2026-09-30. There is ONE token
+ * for the whole Worker, so every customer's searches draw on one pool. Hence: a
+ * small default page budget, a long cache, a 429 that degrades instead of
+ * failing, and a breaker (see index.js) that stops asking until the day rolls.
  */
 import { locationMatches } from './places.js';
 
 export const PAGE_SIZE = 24;
-/** Raw pages scanned per search, shared across its titles. */
-export const PAGE_BUDGET = 24;
+/**
+ * Raw pages scanned per search, shared across its titles. SMALL ON PURPOSE: it
+ * is a slice of one shared daily quota, and the API is relevance-ranked over
+ * descriptions, so a bigger scan buys a few more rows at the cost of everyone's
+ * calls. `env.LINKEDIN_PAGE_BUDGET` overrides it without a deploy of new logic.
+ */
+export const PAGE_BUDGET = 8;
+export const MAX_PAGE_BUDGET = 48;
+/** How long a LinkedIn answer is kept: sponsored postings change slowly and the
+ *  quota is daily, so a day of reuse costs little and saves a lot. */
+export const CACHE_TTL_SECONDS = 24 * 60 * 60;
 /** Pages in flight at once. */
 export const PARALLEL = 6;
 export const MAX_KEYWORDS = 3;
@@ -156,6 +174,10 @@ export function makeLinkedInAdapter({ HttpError }) {
     billed: false,
     /** It filters by the city NAME, so it does not need the feed's place ids. */
     needsPlaces: false,
+    /** A daily quota is the limit, so its answers live longer than TheirStack's. */
+    cacheTtl: CACHE_TTL_SECONDS,
+    /** A 429 from this provider trips the breaker in index.js until UTC midnight. */
+    quotaLimited: true,
 
     async search(env, q, _headroom, deps = {}) {
       const doFetch = deps.fetch || fetch;
@@ -173,7 +195,10 @@ export function makeLinkedInAdapter({ HttpError }) {
       const wanted = Math.min(q.maxResults ?? q.limit ?? 24, 240);
       const today = deps.today || new Date();
       const countries = (q.countries || []).map((c) => String(c).toUpperCase());
-      const perKeyword = Math.max(PARALLEL, Math.ceil(PAGE_BUDGET / Math.max(1, keywords.length)));
+      const budget = Math.min(MAX_PAGE_BUDGET,
+        Math.max(1, Number(env.LINKEDIN_PAGE_BUDGET) || PAGE_BUDGET));
+      const perKeyword = Math.max(1, Math.floor(budget / Math.max(1, keywords.length)));
+      let throttled = false;
       const jobs = [];
       const seen = new Set();
       let total = 0;
@@ -193,6 +218,10 @@ export function makeLinkedInAdapter({ HttpError }) {
         });
         if (res.status === 401) {
           throw new HttpError(502, 'token_expired', 'LinkedIn token expired or invalid');
+        }
+        if (res.status === 429) {
+          throw new HttpError(429, 'rate_limited',
+            'LinkedIn daily quota for this resource is reached');
         }
         if (!res.ok) {
           const body = await res.text().catch(() => '');
@@ -217,6 +246,7 @@ export function makeLinkedInAdapter({ HttpError }) {
               // after some rows were read keeps those rows and says so.
               if (page.code === 'token_expired' || !jobs.length) throw page;
               partial = page.message;
+              throttled = page.code === 'rate_limited';
               exhausted = false;
               break outer;
             }
@@ -248,7 +278,8 @@ export function makeLinkedInAdapter({ HttpError }) {
         if (!done && jobs.length < wanted) exhausted = false;
         if (jobs.length >= wanted) break;
       }
-      return { jobs, total, scanned, exhausted, pages, ...(partial ? { partial } : {}) };
+      return { jobs, total, scanned, exhausted, pages,
+               ...(partial ? { partial } : {}), ...(throttled ? { throttled } : {}) };
     },
   };
 }

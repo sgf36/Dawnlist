@@ -347,6 +347,7 @@
   "run.now": "Uruchom teraz",
   "run.now_tip": "Wyszukaj teraz. Dostępne, gdy dzisiejsza pora uruchomienia minęła, a wyszukiwanie jeszcze się dziś nie odbyło.",
   "run.offer": "Dzisiejsze uruchomienie było zaplanowane na {time} i jeszcze się nie odbyło. Wybierz Uruchom teraz, aby wyszukać.",
+  "run.provider_note": "Nie udało się przeszukać dostawcy {provider}, dlatego jego ogłoszenia nie znalazły się w tym uruchomieniu. Wszystko inne zostało przeszukane normalnie.",
   "run.partial": "Uruchomienie zakończyło się, ale nie wszystko zostało odczytane: {reason}",
   "run.running": "Trwa wyszukiwanie — może to potrwać kilka minut.",
   "cadence.body": "Rytm kontaktów kontroluje, kiedy i jak Dawnlist sugeruje kontaktowanie się z każdą osobą. Każdy szczebel uruchamia się po przerwie poniżej, a opcja wtorek/czwartek utrzymuje Twoje wiadomości z dala od poniedziałkowych skrzynek i piątkowego końca dnia pracy.",

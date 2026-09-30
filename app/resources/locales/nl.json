@@ -347,6 +347,7 @@
   "run.now": "Nu uitvoeren",
   "run.now_tip": "Nu zoeken. Wordt aangeboden wanneer het runtijdstip van vandaag is verstreken en er vandaag nog niets is uitgevoerd.",
   "run.offer": "De run van vandaag stond gepland om {time} en heeft nog niet plaatsgevonden. Kies Nu uitvoeren om te zoeken.",
+  "run.provider_note": "{provider} kon deze keer niet worden doorzocht, waardoor de vacatures hiervan ontbreken in deze uitvoering. Al het overige is normaal doorzocht.",
   "run.partial": "De run is voltooid, maar niet alles is gelezen: {reason}",
   "run.running": "Bezig met zoeken — dit kan enkele minuten duren.",
   "cadence.body": "Het opvolgritme bepaalt wanneer en hoe Dawnlist voorstelt om elke persoon te contacteren. Elke sport wordt geactiveerd na het interval hieronder, en de optie dinsdag/donderdag houdt uw berichten weg uit de maandagmailbox en het vrijdagmiddageinde.",

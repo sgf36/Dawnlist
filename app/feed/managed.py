@@ -209,6 +209,11 @@ class ManagedProvider(FeedProvider):
             matched=counts.get("matched"),
             not_fetched=int(counts.get("not_fetched", 0) or 0),
             capped=bool(counts.get("capped")),
+            degraded=[
+                {"provider": str(d.get("provider", "")),
+                 "code": str(d.get("code") or ""),
+                 "error": str(d.get("error") or "")[:300]}
+                for d in (payload.get("degraded") or []) if isinstance(d, dict)],
         )
 
     def credits_used(self) -> int | None:

@@ -347,6 +347,7 @@
   "run.now": "Fanya sasa",
   "run.now_tip": "Fanya utafutaji sasa. Huonyeshwa muda wa utafutaji wa leo ukipita bila utafutaji wowote kufanyika leo.",
   "run.offer": "Utafutaji wa leo ulipangwa saa {time} na bado haujafanyika. Chagua Fanya sasa ili kutafuta.",
+  "run.provider_note": "{provider} haikuweza kutafutwa wakati huu, hivyo orodha zake hazipo katika matokeo haya. Vyanzo vingine vyote vilitafutwa kama kawaida.",
   "run.partial": "Utafutaji umekamilika, lakini si kila kitu kilisomwa: {reason}",
   "run.running": "Inatafuta — hii inaweza kuchukua dakika chache.",
   "cadence.body": "Mzunguko wa ufuatiliaji unadhibiti Dawnlist inapendekeza lini na jinsi gani ya kuwasiliana na kila mtu. Kila ngazi inafanya kazi baada ya pengo lililo chini, na chaguo la Jumanne/Alhamisi linaweka ujumbe wako mbali na kisanduku cha Jumatatu na mwisho wa kazi Ijumaa.",

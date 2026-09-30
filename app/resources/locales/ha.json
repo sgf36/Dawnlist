@@ -347,6 +347,7 @@
   "run.now": "Gudu yanzu",
   "run.now_tip": "Bincika yanzu. Ana ba da wannan lokacin da lokacin gudu na yau ya wuce kuma har yanzu babu gudun da aka yi a yau.",
   "run.offer": "Gudu na yau ya kamata ya faru a {time} amma bai faru ba tukuna. Zaɓi Gudu yanzu domin bincika.",
+  "run.provider_note": "Ba a iya bincike ta {provider} a wannan karon ba, don haka jerin sunayensa ba su cikin wannan zagayen. An bincika sauran duka yadda ya kamata.",
   "run.partial": "Gudun ya gama, amma ba a karanta duk abin da ake bukata ba: {reason}",
   "run.running": "Ana bincike — wannan na iya ɗaukar 'yan mintuna.",
   "cadence.body": "Tsarin bin-baya yana sarrafa lokacin da yadda Dawnlist ke ba da shawarar tuntuɓar kowane mutum. Kowane mataki yana aiki bayan tazarar da ke ƙasa, kuma Talata/Alhamis kaɗai yana kiyaye saƙonninka daga akwatin Litinin da ƙarshen aikin Juma'a.",

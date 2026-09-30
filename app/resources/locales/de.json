@@ -347,6 +347,7 @@
   "run.now": "Jetzt ausführen",
   "run.now_tip": "Jetzt suchen. Wird angeboten, wenn die heutige Laufzeit bereits verstrichen ist und noch kein Lauf stattgefunden hat.",
   "run.offer": "Der heutige Lauf war für {time} vorgesehen und hat noch nicht stattgefunden. Wählen Sie „Jetzt ausführen“, um zu suchen.",
+  "run.provider_note": "{provider} konnte diesmal nicht durchsucht werden, weshalb die entsprechenden Angebote in diesem Durchlauf fehlen. Alle anderen Quellen wurden normal durchsucht.",
   "run.partial": "Der Lauf ist abgeschlossen, aber nicht alles wurde gelesen: {reason}",
   "run.running": "Suche läuft — das kann einige Minuten dauern.",
   "cadence.body": "Die Nachfass-Kadenz steuert, wann und wie Dawnlist vorschlägt, jede Person zu kontaktieren. Jede Stufe wird nach dem Abstand unten ausgelöst, und die Dienstag/Donnerstag-Einschränkung hält Ihre Nachrichten aus Montags-Postfächern und dem Freitags-Feierabend heraus.",
