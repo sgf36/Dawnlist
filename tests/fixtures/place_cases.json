@@ -1,0 +1,333 @@
+[
+ {
+  "locations": [
+   "London, England, United Kingdom"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "London Area, United Kingdom"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "Greater London, England, United Kingdom"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "Croydon, England, United Kingdom"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "Sutton, England, United Kingdom"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "Camden Town, England, United Kingdom"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "Canary Wharf, England"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "City Of Westminster, England"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "Ilford IG1 4LZ"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "Romford RM6 6QU"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "West Drayton UB7 0HJ"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "HA3 0AA, Harrow, England"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "SW7 4DL"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "London Borough of Hammersmith and Fulham, England"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "Hammersmith and Fulham"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "East London, England"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "Stratford, England"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "Wimbledon SW19 4UE"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "Edgware, England"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "Richmond upon Thames, England"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "Watford, England, United Kingdom"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": false
+ },
+ {
+  "locations": [
+   "Slough, England, United Kingdom"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": false
+ },
+ {
+  "locations": [
+   "Sutton Coldfield, England"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": false
+ },
+ {
+  "locations": [
+   "Royal Sutton Coldfield, England"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": false
+ },
+ {
+  "locations": [
+   "Kingston Upon Hull, England"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": false
+ },
+ {
+  "locations": [
+   "Brentwood, England"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": false
+ },
+ {
+  "locations": [
+   "Newcastle upon Tyne NE1"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": false
+ },
+ {
+  "locations": [
+   "Cirencester, England"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": false
+ },
+ {
+  "locations": [
+   "City Of Bristol, England"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": false
+ },
+ {
+  "locations": [
+   "Greater Manchester, England, United Kingdom"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": false
+ },
+ {
+  "locations": [
+   "Edinburgh, Scotland"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": false
+ },
+ {
+  "locations": [
+   "United Kingdom"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": null
+ },
+ {
+  "locations": [
+   "England, United Kingdom"
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": null
+ },
+ {
+  "locations": [
+   ""
+  ],
+  "cities": [
+   "London"
+  ],
+  "expected": null
+ },
+ {
+  "locations": [
+   "Manchester, England, United Kingdom"
+  ],
+  "cities": [
+   "Manchester"
+  ],
+  "expected": true
+ },
+ {
+  "locations": [
+   "Leeds, England, United Kingdom"
+  ],
+  "cities": [
+   "Manchester"
+  ],
+  "expected": false
+ },
+ {
+  "locations": [
+   "Anywhere"
+  ],
+  "cities": [],
+  "expected": true
+ }
+]

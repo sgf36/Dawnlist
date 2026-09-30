@@ -38,6 +38,7 @@
  * text are ever written to a log line.
  */
 
+import { makeLinkedInAdapter } from './linkedin.js';
 import { newLicenceKey } from './paddle.js';
 import { handlePaddleWebhook } from './paddle.js';
 import { handleAdmin, handleRedeem } from './codes.js';
@@ -407,6 +408,10 @@ const ADAPTERS = {
    * job returned means re-fetching yesterday's postings is re-buying them.
    */
   theirstack: {
+    /** 1 credit per row returned: its rows draw on the licence's allowance. */
+    billed: true,
+    /** It filters by the feed's own place ids. */
+    needsPlaces: true,
     /**
      * @param {number} headroom  postings reserved for this search. The page
      *                           size is clamped to it, so a fetch can never
@@ -494,164 +499,9 @@ const ADAPTERS = {
     },
   },
 
-  /**
-   * LinkedIn Job Library (Ad Library sub-API). Returns only paid/sponsored
-   * job posts. Free, no per-row billing. Token is a 3-legged OAuth member
-   * token stored as a Wrangler secret; expires in ~60 days, cannot be
-   * refreshed after expiry — the `token_expired` refusal tells the app.
-   */
-  linkedin: {
-    async search(env, q, headroom) {
-      const token = env.LINKEDIN_ACCESS_TOKEN;
-      if (!token) {
-        throw new HttpError(503, 'provider_not_configured',
-          'LinkedIn access token is not set');
-      }
-      const asked = Math.max(1, Math.min(q.maxResults ?? q.limit ?? 24, headroom, 240));
-      const PAGE = 24;
-      const jobs = [];
-      let total = null;
-      let pages = 0;
-
-      while (jobs.length < asked) {
-        const count = Math.min(PAGE, asked - jobs.length);
-        const start = pages * PAGE;
-        const params = linkedinParams(q, start, count);
-        const qs = Object.entries(params)
-          .map(([k, v]) => `${k}=${encodeLinkedIn(v)}`)
-          .join('&');
-        const res = await fetch(`https://api.linkedin.com/rest/jobLibrary?${qs}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'X-RestLi-Protocol-Version': '2.0.0',
-            'Linkedin-Version': '202607',
-          },
-        });
-        if (res.status === 401) {
-          throw new HttpError(502, 'token_expired',
-            'LinkedIn token expired or invalid');
-        }
-        if (!res.ok) {
-          const errBody = await res.text().catch(() => '');
-          throw new HttpError(502, 'provider_error',
-            `linkedin returned ${res.status}: ${errBody.slice(0, 200)}`);
-        }
-        const payload = await res.json();
-        const paging = payload.paging || {};
-        if (total === null) total = paging.total ?? null;
-
-        const elements = payload.elements || [];
-        for (const el of elements) {
-          if (el.isRestricted) continue;
-          const job = normaliseLinkedIn(el);
-          if (job) jobs.push(job);
-        }
-        pages++;
-        if (elements.length < count) break;
-        if (!paging.links?.length) break;
-      }
-      return { jobs, total };
-    },
-  },
+  /** LinkedIn Job Library: see linkedin.js. Searched alongside TheirStack. */
+  linkedin: makeLinkedInAdapter({ HttpError }),
 };
-
-const COUNTRY_REMAP = { uk: 'gb' };
-
-function linkedinParams(q, start, count) {
-  const params = {
-    'q': 'criteria',
-    'start': String(start),
-    'count': String(count),
-    'sortBy.field': 'LISTED_TIME',
-    'sortBy.order': 'DESCENDING',
-  };
-  const keywords = [...(q.titles || [])];
-  if (q.descriptionKeywords?.length) keywords.push(...q.descriptionKeywords);
-  if (keywords.length) params.keyword = keywords.join(' ');
-  if (q.companies?.length) params.organization = q.companies[0];
-  if (q.countries?.length) {
-    const urns = q.countries.map((c) => {
-      const code = COUNTRY_REMAP[c.toLowerCase()] || c.toLowerCase();
-      return `urn:li:country:${code}`;
-    });
-    params.countries = `(value:List(${urns.join(',')}))`;
-  }
-  return params;
-}
-
-function encodeLinkedIn(v) {
-  return encodeURIComponent(v).replace(/%28/gi, '(').replace(/%29/gi, ')')
-    .replace(/%2C/gi, ',').replace(/%3A/gi, ':');
-}
-
-function normaliseLinkedIn(el) {
-  const d = el.jobDetails;
-  if (!d) return null;
-  const title = d.jobTitle || '';
-  if (title.startsWith('This information is not available')) return null;
-  const location = d.jobLocation || '';
-  const locations = (location && !location.startsWith('This information'))
-    ? [location] : [];
-
-  let description = d.jobDescription || '';
-  if (description.startsWith('This information is not available')) description = '';
-
-  const postedMs = d.jobListTimeInMilliseconds;
-  let posted_at = null;
-  if (postedMs) {
-    posted_at = new Date(postedMs).toISOString().slice(0, 10);
-  }
-
-  const url = el.jobPostingUrl || '';
-  let job_id = '';
-  if (url) {
-    const parts = url.replace(/\/+$/, '').split('/');
-    const last = parts[parts.length - 1];
-    if (/^\d+$/.test(last)) job_id = last;
-  }
-  if (!job_id) job_id = url;
-
-  const raw = {};
-  const targeting = d.jobTargeting || [];
-  for (const t of targeting) {
-    if (t.facetName === 'Location' && t.includedSegments?.length) {
-      raw.target_locations = t.includedSegments;
-    }
-  }
-  const stats = d.jobStatistics || {};
-  if (stats.totalImpressions) raw.impressions = stats.totalImpressions;
-  if (d.jobApplyMethod) raw.apply_method = d.jobApplyMethod;
-  if (d.payerName) raw.payer = d.payerName;
-  if (d.jobBenefits?.length) raw.benefits = d.jobBenefits;
-
-  const sal = d.jobSalaryRange;
-  let salary = null;
-  if (sal) {
-    const lo = sal.minBaseSalary;
-    const hi = sal.maxBaseSalary;
-    const cur = sal.currencyCode || '';
-    let period = sal.payPeriod || '';
-    period = period.replace('CompensationPeriod_', '');
-    const suffix = (period && period !== 'YEARLY')
-      ? ` (${period.toLowerCase()})` : '';
-    if (lo && hi) salary = `${cur} ${lo}–${hi}${suffix}`.trim();
-    else if (lo) salary = `${cur} ${lo}+${suffix}`.trim();
-    else if (hi) salary = `Up to ${cur} ${hi}${suffix}`.trim();
-  }
-
-  return {
-    provider: 'linkedin-joblibrary',
-    provider_job_id: job_id,
-    title,
-    company: d.organizationName || '',
-    locations,
-    description_text: description,
-    posted_at,
-    salary,
-    url,
-    raw_criteria: raw,
-  };
-}
 
 function normaliseTheirStack(row) {
   return {
@@ -835,7 +685,7 @@ async function resolvePlaces(env, names, countries) {
 // miss in Frankfurt and is fetched, and billed, again there.
 // ---------------------------------------------------------------------------
 
-function cacheKeyFor(query) {
+function cacheKeyFor(query, provider = 'theirstack') {
   const canonical = JSON.stringify({
     // BUMP THIS WHEN A CHANGE ALTERS WHAT THE SAME QUERY RETURNS. Results are
     // kept for six hours and the key is the query, not how its places resolve,
@@ -859,7 +709,10 @@ function cacheKeyFor(query) {
     m: query.maxResults ?? query.limit ?? null,
     st: query.searchType || "title",
   });
-  return new Request(`https://cache.dawnlist.internal/search?q=${encodeURIComponent(canonical)}`);
+  // TheirStack's key is exactly what it was, so its cached entries stay valid;
+  // any other provider is keyed apart so the two can never answer for each other.
+  const suffix = provider === 'theirstack' ? '' : `&p=${encodeURIComponent(provider)}`;
+  return new Request(`https://cache.dawnlist.internal/search?q=${encodeURIComponent(canonical)}${suffix}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -869,12 +722,17 @@ function cacheKeyFor(query) {
 async function handleSearch(request, env, ctx) {
   const licence = await authenticate(env, request);
   const query = await readSearch(request);
+  // BEFORE the reservation. A reservation is held until the search finishes, so
+  // anything read while holding one shortens what a concurrent request can
+  // reserve; a read that needs no allowance has no business inside that window.
+  // It also means "no provider is enabled" is refused before anything is spent.
+  const providers = await activeProviders(env);
   const caps = await reserveAllowance(env, licence, utcDay(),
     query.maxResults ?? query.limit ?? MAX_PAGE);
 
   let delivered;
   try {
-    delivered = await deliverSearch(env, ctx, query, caps);
+    delivered = await deliverSearch(env, ctx, query, caps, providers);
   } catch (err) {
     // Nothing reached the user, so nothing is spent — not the postings and
     // not the refresh. An unknown place or a provider outage must not cost one
@@ -884,99 +742,152 @@ async function handleSearch(request, env, ctx) {
     throw err;
   }
   await refundAllowance(env, licence.licence_key, caps,
-    { postings: caps.reserved - delivered.jobs.length });
+    { postings: caps.reserved - delivered.metered });
   return json(delivered.body);
 }
 
-async function deliverSearch(env, ctx, query, caps) {
+/**
+ * Every enabled provider is searched on every search, and the results are
+ * combined. (It used to be FAILOVER: the first provider that answered won, so a
+ * working TheirStack meant LinkedIn was never asked. The app then keeps the
+ * richer copy of any role both returned; see `merge_same_run` in the app.)
+ *
+ * Providers differ in what a row COSTS, and everything that follows turns on it:
+ *   billed    (TheirStack) 1 credit per row returned. Its rows draw on the
+ *             licence's allowance, are cut to the reservation, have the user's
+ *             held ids removed, and are not cached when the allowance or the
+ *             held ids narrowed them.
+ *   unbilled  (LinkedIn) free. Its rows never touch the allowance, are cached
+ *             on their own, and one failing must not lose the other's rows.
+ * Each provider is cached separately, so a free LinkedIn answer is never held
+ * back by, or attributed to, a per-row-billed TheirStack one.
+ */
+async function deliverSearch(env, ctx, query, caps, enabled) {
   const cache = caches.default;
-  const cacheKey = cacheKeyFor(query);
-  const hit = await cache.match(cacheKey);
-  if (hit) {
-    const cached = await hit.json();
-    // Meter on rows DELIVERED to this licence, not rows fetched upstream.
-    // Spencer pays once per data centre for a shared result (the Cache API is
-    // not global); each user still spends their own allowance on receiving
-    // it. Metering the upstream fetch instead would let a licence draw
-    // unlimited postings through the cache, and would also make two users'
-    // caps depend on who happened to run the query first.
-    //
-    // Rows this user already holds come out BEFORE the cut and the meter. A
-    // fetch sends those ids to the feed so they are never returned or billed,
-    // but a cached result was fetched for somebody else and still carries
-    // them — so without this a user is charged again for postings they have.
-    //
-    // Then cut to the reservation — what the request asked for, clamped to
-    // what the licence has left. Cutting to the headroom alone handed a
-    // request for five postings every cached row, and billed for all of them.
-    const held = new Set(query.excludeJobIds || []);
-    const jobs = cached.jobs
-      .filter((job) => !held.has(String(job.provider_job_id)))
-      .slice(0, caps.reserved);
-    return {
-      jobs,
-      body: { jobs, cached: true, provider: 'cache', counts: funnel(jobs, caps, cached.total) },
-    };
+  const providers = enabled
+    .map((p) => ({ name: p.name, adapter: ADAPTERS[p.name] }))
+    .filter((p) => p.adapter);
+  if (providers.length === 0) {
+    throw new HttpError(503, 'no_provider', 'No feed provider is currently enabled');
   }
 
-  if (query.cities?.length) {
-    // Before any provider is asked, so an unknown place costs nothing.
+  // 1. What is already cached, per provider.
+  const slots = await Promise.all(providers.map(async (p) => {
+    const key = cacheKeyFor(query, p.name);
+    const hit = await cache.match(key);
+    return { ...p, key, cached: hit ? await hit.json() : null };
+  }));
+
+  // 2. Place ids, only when a provider that filters by them has to fetch — so a
+  // fully cached search makes no place lookups, and an unknown place is still
+  // refused before anything is paid for.
+  if (query.cities?.length
+      && slots.some((slot) => !slot.cached && slot.adapter.needsPlaces)) {
     query.locationIds = await resolvePlaces(env, query.cities, query.countries || []);
   }
 
-  const providers = await activeProviders(env);
-  let result = null;
-  let usedProvider = null;
-  const failures = [];
-
-  for (const p of providers) {
-    const adapter = ADAPTERS[p.name];
-    if (!adapter) continue;
-    try {
-      result = await adapter.search(env, query, caps.reserved);
-      usedProvider = p.name;
-      break;
-    } catch (err) {
-      // Degrade to the next provider VISIBLY — the response says which failed.
-      failures.push({ provider: p.name, error: err.message });
+  // 3. Fetch what is not cached, all at once. A provider that throws is
+  // recorded and the others still deliver: degrade VISIBLY, never silently.
+  const outcomes = await Promise.all(slots.map(async (slot) => {
+    if (slot.cached) {
+      return { ...slot, jobs: slot.cached.jobs, total: slot.cached.total, fromCache: true };
     }
-  }
+    try {
+      const budget = slot.adapter.billed
+        ? caps.reserved
+        : (query.maxResults ?? query.limit ?? MAX_PAGE);
+      const result = await slot.adapter.search(env, query, budget);
+      return { ...slot, ...result, fromCache: false };
+    } catch (err) {
+      return { ...slot, failed: { provider: slot.name, error: err.message, code: err.code } };
+    }
+  }));
 
-  if (result === null) {
+  const failures = outcomes.filter((o) => o.failed).map((o) => o.failed);
+  const answered = outcomes.filter((o) => !o.failed);
+  if (answered.length === 0) {
     throw new HttpError(502, 'all_providers_failed',
       `every provider failed: ${failures.map((f) => f.provider).join(', ')}`);
   }
 
-  const { jobs, total } = result;
+  // 4. Billed rows: the allowance's business.
+  //
+  // Meter on rows DELIVERED to this licence, not rows fetched upstream.
+  // Spencer pays once per data centre for a shared result (the Cache API is
+  // not global); each user still spends their own allowance on receiving it.
+  // Metering the upstream fetch instead would let a licence draw unlimited
+  // postings through the cache, and would make two users' caps depend on who
+  // happened to run the query first.
+  //
+  // Rows this user already holds come out BEFORE the cut and the meter. A
+  // fetch sends those ids to the feed so they are never returned or billed,
+  // but a cached result was fetched for somebody else and still carries them.
+  // Then cut to the reservation: what was asked for, clamped to what the
+  // licence has left.
+  const held = new Set(query.excludeJobIds || []);
+  const billed = answered.filter((o) => o.adapter.billed);
+  const billedJobs = billed
+    .flatMap((o) => o.jobs)
+    .filter((job) => !held.has(String(job.provider_job_id)))
+    .slice(0, caps.reserved);
+  const billedTotal = billed.length
+    ? billed.reduce((sum, o) => sum + (typeof o.total === 'number' ? o.total : 0), 0)
+    : null;
+  // Unbilled rows: free, and never filtered by the held ids, which are the
+  // billed feed's own numbering.
+  const freeJobs = answered.filter((o) => !o.adapter.billed).flatMap((o) => o.jobs);
 
-  // Not cached when THIS licence's allowance cut the fetch short: the next
-  // user asking the same search with allowance to spare would otherwise be
-  // served the short list as if it were everything.
-  const cutByCap = jobs.length >= caps.headroom
-    && !(typeof total === 'number' && total <= jobs.length);
-  // Nor when THIS user's held ids narrowed the fetch. `job_id_not` keeps those
-  // postings out of the upstream answer, so the result is complete only for the
-  // user who asked. Cached, it would reach the next user as a full result with
-  // somebody else's postings silently missing — postings they would then never
-  // be shown. Day-one searches still fill the cache; they hold nothing yet.
-  const cutByHeld = (query.excludeJobIds?.length || 0) > 0;
-  if (!cutByCap && !cutByHeld) {
-    ctx.waitUntil(cache.put(cacheKey, new Response(JSON.stringify({ jobs, total }), {
-      headers: { 'cache-control': `max-age=${SEARCH_TTL_SECONDS}`,
-                 'content-type': 'application/json' },
-    })));
+  // 5. Cache each fresh answer under its own key.
+  for (const o of answered) {
+    if (o.fromCache) continue;
+    let cacheable;
+    if (o.adapter.billed) {
+      // Not when THIS licence's allowance cut the fetch short: the next user
+      // asking the same search with allowance to spare would be served the
+      // short list as if it were everything. Nor when THIS user's held ids
+      // narrowed it: `job_id_not` keeps those postings out of the upstream
+      // answer, so it is complete only for the user who asked.
+      const cutByCap = o.jobs.length >= caps.headroom
+        && !(typeof o.total === 'number' && o.total <= o.jobs.length);
+      cacheable = !cutByCap && held.size === 0;
+    } else {
+      // A scan that ended on an error is a partial answer; do not keep it.
+      cacheable = !o.partial;
+    }
+    if (cacheable) {
+      ctx.waitUntil(cache.put(o.key, new Response(
+        JSON.stringify({ jobs: o.jobs, total: o.total }), {
+          headers: { 'cache-control': `max-age=${SEARCH_TTL_SECONDS}`,
+                     'content-type': 'application/json' },
+        })));
+    }
   }
 
+  const jobs = [...billedJobs, ...freeJobs];
+  const allCached = answered.every((o) => o.fromCache);
+  const fresh = answered.find((o) => !o.fromCache);
   return {
     jobs,
+    // Only billed rows were metered; the refund of the unused reservation is
+    // computed from this, not from `jobs.length`.
+    metered: billedJobs.length,
     body: {
       jobs,
-      cached: false,
-      provider: usedProvider,
+      cached: allCached,
+      provider: allCached ? 'cache' : fresh.name,
+      providers: Object.fromEntries(answered.map((o) => [o.name, {
+        returned: o.adapter.billed ? billedJobs.length : o.jobs.length,
+        matched: typeof o.total === 'number' ? o.total : null,
+        cached: o.fromCache,
+        billed: o.adapter.billed,
+        scanned: o.scanned,
+        exhausted: o.exhausted,
+        partial: o.partial,
+      }])),
       // Reported even when empty, so the app can tell "nothing new" from
       // "the fetch failed" (spec 6.2).
       degraded: failures.length ? failures : undefined,
-      counts: funnel(jobs, caps, total),
+      counts: funnel(billedJobs, caps, billedTotal, freeJobs.length),
     },
   };
 }
@@ -988,7 +899,7 @@ async function deliverSearch(env, ctx, query, caps) {
  * "your plan covers 100 of today's 340" rather than presenting a clamped page
  * as though it were everything (spec 6.2, 6.3).
  */
-function funnel(jobs, caps, total = null) {
+function funnel(jobs, caps, total = null, unbilled = 0) {
   const postingsUsed = caps.used.postings + jobs.length;
   const maxPostings = caps.maxPostings;
   const notFetched = (typeof total === 'number' && total > jobs.length)
@@ -1006,6 +917,8 @@ function funnel(jobs, caps, total = null) {
     postings_used: postingsUsed,
     postings_allowed: maxPostings,
     postings_remaining: Math.max(0, maxPostings - postingsUsed),
+    // Free rows from other providers, delivered on top of the metered ones.
+    unbilled_returned: unbilled,
   };
 }
 
