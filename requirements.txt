@@ -31,7 +31,7 @@ PySide6>=6.7.0
 # `output_config` parameter and no OutputConfigParam at all; 0.77.0 has both,
 # on create and on stream. The floor said >=0.40.0, which would install an SDK
 # that cannot make a single working call.
-anthropic>=0.77.0
+anthropic>=1.7.0
 keyring>=24.0.0
 
 # TLS ON THE MAC. The python.org macOS interpreter that PyInstaller bundles
