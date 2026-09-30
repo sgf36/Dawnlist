@@ -36,10 +36,13 @@ def test_country_urn_unknown():
 
 # -- query parameter building ---------------------------------------------
 
-def test_build_params_keyword_from_titles():
+def test_build_params_keyword_is_one_title_never_a_joined_string():
+    """LinkedIn ANDs the words of one keyword: 'Product Manager Product
+    Strategy' matched 357k postings, fewer than either title alone."""
     q = SearchQuery(label="test", titles=["Hotel Manager", "Resort Manager"])
     p = _build_params(q, 0, 24)
-    assert p["keyword"] == "Hotel Manager Resort Manager"
+    assert p["keyword"] == "Hotel Manager"
+    assert _build_params(q, 0, 24, "Resort Manager")["keyword"] == "Resort Manager"
     assert p["q"] == "criteria"
     assert p["start"] == "0"
     assert p["count"] == "24"
@@ -61,13 +64,13 @@ def test_build_params_pagination():
     assert p["start"] == "48"
     assert p["count"] == "24"
 
-def test_build_params_description_keywords():
+def test_description_keywords_are_not_ANDed_into_the_title_query():
     q = SearchQuery(label="test", titles=["Manager"],
                     description_keywords=["asset", "portfolio"])
-    p = _build_params(q, 0, 24)
-    assert "asset" in p["keyword"]
-    assert "portfolio" in p["keyword"]
-    assert "Manager" in p["keyword"]
+    assert _build_params(q, 0, 24)["keyword"] == "Manager"
+    # a search with no titles falls back to the description keywords
+    from app.linkedin.job_library import _keywords_for
+    assert _keywords_for(SearchQuery(label="t", description_keywords=["asset", "fund"])) == ["asset", "fund"]
 
 def test_build_params_no_titles_no_keyword():
     q = SearchQuery(label="test", countries=["gb"])
@@ -458,8 +461,10 @@ def test_short_page_with_next_link_keeps_paging():
     # Live API returned 23 of 24 rows on page one with more behind it; the
     # adapter used to call that the end and under-fetched every search.
     provider = LinkedInJobLibraryProvider("fake-token")
-    pages = [_mock_response([SAMPLE_ELEMENT] * 23, total=100, has_next=True),
-             _mock_response([SAMPLE_ELEMENT] * 24, total=100, has_next=False)]
+    pages = [_mock_response([_el(f"Hotel Manager {i}") for i in range(23)],
+                            total=100, has_next=True),
+             _mock_response([_el(f"Hotel Manager {i}") for i in range(23, 47)],
+                            total=100, has_next=False)]
 
     with patch.object(provider, "_call", side_effect=[(200, p) for p in pages]):
         result = provider.search(SearchQuery(
@@ -470,11 +475,12 @@ def test_short_page_with_next_link_keeps_paging():
 
 # -- client-side filters: the API has no city, title or date filter ---------
 
-def _el(title, location="London, England, United Kingdom", ms=None, org="Acme"):
+def _el(title, location="London, England, United Kingdom", ms=None, org="Acme",
+        desc="x"):
     import time
     return {"jobPostingUrl": f"https://www.linkedin.com/ad-library/job/detail/{abs(hash(title + location)) % 10**9}",
             "jobDetails": {"jobTitle": title, "jobLocation": location,
-                           "organizationName": org, "jobDescription": "x",
+                           "organizationName": org, "jobDescription": desc,
                            "jobListTimeInMilliseconds": ms or int(time.time() * 1000)}}
 
 
@@ -500,10 +506,54 @@ def test_title_filter_treats_manager_and_management_alike_in_any_order():
         "VP - European Hotel Asset Management", "Manager, Hotel"}
 
 
-def test_description_search_skips_the_title_filter():
-    r = _search([_el("Supermarket Assistant")], titles=["Hotel Manager"],
-                search_type="description")
-    assert len(r.jobs) == 1
+def test_description_search_reads_the_text_not_the_title():
+    r = _search([_el("Supermarket Assistant", desc="We need a Hotel Manager to lead"),
+                 _el("Cashier", desc="Tills and shelves only")],
+                titles=["Hotel Manager"], search_type="description")
+    assert [j.title for j in r.jobs] == ["Supermarket Assistant"]
+
+
+def test_title_search_with_description_keywords_needs_one_in_the_text():
+    r = _search([_el("Hotel Manager", desc="asset management experience"),
+                 _el("Hotel Manager Two", desc="front desk only")],
+                titles=["Hotel Manager"], description_keywords=["asset"])
+    assert [j.title for j in r.jobs] == ["Hotel Manager"]
+
+
+def test_both_keeps_a_title_match_or_a_description_match():
+    r = _search([_el("Hotel Manager", desc="x"),
+                 _el("Chef", desc="reports to the asset team"),
+                 _el("Driver", desc="nothing relevant")],
+                titles=["Hotel Manager"], description_keywords=["asset"],
+                search_type="both")
+    assert sorted(j.title for j in r.jobs) == ["Chef", "Hotel Manager"]
+
+
+def test_each_title_is_its_own_request_and_results_are_merged_without_repeats():
+    from unittest.mock import patch as _patch
+    provider = LinkedInJobLibraryProvider("fake-token")
+    seen_keywords = []
+
+    def fake(params):
+        kw = params.get("keyword")
+        seen_keywords.append(kw)
+        rows = {"Hotel Manager": [_el("Hotel Manager"), _el("Hotel Manager Shared")],
+                "Resort Manager": [_el("Resort Manager"), _el("Hotel Manager Shared")]}[kw]
+        return 200, _mock_response(rows, total=len(rows), has_next=False)
+
+    with _patch.object(provider, "_call", side_effect=fake):
+        r = provider.search(SearchQuery(label="t", max_results=50,
+                                        titles=["Hotel Manager", "Resort Manager"],
+                                        search_type="both"))
+    assert seen_keywords == ["Hotel Manager", "Resort Manager"]
+    assert len([j for j in r.jobs if j.title == "Hotel Manager Shared"]) == 1
+    assert len(r.jobs) == 3
+
+
+def test_at_most_three_titles_are_searched():
+    from app.linkedin.job_library import MAX_KEYWORDS, _keywords_for
+    q = SearchQuery(label="t", titles=[f"T{i}" for i in range(9)])
+    assert len(_keywords_for(q)) == MAX_KEYWORDS
 
 
 def test_city_filter_keeps_every_london_spelling_and_drops_the_rest():

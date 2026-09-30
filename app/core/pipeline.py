@@ -20,7 +20,8 @@ from datetime import date, datetime, timezone
 from typing import Callable, Sequence
 
 from app.core import db, diagnostics
-from app.core.dedup import DedupResult, cross_provider_merge, dedup
+from app.core.dedup import (DedupResult, cross_provider_merge, dedup,
+                            merge_same_run)
 from app.core.rules import RuleTable
 from app.core.screen import ScreenReport, screen_all, yield_rate
 from app.feed.base import FeedProvider, FetchResult, SearchQuery
@@ -376,10 +377,14 @@ def run_morning(
 
         # --- cross-provider merge -----------------------------------------
         with _stage(outcome, "cross_provider") as extra:
-            xp = cross_provider_merge(survivors, conn)
+            # Two providers returning the same role in THIS run first, then the
+            # survivors against what earlier runs stored.
+            same_run = merge_same_run(survivors)
+            xp = cross_provider_merge(same_run.kept, conn)
             survivors = xp.kept
-            outcome.cross_provider_superseded = xp.superseded
-            extra["superseded"] = len(xp.superseded)
+            outcome.cross_provider_superseded = same_run.superseded + xp.superseded
+            extra.update(same_run=len(same_run.superseded),
+                         vs_stored=len(xp.superseded))
 
         # Postings already held, so dedup would drop them, and never judged:
         # without this a posting whose batch failed, whose run was stopped, or

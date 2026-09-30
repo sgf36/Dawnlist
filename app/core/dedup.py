@@ -11,15 +11,20 @@ drop a row. Name keys never drop anything — they raise a flag for a human.
 
 Cross-provider merge (added for the LinkedIn Job Library adapter): when two
 providers surface the same real-world posting, keep whichever version carries
-more useful data and suppress the other.
+more useful data and suppress the other. It is the one place a name key is
+allowed to drop a row, and only under the guards in `merge_same_run`: the
+evidence that it is the same ROLE has to come from more than the name.
 """
 from __future__ import annotations
 
+import html
 import json
+import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import date
 
+from app.core.places import locations_compatible
 from app.feed.models import Job, name_key
 
 
@@ -162,6 +167,92 @@ def cross_provider_merge(
                 (j, f"suppressed by {stored.provider}:{stored.provider_job_id} "
                     f"(score {j.richness_score} < {stored.richness_score})"))
 
+    return CrossProviderResult(kept=kept, superseded=superseded)
+
+
+#: Word-set similarity above which two descriptions are the same text. Measured
+#: 2026-09-30 on real TheirStack/LinkedIn pairs of one role: 0.83, 0.84, 0.97.
+SAME_TEXT = 0.70
+
+_WORD = re.compile(r"[a-z0-9]{3,}")
+
+
+def _words(text: str) -> set[str]:
+    return set(_WORD.findall(html.unescape(text or "").lower()))
+
+
+def description_similarity(a: str, b: str) -> float | None:
+    """Jaccard similarity of the two texts' word sets; None when either is empty."""
+    wa, wb = _words(a), _words(b)
+    if not wa or not wb:
+        return None
+    return len(wa & wb) / len(wa | wb)
+
+
+def same_role(a: Job, b: Job) -> tuple[bool, str]:
+    """Are two postings from different providers one real-world role?
+
+    The company/title key is only the ENTRY TICKET: a chain posts the same title
+    at many sites, so it cannot decide anything alone. Two more things must
+    agree, and either disagreeing keeps both postings:
+      * the places must be compatible (an unknown place is not a different one);
+      * the descriptions must be the same text, when both have one.
+    A posting with no description is judged on place alone.
+    """
+    if not locations_compatible(a.locations, b.locations):
+        return False, "different places"
+    sim = description_similarity(a.description_text, b.description_text)
+    if sim is not None and sim < SAME_TEXT:
+        return False, f"descriptions differ ({sim:.2f})"
+    return True, ("same text" if sim is not None else "same place, no text to compare")
+
+
+def _richer(a: Job, b: Job) -> tuple[Job, Job]:
+    """(winner, loser): more useful data first; ties go to the longer text,
+    then to `a`, which is the provider listed first."""
+    ka = (a.richness_score, len(a.description_text or ""))
+    kb = (b.richness_score, len(b.description_text or ""))
+    return (b, a) if kb > ka else (a, b)
+
+
+def merge_same_run(jobs: list[Job]) -> "CrossProviderResult":
+    """One version per role when two providers returned the same role in ONE run.
+
+    `cross_provider_merge` compares a new posting with ones STORED from earlier
+    runs; it never looked at two postings arriving together, so searching two
+    providers at once would surface every shared role twice.
+
+    THE GUARD THAT MATTERS: only a strict 1:1 pair is merged. If either provider
+    returned more than one posting under the same company/title key, that is a
+    family of similar roles (a hotel group's many "Duty Manager" jobs at
+    different sites), the postings cannot be told apart safely, and ALL of them
+    are kept, flagged as near-duplicates by `dedup` as before. Collapsing real
+    roles is the worse failure; a duplicate costs one glance.
+
+    Within a pair the richer version wins and the other is reported as
+    superseded with the reason, so nothing disappears without a record.
+    """
+    by_key: dict[str, list[Job]] = {}
+    for j in jobs:
+        by_key.setdefault(name_key(j.company, j.title), []).append(j)
+
+    drop: dict[int, str] = {}
+    for group in by_key.values():
+        providers = {j.provider for j in group}
+        if len(providers) != 2 or len(group) != 2:
+            continue                  # one provider, or a family: leave alone
+        a, b = group
+        same, why = same_role(a, b)
+        if not same:
+            continue
+        winner, loser = _richer(a, b)
+        drop[id(loser)] = (
+            f"same role as {winner.provider}:{winner.provider_job_id} ({why}); "
+            f"kept the richer version (score {winner.richness_score} vs "
+            f"{loser.richness_score})")
+
+    kept = [j for j in jobs if id(j) not in drop]
+    superseded = [(j, drop[id(j)]) for j in jobs if id(j) in drop]
     return CrossProviderResult(kept=kept, superseded=superseded)
 
 
