@@ -123,6 +123,32 @@ await test('a city is never widened by a name rule: only measured regions are ad
   assert.deepEqual(calls.places, ['Berlin'], 'no "Greater Berlin" lookup was made');
 });
 
+await test('every measured GB region is added for its own city and nothing else', async () => {
+  const expected = { wigan: 3333219, oldham: 3333179, bournemouth: 12165737,
+                     'st helens': 3333201 };
+  for (const [name, region] of Object.entries(expected)) {
+    makeCaches();
+    const calls = stubUpstream({ available: 1 });
+    PLACES[name] = [{ id: 1000 + region % 1000, name, feature_code: 'PPLA2' }];
+    await worker.fetch(req({ titles: ['a'], countries: ['GB'], cities: [name] }),
+      { DB: makeDB() }, ctx);
+    const ids = calls.search[0].job_location_or.map((l) => l.id);
+    assert.ok(ids.includes(region), `${name} should add region ${region}`);
+    assert.equal(ids.length, 2, `${name}: the city and one region, no more`);
+  }
+});
+
+await test('cities measured and rejected are NOT widened', async () => {
+  for (const name of ['northampton', 'birkenhead', 'aberdeen']) {
+    makeCaches();
+    const calls = stubUpstream({ available: 1 });
+    PLACES[name] = [{ id: 555, name, feature_code: 'PPLA2' }];
+    await worker.fetch(req({ titles: ['a'], countries: ['GB'], cities: [name] }),
+      { DB: makeDB() }, ctx);
+    assert.deepEqual(calls.search[0].job_location_or, [{ id: 555 }], name);
+  }
+});
+
 await test('London is not widened to the UK region when the search is not for the UK', async () => {
   makeCaches();
   const calls = stubUpstream({ available: 2 });

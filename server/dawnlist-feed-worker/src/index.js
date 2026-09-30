@@ -782,7 +782,19 @@ async function resolvePlace(env, name, countries, budget) {
  * countries the search names, so "London" with `CA` alone stays Ontario.
  */
 const METRO_REGIONS = {
-  GB: { london: 2648110 }, // Greater London (ADM2), measured 2026-09-30
+  GB: {
+    // Each measured 2026-09-30 with tools/metro_candidates.py (a generic
+    // "manager" query, 30 days): postings for the city id vs the region id.
+    london: 2648110,      // Greater London: 17,035 vs 18,833 (x1.11); "hotel manager" 41 vs 53
+    bournemouth: 12165737, // Bournemouth, Christchurch and Poole: 153 vs 291 (x1.9), one conurbation
+    oldham: 3333179,      // Borough of Oldham: 55 vs 71 (x1.29)
+    'st helens': 3333201, // St. Helens borough: 43 vs 58 (x1.35)
+    wigan: 3333219,       // Borough of Wigan: 52 vs 74 (x1.42)
+    // MEASURED AND DELIBERATELY NOT INCLUDED (the region is a different place):
+    //   northampton -> West Northamptonshire (x1.24): also Daventry and Brackley.
+    //   birkenhead  -> Wirral borough (x3.59): really all of Wirral.
+    //   aberdeen    -> Aberdeen City (x1.07): nothing to gain.
+  },
 };
 
 function regionIdsFor(name, countries) {
