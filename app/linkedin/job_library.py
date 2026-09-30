@@ -14,10 +14,12 @@ API docs: https://www.linkedin.com/ad-library/api/jobs
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
 import urllib.request
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
+from app.core import places
 from app.core.http import build_request
 from app.feed.base import (FeedProvider, FetchResult, SearchQuery, parse_date)
 from app.feed.models import Job
@@ -25,6 +27,14 @@ from app.feed.models import Job
 PROVIDER_NAME = "linkedin-joblibrary"
 BASE = "https://api.linkedin.com/rest/jobLibrary"
 PAGE_SIZE = 24
+#: Raw pages scanned per search, however few postings survive the filters.
+#: The API is relevance-ranked over descriptions with no city, title or date
+#: filter, so a search like "Hotel Manager" matches ~45,000 UK postings of
+#: which a few dozen are hotel-manager jobs in London. Reading them all is
+#: ~1,900 requests; this bounds the cost (~0.7 s a page) and `exhausted` stays
+#: False when the budget, not the data, ended the scan — a truncated scan is
+#: never presented as "nothing more".
+PAGE_BUDGET = 30
 
 _COUNTRY_URNS = {
     "gb": "urn:li:country:gb",
@@ -89,6 +99,66 @@ def _encode_query(params: dict[str, str]) -> str:
     """
     return "&".join(
         f"{k}={urllib.request.quote(v, safe='(),')}" for k, v in params.items())
+
+
+_SUFFIXES = ("ement", "ers", "er", "ing", "ment", "ant", "ancy", "s")
+
+
+def _stem(word: str) -> str:
+    """Crude enough to match 'Manager' to 'Management' and nothing looser."""
+    w = word.lower()
+    for suf in _SUFFIXES:
+        if w.endswith(suf) and len(w) - len(suf) >= 4:
+            return w[: -len(suf)]
+    return w
+
+
+def _words(text: str) -> set[str]:
+    return {_stem(w) for w in re.findall(r"[A-Za-z0-9]+", text)}
+
+
+def _title_matches(job_title: str, wanted_titles: list[str]) -> bool:
+    """Every word of at least one wanted title appears in the posting's title,
+    in any order — the same word-set reading the TheirStack feed applies.
+
+    The API matches the keyword against the whole description, so without this
+    a search for "Hotel Manager" returned a supermarket assistant.
+    """
+    have = _words(job_title)
+    return any(_words(t) <= have for t in wanted_titles if _words(t))
+
+
+def _city_verdict(locations: tuple[str, ...], cities: list[str]):
+    """True / False / None (place not stated) — see `places.location_matches`.
+
+    The API offers no city filter, only country, and the names it returns for
+    Greater London are borough and district names ("Croydon", "Canary Wharf",
+    "HA3 0AA, Harrow"), so a test for the word "London" silently dropped them.
+    """
+    return places.location_matches(locations, cities)
+
+
+def _keep(job: Job, q: SearchQuery, today: date) -> bool:
+    if q.search_type in (None, "title") and q.titles:
+        if not _title_matches(job.title, q.titles):
+            return False
+    if q.cities:
+        verdict = _city_verdict(job.locations, q.cities)
+        if verdict is False:
+            return False
+        if verdict is None:
+            # Located only as "United Kingdom" / "England": unknown is not
+            # evidence of elsewhere, so it is kept, and marked so the
+            # assessment (which reads the description) knows the place is open.
+            job.raw_criteria["location_unresolved"] = True
+    if q.posted_within_days and job.posted_at is not None:
+        if job.posted_at < today - timedelta(days=q.posted_within_days):
+            return False
+    for term in q.exclude_title_terms:
+        if term.strip() and re.search(
+                r"\b" + re.escape(term.strip()) + r"\b", job.title, re.I):
+            return False
+    return True
 
 
 def _parse_salary(sal: dict | None) -> str | None:
@@ -202,12 +272,6 @@ class LinkedInJobLibraryProvider(FeedProvider):
             return None, repr(e)
 
     def search(self, query: SearchQuery) -> FetchResult:
-        jobs: list[Job] = []
-        max_results = min(query.max_results, 240)
-        pages = 0
-        exhausted = False
-        matched: int | None = None
-
         if not any(k in _build_params(query, 0, 1)
                    for k in ("keyword", "organization")):
             # The API answers a criteria search with no keyword or
@@ -216,13 +280,18 @@ class LinkedInJobLibraryProvider(FeedProvider):
                 jobs=[], pages_fetched=0,
                 error="LinkedIn jobLibrary needs a keyword or organisation")
 
-        while len(jobs) < max_results:
-            remaining = max_results - len(jobs)
-            count = min(PAGE_SIZE, remaining)
-            start = pages * PAGE_SIZE
+        jobs: list[Job] = []
+        wanted = min(query.max_results, 240)
+        today = datetime.now(timezone.utc).date()
+        country_codes = [c.upper() for c in query.countries]
+        pages = 0
+        scanned = 0
+        exhausted = False
+        matched: int | None = None
 
+        while len(jobs) < wanted and pages < PAGE_BUDGET:
             status, payload = self._call(
-                _build_params(query, start, count))
+                _build_params(query, pages * PAGE_SIZE, PAGE_SIZE))
 
             if status == 401:
                 return FetchResult(
@@ -246,26 +315,29 @@ class LinkedInJobLibraryProvider(FeedProvider):
                 if el.get("isRestricted"):
                     continue
                 job = _to_job(el)
-                if job:
+                if job is None:
+                    continue
+                scanned += 1
+                if country_codes:
+                    # The request was country-scoped, so say so: the run's
+                    # location gate only reads this tag and used to pass every
+                    # LinkedIn posting because none carried one.
+                    job.raw_criteria["country_codes"] = country_codes
+                if _keep(job, query, today):
                     jobs.append(job)
+                    if len(jobs) >= wanted:
+                        break
 
             pages += 1
             # A page can come back a row short (23 of 24) with more still
             # behind it, so a short page is NOT the end: the `next` link is.
-            # Trusting the count silently under-fetched every search.
-            if not elements:
-                exhausted = True
-                break
-            if not paging.get("links"):
+            if not elements or not paging.get("links"):
                 exhausted = True
                 break
 
         return FetchResult(
-            jobs=jobs,
-            pages_fetched=pages,
-            exhausted=exhausted,
-            matched=matched,
-        )
+            jobs=jobs, pages_fetched=pages, exhausted=exhausted,
+            matched=matched, scanned=scanned)
 
     def credits_used(self) -> int | None:
         return None

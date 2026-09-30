@@ -114,6 +114,11 @@ class FetchResult:
     #: for a log; this is what the app matches on to tell the user, in their
     #: language, that the day's refreshes are used up and when they return.
     refusal: str | None = None
+    #: Rows the provider returned BEFORE this app's own filters, when the
+    #: provider cannot filter upstream (LinkedIn's Job Library). Zero when the
+    #: feed filters for us, so a small `jobs` next to a large `scanned` reads
+    #: as "the filters were strict", not "the search found little".
+    scanned: int = 0
 
     @property
     def ok(self) -> bool:

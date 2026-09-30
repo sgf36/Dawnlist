@@ -164,3 +164,20 @@ def test_export_3_tuple_compat(tmp_path):
     export_queries(rows, dest)
     reimported = parse_import(dest)
     assert reimported[0].search_type == "title"
+
+
+def test_export_of_all_queries_output_round_trips(tmp_path):
+    """The real caller passes all_queries' 5-tuple; that shape was misread.
+
+    Every export said enabled=0 / search_type=True and the importer refused the
+    file it had just written. The 4-tuple test above never exercised the shape
+    the application actually produces.
+    """
+    rows = [("Hotel Manager", ["Hotel Manager"], [], True, "title"),
+            ("Ops", ["Operations Manager"], ["hotel"], False, "both")]
+    dest = tmp_path / "out.csv"
+    export_queries(rows, dest, scope_params={"countries": ["GB"],
+                                             "cities": ["London"]})
+    back = parse_import(dest)
+    assert [(r.label, r.enabled, r.search_type) for r in back] == [
+        ("Hotel Manager", True, "title"), ("Ops", False, "both")]
