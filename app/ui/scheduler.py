@@ -173,11 +173,34 @@ def status_text(status) -> str:
     return tr(key, note=note)
 
 
+def format_duration(seconds: float) -> str:
+    whole = max(0, round(seconds))
+    if whole < 60:
+        return tr("run.duration_seconds", n=whole)
+    return tr("run.duration_minutes", m=whole // 60, s=whole % 60)
+
+
+def describe_complete(report: RunReport) -> str:
+    """What a finished run did, in numbers, so "finished" is never the whole
+    sentence. A run that read nothing used to say the shortlist was up to date,
+    which is true and useless: it was up to date with nothing."""
+    if not report.searches:
+        return tr("run.done")
+    facts = dict(duration=format_duration(report.seconds), swept=report.swept,
+                 searches=report.searches, empty=report.empty_searches,
+                 assessed=report.assessed)
+    if report.swept == 0:
+        return tr("run.done_nothing", **facts)
+    if report.thin:
+        return tr("run.done_thin", **facts)
+    return tr("run.done_summary", **facts)
+
+
 def describe_report(report: RunReport, *, now: datetime,
                     to_local: schedule.ToLocal = schedule.system_local) -> str:
     kind = report.kind
     if kind == COMPLETE:
-        return tr("run.done")
+        return describe_complete(report)
     if kind == LIMIT:
         reset = schedule.next_utc_midnight(now, to_local)
         return tr("run.limit_reached", count=report.refreshes_per_day,
@@ -250,10 +273,15 @@ class RunBinding(QObject):
 
     def finished(self, report: RunReport) -> None:
         self.show_latest()
+        text = describe_report(report, now=self._clock(),
+                               to_local=self._to_local)
         if not report.ok:
-            text = describe_report(report, now=self._clock(),
-                                   to_local=self._to_local)
             self._window.set_run_status(text)
+            self._report_shown = text
+        elif report.searches:
+            # A clean run is still told what it did. Styled as a problem only
+            # when it came back thin, so a normal morning stays quiet.
+            self._window.set_run_status(text, problem=report.thin)
             self._report_shown = text
         if self._notify is not None and not self._window.isVisible():
             # Hidden in the tray, the window cannot say it; the tray can.

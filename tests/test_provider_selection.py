@@ -247,3 +247,29 @@ def test_windows_store_is_deliberately_not_covered_by_that_rule(no_keyring, monk
     monkeypatch.setattr("app.core.entitlement.stored_licence",
                         lambda: "DAWN-AAAA-BBBB")
     assert build_provider(conn=None).name == "managed"
+
+
+def test_a_named_linkedin_developer_feed_wins_over_a_licence(no_keyring, monkeypatch):
+    """The LinkedIn branch sat below the licence branch, so on every real
+    install (they all hold a licence) asking for it did nothing."""
+    monkeypatch.setattr("app.core.entitlement.stored_licence",
+                        lambda: "DAWN-AAAA-BBBB")
+    monkeypatch.setenv("DAWNLIST_DEVELOPER_FEED", "1")
+    monkeypatch.setenv("DAWNLIST_DEVELOPER_FEED_PROVIDER", "linkedin")
+    no_keyring[("linkedin-api", "access_token")] = "member-token"
+    assert build_provider(conn=None).name == "linkedin-joblibrary"
+
+
+def test_linkedin_needs_all_three_signals(no_keyring, monkeypatch):
+    monkeypatch.setattr("app.core.entitlement.stored_licence",
+                        lambda: "DAWN-AAAA-BBBB")
+    no_keyring[("linkedin-api", "access_token")] = "member-token"
+    # token alone: the licence still routes through the Worker
+    assert build_provider(conn=None).name == "managed"
+    # token + switch but no provider name: still the Worker
+    monkeypatch.setenv("DAWNLIST_DEVELOPER_FEED", "1")
+    assert build_provider(conn=None).name == "managed"
+    # switch + provider but no token: still the Worker
+    monkeypatch.setenv("DAWNLIST_DEVELOPER_FEED_PROVIDER", "linkedin")
+    del no_keyring[("linkedin-api", "access_token")]
+    assert build_provider(conn=None).name == "managed"

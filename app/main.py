@@ -768,6 +768,25 @@ def build_provider(conn):
 
     build = variant()
 
+    # A DEVELOPER WHO ASKS FOR LINKEDIN BY NAME GETS LINKEDIN, licence or not.
+    #
+    # The LinkedIn branch used to sit at the very bottom, reached only when no
+    # licence existed — so on any install that had one (every real one) setting
+    # DAWNLIST_DEVELOPER_FEED_PROVIDER=linkedin silently did nothing and the
+    # managed feed ran instead. Three things are needed together: the switch,
+    # the provider name and a stored member token, none of which a customer
+    # sets by accident. The LinkedIn feed is unmetered and Spencer's own, so
+    # preferring it here spends nobody's allowance; the "licence wins" rule
+    # below exists to stop an UNMETERED raw key bypassing a paid cap, and that
+    # case still goes the licence's way.
+    import os as _os
+    if (_os.environ.get(DEVELOPER_FEED_ENV) == "1"
+            and _os.environ.get(DEVELOPER_FEED_PROVIDER) == "linkedin"):
+        token = keyring.get_password("linkedin-api", "access_token")
+        if token:
+            from app.linkedin.job_library import LinkedInJobLibraryProvider
+            return LinkedInJobLibraryProvider(token)
+
     # APPLE GUIDELINE 3.1.1 NAMES LICENCE KEYS EXPLICITLY:
     #
     #   "Apps may not use their own mechanisms to unlock content or
@@ -1556,8 +1575,20 @@ def run_daily_search(conn, *, provider=None, send=None):
     """
     from app.core.run_report import report_from_outcome
 
-    outcome = morning_run(conn, provider=provider, send=send)
-    return outcome, report_from_outcome(outcome)
+    from app.core import diagnostics
+
+    try:
+        outcome = morning_run(conn, provider=provider, send=send)
+    except Exception as exc:  # noqa: BLE001 - recorded, then raised as before
+        diagnostics.event("run.refused", error=exc, kind=type(exc).__name__)
+        raise
+    report = report_from_outcome(outcome)
+    diagnostics.event(
+        "run.report", kind=report.kind, detail=report.detail,
+        swept=report.swept, searches=report.searches,
+        empty_searches=report.empty_searches, assessed=report.assessed,
+        seconds=report.seconds, thin=report.thin)
+    return outcome, report
 
 
 def database_path(conn) -> str:
@@ -2020,6 +2051,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--background", action="store_true",
                         help="start in the tray without opening the window, "
                              "as a launch at sign-in does")
+    parser.add_argument("--diagnostics", action="store_true",
+                        help="write a redacted JSON-lines record of what the "
+                             "app does to <app data>/diagnostics/ (also "
+                             "DAWNLIST_DIAGNOSTICS=1, or an empty "
+                             "diagnostics.on file in the app data folder)")
     parser.add_argument("--db", type=Path, default=None,
                         help="database path (defaults to the app data dir)")
     parser.add_argument("--locale", default=None, help="UI locale, e.g. fr")
@@ -2027,6 +2063,14 @@ def main(argv: list[str] | None = None) -> int:
 
     conn = db.connect(args.db)
     db.migrate(conn)
+
+    # Off unless asked for, and the same build either way: a separate logging
+    # build would differ from the shipped one in the ways that matter. Switched
+    # on BEFORE anything else runs so the start-up itself is on the record.
+    from app.core import diagnostics
+    app_dir = (Path(args.db).parent if args.db else db.default_db_path().parent)
+    if diagnostics.requested(app_dir, flag=args.diagnostics):
+        diagnostics.enable(app_dir)
 
     settings = load_settings(conn)
     # A CHOICE, THEN THE MACHINE, THEN ENGLISH — in that order.
@@ -2219,6 +2263,8 @@ def _doctor(conn) -> int:
         print(f"  WARNING: variant is {v} — this build carries no usable "
               f"variant flag.", file=sys.stderr)
     print(f"database      : {conn.execute('PRAGMA database_list').fetchone()[2]}")
+    from app.core import diagnostics as _diag
+    print(f"diagnostics   : {'ON' if _diag.is_enabled() else 'off'}")
     print(f"locales dir   : {LOCALES_DIR}")
     print(f"locales exist : {LOCALES_DIR.exists()}")
 
@@ -3412,6 +3458,8 @@ def _launch_ui(conn, *, open_board: bool, background: bool = False) -> int:
     app = QApplication.instance() or QApplication(sys.argv)
     from app.ui.branding import apply_icon
     apply_icon(app)
+    from app.core import diagnostics
+    diagnostics.install_qt_hooks(app)  # no-op unless diagnostics are on
 
     # SETUP FINISHED, not calibration passed. Calibration is skipped by design
     # whenever no feed answers (`CalibrationResult.can_finish`), so asking
