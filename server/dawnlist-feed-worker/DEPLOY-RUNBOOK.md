@@ -1,12 +1,59 @@
 # Deploying the Worker — the order, and why it is this order
 
-Ten migrations are written and none of them is applied to the live database.
-The Worker running today is older than all of them. That is survivable only
-because the old Worker does not read the new columns; the moment the new one is
-deployed, every migration it depends on must already be there.
+**STATUS, VERIFIED 2026-09-30: every migration below (001 to 014, including 008,
+which the list in section 2 omits) is ALREADY APPLIED to the live `dawnlist`
+database.** This was checked against the live schema, not inferred from the
+deployment history: each migration's table, column or index was found, and the
+`providers` table holds `theirstack` (enabled, priority 10) and `linkedin`
+(enabled, priority 20). The Worker deployed on 2026-09-30 (`6d6ae972`) needs
+nothing applied first.
 
-Read this top to bottom and do it in order. Three of the steps are ordered for a
-reason that is not obvious, and each says what that reason is.
+Sections 1 and 2 therefore matter only for a **fresh or restored database**.
+Do not run them against the live one; `d1 migrations apply` and re-running
+`ALTER TABLE ... ADD COLUMN` both fail loudly, but a runbook that reads as
+"nothing is applied" invites someone to try.
+
+**Re-verify before trusting this, or any status paragraph, again.** Read-only,
+and each answers one migration (`--command`, not `--file`, for the reason below):
+
+```
+npx wrangler d1 execute dawnlist --remote --command "SELECT name FROM sqlite_master WHERE type IN ('table','index') ORDER BY name"
+npx wrangler d1 execute dawnlist --remote --command "PRAGMA table_info(licences)"
+npx wrangler d1 execute dawnlist --remote --command "PRAGMA table_info(apple_transactions)"
+npx wrangler d1 execute dawnlist --remote --command "SELECT name, enabled, priority FROM providers ORDER BY priority"
+```
+
+Expected: tables `paddle_subscriptions`, `paddle_transactions`, `admin_audit`,
+`apple_transactions`, `apple_offer_codes`, `apple_offer_batches`,
+`microsoft_transactions`, `providers`; indexes `licences_by_subscription`,
+`codes_by_normalised`, `admin_audit_by_actor`; `licences` with `plan`,
+`plan_unmatched`, `delivery_status`, `delivery_error_code`;
+`apple_transactions` with `offer_identifier`, `offer_type`, `comp`;
+`code_attempts` with `client_hash` and no `ip`.
+
+**Deploy from a commit, not from a checkout.** `wrangler deploy` publishes the
+tree it runs in, and a stale branch can hold the right files and the wrong
+source. Deploy from a clean worktree of the exact commit that is on the
+release branch (`git worktree add --detach <path> <sha>`), run the Worker
+tests there, `wrangler deploy --dry-run`, then deploy, and remove the
+worktree. Then PROVE it with a real search: a fix is not deployed until a
+query that used to fail returns the new answer.
+
+**Results are cached six hours per data centre and the cache key is the
+query.** A change that alters what the same query returns must bump `v` in
+`cacheKeyFor`, or the change is invisible for up to six hours. The first probe
+after a deploy can also land on the previous version while it rolls out:
+re-run it before believing it.
+
+**The Worker's `linkedin` provider is a fallback that does not work.** It runs
+only when TheirStack throws, and it sends `countries=(value:List(...))` and
+`sortBy.*`, both of which the LinkedIn API rejects (400), so today it fails and
+the request ends in `all_providers_failed`, as it did before the provider
+existed. Do not "fix" it by correcting the request alone: with no city, title
+or age filter it would answer a London search with UK-wide, keyword-loose
+sponsored postings, and the result would be cached for six hours for
+everyone. The Python adapter (`app/linkedin/job_library.py`) shows what the
+filtering needs.
 
 Everything runs from this directory:
 
@@ -38,7 +85,7 @@ Edit) and every `--file` below works. Reading the scope list proves nothing.
 
 ---
 
-## 1. The pre-checks, before anything is applied
+## 1. The pre-checks, before anything is applied (fresh or restored database only)
 
 Two migrations refuse to apply if the data underneath them is not what they
 assume, and both fail *without changing anything* — so running them blind is
@@ -67,7 +114,7 @@ SELECT UPPER(REPLACE(REPLACE(code, '-', ''), ' ', '')) AS n, COUNT(*)
   FROM codes GROUP BY n HAVING COUNT(*) > 1;
 ```
 
-## 2. Migrations 003 to 007, and 009 to 013
+## 2. Migrations 003 to 007, and 009 to 014 (fresh or restored database only)
 
 `001-plans.sql` and `002-code-plans.sql` are ALREADY APPLIED — by `d1 execute`
 on 2026-09-08. They are listed here so that nobody reading "apply every file in
