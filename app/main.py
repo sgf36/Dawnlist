@@ -768,25 +768,6 @@ def build_provider(conn):
 
     build = variant()
 
-    # A DEVELOPER WHO ASKS FOR LINKEDIN BY NAME GETS LINKEDIN, licence or not.
-    #
-    # The LinkedIn branch used to sit at the very bottom, reached only when no
-    # licence existed — so on any install that had one (every real one) setting
-    # DAWNLIST_DEVELOPER_FEED_PROVIDER=linkedin silently did nothing and the
-    # managed feed ran instead. Three things are needed together: the switch,
-    # the provider name and a stored member token, none of which a customer
-    # sets by accident. The LinkedIn feed is unmetered and Spencer's own, so
-    # preferring it here spends nobody's allowance; the "licence wins" rule
-    # below exists to stop an UNMETERED raw key bypassing a paid cap, and that
-    # case still goes the licence's way.
-    import os as _os
-    if (_os.environ.get(DEVELOPER_FEED_ENV) == "1"
-            and _os.environ.get(DEVELOPER_FEED_PROVIDER) == "linkedin"):
-        token = keyring.get_password("linkedin-api", "access_token")
-        if token:
-            from app.linkedin.job_library import LinkedInJobLibraryProvider
-            return LinkedInJobLibraryProvider(token)
-
     # APPLE GUIDELINE 3.1.1 NAMES LICENCE KEYS EXPLICITLY:
     #
     #   "Apps may not use their own mechanisms to unlock content or
@@ -928,13 +909,16 @@ def build_provider(conn):
     # on his credits, off the meter, for whoever was signed in on a machine
     # where a key had once been stored for testing. The keyring is not even
     # read unless a developer asks for this route by name.
+    #
+    # THERE IS NO LINKEDIN PROVIDER HERE, AND THERE MUST NOT BE ONE. A LinkedIn
+    # Job Library adapter lived on this path until 2026-09-30. The Job Library
+    # belongs to LinkedIn's Ad Library product, which is a vetted Research Tools
+    # Program product: its programme terms restrict use to approved research and
+    # prohibit use for business or commercial purposes
+    # (https://www.linkedin.com/legal/l/research-api-terms, s3.1e), and Dawnlist
+    # is a paid product. Do not add it back without LinkedIn's written
+    # permission. See memory project-dawnlist-linkedin-metro-diagnostics.
     if os.environ.get(DEVELOPER_FEED_ENV) == "1":
-        feed = os.environ.get(DEVELOPER_FEED_PROVIDER, "theirstack")
-        if feed == "linkedin":
-            token = keyring.get_password("linkedin-api", "access_token")
-            if token:
-                from app.linkedin.job_library import LinkedInJobLibraryProvider
-                return LinkedInJobLibraryProvider(token)
         key = keyring.get_password("dawnlist-feed", "api-key")
         if key:
             return TheirStackProvider(key)
@@ -954,8 +938,6 @@ def build_provider(conn):
 #: An environment variable, because no customer sets one by accident and no
 #: build can ship with it on.
 DEVELOPER_FEED_ENV = "DAWNLIST_DEVELOPER_FEED"
-#: Which developer provider to use. "theirstack" (default) or "linkedin".
-DEVELOPER_FEED_PROVIDER = "DAWNLIST_DEVELOPER_FEED_PROVIDER"
 
 
 def save_locale(conn, code: str) -> str:
