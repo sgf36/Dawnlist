@@ -30,7 +30,7 @@ one file per UTC day, pruned after 7 days, capped at 20 MB a file (a
 |---|---|
 | `app.start` | version, Python, platform, frozen or source, arguments |
 | `run.start` / `run.end` | provider, searches, per-stage seconds, the whole funnel, fetch errors |
-| `fetch.search` | per search: matched, kept, **scanned**, pages, exhausted, capped, refusal, error, **degraded** (a provider that could not be searched, with its code, e.g. `token_expired`) |
+| `fetch.search` | per search: matched, kept, **scanned**, pages, exhausted, capped, refusal, error, **degraded** (a provider that could not be searched, with its code, e.g. `token_expired`, `rate_limited`, `allowance`) |
 | `pipeline.fetch` … `pipeline.assess` | duration and what each stage produced (gate reasons, screen counts, unread) |
 | `http` | every `urllib` request: method, URL (secret query values removed), status, milliseconds; for a 4xx/5xx **the API's own error body** |
 | `model.call` | model, stop reason, token counts |

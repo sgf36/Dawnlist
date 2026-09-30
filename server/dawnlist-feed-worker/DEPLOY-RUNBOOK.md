@@ -1,6 +1,7 @@
 # Deploying the Worker — the order, and why it is this order
 
-**STATUS, VERIFIED 2026-09-30: every migration below (001 to 014, including 008,
+**STATUS, VERIFIED 2026-09-30: every migration below (001 to 014; 015 was written later
+and must be applied before the Worker that reads it is deployed, including 008,
 which the list in section 2 omits) is ALREADY APPLIED to the live `dawnlist`
 database.** This was checked against the live schema, not inferred from the
 deployment history: each migration's table, column or index was found, and the
@@ -62,18 +63,62 @@ similar roles are all kept.
 **LinkedIn has a DAILY QUOTA, and it is the real limit on this provider.** The
 Job Library is throttled per application and per member per UTC day (HTTP 429,
 "Resource level throttle APPLICATION_AND_MEMBER DAY limit ... is reached"). The
-number is unpublished and not customisable: read it in the Developer Portal
-(your app, then Analytics, after making one call to the endpoint that day).
-Ordinary testing exhausted it on 2026-09-30, and there is ONE token for the whole
-Worker, so every customer's searches share one pool, and so do `app/linkedin`
-developer runs (same token: do not test against production quota).
-The Worker therefore: scans a small page budget (`PAGE_BUDGET` = 8, override with
-the plain var `LINKEDIN_PAGE_BUDGET`, capped at 48), keeps LinkedIn answers for 24
-hours (TheirStack's for 6), reports a 429 as `degraded` with code `rate_limited`
-instead of failing the search, and after a 429 stops asking until 00:00 UTC
-(a marker in the data centre's cache). If `rate_limited` shows up in the
-diagnostics log before the day is out, lower the budget or switch the provider
-off; raising it will only make that happen sooner.
+number is unpublished and not customisable (the Developer Portal's Analytics tab
+is meant to show it; on 2026-09-30 that panel failed to load, so it is still
+UNKNOWN: about 500 a day on the evidence of one afternoon's testing). There is
+ONE token for the whole Worker, so every customer's searches share one pool, and
+so do `app/linkedin` developer runs (same token: never test against production
+quota). LinkedIn's API Terms forbid getting round it with extra applications,
+tokens, or users bringing their own credentials (2.2, 3.1(20)).
+
+**So the cost is made to scale with what is NEW.** Results are newest-first (the
+reference's default sort, confirmed on 480 rows in each of four searches). A scan
+reads from the newest posting back to a cutoff and stops: the last COMPLETE
+scan's newest posting read, less a one-day overlap (the API lags about two days,
+so the cursor is the newest posting READ, never the clock), or on a first scan
+three days before the newest posting read. Measured on ten real searches that is
+about 26 pages a day of new postings against about 80 for a fixed-budget scan. A
+scan that stops on a budget, an error or the row limit has not reached its cutoff
+and does NOT move its cursor, or the unread postings would be lost.
+
+**The Worker keeps its own books, under LinkedIn's limit, so it is ours that
+refuses** (migration 015; `linkedin_usage`, `linkedin_usage_global`,
+`linkedin_cursors`):
+- per licence, `LINKEDIN_PAGES_PER_LICENCE_DAY` (default 40);
+- in total, `LINKEDIN_PAGES_GLOBAL_DAY` (default 400, headroom under ~500);
+- per search, `LINKEDIN_PAGE_BUDGET` (default 16, cap 48), a ceiling, not a target.
+Pages are reserved before a scan and the unused ones refunded. Out of pages, the
+provider degrades with code `allowance` and TheirStack still delivers. All three
+are plain vars: set them once the real quota is known. Capacity, on the measured
+numbers: a steady 10-search user costs about 26 to 52 pages a day (one or two days
+of postings a scan with the overlap), so 400 a day serves roughly 8 to 15 licences
+with DISTINCT searches. That is the honest ceiling of this design; past it, LinkedIn
+degrades for the licences that arrive last. Sharing pages across users with the same
+keyword would scale it, and is deliberately NOT built (see below).
+
+**LinkedIn's content is NOT cached.** A scan starts at a per-licence cursor, so an
+answer is only right for one licence, and LinkedIn's API Terms (4.1) do not allow
+caching its content beyond what is expressly permitted (4.3 adds: only with the
+member's consent, only while the member is using the application, "not on an
+automated schedule"). Dawnlist's scheduled daily run, and the app storing the
+postings it is shown, sit close to that. These are the GENERAL API terms; the Ad
+Library product may have its own that supersede them. READ WHAT WAS ACCEPTED WHEN
+THE PRODUCT WAS ENABLED, or ask LinkedIn, before scaling this up. Nothing here is
+legal advice.
+
+**After a 429 the provider is not asked again until 00:00 UTC** (a marker in the
+data centre's cache), and the 429 is reported as `degraded` with code
+`rate_limited`, never as an error.
+
+**Deploy order for the incremental scan: apply migration 015 FIRST**
+(`npx wrangler d1 execute dawnlist --remote --file migrations/015-linkedin-incremental.sql`),
+then deploy. If the tables are missing the Worker does not fail: LinkedIn degrades
+with code `allowance_unavailable` and TheirStack is unaffected. STILL UNVERIFIED
+AGAINST THE LIVE API (quota was spent when this was built): the size of the
+publication lag, and whether postings ever arrive LATE with a listing time older
+than the cursor less the overlap. Check once the quota has reset, with a handful of
+calls: run a scan, note `newestMs` and the newest row's age; run it again next day
+and look for rows between the two cursors that the first scan did not return.
 
 **LinkedIn's token expires about 60 days after it was generated and cannot be
 refreshed.** When it does, every search still succeeds on TheirStack alone and
@@ -163,6 +208,7 @@ npx wrangler d1 execute dawnlist --remote --file migrations/011-apple-offer-code
 npx wrangler d1 execute dawnlist --remote --file migrations/012-apple-comp.sql
 npx wrangler d1 execute dawnlist --remote --file migrations/013-microsoft-transactions.sql
 npx wrangler d1 execute dawnlist --remote --file migrations/014-linkedin-provider.sql
+npx wrangler d1 execute dawnlist --remote --file migrations/015-linkedin-incremental.sql
 ```
 
 **Do not use `wrangler d1 migrations apply`.** It tracks its own state in a

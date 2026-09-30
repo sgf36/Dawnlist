@@ -188,43 +188,30 @@ await test('both down: refused as before, and nothing is spent, not even the ref
 
 console.log('caching');
 
-await test('a repeat is served from cache for BOTH providers, with no upstream call', async () => {
+await test('a repeat is served from cache for TheirStack, and LinkedIn is asked again (it is never cached)', async () => {
   makeCaches();
   const calls = upstream({ ts: 3, li: 2 });
   const DB = dbWith();
   await search(DB);
   const before = { ...calls };
   const { out } = await search(DB);
-  assert.equal(calls.theirstack, before.theirstack);
-  assert.equal(calls.linkedin, before.linkedin);
-  assert.equal(out.cached, true);
-  assert.equal(out.provider, 'cache');
-  assert.equal(out.jobs.length, 5);
-  // the allowance is still spent on what THIS licence received, but only billed rows
-  assert.equal(DB.state.postings, 6);
+  assert.equal(calls.theirstack, before.theirstack, 'TheirStack was served from cache');
+  assert.ok(calls.linkedin > before.linkedin, 'LinkedIn content is not stored, so it is asked again');
+  assert.equal(out.providers.theirstack.cached, true);
+  assert.equal(out.providers.linkedin.cached, false);
+  assert.equal(out.cached, false, 'not everything came from cache');
+  assert.equal(DB.state.postings, 6, 'the allowance is still spent on what THIS licence received, TheirStack rows only');
 });
 
-await test('each provider is cached under its own key', async () => {
+await test('nothing from LinkedIn is ever put in the cache', async () => {
   const store = makeCaches();
   upstream();
   await search(dbWith());
   const keys = [...store.keys()].filter((k) => k.includes('/search?q='));
-  assert.equal(keys.length, 2);
-  assert.ok(keys.some((k) => k.includes('&p=linkedin')));
-  assert.ok(keys.some((k) => !k.includes('&p=')), "TheirStack's key is the one it always was");
+  assert.equal(keys.length, 1, 'only the TheirStack answer');
+  assert.ok(keys.every((k) => !k.includes('&p=linkedin')));
 });
 
-await test('a partial LinkedIn scan is not cached, so the next search tries again', async () => {
-  const store = makeCaches();
-  const calls = upstream({ liPartial: true, li: 2 });
-  const DB = dbWith();
-  const { out } = await search(DB, { maxResults: 500 });
-  assert.ok(out.providers.linkedin?.partial ?? out.providers['linkedin']?.partial);
-  assert.ok(![...store.keys()].some((k) => k.includes('&p=linkedin')), 'a partial scan was cached');
-  const liBefore = calls.linkedin;
-  await search(DB, { maxResults: 500 });
-  assert.ok(calls.linkedin > liBefore, 'LinkedIn was asked again');
-});
 
 console.log("LinkedIn daily quota");
 
@@ -257,14 +244,13 @@ await test('a 429 after some rows were read keeps them, trips the breaker and is
   const DB = dbWith();
   const { out } = await search(DB, { maxResults: 500 });
   assert.ok(out.jobs.some((j) => j.provider === 'linkedin-joblibrary'));
-  assert.ok(![...store.keys()].some((k) => k.includes('&p=linkedin')), 'a partial scan was cached');
   assert.ok([...store.keys()].some((k) => k.includes('/throttle/linkedin')), 'the breaker was not set');
   const before = calls.linkedin;
   await search(DB, { maxResults: 500, titles: ['another'] });
   assert.equal(calls.linkedin, before);
 });
 
-await test('LinkedIn answers are kept for a day, TheirStack for six hours', async () => {
+await test('TheirStack answers are kept six hours', async () => {
   const headers = {};
   makeCaches();
   const inner = globalThis.caches.default;
@@ -272,10 +258,147 @@ await test('LinkedIn answers are kept for a day, TheirStack for six hours', asyn
     async put(req, res) { headers[req.url] = res.headers.get('cache-control'); return inner.put(req, res); } } };
   upstream();
   await search(dbWith());
-  const li = Object.entries(headers).find(([k]) => k.includes('&p=linkedin'));
-  const ts = Object.entries(headers).find(([k]) => k.includes('/search?q=') && !k.includes('&p='));
-  assert.equal(li[1], 'max-age=86400');
+  const ts = Object.entries(headers).find(([k]) => k.includes('/search?q='));
   assert.equal(ts[1], 'max-age=21600');
+});
+
+console.log('the LinkedIn page allowance and cursors');
+
+const rowsOf = (DB, sql) => DB.query(sql);
+const addLicence = (DB, key) => DB.sqlite.prepare(
+  "INSERT INTO licences (licence_key, tier, status, max_postings_per_day) VALUES (?, 'managed', 'active', 700)").run(key);
+const searchAs = async (DB, key, env = {}, body = {}) => {
+  const res = await worker.fetch(new Request('https://w.example/v1/search', {
+    method: 'POST', headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ titles: ['hotel manager'], countries: ['GB'], cities: ['London'], maxResults: 50, ...body }),
+  }), { DB, LINKEDIN_ACCESS_TOKEN: 'tok', ...env }, ctx);
+  await settle();
+  return { res, out: await res.json() };
+};
+
+await test('only the pages actually SPENT are kept: a short scan refunds the rest of its reservation', async () => {
+  makeCaches();
+  upstream({ li: 2 });                               // the feed ends after one page
+  const DB = dbWith();
+  await search(DB);
+  assert.equal(rowsOf(DB, 'SELECT pages FROM linkedin_usage')[0].pages, 1);
+  assert.equal(rowsOf(DB, 'SELECT pages FROM linkedin_usage_global')[0].pages, 1);
+});
+
+await test('a licence that has used its daily pages gets none, TheirStack still delivers, and LinkedIn is not asked', async () => {
+  makeCaches();
+  const calls = upstream({ ts: 3, li: 2 });
+  const DB = dbWith();
+  const env = { LINKEDIN_PAGES_PER_LICENCE_DAY: '1' };
+  const first = await searchAs(DB, 'L1', env);
+  assert.ok(first.out.jobs.some((j) => j.provider === 'linkedin-joblibrary'), 'the first search got its page');
+  const before = calls.linkedin;
+  const second = await searchAs(DB, 'L1', env, { titles: ['another title'] });
+  assert.equal(calls.linkedin, before, 'no request was made once the allowance was gone');
+  assert.equal(second.res.status, 200);
+  assert.ok(second.out.jobs.length > 0, 'TheirStack delivered');
+  assert.equal(second.out.degraded[0].code, 'allowance');
+  assert.match(second.out.degraded[0].error, /this licence/);
+});
+
+await test('one licence cannot spend the whole Worker ceiling: another is refused for it', async () => {
+  makeCaches();
+  upstream({ li: 2 });
+  const DB = dbWith();
+  addLicence(DB, 'L2');
+  const env = { LINKEDIN_PAGES_GLOBAL_DAY: '1' };
+  await searchAs(DB, 'L1', env);
+  const other = await searchAs(DB, 'L2', env);
+  assert.equal(other.out.degraded[0].code, 'allowance');
+  assert.match(other.out.degraded[0].error, /all licences/);
+});
+
+await test("one licence's LinkedIn pages are not charged to another's allowance", async () => {
+  makeCaches();
+  upstream({ li: 2 });
+  const DB = dbWith();
+  addLicence(DB, 'L2');
+  await searchAs(DB, 'L1');
+  await searchAs(DB, 'L2');
+  const byLicence = Object.fromEntries(rowsOf(DB, 'SELECT licence_key, pages FROM linkedin_usage').map((r) => [r.licence_key, r.pages]));
+  assert.deepEqual(byLicence, { L1: 1, L2: 1 });
+});
+
+await test('a complete scan stores a cursor: the newest posting read, per licence and keyword', async () => {
+  makeCaches();
+  upstream({ li: 2 });
+  const DB = dbWith();
+  await search(DB);
+  const rows = rowsOf(DB, 'SELECT licence_key, query_hash, keyword, newest_ms FROM linkedin_cursors');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].licence_key, 'L1');
+  assert.match(rows[0].query_hash, /^[0-9a-f]{32}$/);
+  assert.equal(rows[0].keyword, 'hotel manager');
+  assert.ok(rows[0].newest_ms > Date.now() - 2 * 86400000 && rows[0].newest_ms < Date.now(), 'a posting time, not the clock');
+});
+
+await test('an INCOMPLETE scan does not move the cursor, or the unread postings would be lost', async () => {
+  makeCaches();
+  upstream({ liPartial: true, li: 2 });
+  const DB = dbWith();
+  const { out } = await search(DB, { maxResults: 500 });
+  assert.ok(out.providers.linkedin.partial);
+  assert.equal(rowsOf(DB, 'SELECT COUNT(*) AS n FROM linkedin_cursors')[0].n, 0);
+});
+
+await test('a failed LinkedIn scan refunds the pages it did not spend', async () => {
+  makeCaches();
+  upstream({ liStatus: 401 });
+  const DB = dbWith();
+  await search(DB);
+  const used = rowsOf(DB, 'SELECT pages FROM linkedin_usage')[0]?.pages ?? 0;
+  assert.ok(used >= 1 && used <= 6, `${used} pages charged for one failed batch, not the full reservation`);
+});
+
+await test('a cursor is per licence: another licence starts from scratch', async () => {
+  makeCaches();
+  upstream({ li: 2 });
+  const DB = dbWith();
+  addLicence(DB, 'L2');
+  await searchAs(DB, 'L1');
+  const before = rowsOf(DB, 'SELECT licence_key FROM linkedin_cursors').map((r) => r.licence_key);
+  await searchAs(DB, 'L2');
+  const after = rowsOf(DB, 'SELECT licence_key FROM linkedin_cursors').map((r) => r.licence_key).sort();
+  assert.deepEqual(before, ['L1']);
+  assert.deepEqual(after, ['L1', 'L2']);
+});
+
+await test('no pages are reserved for a search that is refused before anything is asked', async () => {
+  makeCaches();
+  upstream();
+  const DB = dbWith();
+  await search(DB, { cities: ['Atlantis'] });
+  assert.equal(rowsOf(DB, 'SELECT COUNT(*) AS n FROM linkedin_usage')[0].n, 0);
+});
+
+await test('if the LinkedIn tables are missing (migration 015 not applied) the search still succeeds on TheirStack', async () => {
+  makeCaches();
+  const calls = upstream({ ts: 3, li: 2 });
+  const DB = dbWith();
+  DB.sqlite.exec('DROP TABLE linkedin_cursors; DROP TABLE linkedin_usage; DROP TABLE linkedin_usage_global;');
+  const real = console.error;
+  console.error = () => {};
+  let res, out;
+  try { ({ res, out } = await search(DB)); } finally { console.error = real; }
+  assert.equal(res.status, 200);
+  assert.equal(out.jobs.length, 3);
+  assert.equal(out.degraded[0].provider, 'linkedin');
+  assert.equal(out.degraded[0].code, 'allowance_unavailable');
+  assert.equal(calls.linkedin, 0, 'and LinkedIn was not asked without an allowance to charge');
+});
+
+await test('the stored cursor never holds a posting, only a hash, a keyword and a time', async () => {
+  makeCaches();
+  upstream({ li: 2 });
+  const DB = dbWith();
+  await search(DB);
+  const cols = rowsOf(DB, "SELECT name FROM pragma_table_info('linkedin_cursors')").map((r) => r.name).sort();
+  assert.deepEqual(cols, ['keyword', 'licence_key', 'newest_ms', 'query_hash', 'updated_at']);
 });
 
 console.log('the guards that predate this');

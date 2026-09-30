@@ -597,7 +597,9 @@ def test_a_posting_with_no_place_below_country_is_kept_and_marked():
 def test_posted_within_days_drops_old_postings():
     import time
     old = int((time.time() - 40 * 86400) * 1000)
-    r = _search([_el("Hotel Manager", ms=old), _el("Hotel Manager Two")],
+    # NEWEST FIRST, as the API returns them: the recent posting, then the old one.
+    # (This fixture used to put the old one first, an order the API never produces.)
+    r = _search([_el("Hotel Manager Two"), _el("Hotel Manager", ms=old)],
                 titles=["Hotel Manager"], posted_within_days=14)
     assert [j.title for j in r.jobs] == ["Hotel Manager Two"]
 
@@ -637,3 +639,39 @@ def test_a_429_is_the_daily_quota_not_a_generic_failure():
 def test_the_default_page_budget_is_a_small_slice_of_a_shared_daily_quota():
     from app.linkedin import job_library as jl
     assert jl.PAGE_BUDGET <= 12
+
+
+def _timed(title, days_ago):
+    import time
+    e = _el(title)
+    e["jobDetails"]["jobListTimeInMilliseconds"] = int((time.time() - days_ago * 86400) * 1000)
+    return e
+
+
+def test_the_scan_stops_at_the_window_because_results_are_newest_first():
+    """Every page past the window is quota spent on nothing."""
+    provider = LinkedInJobLibraryProvider("fake-token")
+    page1 = _mock_response([_timed("Hotel Manager A", 1), _timed("Hotel Manager B", 5)], total=500, has_next=True)
+    page2 = _mock_response([_timed("Hotel Manager C", 30)], total=500, has_next=True)
+    calls = []
+
+    def fake(params):
+        calls.append(params["start"])
+        return 200, (page1 if params["start"] == "0" else page2)
+
+    with patch.object(provider, "_call", side_effect=fake):
+        result = provider.search(SearchQuery(label="t", titles=["Hotel Manager"],
+                                             posted_within_days=14, max_results=100))
+    assert [j.title for j in result.jobs] == ["Hotel Manager A", "Hotel Manager B"]
+    assert calls == ["0", "24"], "the second page found a 30-day-old posting and ended the scan"
+
+
+def test_a_feed_that_is_not_newest_first_does_not_end_a_scan_early():
+    provider = LinkedInJobLibraryProvider("fake-token")
+    # page 1 ends at 5 days old; page 2 STARTS at 1 day old: out of order
+    page1 = _mock_response([_timed("Hotel Manager A", 5)], total=500, has_next=True)
+    page2 = _mock_response([_timed("Hotel Manager B", 1), _timed("Hotel Manager C", 40)], total=500, has_next=False)
+    with patch.object(provider, "_call", side_effect=[(200, page1), (200, page2)]):
+        result = provider.search(SearchQuery(label="t", titles=["Hotel Manager"],
+                                             posted_within_days=14, max_results=100))
+    assert "Hotel Manager B" in [j.title for j in result.jobs], "the cutoff was trusted on an unsorted feed"

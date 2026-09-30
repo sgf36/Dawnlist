@@ -38,7 +38,7 @@
  * text are ever written to a log line.
  */
 
-import { makeLinkedInAdapter } from './linkedin.js';
+import { makeLinkedInAdapter, keywordsFor, PAGE_BUDGET, MAX_PAGE_BUDGET } from './linkedin.js';
 import { newLicenceKey } from './paddle.js';
 import { handlePaddleWebhook } from './paddle.js';
 import { handleAdmin, handleRedeem } from './codes.js';
@@ -351,6 +351,7 @@ async function reserveAllowance(env, licence, day, asked) {
       const before = { refreshes: after.refreshes - 1, postings: after.postings - reserved };
       return {
         day, reserved, maxRefresh, maxPostings,
+        licenceKey: licence.licence_key,
         used: before,
         headroom: maxPostings - before.postings,
       };
@@ -746,6 +747,145 @@ async function handleSearch(request, env, ctx) {
   return json(delivered.body);
 }
 
+// ---------------------------------------------------------------------------
+// LinkedIn: a daily page allowance per licence, a ceiling on the whole Worker,
+// and a cursor per search so a scan reads only what is new
+// ---------------------------------------------------------------------------
+
+/**
+ * LinkedIn throttles its Job Library per application and member per UTC day,
+ * there is ONE token for every customer, and the number is unpublished (about
+ * 500 a day on the evidence of one afternoon's testing). So the Worker keeps
+ * its own books, under LinkedIn's limit, and it is OURS that refuses:
+ *   per licence  no single licence can spend what everybody else needs;
+ *   in total     a ceiling with headroom below LinkedIn's own.
+ * Both are plain vars (`LINKEDIN_PAGES_PER_LICENCE_DAY`, `LINKEDIN_PAGES_GLOBAL_DAY`)
+ * so they can be tuned once the real quota has been read in the Developer Portal.
+ */
+const LINKEDIN_PAGES_PER_LICENCE_DAY = 40;
+const LINKEDIN_PAGES_GLOBAL_DAY = 400;
+
+const intVar = (value, fallback) => {
+  const n = Number.parseInt(value, 10);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+};
+
+// Check and spend in ONE statement each, like RESERVE_SQL: the INSERT branch
+// carries its own guard because a first row of the day never reaches the
+// DO UPDATE ... WHERE.
+const LINKEDIN_LICENCE_SQL = `
+  INSERT INTO linkedin_usage (licence_key, day, pages)
+  SELECT ?1, ?2, ?3 WHERE ?3 <= ?4
+  ON CONFLICT(licence_key, day) DO UPDATE SET pages = linkedin_usage.pages + excluded.pages
+  WHERE linkedin_usage.pages + excluded.pages <= ?4
+  RETURNING pages`;
+const LINKEDIN_GLOBAL_SQL = `
+  INSERT INTO linkedin_usage_global (day, pages)
+  SELECT ?1, ?2 WHERE ?2 <= ?3
+  ON CONFLICT(day) DO UPDATE SET pages = linkedin_usage_global.pages + excluded.pages
+  WHERE linkedin_usage_global.pages + excluded.pages <= ?3
+  RETURNING pages`;
+
+/** Reserve up to `want` pages. Returns how many were granted, and why not more. */
+async function reserveLinkedInPages(env, licenceKey, day, want) {
+  const perLicence = intVar(env.LINKEDIN_PAGES_PER_LICENCE_DAY, LINKEDIN_PAGES_PER_LICENCE_DAY);
+  const total = intVar(env.LINKEDIN_PAGES_GLOBAL_DAY, LINKEDIN_PAGES_GLOBAL_DAY);
+  for (let attempt = 0; attempt < RESERVE_ATTEMPTS; attempt++) {
+    const [mine, everyone] = await Promise.all([
+      env.DB.prepare('SELECT pages FROM linkedin_usage WHERE licence_key = ?1 AND day = ?2')
+        .bind(licenceKey, day).first(),
+      env.DB.prepare('SELECT pages FROM linkedin_usage_global WHERE day = ?1').bind(day).first(),
+    ]);
+    const usedMine = mine?.pages ?? 0;
+    const usedAll = everyone?.pages ?? 0;
+    const grant = Math.min(want, perLicence - usedMine, total - usedAll);
+    if (grant <= 0) {
+      return { granted: 0, reason: perLicence - usedMine <= 0 ? 'this licence' : 'all licences' };
+    }
+    const globalRow = await env.DB.prepare(LINKEDIN_GLOBAL_SQL).bind(day, grant, total).first();
+    if (!globalRow) continue;                       // someone else spent it: re-read
+    const licenceRow = await env.DB.prepare(LINKEDIN_LICENCE_SQL)
+      .bind(licenceKey, day, grant, perLicence).first();
+    if (!licenceRow) {                              // lost the race on the second: undo the first
+      await refundLinkedInPages(env, null, day, grant);
+      continue;
+    }
+    return { granted: grant };
+  }
+  return { granted: 0, reason: 'contended' };
+}
+
+/** Give back unspent pages. `licenceKey: null` refunds only the global count. */
+async function refundLinkedInPages(env, licenceKey, day, pages) {
+  const n = Math.max(0, pages);
+  if (n === 0) return;
+  try {
+    await env.DB.prepare(
+      'UPDATE linkedin_usage_global SET pages = MAX(0, pages - ?2) WHERE day = ?1').bind(day, n).run();
+    if (licenceKey) {
+      await env.DB.prepare(
+        'UPDATE linkedin_usage SET pages = MAX(0, pages - ?3) WHERE licence_key = ?1 AND day = ?2')
+        .bind(licenceKey, day, n).run();
+    }
+  } catch (err) {
+    // A refund that fails errs towards the cap, as refundAllowance does.
+    console.error('linkedin refund failed', { pages: n, error: err?.name });
+  }
+}
+
+/** A stable hash of the search (minus its row limit), so a cursor belongs to one search. */
+async function queryHashFor(q) {
+  const norm = (a) => [...(a || [])].map((x) => String(x).trim().toLowerCase()).sort();
+  const canonical = JSON.stringify({
+    t: norm(q.titles), c: norm(q.countries), ci: norm(q.cities), co: norm(q.companies),
+    xt: norm(q.excludeTitleTerms), xc: norm(q.excludeCompanies), dk: norm(q.descriptionKeywords),
+    st: q.searchType || 'title', d: q.postedWithinDays || null,
+  });
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
+
+async function readLinkedInCursors(env, licenceKey, hash, keywords) {
+  const { results } = await env.DB.prepare(
+    'SELECT keyword, newest_ms FROM linkedin_cursors WHERE licence_key = ?1 AND query_hash = ?2'
+  ).bind(licenceKey, hash).all();
+  const byKeyword = Object.fromEntries((results || []).map((r) => [r.keyword, Number(r.newest_ms)]));
+  return Object.fromEntries(keywords.filter((k) => byKeyword[k]).map((k) => [k, byKeyword[k]]));
+}
+
+/** Only COMPLETE scans move a cursor, and only forward. */
+async function advanceLinkedInCursors(env, licenceKey, hash, states) {
+  const moves = (states || []).filter((k) => k.complete && k.newestMs > 0);
+  if (!moves.length) return;
+  try {
+    await env.DB.batch(moves.map((k) => env.DB.prepare(
+      `INSERT INTO linkedin_cursors (licence_key, query_hash, keyword, newest_ms) VALUES (?1, ?2, ?3, ?4)
+       ON CONFLICT(licence_key, query_hash, keyword) DO UPDATE SET
+         newest_ms = MAX(linkedin_cursors.newest_ms, excluded.newest_ms), updated_at = datetime('now')`
+    ).bind(licenceKey, hash, k.keyword, k.newestMs)));
+  } catch (err) {
+    console.error('linkedin cursor write failed', { error: err?.name });
+  }
+}
+
+/** Before a paged provider is asked: its allowance, its cursors. */
+async function planPagedSearch(env, caps, query) {
+  const keywords = keywordsFor(query);
+  if (!keywords.length && !query.companies?.length) return { needed: false, granted: 0, cursors: {} };
+  const want = Math.min(MAX_PAGE_BUDGET, Math.max(1, intVar(env.LINKEDIN_PAGE_BUDGET, PAGE_BUDGET)));
+  const grant = await reserveLinkedInPages(env, caps.licenceKey, caps.day, want);
+  if (grant.granted === 0) return { needed: true, granted: 0, reason: grant.reason, cursors: {} };
+  const hash = await queryHashFor(query);
+  const cursors = await readLinkedInCursors(env, caps.licenceKey, hash, keywords);
+  return { needed: true, granted: grant.granted, hash, cursors };
+}
+
+/** After it answered (or failed): refund what was not spent, move the cursors. */
+async function settlePagedSearch(env, caps, plan, used, states) {
+  await refundLinkedInPages(env, caps.licenceKey, caps.day, plan.granted - used);
+  if (states) await advanceLinkedInCursors(env, caps.licenceKey, plan.hash, states);
+}
+
 const throttleKey = (name) =>
   new Request(`https://cache.dawnlist.internal/throttle/${encodeURIComponent(name)}`);
 
@@ -794,6 +934,9 @@ async function deliverSearch(env, ctx, query, caps, enabled) {
   // 1. What is already cached, per provider.
   const slots = await Promise.all(providers.map(async (p) => {
     const key = cacheKeyFor(query, p.name);
+    // A provider that must not be cached (LinkedIn: per-licence cursor, and its
+    // content is not ours to store) is never looked up or kept.
+    if (p.adapter.cacheable === false) return { ...p, key, cached: null };
     const hit = await cache.match(key);
     return { ...p, key, cached: hit ? await hit.json() : null };
   }));
@@ -818,14 +961,39 @@ async function deliverSearch(env, ctx, query, caps, enabled) {
       return { ...slot, failed: { provider: slot.name, code: 'rate_limited',
         error: 'daily quota reached; not asked again until 00:00 UTC' } };
     }
+    // A provider with its own daily allowance: reserve pages and read the
+    // cursors BEFORE asking, and refund what a short scan did not spend.
+    let plan = null;
+    if (slot.adapter.pagedAllowance) {
+      try {
+        plan = await planPagedSearch(env, caps, query);
+      } catch (err) {
+        // Its bookkeeping (a table a migration has not created yet, a D1 error)
+        // must never take the search down with it: TheirStack still delivers.
+        console.error('linkedin allowance unavailable', { error: err?.name, message: err?.message });
+        return { ...slot, failed: { provider: slot.name, code: 'allowance_unavailable',
+          error: 'LinkedIn allowance could not be checked' } };
+      }
+      if (plan.needed && plan.granted === 0) {
+        return { ...slot, failed: { provider: slot.name, code: 'allowance',
+          error: `today's LinkedIn allowance is used (${plan.reason})` } };
+      }
+    }
     try {
       const budget = slot.adapter.billed
         ? caps.reserved
         : (query.maxResults ?? query.limit ?? MAX_PAGE);
-      const result = await slot.adapter.search(env, query, budget);
+      const result = await slot.adapter.search(env, query, budget,
+        plan ? { cursors: plan.cursors, pages: plan.granted } : {});
+      if (plan && plan.needed) {
+        await settlePagedSearch(env, caps, plan, result.pages ?? plan.granted, result.keywords);
+      }
       if (result.throttled) ctx.waitUntil(tripThrottle(cache, slot.name));
       return { ...slot, ...result, fromCache: false };
     } catch (err) {
+      if (plan && plan.needed) {
+        await settlePagedSearch(env, caps, plan, err.pagesUsed ?? plan.granted, null);
+      }
       if (err.code === 'rate_limited') ctx.waitUntil(tripThrottle(cache, slot.name));
       return { ...slot, failed: { provider: slot.name, error: err.message, code: err.code } };
     }
@@ -867,7 +1035,7 @@ async function deliverSearch(env, ctx, query, caps, enabled) {
 
   // 5. Cache each fresh answer under its own key.
   for (const o of answered) {
-    if (o.fromCache) continue;
+    if (o.fromCache || o.adapter.cacheable === false) continue;
     let cacheable;
     if (o.adapter.billed) {
       // Not when THIS licence's allowance cut the fetch short: the next user
@@ -911,6 +1079,10 @@ async function deliverSearch(env, ctx, query, caps, enabled) {
         scanned: o.scanned,
         exhausted: o.exhausted,
         partial: o.partial,
+        // For a provider with its own page allowance: what this search spent and
+        // where each title's scan got to, so "it read less than it might" shows.
+        pages: o.pages,
+        keywords: o.keywords,
       }])),
       // Reported even when empty, so the app can tell "nothing new" from
       // "the fetch failed" (spec 6.2).

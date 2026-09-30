@@ -14,7 +14,7 @@
 import assert from 'node:assert';
 import {
   makeLinkedInAdapter, keywordsFor, linkedinParams, encodeQuery, titleMatches,
-  PAGE_TIMEOUT_MS, PAGE_BUDGET, MAX_PAGE_BUDGET, CACHE_TTL_SECONDS, PAGE_SIZE, PARALLEL, MAX_KEYWORDS, PROVIDER,
+  PAGE_TIMEOUT_MS, PAGE_BUDGET, MAX_PAGE_BUDGET, PAGE_SIZE, PARALLEL, MAX_KEYWORDS, PROVIDER,
 } from '../src/linkedin.js';
 
 let passed = 0, failed = 0;
@@ -241,8 +241,8 @@ await test('stops fetching once enough postings are kept', async () => {
 
 console.log('the daily quota');
 
-await test('the default budget is small: it is a slice of one shared daily quota', async () => {
-  assert.ok(PAGE_BUDGET <= 12, `${PAGE_BUDGET} pages a search would exhaust a shared quota fast`);
+await test('the default budget is a per-search CEILING, bounded well under the daily quota', async () => {
+  assert.ok(PAGE_BUDGET <= 24, `${PAGE_BUDGET} pages a search is a large slice of a shared daily quota`);
   const f = fakeFetch(() => ok(page([el('Cashier')])));
   await run({ titles: ['Hotel Manager'] }, f);
   assert.ok(f.calls.length <= PAGE_BUDGET);
@@ -275,9 +275,9 @@ await test('a 429 after rows were read keeps them and says the quota ended the s
   assert.ok(r.jobs.length > 0 && r.partial && r.throttled === true);
 });
 
-await test("its answers are kept longer than the per-row-billed feed answers", () => {
-  assert.equal(adapter.cacheTtl, CACHE_TTL_SECONDS);
-  assert.ok(CACHE_TTL_SECONDS > 6 * 3600);
+await test('LinkedIn answers are never cached, and the adapter spends a paged allowance', () => {
+  assert.equal(adapter.cacheable, false, 'its content is not for us to cache (API Terms 4.1), and a cursor makes an answer per-licence');
+  assert.equal(adapter.pagedAllowance, true);
   assert.equal(adapter.quotaLimited, true);
   assert.equal(adapter.billed, false);
 });

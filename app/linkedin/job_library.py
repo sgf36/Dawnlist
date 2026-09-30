@@ -333,9 +333,14 @@ class LinkedInJobLibraryProvider(FeedProvider):
         matched: int | None = None
         exhausted = True
 
+        window_cutoff = (int((datetime.now(timezone.utc)
+                              - timedelta(days=query.posted_within_days)).timestamp() * 1000)
+                         if query.posted_within_days else 0)
         for keyword in (keywords or [None]):
             kw_pages = 0
             kw_done = False
+            last_listed = None
+            out_of_order = False
             while len(jobs) < wanted and kw_pages < budget:
                 status, payload = self._call(
                     _build_params(query, kw_pages * PAGE_SIZE, PAGE_SIZE, keyword))
@@ -370,6 +375,20 @@ class LinkedInJobLibraryProvider(FeedProvider):
                 for el in elements:
                     if el.get("isRestricted"):
                         continue
+                    # Results are NEWEST-FIRST (the reference's default sort,
+                    # confirmed on 480 rows in each of four real searches), so
+                    # the first posting older than the window ends this keyword:
+                    # every page past it is quota spent on nothing.
+                    listed = (el.get("jobDetails") or {}).get("jobListTimeInMilliseconds")
+                    if (window_cutoff and listed and listed < window_cutoff
+                            and not out_of_order):
+                        kw_done = True
+                        break
+                    if listed:
+                        if last_listed is not None and listed > last_listed + 60_000:
+                            # not newest-first after all: stop trusting the cutoff
+                            out_of_order = True
+                        last_listed = listed if last_listed is None else min(last_listed, listed)
                     job = _to_job(el)
                     if job is None or job.provider_job_id in seen:
                         continue
@@ -387,6 +406,8 @@ class LinkedInJobLibraryProvider(FeedProvider):
 
                 pages += 1
                 kw_pages += 1
+                if kw_done:
+                    break
                 # A page can come back a row short (23 of 24) with more still
                 # behind it, so a short page is NOT the end: the `next` link is.
                 if not elements or not paging.get("links"):

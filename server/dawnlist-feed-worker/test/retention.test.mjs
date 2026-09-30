@@ -78,7 +78,7 @@ await test('the purge logs how many rows went, and nothing that identifies them'
   console.log = (...a) => lines.push(JSON.stringify(a));
   let counts;
   try { counts = await purgeExpired({ DB: db }, NOW); } finally { console.log = real; }
-  assert.deepEqual(counts, { code_attempts: 2, webhook_events: 2 });
+  assert.deepEqual(counts, { code_attempts: 2, webhook_events: 2, linkedin_cursors: 0, linkedin_usage: 0 });
   assert.equal(lines.length, 1);
   assert.ok(!/hash-|ancient|day-91/.test(lines[0]), lines[0]);
 });
