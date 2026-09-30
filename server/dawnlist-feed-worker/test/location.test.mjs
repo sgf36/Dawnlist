@@ -149,6 +149,23 @@ await test('cities measured and rejected are NOT widened', async () => {
   }
 });
 
+await test('the search cache key carries a resolution version', async () => {
+  // A cached pre-fix London result must not be served after the fix. The key
+  // is opaque to callers, so this reads it the way the cache does.
+  makeCaches();
+  stubUpstream({ available: 1 });
+  const seen = [];
+  const store = globalThis.caches.default;
+  const put = store.put.bind(store);
+  store.put = async (r, res) => { seen.push(r.url); return put(r, res); };
+  await worker.fetch(req({ titles: ['a'], countries: ['GB'], cities: ['London'] }),
+    { DB: makeDB() }, ctx);
+  await settle();
+  const searchKey = seen.find((u) => u.includes('/search?q='));
+  assert.ok(searchKey, 'a search result was cached');
+  assert.equal(JSON.parse(decodeURIComponent(searchKey.split('q=')[1])).v, 2);
+});
+
 await test('London is not widened to the UK region when the search is not for the UK', async () => {
   makeCaches();
   const calls = stubUpstream({ available: 2 });

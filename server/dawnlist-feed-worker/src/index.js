@@ -837,6 +837,12 @@ async function resolvePlaces(env, names, countries) {
 
 function cacheKeyFor(query) {
   const canonical = JSON.stringify({
+    // BUMP THIS WHEN A CHANGE ALTERS WHAT THE SAME QUERY RETURNS. Results are
+    // kept for six hours and the key is the query, not how its places resolve,
+    // so without a version a fix to place resolution (v2: Greater London is
+    // searched with the London city id) would sit behind every result cached
+    // before the deploy, and the tests would pass while nobody saw the change.
+    v: 2,
     t: [...(query.titles || [])].sort(),
     c: [...(query.countries || [])].sort(),
     co: [...(query.companies || [])].sort(),
