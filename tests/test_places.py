@@ -42,3 +42,15 @@ def test_no_city_asked_matches_everything():
 def test_a_city_without_a_table_falls_back_to_a_substring():
     assert location_matches(["Manchester, England, United Kingdom"], ["Manchester"]) is True
     assert location_matches(["Leeds, England, United Kingdom"], ["Manchester"]) is False
+
+
+def test_the_shared_fixture_agrees_with_the_python_matcher():
+    """The Worker's places.js is tested on the SAME file (test/places.test.mjs),
+    so the two implementations cannot drift apart unnoticed."""
+    import json
+    from pathlib import Path
+    cases = json.loads((Path(__file__).parent / "fixtures" / "place_cases.json")
+                       .read_text(encoding="utf-8"))
+    assert len(cases) >= 30
+    for c in cases:
+        assert location_matches(c["locations"], c["cities"]) is c["expected"], c

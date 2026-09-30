@@ -186,6 +186,13 @@ def describe_complete(report: RunReport) -> str:
     which is true and useless: it was up to date with nothing."""
     if not report.searches:
         return tr("run.done")
+    text = _complete_body(report)
+    if report.degraded:
+        text += " " + tr("run.provider_note", provider=", ".join(report.degraded))
+    return text
+
+
+def _complete_body(report: RunReport) -> str:
     facts = dict(duration=format_duration(report.seconds), swept=report.swept,
                  searches=report.searches, empty=report.empty_searches,
                  assessed=report.assessed)
@@ -281,7 +288,8 @@ class RunBinding(QObject):
         elif report.searches:
             # A clean run is still told what it did. Styled as a problem only
             # when it came back thin, so a normal morning stays quiet.
-            self._window.set_run_status(text, problem=report.thin)
+            self._window.set_run_status(
+                text, problem=report.thin or bool(report.degraded))
             self._report_shown = text
         if self._notify is not None and not self._window.isVisible():
             # Hidden in the tray, the window cannot say it; the tray can.

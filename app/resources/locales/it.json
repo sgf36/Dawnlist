@@ -347,6 +347,7 @@
   "run.now": "Cerca ora",
   "run.now_tip": "Avvia la ricerca ora. Proposto quando l'orario di ricerca odierno è trascorso e non è ancora stata eseguita alcuna ricerca oggi.",
   "run.offer": "La ricerca odierna era prevista per le {time} e non è ancora avvenuta. Scegli Cerca ora per avviarla.",
+  "run.provider_note": "Non è stato possibile eseguire la ricerca su {provider}, pertanto le relative offerte non sono incluse in questa esecuzione. La ricerca è stata completata normalmente su tutti gli altri provider.",
   "run.partial": "La ricerca è terminata, ma non tutto è stato letto: {reason}",
   "run.running": "Ricerca in corso — potrebbe richiedere alcuni minuti.",
   "cadence.body": "La cadenza di follow-up controlla quando e come Dawnlist suggerisce di contattare ogni persona. Ogni piolo si attiva dopo l'intervallo sottostante, e l'opzione martedì/giovedì tiene i tuoi messaggi fuori dalle caselle del lunedì e dalla chiusura del venerdì.",

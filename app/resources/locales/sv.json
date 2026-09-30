@@ -347,6 +347,7 @@
   "run.now": "Kör nu",
   "run.now_tip": "Sök nu. Erbjuds när dagens körningstid har passerat och ingen körning ännu skett idag.",
   "run.offer": "Dagens körning skulle ske kl. {time} och har inte skett än. Välj Kör nu för att söka.",
+  "run.provider_note": "{provider} kunde inte sökas den här gången, så dess annonser saknas i denna körning. Allt övrigt söktes som vanligt.",
   "run.partial": "Körningen slutfördes, men inte allt lästes: {reason}",
   "run.running": "Söker — detta kan ta några minuter.",
   "cadence.body": "Uppföljningskadensen styr när och hur Dawnlist föreslår att du kontaktar varje person. Varje steg utlöses efter mellanrummet nedan, och alternativet tisdag/torsdag håller dina meddelanden borta från måndagens inkorgar och fredagens arbetsdagsslut.",

@@ -119,6 +119,11 @@ class FetchResult:
     #: feed filters for us, so a small `jobs` next to a large `scanned` reads
     #: as "the filters were strict", not "the search found little".
     scanned: int = 0
+    #: Providers the feed could NOT search this time although others answered,
+    #: as ``{"provider", "code", "error"}``. Searching two providers at once
+    #: means one can fail while the other delivers: that is a partial result and
+    #: must be said, not folded into "nothing new".
+    degraded: list = field(default_factory=list)
 
     @property
     def ok(self) -> bool:

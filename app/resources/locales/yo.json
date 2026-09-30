@@ -347,6 +347,7 @@
   "run.now": "Ṣàwárí Nísinsìnyí",
   "run.now_tip": "Ṣàwárí nísinsìnyí. A máa fi hàn nígbà tí àkókò ìsáwárí òní bá ti kọjá tí kò sì tíì sí ìsáwárí kankan lónìí.",
   "run.offer": "Ìsáwárí òní yẹ kí ó ti wáyé ní {time} ṣùgbọ́n kò tíì ṣẹlẹ̀. Yan Ṣàwárí Nísinsìnyí láti ṣàwárí.",
+  "run.provider_note": "A ò lè wá {provider} ní àkókò yìí, nítorí náà àwọn ìforúkọsílẹ̀ rẹ̀ kò sí nínú àwárí yìí. Gbogbo àwọn mìíràn ni a wá bí ó ti yẹ.",
   "run.partial": "Ìsáwárí náà parí, ṣùgbọ́n kì í ṣe ohun gbogbo ni a kà: {reason}",
   "run.running": "Ń ṣàwárí — èyí lè gba ìṣẹ́jú díẹ̀.",
   "cadence.body": "Ìṣàkóso àtẹ̀lé ń darí ìgbà àti bí Dawnlist ṣe ń dábàá kí o kàn sí ẹnìkọ̀ọ̀kan. Ìpele kọ̀ọ̀kan ń ṣiṣẹ́ lẹ́yìn àlàfo tó wà nísàlẹ̀, àṣàyàn Ọjọ́ Ìṣẹ́gun/Ọjọ́bọ̀ sì ń pa àwọn ìfiránṣẹ́ rẹ mọ́ kúrò nínú àpótí ìwọlé Ọjọ́ Àìkú àti ìparí iṣẹ́ Ọjọ́ Ẹtì.",

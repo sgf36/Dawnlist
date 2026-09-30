@@ -347,6 +347,7 @@
   "run.now": "Spustit nyní",
   "run.now_tip": "Vyhledat ihned. Nabízeno, pokud čas dnešního běhu už uplynul a dnes ještě žádný běh neproběhl.",
   "run.offer": "Dnešní běh měl proběhnout v {time}, ale ještě se neuskutečnil. Zvolte Spustit nyní pro vyhledávání.",
+  "run.provider_note": "Poskytovatele {provider} se tentokrát nepodařilo prohledat, proto v tomto běhu chybí jeho nabídky. Vše ostatní bylo prohledáno běžným způsobem.",
   "run.partial": "Běh byl dokončen, ale ne vše bylo načteno: {reason}",
   "run.running": "Probíhá vyhledávání — může to trvat několik minut.",
   "cadence.body": "Kadence následných kontaktů řídí, kdy a jak vám Dawnlist navrhne kontaktovat každou osobu. Každý stupeň se spustí po mezeře níže a omezení na úterý/čtvrtek udržuje vaše zprávy mimo pondělní schránky a páteční konec pracovní doby.",

@@ -13,6 +13,7 @@ API docs: https://www.linkedin.com/ad-library/api/jobs
 """
 from __future__ import annotations
 
+import html
 import json
 import re
 import urllib.error
@@ -27,14 +28,13 @@ from app.feed.models import Job
 PROVIDER_NAME = "linkedin-joblibrary"
 BASE = "https://api.linkedin.com/rest/jobLibrary"
 PAGE_SIZE = 24
-#: Raw pages scanned per search, however few postings survive the filters.
-#: The API is relevance-ranked over descriptions with no city, title or date
-#: filter, so a search like "Hotel Manager" matches ~45,000 UK postings of
-#: which a few dozen are hotel-manager jobs in London. Reading them all is
-#: ~1,900 requests; this bounds the cost (~0.7 s a page) and `exhausted` stays
-#: False when the budget, not the data, ended the scan — a truncated scan is
-#: never presented as "nothing more".
-PAGE_BUDGET = 30
+#: Raw pages scanned per search, shared across its titles. SMALL ON PURPOSE:
+#: LinkedIn throttles this resource per application and member per UTC day (HTTP
+#: 429, "Resource level throttle ... DAY limit"), the limit is unpublished and
+#: not customisable, and the Worker uses the SAME token, so a developer run
+#: spends the quota production searches need. Ordinary testing exhausted it on
+#: 2026-09-30. Developer Portal > the app > Analytics shows the real number.
+PAGE_BUDGET = 8
 
 _COUNTRY_URNS = {
     "gb": "urn:li:country:gb",
@@ -68,17 +68,31 @@ def _country_urn(code: str) -> str:
     return _COUNTRY_URNS.get(low, f"urn:li:country:{low}")
 
 
-def _build_params(q: SearchQuery, start: int, count: int) -> dict[str, str]:
+#: Titles searched per query. LinkedIn ANDs the words of one keyword string
+#: ("Product Manager Product Strategy" matched 357k postings, fewer than either
+#: title alone: 989k and 400k), so several titles are SEPARATE requests, and
+#: this bounds how many a single search can spend its page budget on.
+MAX_KEYWORDS = 3
+
+
+def _keywords_for(q: SearchQuery) -> list[str]:
+    """The keyword strings to send, one request set each."""
+    words = list(q.titles) or list(q.description_keywords)
+    return [w for w in words if w and w.strip()][:MAX_KEYWORDS]
+
+
+def _build_params(q: SearchQuery, start: int, count: int,
+                  keyword: str | None = None) -> dict[str, str]:
     params: dict[str, str] = {
         "q": "criteria",
         "start": str(start),
         "count": str(count),
     }
-    keywords = list(q.titles)
-    if q.description_keywords:
-        keywords.extend(q.description_keywords)
-    if keywords:
-        params["keyword"] = " ".join(keywords)
+    if keyword is None:
+        found = _keywords_for(q)
+        keyword = found[0] if found else None
+    if keyword:
+        params["keyword"] = keyword
     if q.companies:
         params["organization"] = q.companies[0]
     if q.countries:
@@ -138,10 +152,37 @@ def _city_verdict(locations: tuple[str, ...], cities: list[str]):
     return places.location_matches(locations, cities)
 
 
+def _mentions(text: str, phrases: list[str]) -> bool:
+    """Whole-word, case-insensitive: 'asset' must not match 'inasset'."""
+    return any(re.search(r"\b" + re.escape(p.strip()) + r"\b", text, re.I)
+               for p in phrases if p and p.strip())
+
+
+def _matches_search_type(job: Job, q: SearchQuery) -> bool:
+    """The three search types, as the TheirStack feed reads them.
+
+    title        every word of a wanted title is in the posting's TITLE; if the
+                 search also names description keywords, one must be in the text
+    description  a wanted title or keyword appears in the description
+    both         either of the above
+    LinkedIn matches the keyword against descriptions whatever the type, so
+    without this a search for "Hotel Manager" returned a supermarket assistant.
+    """
+    mode = q.search_type or "title"
+    text = html.unescape(job.description_text or "")
+    title_ok = (not q.titles) or _title_matches(job.title, q.titles)
+    keywords = list(q.description_keywords)
+    if mode == "description":
+        return _mentions(text, list(q.titles) + keywords) or not (q.titles or keywords)
+    if mode == "both":
+        return (bool(q.titles) and _title_matches(job.title, q.titles)) \
+            or _mentions(text, keywords) or not (q.titles or keywords)
+    return title_ok and (not keywords or _mentions(text, keywords))
+
+
 def _keep(job: Job, q: SearchQuery, today: date) -> bool:
-    if q.search_type in (None, "title") and q.titles:
-        if not _title_matches(job.title, q.titles):
-            return False
+    if not _matches_search_type(job, q):
+        return False
     if q.cities:
         verdict = _city_verdict(job.locations, q.cities)
         if verdict is False:
@@ -272,8 +313,8 @@ class LinkedInJobLibraryProvider(FeedProvider):
             return None, repr(e)
 
     def search(self, query: SearchQuery) -> FetchResult:
-        if not any(k in _build_params(query, 0, 1)
-                   for k in ("keyword", "organization")):
+        keywords = _keywords_for(query)
+        if not keywords and not query.companies:
             # The API answers a criteria search with no keyword or
             # organisation with a bare 500, which reads as an outage.
             return FetchResult(
@@ -281,58 +322,79 @@ class LinkedInJobLibraryProvider(FeedProvider):
                 error="LinkedIn jobLibrary needs a keyword or organisation")
 
         jobs: list[Job] = []
+        seen: set[str] = set()
         wanted = min(query.max_results, 240)
         today = datetime.now(timezone.utc).date()
         country_codes = [c.upper() for c in query.countries]
+        # Each keyword is its own search, so the page budget is shared.
+        budget = max(8, PAGE_BUDGET // max(1, len(keywords)))
         pages = 0
         scanned = 0
-        exhausted = False
         matched: int | None = None
+        exhausted = True
 
-        while len(jobs) < wanted and pages < PAGE_BUDGET:
-            status, payload = self._call(
-                _build_params(query, pages * PAGE_SIZE, PAGE_SIZE))
+        for keyword in (keywords or [None]):
+            kw_pages = 0
+            kw_done = False
+            while len(jobs) < wanted and kw_pages < budget:
+                status, payload = self._call(
+                    _build_params(query, kw_pages * PAGE_SIZE, PAGE_SIZE, keyword))
 
-            if status == 401:
-                return FetchResult(
-                    jobs=jobs, pages_fetched=pages,
-                    error="LinkedIn token expired or invalid — "
-                          "regenerate at developers.linkedin.com",
-                    refusal="token_expired")
+                if status == 401:
+                    return FetchResult(
+                        jobs=jobs, pages_fetched=pages,
+                        error="LinkedIn token expired or invalid — "
+                              "regenerate at developers.linkedin.com",
+                        refusal="token_expired")
 
-            if status != 200 or not isinstance(payload, dict):
-                return FetchResult(
-                    jobs=jobs, pages_fetched=pages,
-                    error=f"LinkedIn jobLibrary returned "
-                          f"{status}: {str(payload)[:200]}")
+                if status == 429:
+                    return FetchResult(
+                        jobs=jobs, pages_fetched=pages,
+                        error="LinkedIn's daily quota for this resource is "
+                              "reached; it resets at 00:00 UTC",
+                        refusal="rate_limited")
 
-            paging = payload.get("paging") or {}
-            if matched is None:
-                matched = paging.get("total")
+                if status != 200 or not isinstance(payload, dict):
+                    return FetchResult(
+                        jobs=jobs, pages_fetched=pages,
+                        error=f"LinkedIn jobLibrary returned "
+                              f"{status}: {str(payload)[:200]}")
 
-            elements = payload.get("elements") or []
-            for el in elements:
-                if el.get("isRestricted"):
-                    continue
-                job = _to_job(el)
-                if job is None:
-                    continue
-                scanned += 1
-                if country_codes:
-                    # The request was country-scoped, so say so: the run's
-                    # location gate only reads this tag and used to pass every
-                    # LinkedIn posting because none carried one.
-                    job.raw_criteria["country_codes"] = country_codes
-                if _keep(job, query, today):
-                    jobs.append(job)
-                    if len(jobs) >= wanted:
-                        break
+                paging = payload.get("paging") or {}
+                if kw_pages == 0:
+                    total = paging.get("total")
+                    if isinstance(total, int):
+                        matched = (matched or 0) + total
 
-            pages += 1
-            # A page can come back a row short (23 of 24) with more still
-            # behind it, so a short page is NOT the end: the `next` link is.
-            if not elements or not paging.get("links"):
-                exhausted = True
+                elements = payload.get("elements") or []
+                for el in elements:
+                    if el.get("isRestricted"):
+                        continue
+                    job = _to_job(el)
+                    if job is None or job.provider_job_id in seen:
+                        continue
+                    scanned += 1
+                    if country_codes:
+                        # The request was country-scoped, so say so: the run's
+                        # location gate only reads this tag and used to pass
+                        # every LinkedIn posting because none carried one.
+                        job.raw_criteria["country_codes"] = country_codes
+                    if _keep(job, query, today):
+                        seen.add(job.provider_job_id)
+                        jobs.append(job)
+                        if len(jobs) >= wanted:
+                            break
+
+                pages += 1
+                kw_pages += 1
+                # A page can come back a row short (23 of 24) with more still
+                # behind it, so a short page is NOT the end: the `next` link is.
+                if not elements or not paging.get("links"):
+                    kw_done = True
+                    break
+            if not kw_done:
+                exhausted = False       # the budget, not the data, ended it
+            if len(jobs) >= wanted:
                 break
 
         return FetchResult(

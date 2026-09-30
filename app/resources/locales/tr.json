@@ -347,6 +347,7 @@
   "run.now": "Şimdi çalıştır",
   "run.now_tip": "Şimdi ara. Bugünkü çalıştırma zamanı geçtiğinde ve bugün henüz hiçbir çalıştırma yapılmadığında sunulur.",
   "run.offer": "Bugünkü çalıştırma {time} için planlanmıştı ve henüz gerçekleşmedi. Aramak için Şimdi çalıştır'ı seçin.",
+  "run.provider_note": "{provider} bu seferlik aranamadı, bu nedenle bu çalıştırmada ilanları eksik. Diğer her şey normal şekilde arandı.",
   "run.partial": "Çalıştırma tamamlandı, ancak her şey okunmadı: {reason}",
   "run.running": "Aranıyor — bu birkaç dakika sürebilir.",
   "cadence.body": "Takip kadansı, Dawnlist'in her kişiyle ne zaman ve nasıl iletişime geçmenizi önerdiğini kontrol eder. Her basamak aşağıdaki aradan sonra devreye girer ve Salı/Perşembe seçeneği mesajlarınızı Pazartesi gelen kutularından ve Cuma iş bitiminden uzak tutar.",

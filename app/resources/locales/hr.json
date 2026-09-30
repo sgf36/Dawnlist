@@ -347,6 +347,7 @@
   "run.now": "Pokreni sada",
   "run.now_tip": "Pretraži odmah. Ponuđeno kada je vrijeme današnjeg pokretanja prošlo, a ništa se još nije pokrenulo danas.",
   "run.offer": "Današnje pokretanje trebalo se dogoditi u {time}, a još se nije dogodilo. Odaberite Pokreni sada za pretragu.",
+  "run.provider_note": "{provider} nije bilo moguće pretražiti ovaj put, pa njegovi oglasi nisu uključeni u ovo pokretanje. Sve ostalo je pretraženo na standardni način.",
   "run.partial": "Pokretanje je završeno, ali nije pročitano sve: {reason}",
   "run.running": "Pretraživanje u tijeku — ovo može potrajati nekoliko minuta.",
   "cadence.body": "Kadencija praćenja kontrolira kada i kako Dawnlist predlaže kontaktirati svaku osobu. Svaka prečka aktivira se nakon razmaka ispod, a opcija utorak/četvrtak drži vaše poruke izvan ponedjeljačkih sandučića i petkom na kraju radnog vremena.",

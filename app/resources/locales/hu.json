@@ -347,6 +347,7 @@
   "run.now": "Futtatás most",
   "run.now_tip": "Keresés indítása most. Akkor jelenik meg, ha a mai futtatási időpont már elmúlt, és még nem történt futtatás.",
   "run.offer": "A mai futtatásnak {time}-kor kellett volna megtörténnie, de ez még nem történt meg. Válassza a Futtatás most lehetőséget a kereséshez.",
+  "run.provider_note": "A(z) {provider} keresése ezúttal nem sikerült, így ennek a listái hiányoznak ebből a futtatásból. Minden más szolgáltató keresése rendben megtörtént.",
   "run.partial": "A futtatás befejeződött, de nem mindent olvasott be: {reason}",
   "run.running": "Keresés folyamatban — ez néhány percet igénybe vehet.",
   "cadence.body": "A követési ütemezés szabályozza, hogy a Dawnlist mikor és hogyan javasolja az egyes személyekkel való kapcsolatfelvételt. Minden fokozat az alatta lévő szünet után aktiválódik, és a kedd/csütörtök opció kihagyja a hétfői postaládákat és a pénteki munkaidő végét.",

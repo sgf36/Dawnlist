@@ -347,6 +347,7 @@
   "run.now": "Run sakmenika",
   "run.now_tip": "Nelusur sakmenika. Dipun tawakaken menawi wekdal run dinten menika sampun kliwat lan dereng wonten run.",
   "run.offer": "Run dinten menika dijadwalaken jam {time} lan dereng kelaksanan. Pilih Run sakmenika kanggo nelusur.",
+  "run.provider_note": "{provider} mboten saged dipunpadosi ing wekdal punika, satemah daftaripun boten kacetha ing proses menika. Sadaya sanesipun sampun dipunpadosi kanthi limrah.",
   "run.partial": "Run sampun rampung, nanging boten sadaya dipun waos: {reason}",
   "run.running": "Nelusur — menika saged mbetahaken sawetawis menit.",
   "cadence.body": "Irama tindak lanjut ngontrol kapan lan kepiye Dawnlist menehi saran kanggo ngubungi saben wong. Saben undhakan aktif sawise jeda ing ngisor, lan pilihan Selasa/Kamis njaga pesen sampeyan saka kotak mlebu Senin lan pungkasan kerja Jumat.",

@@ -347,6 +347,7 @@
   "run.now": "Hozir ishga tushirish",
   "run.now_tip": "Hozir qidiring. Bugungi ishga tushirish vaqti o‘tib ketgan va hali hech narsa ishga tushirilmagan bo‘lsa, taklif qilinadi.",
   "run.offer": "Bugungi ishga tushirish {time} da bo‘lishi kerak edi, ammo hali amalga oshmadi. Qidirish uchun Hozir ishga tushirish tugmasini tanlang.",
+  "run.provider_note": "{provider} bu safar qidirilmadi, shuning uchun uning e'lonlari bu ishda mavjud emas. Qolgan barchasi odatdagidek qidirildi.",
   "run.partial": "Ishga tushirish tugadi, ammo hammasi o‘qib chiqilmadi: {reason}",
   "run.running": "Qidirilmoqda — bu bir necha daqiqa davom etishi mumkin.",
   "cadence.body": "Kuzatish kadansi Dawnlist har bir shaxs bilan qachon va qanday bog'lanishni taklif qilishini boshqaradi. Har bir pog'ona quyidagi oraliqdan keyin ishga tushadi, seshanba/payshanba cheklovi esa xabarlaringizni dushanba pochta qutisidan va juma ish kunining oxiridan uzoq tutadi.",

@@ -347,6 +347,7 @@
   "run.now": "Ejecutar ahora",
   "run.now_tip": "Buscar ahora. Se ofrece cuando ha pasado la hora de ejecución de hoy y todavía no se ha ejecutado nada.",
   "run.offer": "La ejecución de hoy debía realizarse a las {time} y aún no ha ocurrido. Elige Ejecutar ahora para buscar.",
+  "run.provider_note": "No se pudo buscar en {provider} esta vez, por lo que sus anuncios no aparecen en esta ejecución. El resto se buscó con normalidad.",
   "run.partial": "La ejecución terminó, pero no se leyó todo: {reason}",
   "run.running": "Buscando… esto puede tardar unos minutos.",
   "cadence.body": "La cadencia de seguimiento controla cuándo y cómo Dawnlist sugiere contactar a cada persona. Cada peldaño se activa después del intervalo indicado, y la opción martes/jueves mantiene tus mensajes fuera de las bandejas del lunes y del cierre del viernes.",

@@ -347,6 +347,7 @@
   "run.now": "Chạy ngay",
   "run.now_tip": "Tìm kiếm ngay bây giờ. Xuất hiện khi giờ chạy hôm nay đã qua mà chưa có lượt chạy nào.",
   "run.offer": "Lượt chạy hôm nay đến hạn lúc {time} nhưng chưa diễn ra. Chọn Chạy ngay để tìm kiếm.",
+  "run.provider_note": "Không thể tìm kiếm trên {provider} vào lúc này, do đó các tin đăng từ nguồn này bị thiếu trong lần chạy này. Mọi nguồn khác đã được tìm kiếm bình thường.",
   "run.partial": "Lượt chạy đã hoàn tất, nhưng chưa đọc hết mọi thứ: {reason}",
   "run.running": "Đang tìm kiếm — việc này có thể mất vài phút.",
   "cadence.body": "Nhịp theo dõi kiểm soát khi nào và cách Dawnlist gợi ý bạn liên hệ mỗi người. Mỗi nấc kích hoạt sau khoảng cách bên dưới, và tùy chọn Thứ Ba/Thứ Năm giữ tin nhắn của bạn tránh xa hộp thư Thứ Hai và cuối giờ làm Thứ Sáu.",

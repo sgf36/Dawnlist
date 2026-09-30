@@ -347,6 +347,7 @@
   "run.now": "Jalankan sekarang",
   "run.now_tip": "Cari sekarang. Ditawarkan apabila waktu larian hari ini telah berlalu dan belum ada larian dijalankan hari ini.",
   "run.offer": "Larian hari ini dijadualkan pada {time} dan belum berlaku. Pilih Jalankan sekarang untuk mencari.",
+  "run.provider_note": "{provider} tidak dapat digeledah pada kali ini, jadi penyenaraiannya tiada dalam larian ini. Selebihnya digeledah seperti biasa.",
   "run.partial": "Larian telah selesai, tetapi tidak semua dibaca: {reason}",
   "run.running": "Sedang mencari — ini mungkin mengambil masa beberapa minit.",
   "cadence.body": "Irama susulan mengawal bila dan bagaimana Dawnlist mencadangkan anda menghubungi setiap orang. Setiap anak tangga aktif selepas jeda di bawah, dan pilihan Selasa/Khamis menjauhkan mesej anda daripada peti masuk Isnin dan akhir kerja Jumaat.",

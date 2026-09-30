@@ -347,6 +347,7 @@
   "run.now": "Lancer la recherche",
   "run.now_tip": "Rechercher maintenant. Proposé lorsque l'heure d'exécution du jour est passée et qu'aucune exécution n'a encore eu lieu aujourd'hui.",
   "run.offer": "L'exécution du jour était prévue à {time} et n'a pas encore eu lieu. Choisissez Lancer la recherche pour lancer la recherche.",
+  "run.provider_note": "{provider} n'a pas pu être interrogé cette fois-ci ; ses offres sont donc absentes de cette exécution. Tout le reste a été recherché normalement.",
   "run.partial": "L'exécution est terminée, mais tout n'a pas été lu : {reason}",
   "run.running": "Recherche en cours — cela peut prendre quelques minutes.",
   "cadence.body": "La cadence de suivi contrôle quand et comment Dawnlist suggère de contacter chaque personne. Chaque échelon se déclenche après l'intervalle ci-dessous, et l'option mardi/jeudi garde vos messages hors des boîtes de réception du lundi et de la fin de journée du vendredi.",

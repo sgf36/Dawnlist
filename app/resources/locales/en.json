@@ -347,6 +347,7 @@
   "run.now": "Run now",
   "run.now_tip": "Search now. Offered when today's run time has passed and nothing has run yet today.",
   "run.offer": "Today's run was due at {time} and has not happened yet. Choose Run now to search.",
+  "run.provider_note": "{provider} could not be searched this time, so its listings are missing from this run. Everything else was searched normally.",
   "run.partial": "The run finished, but not everything was read: {reason}",
   "run.running": "Searching — this can take a few minutes.",
   "cadence.body": "The follow-up cadence controls when and how Dawnlist suggests you contact each person. Each rung fires after the gap below, and Tuesday/Thursday-only keeps your messages out of Monday inboxes and Friday close-of-business.",

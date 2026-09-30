@@ -347,6 +347,7 @@
   "run.now": "Rulează acum",
   "run.now_tip": "Caută acum. Este oferit atunci când ora de rulare de azi a trecut și nu s-a rulat încă nimic astăzi.",
   "run.offer": "Rularea de azi trebuia să aibă loc la {time} și încă nu s-a întâmplat. Alege Rulează acum pentru a căuta.",
+  "run.provider_note": "{provider} nu a putut fi căutat de această dată, astfel încât anunțurile sale lipsesc din această rulare. Restul a fost căutat în mod normal.",
   "run.partial": "Rularea s-a încheiat, dar nu tot a fost citit: {reason}",
   "run.running": "Se caută — acest lucru poate dura câteva minute.",
   "cadence.body": "Cadența de urmărire controlează când și cum Dawnlist sugerează să contactați fiecare persoană. Fiecare treaptă se activează după intervalul de mai jos, iar opțiunea marți/joi păstrează mesajele departe de căsuțele de luni și de sfârșitul programului de vineri.",

@@ -47,6 +47,11 @@ class RunReport:
     empty_searches: int = 0
     assessed: int = 0
     seconds: float = 0.0
+    #: Display names of providers that could not be searched this run although
+    #: others answered. The detail (an expired token, an outage) is for the
+    #: diagnostics log: a customer cannot act on it, and can act on "some
+    #: sponsored listings are missing".
+    degraded: tuple = ()
 
     @property
     def thin(self) -> bool:
@@ -69,9 +74,15 @@ def _refreshes_stated(message: str | None) -> int:
     return int(found.group(1)) if found else DEFAULT_REFRESHES_PER_DAY
 
 
+#: What each provider is called to the person reading the banner.
+PROVIDER_LABELS = {"linkedin": "LinkedIn Jobs", "theirstack": "the main job feed"}
+
+
 def _measured(outcome) -> dict:
     fetched = list(outcome.fetch.values())
     return dict(
+        degraded=tuple(PROVIDER_LABELS.get(d["provider"], d["provider"])
+                       for d in getattr(outcome, "provider_degraded", [])),
         swept=sum(len(r.jobs) for r in fetched),
         searches=len(fetched),
         empty_searches=sum(1 for r in fetched if r.ok and not r.jobs),

@@ -158,3 +158,42 @@ def location_matches(locations, cities) -> bool | None:
             elif key in location.lower():
                 return True
     return False
+
+
+def _place_names(locations) -> set[str]:
+    out = set()
+    for loc in locations:
+        for token in _tokens(loc):
+            name = _clean(token)
+            if name and name not in _COUNTRY_ONLY and not _is_london_postcode(token):
+                out.add(name)
+    return out
+
+
+def _generic_london(locations) -> bool:
+    """Located as London itself ('London', 'London Area', 'Greater London'),
+    not as a particular district of it."""
+    return any(_clean(t) in ("london", "greater london", "central london",
+                             "city of london") or t.strip().lower().startswith("london,")
+               for loc in locations for t in _tokens(loc))
+
+
+def locations_compatible(a, b) -> bool:
+    """Could two postings' location strings describe the same place?
+
+    Used to decide whether two providers' copies of a role are the same role.
+    An unknown location is not evidence of a different one, so a posting with
+    no place below country level is compatible with anything. Otherwise the two
+    must share a named place, or one must be located as London itself while the
+    other is somewhere inside it (one provider writes "London Area", the other
+    "Canary Wharf"). Two DIFFERENT districts ("Edgware", "Wimbledon") are two
+    places, even though both are in London: a hotel group's Duty Manager at
+    each of them is two jobs.
+    """
+    if is_unresolved(a) or is_unresolved(b):
+        return True
+    if _place_names(a) & _place_names(b):
+        return True
+    in_a = any(in_metro(x, "london") for x in a)
+    in_b = any(in_metro(y, "london") for y in b)
+    return in_a and in_b and (_generic_london(a) or _generic_london(b))
