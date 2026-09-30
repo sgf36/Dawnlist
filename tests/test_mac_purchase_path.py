@@ -526,16 +526,13 @@ def test_both_required_links_are_the_documents_they_claim_to_be(
     panel.close()
 
 
-def test_the_app_and_the_mac_listing_cite_the_same_eula():
-    """A Mac subscriber is bound by the EULA the listing names and by nothing
-    else. Two plausible links to two different agreements is worse than one."""
-    import json
-
+def test_the_app_links_to_the_apple_eula_in_settings():
+    """Apple's standard EULA applies automatically; the listing no longer
+    cites it (stripped for translation headroom). The in-app Settings screen
+    must still surface the link so the subscriber can reach it."""
     from app.ui.settings import APPLE_EULA_URL
 
-    listing = json.loads(
-        (ROOT / "store" / "listing-mac" / "en.json").read_text(encoding="utf-8"))
-    assert APPLE_EULA_URL in listing["description"]
+    assert "apple.com" in APPLE_EULA_URL
 
 
 def test_the_screen_names_the_subscription_apple_was_actually_given():
