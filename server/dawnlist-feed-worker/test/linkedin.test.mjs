@@ -14,7 +14,7 @@
 import assert from 'node:assert';
 import {
   makeLinkedInAdapter, keywordsFor, linkedinParams, encodeQuery, titleMatches,
-  PAGE_BUDGET, MAX_PAGE_BUDGET, CACHE_TTL_SECONDS, PAGE_SIZE, PARALLEL, MAX_KEYWORDS, PROVIDER,
+  PAGE_TIMEOUT_MS, PAGE_BUDGET, MAX_PAGE_BUDGET, CACHE_TTL_SECONDS, PAGE_SIZE, PARALLEL, MAX_KEYWORDS, PROVIDER,
 } from '../src/linkedin.js';
 
 let passed = 0, failed = 0;
@@ -280,6 +280,22 @@ await test("its answers are kept longer than the per-row-billed feed answers", (
   assert.ok(CACHE_TTL_SECONDS > 6 * 3600);
   assert.equal(adapter.quotaLimited, true);
   assert.equal(adapter.billed, false);
+});
+
+console.log('a slow LinkedIn must not hold up the search');
+
+await test('every page request carries a timeout signal', async () => {
+  const signals = [];
+  const f = async (url, init) => { signals.push(init.signal); return ok(page([], { next: false })); };
+  await adapter.search(env, { titles: ['x'], maxResults: 5 }, 5, { fetch: f, today: TODAY });
+  assert.ok(signals.length > 0 && signals.every((s) => s instanceof AbortSignal));
+  assert.ok(PAGE_TIMEOUT_MS <= 15000);
+});
+
+await test('a timed-out page surfaces as a failed provider, not a hang', async () => {
+  const f = async () => { const e = new Error('timed out'); e.name = 'TimeoutError'; throw e; };
+  await assert.rejects(() => adapter.search(env, { titles: ['x'], maxResults: 5 }, 5, { fetch: f, today: TODAY }),
+    (e) => e.name === 'TimeoutError');
 });
 
 console.log('failures');

@@ -51,6 +51,10 @@ export const PARALLEL = 6;
 export const MAX_KEYWORDS = 3;
 const API = 'https://api.linkedin.com/rest/jobLibrary';
 export const PROVIDER = 'linkedin-joblibrary';
+/** One page may take this long. LinkedIn is searched ALONGSIDE TheirStack, so a
+ *  hung request here would otherwise hold up every search that also has a
+ *  perfectly good TheirStack answer; it becomes a degraded provider instead. */
+export const PAGE_TIMEOUT_MS = 10000;
 
 // --- request ---------------------------------------------------------------
 
@@ -210,6 +214,7 @@ export function makeLinkedInAdapter({ HttpError }) {
       const fetchPage = async (keyword, start) => {
         const url = `${API}?${encodeQuery(linkedinParams(q, start, PAGE_SIZE, keyword))}`;
         const res = await doFetch(url, {
+          signal: AbortSignal.timeout(PAGE_TIMEOUT_MS),
           headers: {
             Authorization: `Bearer ${token}`,
             'X-RestLi-Protocol-Version': '2.0.0',
