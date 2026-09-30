@@ -12,6 +12,7 @@ from app.linkedin.job_library import (
     PROVIDER_NAME,
     LinkedInJobLibraryProvider,
     _build_params,
+    _encode_query,
     _country_urn,
     _parse_salary,
     _to_job,
@@ -73,14 +74,27 @@ def test_build_params_no_titles_no_keyword():
     p = _build_params(q, 0, 24)
     assert "keyword" not in p
 
-def test_build_params_sort_descending():
-    q = SearchQuery(label="test", titles=["PM"])
+def test_build_params_sends_no_sort_params():
+    # The live API rejects sortBy.* with QUERY_PARAM_NOT_ALLOWED.
+    q = SearchQuery(label="t", titles=["PM"])
     p = _build_params(q, 0, 24)
-    assert p["sortBy.field"] == "LISTED_TIME"
-    assert p["sortBy.order"] == "DESCENDING"
+    assert not any(k.startswith("sortBy") for k in p)
 
 
-# -- salary parsing --------------------------------------------------------
+def test_encode_query_matches_the_form_the_live_api_accepts():
+    q = SearchQuery(label="t", titles=["Hotel Manager"], countries=["gb"])
+    qs = _encode_query(_build_params(q, 0, 24))
+    assert "countries=List(urn%3Ali%3Acountry%3Agb)" in qs
+    assert "keyword=Hotel%20Manager" in qs
+    assert "(value:" not in qs
+
+
+def test_search_without_keyword_is_refused_locally():
+    from app.linkedin.job_library import LinkedInJobLibraryProvider
+    res = LinkedInJobLibraryProvider("tok").search(
+        SearchQuery(label="t", countries=["gb"]))
+    assert not res.ok and res.pages_fetched == 0
+
 
 def test_parse_salary_range():
     assert _parse_salary({
@@ -437,3 +451,17 @@ def test_cross_provider_empty_input():
     result = cross_provider_merge([], conn)
     assert len(result.kept) == 0
     assert len(result.superseded) == 0
+
+
+def test_short_page_with_next_link_keeps_paging():
+    # Live API returned 23 of 24 rows on page one with more behind it; the
+    # adapter used to call that the end and under-fetched every search.
+    provider = LinkedInJobLibraryProvider("fake-token")
+    pages = [_mock_response([SAMPLE_ELEMENT] * 23, total=100, has_next=True),
+             _mock_response([SAMPLE_ELEMENT] * 24, total=100, has_next=False)]
+
+    with patch.object(provider, "_call", side_effect=[(200, p) for p in pages]):
+        result = provider.search(SearchQuery(
+            label="t", titles=["Hotel Manager"], max_results=47))
+
+    assert len(result.jobs) == 47

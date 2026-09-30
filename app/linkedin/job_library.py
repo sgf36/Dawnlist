@@ -63,8 +63,6 @@ def _build_params(q: SearchQuery, start: int, count: int) -> dict[str, str]:
         "q": "criteria",
         "start": str(start),
         "count": str(count),
-        "sortBy.field": "LISTED_TIME",
-        "sortBy.order": "DESCENDING",
     }
     keywords = list(q.titles)
     if q.description_keywords:
@@ -76,8 +74,21 @@ def _build_params(q: SearchQuery, start: int, count: int) -> dict[str, str]:
     if q.countries:
         urns = [_country_urn(c) for c in q.countries]
         urn_list = ",".join(urns)
-        params["countries"] = f"(value:List({urn_list}))"
+        # Rest.li list syntax. The colons inside each URN are percent-encoded
+        # by `_encode_query`; the older `(value:List(...))` form 400s live.
+        params["countries"] = f"List({urn_list})"
     return params
+
+
+def _encode_query(params: dict[str, str]) -> str:
+    """Encode each VALUE separately, keeping Rest.li's ``List(a,b)`` structure.
+
+    Encoding the joined string in one go left the colons of a URN raw, which
+    the API refuses (400 "Invalid query parameters") — and quoting twice would
+    mangle a keyword's own punctuation.
+    """
+    return "&".join(
+        f"{k}={urllib.request.quote(v, safe='(),')}" for k, v in params.items())
 
 
 def _parse_salary(sal: dict | None) -> str | None:
@@ -175,10 +186,7 @@ class LinkedInJobLibraryProvider(FeedProvider):
             "X-RestLi-Protocol-Version": "2.0.0",
             "Linkedin-Version": "202607",
         })
-        qs = urllib.request.quote(
-            "&".join(f"{k}={v}" for k, v in params.items()),
-            safe="&=():,")
-        req.full_url = f"{BASE}?{qs}"
+        req.full_url = f"{BASE}?{_encode_query(params)}"
 
         try:
             with urllib.request.urlopen(req, timeout=self._timeout) as r:
@@ -199,6 +207,14 @@ class LinkedInJobLibraryProvider(FeedProvider):
         pages = 0
         exhausted = False
         matched: int | None = None
+
+        if not any(k in _build_params(query, 0, 1)
+                   for k in ("keyword", "organization")):
+            # The API answers a criteria search with no keyword or
+            # organisation with a bare 500, which reads as an outage.
+            return FetchResult(
+                jobs=[], pages_fetched=0,
+                error="LinkedIn jobLibrary needs a keyword or organisation")
 
         while len(jobs) < max_results:
             remaining = max_results - len(jobs)
@@ -234,7 +250,10 @@ class LinkedInJobLibraryProvider(FeedProvider):
                     jobs.append(job)
 
             pages += 1
-            if len(elements) < count:
+            # A page can come back a row short (23 of 24) with more still
+            # behind it, so a short page is NOT the end: the `next` link is.
+            # Trusting the count silently under-fetched every search.
+            if not elements:
                 exhausted = True
                 break
             if not paging.get("links"):
