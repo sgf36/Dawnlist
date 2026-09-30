@@ -38,7 +38,6 @@
  * text are ever written to a log line.
  */
 
-import { makeLinkedInAdapter } from './linkedin.js';
 import { newLicenceKey } from './paddle.js';
 import { handlePaddleWebhook } from './paddle.js';
 import { handleAdmin, handleRedeem } from './codes.js';
@@ -499,8 +498,14 @@ const ADAPTERS = {
     },
   },
 
-  /** LinkedIn Job Library: see linkedin.js. Searched alongside TheirStack. */
-  linkedin: makeLinkedInAdapter({ HttpError }),
+  // THERE IS NO LINKEDIN ADAPTER, AND THERE MUST NOT BE ONE. A LinkedIn Job
+  // Library adapter lived here from 2026-09-29 to 2026-09-30. The Job Library
+  // belongs to LinkedIn's Ad Library product, a vetted Research Tools Program
+  // product whose programme terms restrict use to approved research and prohibit
+  // business or commercial use (https://www.linkedin.com/legal/l/research-api-terms,
+  // s3.1e). Dawnlist is a paid product. Do not add it back without LinkedIn's
+  // written permission. The `linkedin` row in `providers` is history and stays
+  // disabled: a row with no adapter here is skipped, never run.
 };
 
 function normaliseTheirStack(row) {
@@ -746,30 +751,10 @@ async function handleSearch(request, env, ctx) {
   return json(delivered.body);
 }
 
-const throttleKey = (name) =>
-  new Request(`https://cache.dawnlist.internal/throttle/${encodeURIComponent(name)}`);
-
-/** Seconds until 00:00 UTC, when LinkedIn's daily quota resets. */
-function secondsToUtcMidnight(now = new Date()) {
-  const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
-  return Math.max(60, Math.ceil((next - now.getTime()) / 1000));
-}
-
-/**
- * Remember that a provider's daily quota is spent, until it resets. Per data
- * centre (the Cache API is not global), which is enough: the aim is to stop
- * hammering a limit, not to account for it exactly.
- */
-async function tripThrottle(cache, name) {
-  await cache.put(throttleKey(name), new Response('1', {
-    headers: { 'cache-control': `max-age=${secondsToUtcMidnight()}` },
-  }));
-}
-
 /**
  * Every enabled provider is searched on every search, and the results are
  * combined. (It used to be FAILOVER: the first provider that answered won, so a
- * working TheirStack meant LinkedIn was never asked. The app then keeps the
+ * working provider meant no other was ever asked. The app then keeps the
  * richer copy of any role both returned; see `merge_same_run` in the app.)
  *
  * Providers differ in what a row COSTS, and everything that follows turns on it:
@@ -777,10 +762,12 @@ async function tripThrottle(cache, name) {
  *             licence's allowance, are cut to the reservation, have the user's
  *             held ids removed, and are not cached when the allowance or the
  *             held ids narrowed them.
- *   unbilled  (LinkedIn) free. Its rows never touch the allowance, are cached
- *             on their own, and one failing must not lose the other's rows.
- * Each provider is cached separately, so a free LinkedIn answer is never held
- * back by, or attributed to, a per-row-billed TheirStack one.
+ *   unbilled  a provider whose rows are free. Its rows never touch the allowance,
+ *             are cached on their own, and one failing must not lose the
+ *             other's rows.
+ * Each provider is cached separately. TheirStack is the only adapter today; the
+ * structure stays so that adding another provider does not mean rewriting how
+ * rows are metered, cached and refunded.
  */
 async function deliverSearch(env, ctx, query, caps, enabled) {
   const cache = caches.default;
@@ -812,21 +799,13 @@ async function deliverSearch(env, ctx, query, caps, enabled) {
     if (slot.cached) {
       return { ...slot, jobs: slot.cached.jobs, total: slot.cached.total, fromCache: true };
     }
-    // A provider with a daily quota that has been used up is not asked again
-    // until the day rolls over: every further call is refused and counts.
-    if (slot.adapter.quotaLimited && await cache.match(throttleKey(slot.name))) {
-      return { ...slot, failed: { provider: slot.name, code: 'rate_limited',
-        error: 'daily quota reached; not asked again until 00:00 UTC' } };
-    }
     try {
       const budget = slot.adapter.billed
         ? caps.reserved
         : (query.maxResults ?? query.limit ?? MAX_PAGE);
       const result = await slot.adapter.search(env, query, budget);
-      if (result.throttled) ctx.waitUntil(tripThrottle(cache, slot.name));
       return { ...slot, ...result, fromCache: false };
     } catch (err) {
-      if (err.code === 'rate_limited') ctx.waitUntil(tripThrottle(cache, slot.name));
       return { ...slot, failed: { provider: slot.name, error: err.message, code: err.code } };
     }
   }));
@@ -885,7 +864,7 @@ async function deliverSearch(env, ctx, query, caps, enabled) {
     if (cacheable) {
       ctx.waitUntil(cache.put(o.key, new Response(
         JSON.stringify({ jobs: o.jobs, total: o.total }), {
-          headers: { 'cache-control': `max-age=${o.adapter.cacheTtl ?? SEARCH_TTL_SECONDS}`,
+          headers: { 'cache-control': `max-age=${SEARCH_TTL_SECONDS}`,
                      'content-type': 'application/json' },
         })));
     }

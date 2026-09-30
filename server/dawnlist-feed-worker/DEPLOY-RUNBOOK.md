@@ -5,8 +5,8 @@ which the list in section 2 omits) is ALREADY APPLIED to the live `dawnlist`
 database.** This was checked against the live schema, not inferred from the
 deployment history: each migration's table, column or index was found, and the
 `providers` table holds `theirstack` (enabled, priority 10) and `linkedin`
-(enabled, priority 20). The Worker deployed on 2026-09-30 (`6d6ae972`) needs
-nothing applied first.
+(DISABLED, and with no adapter in the Worker: see "LinkedIn" below). Nothing
+needs applying before a deploy.
 
 Sections 1 and 2 therefore matter only for a **fresh or restored database**.
 Do not run them against the live one; `d1 migrations apply` and re-running
@@ -45,42 +45,42 @@ query.** A change that alters what the same query returns must bump `v` in
 after a deploy can also land on the previous version while it rolls out:
 re-run it before believing it.
 
-**Every enabled provider is searched on every search, and the results are
-combined** (before 2026-10 the Worker failed over: the first provider that
+**Every enabled provider is searched on every search and the results are
+combined** (before 2026-09-30 the Worker failed over: the first provider that
 answered won). TheirStack is billed per row and is the only provider whose rows
-draw on a licence's allowance; LinkedIn (`src/linkedin.js`) is free, cached
-under its own key, and never metered. One provider failing does not lose the
-other's rows: the response carries `degraded` and the app says so on the run
-banner. Switch a provider off with
-`UPDATE providers SET enabled = 0 WHERE name = 'linkedin';` (no deploy).
+draw on a licence's allowance; a free provider would be cached on its own key
+and never metered. One provider failing does not lose the other's rows: the
+response carries `degraded` and the app says so on the run banner. TheirStack is
+the ONLY adapter today, so all of this is structure waiting for a second
+provider; `ADAPTERS` in `src/index.js` is the list, and a `providers` row with no
+adapter there is skipped, never run.
 
-The app keeps ONE copy of a role both providers returned, the richer one
+The app keeps ONE copy of a role two providers both returned, the richer one
 (`merge_same_run` in `app/core/dedup.py`): same company/title key, a strict 1:1
 pair, compatible places and the same description text. A hotel group's several
-similar roles are all kept.
+similar roles are all kept. It is inert with one provider.
 
-**LinkedIn has a DAILY QUOTA, and it is the real limit on this provider.** The
-Job Library is throttled per application and per member per UTC day (HTTP 429,
-"Resource level throttle APPLICATION_AND_MEMBER DAY limit ... is reached"). The
-number is unpublished and not customisable: read it in the Developer Portal
-(your app, then Analytics, after making one call to the endpoint that day).
-Ordinary testing exhausted it on 2026-09-30, and there is ONE token for the whole
-Worker, so every customer's searches share one pool, and so do `app/linkedin`
-developer runs (same token: do not test against production quota).
-The Worker therefore: scans a small page budget (`PAGE_BUDGET` = 8, override with
-the plain var `LINKEDIN_PAGE_BUDGET`, capped at 48), keeps LinkedIn answers for 24
-hours (TheirStack's for 6), reports a 429 as `degraded` with code `rate_limited`
-instead of failing the search, and after a 429 stops asking until 00:00 UTC
-(a marker in the data centre's cache). If `rate_limited` shows up in the
-diagnostics log before the day is out, lower the budget or switch the provider
-off; raising it will only make that happen sooner.
+## LinkedIn: removed, and why it must not come back
 
-**LinkedIn's token expires about 60 days after it was generated and cannot be
-refreshed.** When it does, every search still succeeds on TheirStack alone and
-`degraded` names `linkedin` with code `token_expired`: watch for it in the
-diagnostics log (`fetch.search` events) rather than waiting for a customer.
-Regenerate at developers.linkedin.com and `wrangler secret put
-LINKEDIN_ACCESS_TOKEN` (value at the prompt only).
+A LinkedIn Job Library adapter ran in this Worker from 2026-09-29 and was
+disabled, its secret deleted and its code removed on 2026-09-30. The Job Library
+belongs to LinkedIn's Ad Library product, a **vetted Research Tools Program
+product**. Its programme terms
+(https://www.linkedin.com/legal/l/research-api-terms, which override the general
+API terms) restrict use to approved research, prohibit use for business or
+commercial purposes (3.1e), bar making the tool or data available to third
+parties and building applications on it (3.1a, b, j), and cap storage (4).
+Dawnlist is a paid product. LinkedIn also throttles the resource per application
+and member per UTC day (one token served every customer) and its API Terms forbid
+the workarounds (2.2, 3.1(20)). LinkedIn's approval of an access request does not
+count as the written permission an exception needs (LRT terms 7.5).
+
+- The `linkedin` row in `providers` (migration 014, `schema.sql`) is history. It
+  is `enabled = 0`. Leave it: deleting it needs a migration for no benefit.
+- There is no `LINKEDIN_ACCESS_TOKEN` secret and no adapter. Enabling the row does
+  nothing, because a provider with no adapter is skipped.
+- Do not add one back without LinkedIn's WRITTEN permission.
+- TheirStack already indexes LinkedIn-sourced postings under its own licence.
 
 Everything runs from this directory:
 
@@ -215,19 +215,8 @@ Unset, failed code attempts are keyed by a SHA-256 with a salt fixed in
 the source and a copy of the table can hash candidate addresses and match them.
 Setting this closes that.
 
-```
-npx wrangler secret put LINKEDIN_ACCESS_TOKEN
-```
-
-3-legged OAuth member token for the LinkedIn Job Library API (Ad Library
-product, App ID 266550517). Expires in ~60 days, cannot be refreshed after
-expiry — regenerate at developers.linkedin.com and re-push. The `linkedin`
-provider row is inserted disabled (migration 014); enable it in D1 to
-activate:
-
-```sql
-UPDATE providers SET enabled = 1 WHERE name = 'linkedin';
-```
+`LINKEDIN_ACCESS_TOKEN` is gone on purpose: there is no LinkedIn provider (see
+"LinkedIn: removed" above). If `wrangler secret list` shows it, delete it.
 
 ### Required for Mac purchases to work at all — four of them
 
