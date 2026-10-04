@@ -573,6 +573,7 @@
   "settings.subscribe_body": "Fluxul de joburi din Dawnlist este un abonament, achiziționat prin App Store. Tot ce există deja pe acest Mac rămâne accesibil oricum — panoul, rezumatul și tracker-ul nu au nevoie de abonament pentru a fi citite.",
   "settings.subscribe_button": "Abonează-te",
   "settings.subscribe_deferred": "Achiziția dvs. așteaptă aprobare — de exemplu din partea organizatorului familiei, prin Cere să cumperi. Dawnlist o va prelua automat odată ce este aprobată, deci nu este nevoie să cumpărați din nou.",
+  "settings.subscribe_storefront_hint": "Nu s-a efectuat nicio achiziție. Dacă Apple a indicat căSA contul dvs. nu este valid pentru acest magazin, țara ID-ului Apple nu corespunde regiunii App Store de pe acest Mac. Conectați-vă la App Store cu ID-ul Apple cu care doriți să cumpărați, apoi apăsați din nou Abonare.",
   "settings.subscribe_done": "Abonare finalizată. Fluxul va citi pentru tine începând cu următoarea rulare zilnică.",
   "settings.subscribe_heading": "Abonamentul tău",
   "settings.subscribe_length": "1 lună",

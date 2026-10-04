@@ -573,6 +573,7 @@
   "settings.subscribe_body": "Dawnlistov feed poslova dostupan je putem pretplate, kupljene preko App Storea. Sve ostalo na ovom Macu ostaje dostupno u oba slučaja — vaša ploča, vaš pregled i vaš tracker ne zahtijevaju pretplatu za čitanje.",
   "settings.subscribe_button": "Pretplati se",
   "settings.subscribe_deferred": "Vaša kupnja čeka odobrenje — na primjer od organizatora obitelji, putem značajke Zatraži kupnju. Dawnlist to sam preuzima čim bude odobreno, pa nije potrebno ponovno kupovati.",
+  "settings.subscribe_storefront_hint": "Kupnja nije izvršena. Ako je Apple naveo da vaš račun nije valjan za ovu trgovinu, država vašeg Apple ID-a ne odgovara regiji App Storea na ovom Macu. Prijavite se u App Store Apple ID-jem kojim želite kupovati, a zatim ponovno pritisnite Pretplati se.",
   "settings.subscribe_done": "Pretplata je aktivirana. Izvor oglasa čita se za vas počevši od sljedećeg dnevnog pokretanja.",
   "settings.subscribe_heading": "Vaša pretplata",
   "settings.subscribe_length": "1 mjesec",

@@ -573,6 +573,7 @@
   "settings.subscribe_body": "Nabídka pracovních míst Dawnlist je předplatné zakoupené přes App Store. Vše ostatní v této aplikaci zůstává dostupné i bez něj – vaše nástěnka, přehled i sledování nevyžadují předplatné.",
   "settings.subscribe_button": "Předplatit",
   "settings.subscribe_deferred": "Váš nákup čeká na schválení — například od rodinného organizátora v rámci funkce Žádost o nákup. Dawnlist jej sám převezme, jakmile bude schválen, takže není třeba nakupovat znovu.",
+  "settings.subscribe_storefront_hint": "Nákup nebyl proveden. Pokud Apple uvedl, že váš účet není pro tento obchod platný, země vašeho Apple ID se neshoduje s regionem App Store na tomto Macu. Přihlaste se do App Store s Apple ID, kterým chcete nakupovat, a poté znovu stiskněte Předplatit.",
   "settings.subscribe_done": "Předplatné aktivováno. Od dalšího denního běhu bude zdroj nabídek pracovat pro vás.",
   "settings.subscribe_heading": "Vaše předplatné",
   "settings.subscribe_length": "1 měsíc",

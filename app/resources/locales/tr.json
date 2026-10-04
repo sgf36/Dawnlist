@@ -573,6 +573,7 @@
   "settings.subscribe_body": "Dawnlist'in iş akışı, App Store üzerinden satın alınan bir abonelik hizmetidir. Bu Mac'te halihazırda bulunan her şey abonelikten bağımsız olarak kullanılabilir; panonuzun, özetinizin ve takipçinizin okunması için aboneliğe gerek yoktur.",
   "settings.subscribe_button": "Abone Ol",
   "settings.subscribe_deferred": "Satın alımınız onay bekliyor — örneğin aile organizatöründen, Satın Alma İzni kapsamında. Onaylandığında Dawnlist bunu kendiliğinden alır, bu nedenle tekrar satın almanıza gerek yoktur.",
+  "settings.subscribe_storefront_hint": "Hiçbir satın alma yapılmadı. Apple hesabınızın bu mağaza için geçerli olmadığını bildirdiyse, Apple Kimliğinizin ülkesi bu Mac'in App Store bölgesiyle eşleşmiyor. Satın almak istediğiniz Apple Kimliğiyle App Store'da oturum açın, ardından Abone Ol'a yeniden basın.",
   "settings.subscribe_done": "Abonelik tamamlandı. Besleme, bir sonraki günlük çalıştırmadan itibaren sizin adınıza okunacak.",
   "settings.subscribe_heading": "Aboneliğiniz",
   "settings.subscribe_length": "1 ay",

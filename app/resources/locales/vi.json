@@ -573,6 +573,7 @@
   "settings.subscribe_body": "Nguồn việc làm của Dawnlist là một gói đăng ký, được mua qua App Store. Mọi thứ đã có sẵn trên Mac này vẫn hoạt động bình thường dù có đăng ký hay không — bảng, bản tin và trình theo dõi của bạn không cần đăng ký để đọc.",
   "settings.subscribe_button": "Đăng Ký",
   "settings.subscribe_deferred": "Giao dịch mua của bạn đang chờ phê duyệt — ví dụ từ người quản lý gia đình, thông qua Yêu cầu mua. Dawnlist sẽ tự động nhận diện khi được phê duyệt, nên không cần mua lại.",
+  "settings.subscribe_storefront_hint": "Chưa có giao dịch mua nào được thực hiện. Nếu Apple báo tài khoản của bạn không hợp lệ cho cửa hàng này, quốc gia của ID Apple không khớp với khu vực App Store trên máy Mac này. Hãy đăng nhập App Store bằng ID Apple bạn muốn dùng để mua, rồi nhấn Đăng ký lại.",
   "settings.subscribe_done": "Đã đăng ký. Nguồn dữ liệu sẽ đọc thay bạn kể từ lượt chạy hằng ngày tiếp theo.",
   "settings.subscribe_heading": "Gói đăng ký của bạn",
   "settings.subscribe_length": "1 tháng",

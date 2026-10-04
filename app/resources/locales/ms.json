@@ -573,6 +573,7 @@
   "settings.subscribe_body": "Suapan kerja Dawnlist adalah langganan, dibeli melalui App Store. Semua yang sudah ada pada Mac ini kekal terbuka walau apa pun — papan, ringkasan dan penjejak anda tidak memerlukan langganan untuk dibaca.",
   "settings.subscribe_button": "Langgan",
   "settings.subscribe_deferred": "Pembelian anda sedang menunggu kelulusan — contohnya daripada penganjur keluarga, di bawah Ask to Buy. Dawnlist akan mengesannya secara automatik sebaik sahaja diluluskan, jadi tidak perlu membeli semula.",
+  "settings.subscribe_storefront_hint": "Tiada pembelian dibuat. Jika Apple menyatakan akaun anda tidak sah untuk kedai ini, negara ID Apple anda tidak sepadan dengan rantau App Store pada Mac ini. Log masuk ke App Store dengan ID Apple yang anda mahu gunakan untuk membeli, kemudian tekan Langgan sekali lagi.",
   "settings.subscribe_done": "Dilanggan. Suapan akan dibaca untuk anda bermula daripada larian harian seterusnya.",
   "settings.subscribe_heading": "Langganan Anda",
   "settings.subscribe_length": "1 bulan",

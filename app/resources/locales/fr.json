@@ -573,6 +573,7 @@
   "settings.subscribe_body": "Le flux d'offres de Dawnlist est un abonnement, souscrit via l'App Store. Tout ce qui est déjà sur ce Mac reste accessible dans tous les cas : votre tableau, votre brief et votre tracker ne nécessitent pas d'abonnement pour être consultés.",
   "settings.subscribe_button": "S'abonner",
   "settings.subscribe_deferred": "Votre achat est en attente d'approbation — par exemple de la part de l'organisateur familial, via Demander à acheter. Dawnlist le prendra en compte automatiquement une fois approuvé, il n'est donc pas nécessaire d'acheter à nouveau.",
+  "settings.subscribe_storefront_hint": "Aucun achat n'a été effectué. Si Apple a indiqué que votre compte n'est pas valide pour cette boutique, le pays de votre identifiant Apple ne correspond pas à la région de l'App Store de ce Mac. Connectez-vous à l'App Store avec l'identifiant Apple avec lequel vous souhaitez acheter, puis appuyez de nouveau sur S'abonner.",
   "settings.subscribe_done": "Abonnement effectué. Le flux effectue les recherches pour vous dès la prochaine exécution quotidienne.",
   "settings.subscribe_heading": "Votre abonnement",
   "settings.subscribe_length": "1 mois",

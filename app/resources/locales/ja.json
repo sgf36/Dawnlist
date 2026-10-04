@@ -573,6 +573,7 @@
   "settings.subscribe_body": "Dawnlistの求人フィードはApp Storeを通じて購入するサブスクリプションです。このMacで既にご利用のものはどちらの場合でもそのままお使いいただけます。ボード、ブリーフ、トラッカーは購読しなくても閲覧できます。",
   "settings.subscribe_button": "登録する",
   "settings.subscribe_deferred": "ご購入は承認待ちです。たとえば「承認と購入のリクエスト」機能により、ファミリー共有の管理者の承認を待っている状態です。承認されるとDawnlistが自動的に反映するため、再度購入する必要はありません。",
+  "settings.subscribe_storefront_hint": "購入は行われていません。Appleからこのストアでは使用できないアカウントだと表示された場合は、Apple IDの国とこのMacのApp Storeの地域が一致していません。購入に使うApple IDでApp Storeにサインインしてから、もう一度「登録」を押してください。",
   "settings.subscribe_done": "登録が完了しました。次回のデイリー実行から、フィードがあなたに代わって求人情報を読み取ります。",
   "settings.subscribe_heading": "ご利用中のサブスクリプション",
   "settings.subscribe_length": "1か月",

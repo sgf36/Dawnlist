@@ -573,6 +573,7 @@
   "settings.subscribe_body": "Dawnlist's job feed is a subscription, bought through the App Store. Everything already on this Mac stays open either way — your board, your brief and your tracker do not need a subscription to read.",
   "settings.subscribe_button": "Subscribe",
   "settings.subscribe_deferred": "Your purchase is waiting for approval — for example from the family organiser, under Ask to Buy. Dawnlist picks it up by itself once it is approved, so there is no need to buy again.",
+  "settings.subscribe_storefront_hint": "No purchase was made. If Apple said your account is not valid for this store, your Apple ID's country and this Mac's App Store region do not match. Sign in to the App Store with the Apple ID you want to buy with, then press Subscribe again.",
   "settings.subscribe_done": "Subscribed. The feed reads for you from the next daily run.",
   "settings.subscribe_heading": "Your subscription",
   "settings.subscribe_length": "1 month",

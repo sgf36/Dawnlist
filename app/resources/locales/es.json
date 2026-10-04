@@ -573,6 +573,7 @@
   "settings.subscribe_body": "El feed de empleo de Dawnlist es una suscripción que se compra a través de la App Store. Todo lo demás en este Mac sigue disponible de todas formas: tu tablero, tu resumen y tu seguimiento no necesitan una suscripción para leerse.",
   "settings.subscribe_button": "Suscribirse",
   "settings.subscribe_deferred": "Su compra está a la espera de aprobación, por ejemplo del organizador familiar, mediante Solicitar compra. Dawnlist la detectará por sí sola en cuanto se apruebe, así que no es necesario comprar de nuevo.",
+  "settings.subscribe_storefront_hint": "No se realizó ninguna compra. Si Apple indicó que tu cuenta no es válida para esta tienda, el país de tu ID de Apple no coincide con la región de la App Store de este Mac. Inicia sesión en la App Store con el ID de Apple con el que quieres comprar y vuelve a pulsar Suscribirse.",
   "settings.subscribe_done": "Suscripción realizada. El feed buscará por ti a partir de la próxima ejecución diaria.",
   "settings.subscribe_heading": "Tu suscripción",
   "settings.subscribe_length": "1 mes",

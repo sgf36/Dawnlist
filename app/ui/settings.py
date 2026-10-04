@@ -2000,7 +2000,13 @@ class SubscribePanel(QWidget):
         if result.outcome is Outcome.CANCELLED:
             # Not a failure, and it must not read as one. The person changed
             # their mind, which is a normal thing to do in a payment sheet.
-            self.result.setText("")
+            # But it is also what leaves the screen after Apple's "Account Not
+            # In This Store" sheet is dismissed (a TestFlight tester, 2026-10-04),
+            # which names a mismatch between the Apple ID's country and the
+            # Mac's App Store region and then gives the person nothing to act
+            # on. The hint is worded as "if", so a plain change of mind is not
+            # told it did anything wrong.
+            self.result.setText(tr("settings.subscribe_storefront_hint"))
             return
         if result.outcome is Outcome.IN_PROGRESS:
             # A second press while Apple's queue still holds the first. Adding
@@ -2013,7 +2019,9 @@ class SubscribePanel(QWidget):
         if result.outcome is Outcome.DEFERRED:
             self.result.setText(tr("settings.subscribe_deferred"))
             return
-        self.result.setText(result.detail or tr("settings.subscribe_unavailable"))
+        self.result.setText(
+            (result.detail or tr("settings.subscribe_unavailable"))
+            + "\n\n" + tr("settings.subscribe_storefront_hint"))
 
     #: How long to wait before saying something, in milliseconds. Not a
     #: cancel and not a failure — a purchase waits on a human and may take as

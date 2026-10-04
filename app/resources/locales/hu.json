@@ -573,6 +573,7 @@
   "settings.subscribe_body": "A Dawnlist állásajánlat-listája előfizetés, amelyet az App Store-on keresztül vásárolhat meg. Minden más, ami már ezen a Macen elérhető, továbbra is nyitva marad – a táblája, az összefoglalója és a nyomkövetője olvasásához nincs szükség előfizetésre.",
   "settings.subscribe_button": "Előfizetés",
   "settings.subscribe_deferred": "A vásárlása jóváhagyásra vár — például a családszervezőtől, a Vásárlási engedélykérés funkción keresztül. A Dawnlist automatikusan érzékeli, amint jóváhagyásra kerül, így nincs szükség újbóli vásárlásra.",
+  "settings.subscribe_storefront_hint": "Nem történt vásárlás. Ha az Apple azt jelezte, hogy a fiókja nem érvényes ebben az áruházban, az Apple-azonosítója országa nem egyezik ennek a Macnek az App Store-régiójával. Jelentkezzen be az App Store-ba azzal az Apple-azonosítóval, amellyel vásárolni szeretne, majd nyomja meg újra az Előfizetés gombot.",
   "settings.subscribe_done": "Előfizetve. A hírcsatornát a következő napi futtatástól kezdve az Ön nevében olvassuk.",
   "settings.subscribe_heading": "Az Ön előfizetése",
   "settings.subscribe_length": "1 hónap",

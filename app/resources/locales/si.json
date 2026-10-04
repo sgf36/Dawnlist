@@ -573,6 +573,7 @@
   "settings.subscribe_body": "Dawnlist හි රැකියා ෆීඩ් එක යනු App Store හරහා මිලදී ගන්නා subscription එකකි. මෙම Mac එකේ දැනටමත් ඇති සියල්ල දායකත්වයකින් තොරවම විවෘතව පවතී — ඔබේ පුවරුව, ඔබේ සාරාංශය සහ ඔබේ ට්‍රැකරය කියවීමට දායකත්වයක් අවශ්‍ය නොවේ.",
   "settings.subscribe_button": "දායක වන්න",
   "settings.subscribe_deferred": "ඔබගේ මිලදී ගැනීම අනුමැතිය සඳහා රැඳී සිටී — උදාහරණයක් ලෙස, Ask to Buy යටතේ පවුලේ සංවිධායකයාගෙන්. එය අනුමත වූ පසු Dawnlist එය තමන්ම ලබා ගනී, එබැවින් නැවත මිලදී ගැනීමට අවශ්‍ය නොවේ.",
+  "settings.subscribe_storefront_hint": "මිලදී ගැනීමක් සිදු නොවීය. ඔබගේ ගිණුම මෙම ගබඩාවට වලංගු නොවන බව Apple පැවසුවේ නම්, ඔබගේ Apple ID හි රට සහ මෙම Mac හි App Store කලාපය නොගැළපේ. මිලදී ගැනීමට අවශ්‍ය Apple ID එකෙන් App Store වෙත පිවිසී, නැවත දායක වන්න ඔබන්න.",
   "settings.subscribe_done": "දායක විය. ඊළඟ දෛනික ධාවනයේ සිට ෆීඩ් එක ඔබ වෙනුවෙන් කියවනු ලැබේ.",
   "settings.subscribe_heading": "ඔබේ දායකත්වය",
   "settings.subscribe_length": "මාස 1",

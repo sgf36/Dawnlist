@@ -573,6 +573,7 @@
   "settings.subscribe_body": "Feed lowongan kerja Dawnlist adalah langganan yang dibeli melalui App Store. Semua yang sudah ada di Mac ini tetap terbuka: board, ringkasan, dan pelacak Anda tidak memerlukan langganan untuk dibaca.",
   "settings.subscribe_button": "Berlangganan",
   "settings.subscribe_deferred": "Pembelian Anda sedang menunggu persetujuan — misalnya dari pengatur keluarga, melalui Minta untuk Membeli. Dawnlist akan mendeteksinya secara otomatis setelah disetujui, jadi tidak perlu membeli lagi.",
+  "settings.subscribe_storefront_hint": "Tidak ada pembelian yang dilakukan. Jika Apple menyatakan akun Anda tidak valid untuk toko ini, negara ID Apple Anda tidak cocok dengan wilayah App Store di Mac ini. Masuk ke App Store dengan ID Apple yang ingin Anda gunakan untuk membeli, lalu tekan Berlangganan lagi.",
   "settings.subscribe_done": "Berlangganan berhasil. Feed akan dibaca untuk Anda mulai dari run harian berikutnya.",
   "settings.subscribe_heading": "Langganan Anda",
   "settings.subscribe_length": "1 bulan",
