@@ -22,7 +22,6 @@
     "Utiliza a sua própria chave da Anthropic — é você quem a detém e vê a utilização"
   ],
   "short_description": "O Dawnlist lê os feeds de emprego todas as manhãs, avalia cada oferta face a um perfil construído consigo a partir dos seus próprios currículos, e entrega-lhe uma lista ordenada com as razões indicadas. As rejeições permanecem visíveis. Redige os seus acompanhamentos e nunca os envia. Funciona com a sua própria chave API da Anthropic.",
-  "release_notes": "Construa consultas de pesquisa booleanas com o gerador de consultas do LinkedIn — combine palavras-chave, cargos e exclusões numa única expressão e cole-a diretamente no LinkedIn.\n\nImporte uma oferta de emprego a partir do seu URL do LinkedIn. Cole o link e o Dawnlist adiciona-o ao seu rastreador com o título, a empresa e a descrição preenchidos.\n\nMais fontes de emprego nos bastidores. O Dawnlist agora recolhe de vários feeds e mantém a versão mais completa quando a mesma oferta aparece duas vezes.\n\nImporte e exporte as suas pesquisas como uma folha de cálculo, para poder construir um conjunto num ficheiro CSV e carregá-las todas de uma vez, em vez de escrever cada uma.\n\nExporte os seus critérios de adequação como um documento formatado, edite-o fora da aplicação e reimporte-o — útil quando outra pessoa o está a ajudar a definir o que procura.\n\nTeste a sua ligação a partir das Definições sem esperar pela execução matinal. Um botão verifica a sua chave API e o acesso ao feed e diz-lhe imediatamente se está tudo a funcionar.\n\nAs pesquisas agora podem corresponder ao título da oferta, à descrição ou a ambos, e pode adicionar palavras-chave de descrição para restringir os resultados.",
   "screenshot_captions": [
     "A sua lista, com as razões — e as rejeições ainda visíveis",
     "Quando uma regra vai longe demais, ela avisa-o",
@@ -40,5 +39,6 @@
     "alertas de emprego",
     "rastreador de candidaturas",
     "procura de trabalho"
-  ]
+  ],
+  "release_notes": "Depois de cada pesquisa, o Dawnlist indica agora quantos anúncios leu, quantas pesquisas efetuou e quanto tempo demorou, para que uma execução rápida já não o deixe na dúvida sobre se ficou algo por ver.\n\nQuando uma execução não devolve qualquer anúncio, o resumo passa a dizê-lo claramente e remete-o para as suas pesquisas e localização. Quando não foi possível aceder a uma das suas fontes de emprego, também o indica."
 }

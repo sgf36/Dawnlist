@@ -22,7 +22,6 @@
     "Kendi Anthropic anahtarınızı kullanır — anahtarı siz tutarsınız, kullanımı siz görürsünüz"
   ],
   "short_description": "Dawnlist her sabah iş ilanı akışlarını okur, kendi özgeçmişlerinizden sizinle birlikte oluşturduğu bir özete göre her ilanı değerlendirir ve sebepleriyle birlikte sıralanmış bir kısa liste sunar. Reddedilenler görünür kalır. Takip mesajlarınızı taslak olarak hazırlar ve hiçbir zaman göndermez. Kendi Anthropic API anahtarınızla çalışır.",
-  "release_notes": "LinkedIn sorgu oluşturucuyla boole arama sorguları oluşturun — anahtar kelimeleri, unvanları ve hariç tutmaları tek bir ifadede birleştirin ve doğrudan LinkedIn'e yapıştırın.\n\nBir iş ilanını LinkedIn URL'sinden içe aktarın. Bağlantıyı yapıştırın, Dawnlist unvan, şirket ve açıklama bilgileriyle doldurulmuş şekilde takip listenize ekler.\n\nPerde arkasında daha fazla iş kaynağı. Dawnlist artık birden fazla akıştan veri çekiyor ve aynı ilan iki kez göründüğünde daha kapsamlı sürümü tutuyor.\n\nAramalarınızı bir elektronik tablo olarak içe ve dışa aktarın; böylece bir CSV dosyasında bir set oluşturup her birini tek tek yazmak yerine hepsini bir kerede yükleyebilirsiniz.\n\nUygunluk kriterlerinizi biçimlendirilmiş bir belge olarak dışa aktarın, uygulama dışında düzenleyin ve yeniden içe aktarın — aradığınız şeyi şekillendirmenize başka birinin yardım ettiği durumlarda kullanışlıdır.\n\nSabah çalıştırmasını beklemeden Ayarlar'dan bağlantınızı test edin. Tek bir düğme API anahtarınızı ve akış erişiminizi kontrol eder ve her şeyin çalışıp çalışmadığını size hemen bildirir.\n\nAramalar artık iş unvanına, açıklamaya veya her ikisine göre eşleşebilir ve gelen sonuçları daraltmak için açıklama anahtar kelimeleri ekleyebilirsiniz.",
   "screenshot_captions": [
     "Kısa listeniz, sebepleriyle — ve reddedilenler hâlâ görünür",
     "Bir kural fazla ileri gittiğinde, size bunu söyler",
@@ -40,5 +39,6 @@
     "iş uyarıları",
     "başvuru takip",
     "iş bulma"
-  ]
+  ],
+  "release_notes": "Her aramadan sonra Dawnlist artık kaç ilan okuduğunu, kaç arama çalıştırdığını ve bunun ne kadar sürdüğünü size bildiriyor; böylece hızlı bir çalıştırmanın ardından bir şeyin atlanıp atlanmadığını merak etmek zorunda kalmıyorsunuz.\n\nBir çalıştırma hiç ilan getirmediğinde, özet bunu artık açıkça belirtiyor ve sizi aramalarınıza ve konumunuza yönlendiriyor. İş kaynaklarınızdan birine ulaşılamadığında, bunu da bildiriyor."
 }

@@ -22,7 +22,6 @@
     "Inatumia ufunguo wako mwenyewe wa Anthropic — wewe unaushikilia, unaona matumizi"
   ],
   "short_description": "Dawnlist husoma mifumo ya kazi kila asubuhi, hupima kila tangazo dhidi ya maelezo inayoyajenga pamoja nawe kutoka kwa CV zako mwenyewe, na kukupa orodha fupi iliyopangwa kwa mpangilio pamoja na sababu zilizoainishwa. Zilizokataliwa zinabaki kuonekana. Inaandaa rasimu za ufuatiliaji wako na kamwe haiitumi. Inatumia ufunguo wako mwenyewe wa API wa Anthropic.",
-  "release_notes": "Jenga hoja za utafutaji za boolean kwa kutumia kizalishaji cha hoja cha LinkedIn — changanya maneno muhimu, vyeo na vitu vya kutengwa katika usemi mmoja kisha ubandike moja kwa moja kwenye LinkedIn.\n\nIngiza tangazo la kazi kutoka kwa URL yake ya LinkedIn. Bandika kiungo na Dawnlist itakiongeza kwenye kifuatiliaji chako pamoja na cheo, kampuni na maelezo yakiwa yamejazwa.\n\nVyanzo zaidi vya kazi nyuma ya pazia. Dawnlist sasa inachukua kutoka mifumo mingi na kubaki na toleo lenye maelezo zaidi pale tangazo lilelile linapotokea mara mbili.\n\nIngiza na hamisha utafutaji wako kama lahajedwali, ili uweze kujenga seti kwenye faili la CSV na kuipakia yote kwa mara moja badala ya kuandika kila moja.\n\nHamisha vigezo vyako vya ulinganifu kama hati iliyopangwa, virekebishe nje ya programu kisha uviingize tena — hii ni muhimu pale mtu mwingine anapokusaidia kuunda kile unachotafuta.\n\nJaribu muunganisho wako kutoka Mipangilio bila kusubiri utekelezaji wa asubuhi. Kitufe kimoja hukagua ufunguo wako wa API na ufikiaji wa mfumo na kukujulisha mara moja kama kila kitu kinafanya kazi.\n\nUtafutaji sasa unaweza kulinganisha kwa cheo cha kazi, maelezo au vyote viwili, na unaweza kuongeza maneno muhimu ya maelezo ili kupunguza vinavyorejeshwa.",
   "screenshot_captions": [
     "Orodha yako fupi, ikiwa na sababu — na zilizokataliwa bado zinaonekana",
     "Kanuni inapokwenda mbali kupita kiasi, inakuambia",
@@ -40,5 +39,6 @@
     "tahadhari za kazi",
     "kifuatiliaji cha maombi",
     "uwindaji wa kazi"
-  ]
+  ],
+  "release_notes": "Baada ya kila utafutaji, sasa Dawnlist inakuambia ni matangazo mangapi ya kazi iliyasoma, ni utafutaji mingapi iliufanya na muda uliotumika, ili utafutaji wa haraka usikuache ukijiuliza kama kuna kitu kilichokosekana.\n\nPale ambapo utekelezaji unarudi bila matangazo yoyote, muhtasari sasa unasema hivyo wazi na unakuelekeza kwenye utafutaji wako na eneo lako. Endapo mojawapo ya vyanzo vyako vya kazi hakikuweza kufikiwa, unaeleza hilo pia."
 }

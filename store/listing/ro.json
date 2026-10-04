@@ -22,7 +22,6 @@
     "Folosește propria ta cheie Anthropic — tu o deții, tu vezi utilizarea"
   ],
   "short_description": "Dawnlist citește fluxurile de locuri de muncă în fiecare dimineață, evaluează fiecare anunț în raport cu un profil construit împreună cu tine din propriile tale CV-uri și îți oferă o listă scurtă, ordonată, cu motivele precizate. Refuzurile rămân vizibile. Redactează follow-up-urile tale și nu le trimite niciodată. Funcționează pe propria ta cheie API Anthropic.",
-  "release_notes": "Construiește interogări de căutare booleene cu generatorul de interogări LinkedIn — combină cuvinte-cheie, titluri și excluderi într-o singură expresie și lipește-o direct în LinkedIn.\n\nImportă un anunț de angajare din URL-ul său LinkedIn. Lipește linkul și Dawnlist îl adaugă în tracker-ul tău cu titlul, compania și descrierea completate.\n\nMai multe surse de locuri de muncă în culise. Dawnlist extrage acum din mai multe fluxuri și păstrează versiunea mai bogată atunci când același anunț apare de două ori.\n\nImportă și exportă căutările tale ca foaie de calcul, astfel încât să poți construi un set într-un fișier CSV și să le încarci pe toate deodată, în loc să le tastezi pe fiecare în parte.\n\nExportă criteriile tale de potrivire ca document formatat, editează-l în afara aplicației și reimportă-l — util atunci când altcineva te ajută să conturezi ce anume cauți.\n\nTestează-ți conexiunea din Setări fără să aștepți rularea de dimineață. Un singur buton verifică cheia ta API și accesul la flux și îți spune imediat dacă totul funcționează.\n\nCăutările pot acum să se potrivească după titlul postului, descriere sau ambele, iar tu poți adăuga cuvinte-cheie din descriere pentru a restrânge rezultatele.",
   "screenshot_captions": [
     "Lista ta scurtă, cu motivele — și refuzurile încă vizibile",
     "Când o regulă merge prea departe, îți spune",
@@ -40,5 +39,6 @@
     "alerte job",
     "tracker candidaturi",
     "căutare loc de muncă"
-  ]
+  ],
+  "release_notes": "După fiecare căutare, Dawnlist îți spune acum câte anunțuri a citit, câte căutări a efectuat și cât a durat, astfel încât o rulare rapidă nu te mai lasă să te întrebi dacă s-a omis ceva.\n\nCând o rulare nu returnează niciun anunț, rezumatul spune acum clar acest lucru și te îndrumă către căutările și locația ta. Când una dintre sursele tale de locuri de muncă nu a putut fi accesată, spune și asta."
 }

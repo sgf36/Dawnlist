@@ -573,6 +573,7 @@
   "settings.subscribe_body": "Dawnlists jobbflöde är en prenumeration som köps via App Store. Allt som redan finns på den här Mac-datorn förblir tillgängligt oavsett – din tavla, din brief och din spårare kräver ingen prenumeration för att kunna läsas.",
   "settings.subscribe_button": "Prenumerera",
   "settings.subscribe_deferred": "Ditt köp väntar på godkännande — till exempel från familjeorganisatören, under Fråga för att köpa. Dawnlist hämtar det automatiskt när det har godkänts, så du behöver inte köpa igen.",
+  "settings.subscribe_storefront_hint": "Ingen betalning genomfördes. Om Apple angav att ditt konto inte är giltigt för den här butiken stämmer landet för ditt Apple-ID inte med App Store-regionen på den här Macen. Logga in i App Store med det Apple-ID som du vill köpa med och tryck sedan på Prenumerera igen.",
   "settings.subscribe_done": "Prenumeration klar. Flödet läses åt dig från och med nästa dagliga körning.",
   "settings.subscribe_heading": "Din prenumeration",
   "settings.subscribe_length": "1 månad",

@@ -573,6 +573,7 @@
   "settings.subscribe_body": "פיד המשרות של Dawnlist הוא מנוי הנרכש דרך App Store. כל מה שכבר קיים על ה-Mac הזה נשאר זמין בכל מקרה – הלוח, התקציר והמעקב שלך אינם דורשים מנוי כדי לקרוא.",
   "settings.subscribe_button": "הפעלת מנוי",
   "settings.subscribe_deferred": "הרכישה שלך ממתינה לאישור — למשל מארגן המשפחה, תחת בקש לקנות (Ask to Buy). Dawnlist יזהה זאת אוטומטית לאחר האישור, כך שאין צורך לרכוש שוב.",
+  "settings.subscribe_storefront_hint": "לא בוצעה רכישה. אם Apple הודיעה שהחשבון שלכם אינו תקף עבור החנות הזו, מדינת ה-Apple ID שלכם אינה תואמת לאזור ה-App Store ב-Mac הזה. היכנסו ל-App Store עם ה-Apple ID שבו אתם רוצים לרכוש, ולאחר מכן לחצו שוב על מינוי.",
   "settings.subscribe_done": "נרשמת בהצלחה. הפיד יקרא עבורך החל מההרצה היומית הבאה.",
   "settings.subscribe_heading": "המנוי שלך",
   "settings.subscribe_length": "חודש אחד",

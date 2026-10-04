@@ -573,6 +573,7 @@
   "settings.subscribe_body": "Dawnlist'ning ish e'lonlari lentasi App Store orqali sotib olinadigan obuna hisoblanadi. Ushbu Mac'da mavjud bo'lgan boshqa barcha imkoniyatlar baribir ochiq qoladi — doskangiz, brifingingiz va trekeringizni o'qish uchun obuna talab etilmaydi.",
   "settings.subscribe_button": "Obuna bo'lish",
   "settings.subscribe_deferred": "Xaridingiz tasdiqlanishini kutmoqda — masalan, oilaviy tashkilotchidan, Ask to Buy orqali. Tasdiqlangach, Dawnlist uni o'zi aniqlaydi, shuning uchun qayta xarid qilish shart emas.",
+  "settings.subscribe_storefront_hint": "Hech qanday xarid qilinmadi. Agar Apple hisobingiz bu do'kon uchun yaroqsiz deb bildirgan bo'lsa, Apple ID'ingiz mamlakati bu Mac'dagi App Store hududiga mos kelmaydi. Xarid qilmoqchi bo'lgan Apple ID bilan App Store'ga kiring, so'ng Obuna bo'lish tugmasini yana bosing.",
   "settings.subscribe_done": "Obuna bo‘ldingiz. Keyingi kunlik ishga tushirishdan boshlab lenta siz uchun o‘qiladi.",
   "settings.subscribe_heading": "Sizning obunangiz",
   "settings.subscribe_length": "1 oy",

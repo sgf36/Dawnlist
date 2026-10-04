@@ -573,6 +573,7 @@
   "settings.subscribe_body": "Il feed offerte di Dawnlist è un abbonamento, acquistabile tramite l'App Store. Tutto ciò che è già presente su questo Mac resta comunque disponibile: la tua bacheca, il tuo riepilogo e il tuo tracker non richiedono un abbonamento per essere consultati.",
   "settings.subscribe_button": "Abbonati",
   "settings.subscribe_deferred": "Il tuo acquisto è in attesa di approvazione, ad esempio da parte dell'organizzatore familiare, tramite Richiedi di acquistare. Dawnlist lo rileverà automaticamente non appena verrà approvato, quindi non è necessario acquistare di nuovo.",
+  "settings.subscribe_storefront_hint": "Non è stato effettuato alcun acquisto. Se Apple ha indicato che il tuo account non è valido per questo store, il paese del tuo ID Apple non corrisponde all'area geografica dell'App Store di questo Mac. Accedi all'App Store con l'ID Apple con cui vuoi acquistare, poi premi di nuovo Abbonati.",
   "settings.subscribe_done": "Abbonamento attivato. Il feed leggerà per te a partire dalla prossima ricerca giornaliera.",
   "settings.subscribe_heading": "Il tuo abbonamento",
   "settings.subscribe_length": "1 mese",

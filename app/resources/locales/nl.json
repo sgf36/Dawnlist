@@ -573,6 +573,7 @@
   "settings.subscribe_body": "Dawnlists vacaturefeed is een abonnement, afgesloten via de App Store. Alles wat al op deze Mac staat, blijft sowieso beschikbaar — je bord, je briefing en je tracker hebben geen abonnement nodig om te lezen.",
   "settings.subscribe_button": "Abonneren",
   "settings.subscribe_deferred": "Uw aankoop wacht op goedkeuring — bijvoorbeeld van de gezinsorganisator, via Toestemming vragen. Dawnlist verwerkt dit automatisch zodra het is goedgekeurd, dus u hoeft niet opnieuw te kopen.",
+  "settings.subscribe_storefront_hint": "Er is niets gekocht. Als Apple meldde dat je account niet geldig is voor deze winkel, komt het land van je Apple-ID niet overeen met de App Store-regio van deze Mac. Log in bij de App Store met het Apple-ID waarmee je wilt kopen en tik daarna opnieuw op Abonneren.",
   "settings.subscribe_done": "Geabonneerd. De feed leest voor je vanaf de volgende dagelijkse run.",
   "settings.subscribe_heading": "Je abonnement",
   "settings.subscribe_length": "1 maand",

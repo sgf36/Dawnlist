@@ -22,7 +22,6 @@
     "Na-eji igodo Anthropic nke gị onwe gị — ị na-ejide ya, ị na-ahụ ojiji ya"
   ],
   "short_description": "Dawnlist na-agụ nkwafọ ọrụ kwa ụtụtụ, na-atụle ọkwa ọrụ ọ bụla dabere na nkọwa ndabere ọ na-emepụta ọnụ gị site na CV gị onwe gị, wee nye gị ndepụta e depụtara n'usoro tinyere ihe kpatara ya. Ajụjụ na-anọgide na-ahụkebe. Ọ na-edepụta nleta ọzọ ọ dịghịkwa mgbe ọ na-eziga ha. Ọ na-arụ ọrụ site na igodo API Anthropic nke gị onwe gị.",
-  "release_notes": "Wuo ajụjụ ọchụchọ boolean site na ihe na-emepụta ajụjụ LinkedIn — jikọta okwu mkpu, aha ọrụ na ihe ewepụtara n'ime otu ahịrịokwu wee pịaji ya ozugbo n'ime LinkedIn.\n\nBubata ọkwa ọrụ site na URL LinkedIn ya. Pịaji njikọ ahụ, Dawnlist ga-atinye ya n'ime onye nleba anya gị tinyere aha ọrụ, ụlọ ọrụ na nkọwa dejupụtara.\n\nNtakịrị isi mmalite ọrụ n'azụ ihuenyo. Dawnlist na-esite ugbu a na nkwafọ dị iche iche wee jide ụdị zuru oke mgbe otu ọkwa ọrụ pụtara ugboro abụọ.\n\nBubata na zipụ ọchụchọ gị dịka spreadsheet, ka i wee wuo ọtụtụ n'ime faịlụ CSV wee bulite ha n'otu oge kama ide nke ọ bụla.\n\nZipụ ihe ndabere gị dịka akwụkwọ e hazichara, dezie ya n'èzí ngwa ahụ wee bulitegharịa ya — nke bara uru mgbe mmadụ ọzọ na-enyere gị aka ịkọwapụta ihe ị na-achọ.\n\nNwalee njikọ gị site na Settings n'atụghị anya ọgba ọsọ ụtụtụ. Otu bọtịnụ na-elele igodo API gị na mmeghe nkwafọ gị wee gwa gị ozugbo ma ihe niile ọ na-arụ ọrụ.\n\nỌchụchọ nwere ike ugbu a idaba na aha ọrụ, nkọwa ma ọ bụ ha abụọ, ị nwekwara ike ịtinye okwu mkpu nkọwa iji belata ihe na-alọta.",
   "screenshot_captions": [
     "Ndepụta gị, tinyere ihe kpatara ya — na ajụjụ ka a na-ahụkebe",
     "Mgbe iwu ruru ebe dị anya, ọ na-agwa gị",
@@ -40,5 +39,6 @@
     "mmata ọrụ",
     "onye nleba anya arịrịọ",
     "ịchụ ọrụ"
-  ]
+  ],
+  "release_notes": "Mgbe ọ bụla ị chọchara ihe, Dawnlist na-agwa gị ugbu a ole ọkwa ọrụ ọ gụrụ, ole nchọcha ọ gbara na ogologo oge o were, ka ọsọ ọsọ nchọcha ghara ịhapụ gị ka ị na-eche ma ọ̀ nwere ihe efunahụrụ.\n\nMgbe nchọcha lọtara na-enweghị ọkwa ọrụ ọ bụla, nchịkọta ahụ na-ekwu ya hoo haa ugbu a ma tụọ gị aka na nchọcha gị na ebe ị nọ. Mgbe enwetaghị ike iru otu n'ime ebe ọrụ gị si abịa, ọ na-ekwukwa nke ahụ."
 }

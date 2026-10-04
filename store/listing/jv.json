@@ -22,7 +22,6 @@
     "Migunakake API key Anthropic sampeyan dhewe — sampeyan sing nyekel, sampeyan sing ndeleng pamakéane"
   ],
   "short_description": "Dawnlist maca feed lowongan kerja saben esuk, nimbang saben lowongan karo brief sing digawe bareng sampeyan saka CV sampeyan dhewe, banjur ngaturake shortlist sing wis diurutake lengkap karo alasane. Lowongan sing ditolak tetep katon. Aplikasi iki gawe draf follow-up lan ora tau ngirime dhewe. Mlaku nganggo API key Anthropic sampeyan dhewe.",
-  "release_notes": "Gawe query pencarian boolean nganggo generator query LinkedIn — gabungake tembung kunci, jeneng jabatan, lan pangecualian dadi siji ekspresi, banjur tempelake langsung ing LinkedIn.\n\nImpor lowongan kerja saka URL LinkedIn-e. Tempelake link kasebut, lan Dawnlist bakal nambahake ing tracker sampeyan lengkap karo jeneng jabatan, perusahaan, lan katrangan sing wis diisi.\n\nLuwih akeh sumber lowongan kerja ing mburi. Dawnlist saiki njupuk data saka pirang-pirang feed lan nyimpen versi sing luwih lengkap yen ana lowongan sing padha muncul kaping pindho.\n\nImpor lan ekspor panelusuran sampeyan dadi spreadsheet, dadi sampeyan bisa nggawe kumpulan panelusuran ing file CSV lan ngunggah kabeh sekaligus, tanpa kudu ngetik siji-siji.\n\nEkspor kriteria fit sampeyan dadi dokumen sing wis diformat, sunting ing njaba aplikasi, banjur impor maneh — migunani nalika ana wong liya sing mbantu sampeyan nemtokake apa sing digoleki.\n\nUji sambungan sampeyan saka Setelan tanpa kudu ngenteni proses esuk. Siji tombol mriksa API key lan akses feed sampeyan, banjur langsung ngandhani apa kabeh mlaku kanthi lancar.\n\nPanelusuran saiki bisa nyocokake jeneng jabatan, katrangan, utawa loro-lorone, lan sampeyan bisa nambahake tembung kunci katrangan kanggo nyempitake asil sing bakal metu.",
   "screenshot_captions": [
     "Shortlist sampeyan, lengkap karo alasane — lan lowongan sing ditolak isih katon",
     "Yen ana aturan sing kliwat jangkahe, aplikasi iki bakal ngandhani sampeyan",
@@ -40,5 +39,6 @@
     "peringatan lowongan kerja",
     "tracker lamaran",
     "buru kerja"
-  ]
+  ],
+  "release_notes": "Saben rampung nggolèki, Dawnlist saiki ngandhani pira cacahé lowongan sing diwaca, pira cacahé panggolèkan sing dilakoni, lan sepira suwéné, dadi sapisan mlaku cepet ora ndadèkaké kowé mangu-mangu manèh apa ana sing kelèwatan.\n\nYèn sawijining pamlaku babar pisan ora olèh lowongan, ringkesané saiki ngandhakaké kanthi blaka lan nuduhaké panggolèkan sarta lokasimu. Yèn salah sijiné sumber lowonganmu ora bisa digayuh, kuwi uga dikandhakaké."
 }

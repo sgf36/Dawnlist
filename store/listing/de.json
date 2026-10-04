@@ -22,7 +22,6 @@
     "Nutzt Ihren eigenen Anthropic-Schlüssel – Sie halten ihn, Sie sehen die Nutzung"
   ],
   "short_description": "Dawnlist liest jeden Morgen die Stellenanzeigen-Feeds, beurteilt jede Anzeige anhand eines Suchprofils, das die App gemeinsam mit Ihnen aus Ihren eigenen Lebensläufen erstellt, und übergibt Ihnen eine bewertete Shortlist mit angegebenen Begründungen. Ablehnungen bleiben sichtbar. Die App entwirft Ihre Follow-ups und versendet sie niemals selbst. Läuft mit Ihrem eigenen Anthropic-API-Schlüssel.",
-  "release_notes": "Erstellen Sie boolesche Suchanfragen mit dem LinkedIn-Abfrage-Generator – kombinieren Sie Stichwörter, Titel und Ausschlüsse zu einem einzigen Ausdruck und fügen Sie ihn direkt in LinkedIn ein.\n\nImportieren Sie eine Stellenanzeige über ihre LinkedIn-URL. Fügen Sie den Link ein, und Dawnlist trägt sie mit ausgefülltem Titel, Unternehmen und Beschreibung in Ihren Tracker ein.\n\nMehr Stellenquellen im Hintergrund. Dawnlist bezieht nun Daten aus mehreren Feeds und behält die ausführlichere Version, wenn dieselbe Anzeige doppelt erscheint.\n\nImportieren und exportieren Sie Ihre Suchen als Tabelle, sodass Sie einen Satz in einer CSV-Datei zusammenstellen und alle auf einmal laden können, statt jede einzeln einzutippen.\n\nExportieren Sie Ihre Suchkriterien als formatiertes Dokument, bearbeiten Sie es außerhalb der App und importieren Sie es erneut – nützlich, wenn Ihnen jemand anderes hilft, festzulegen, wonach Sie suchen.\n\nTesten Sie Ihre Verbindung direkt in den Einstellungen, ohne auf den morgendlichen Durchlauf zu warten. Eine Schaltfläche prüft Ihren API-Schlüssel und den Feed-Zugriff und teilt Ihnen sofort mit, ob alles funktioniert.\n\nSuchen können nun auf den Stellentitel, die Beschreibung oder beide abgleichen, und Sie können Beschreibungs-Stichwörter hinzufügen, um die Ergebnisse einzugrenzen.",
   "screenshot_captions": [
     "Ihre Shortlist mit den Begründungen – und die Ablehnungen bleiben sichtbar",
     "Wenn eine Regel zu weit greift, sagt Ihnen die App das",
@@ -40,5 +39,6 @@
     "Job-Alerts",
     "Bewerbungstracker",
     "Stellensuche"
-  ]
+  ],
+  "release_notes": "Nach jeder Suche zeigt Dawnlist jetzt an, wie viele Anzeigen gelesen wurden, wie viele Suchläufe ausgeführt wurden und wie lange das gedauert hat – so bleibt nach einem kurzen Durchlauf nicht mehr die Frage offen, ob etwas übersehen wurde.\n\nWenn ein Durchlauf überhaupt keine Anzeigen liefert, sagt die Zusammenfassung das jetzt unmissverständlich und verweist auf Ihre Suchen und Ihren Ort. Wenn eine Ihrer Stellenquellen nicht erreichbar war, wird auch das angegeben."
 }

@@ -573,6 +573,7 @@
   "settings.subscribe_body": "Dawnlist의 구인 피드는 App Store를 통해 구매하는 구독 상품입니다. 이 Mac에 이미 있는 기능은 구독 여부와 관계없이 계속 사용할 수 있습니다. 보드, 브리프, 트래커는 읽어보는 데 구독이 필요하지 않습니다.",
   "settings.subscribe_button": "구독하기",
   "settings.subscribe_deferred": "구매가 승인 대기 중입니다 — 예를 들어 가족 구성원의 '구입 요청' 승인이 필요할 수 있습니다. 승인되면 Dawnlist가 자동으로 이를 인식하므로 다시 구매할 필요가 없습니다.",
+  "settings.subscribe_storefront_hint": "구매가 이루어지지 않았습니다. Apple에서 계정이 이 스토어에서 유효하지 않다고 안내했다면, Apple ID의 국가와 이 Mac의 App Store 지역이 일치하지 않는 것입니다. 구매하려는 Apple ID로 App Store에 로그인한 다음 구독을 다시 누르세요.",
   "settings.subscribe_done": "구독이 완료되었습니다. 다음 일일 실행부터 피드를 대신 읽어 드립니다.",
   "settings.subscribe_heading": "내 구독",
   "settings.subscribe_length": "1개월",

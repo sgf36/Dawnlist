@@ -22,7 +22,6 @@
     "Isebenzisa ukhiye wakho we-Anthropic — uyawubamba, ubone ukusetshenziswa"
   ],
   "short_description": "I-Dawnlist ifunda ukudla kwemisebenzi njalo ekuseni, yahlulele isikhangiso ngasinye ngokumelene nesifinyezo esikwakha kanye nawe ngokusuka kuma-CV akho, futhi ikunikeze uhlu olubalulekile oluhlelwe ngezinga nezizathu zichaziwe. Ukwenqatshwa kuhlala kubonakala. Yakha amahlaka okulandelayo futhi ayisoze ikuthumele. Isebenza ngokhiye wakho we-Anthropic API.",
-  "release_notes": "Yakha imibuzo yosesho lwe-boolean ngesikhiqizi semibuzo se-LinkedIn — hlanganisa amagama abalulekile, izihloko kanye nokukhishwa kube inkulumo eyodwa bese uyinamathisela ngqo ku-LinkedIn.\n\nNgenisa isikhangiso somsebenzi kusuka ku-URL yaso ye-LinkedIn. Namathisela isixhumanisi futhi i-Dawnlist iyisengeze esilandelelini sakho ngesihloko, inkampani nencazelo kugcwalisiwe.\n\nImithombo eminingi yemisebenzi ngemuva kwezigcawu. I-Dawnlist manje idonsa kokuningi kokudla futhi igcina inguqulo ecebile lapho isikhangiso esifanayo sivela kabili.\n\nNgenisa futhi ukhiphe usesho lwakho njengespredishithi, ukuze ukwazi ukwakha isethi kufayela le-CSV bese uyifaka konke kanyekanye kunokuthayipha ngakunye.\n\nKhipha izisombululo zakho zokufaneleka njengedokhumenti elakhiwe kahle, ulilungise ngaphandle kohlelo bese uliphinda ungenise — kuwusizo lapho omunye umuntu ekusiza ukubumba lokho okufunayo.\n\nHlola uxhumano lwakho kusuka Ezilungiselelweni ngaphandle kokulinda ukusebenza kwasekuseni. Inkinobho eyodwa ihlola ukhiye wakho we-API nokufinyelela kokudla futhi ikutshele ngokushesha ukuthi konke kuyasebenza yini.\n\nUkusesha manje kungahambisana nesihloko somsebenzi, incazelo noma kokubili, futhi ungengeza amagama abalulekile encazelo ukunciphisa okubuyayo.",
   "screenshot_captions": [
     "Uhlu lwakho olubalulekile, nezizathu — futhi ukwenqatshwa kusabonakala",
     "Lapho umthetho ufinyelela kakhulu, ikutshela",
@@ -40,5 +39,6 @@
     "izexwayiso zomsebenzi",
     "isilandeleli sesicelo",
     "ukuzingela umsebenzi"
-  ]
+  ],
+  "release_notes": "Ngemva kosesho ngalunye, i-Dawnlist manje ikutshela ukuthi mangaki amathuba emisebenzi (izikhangiso) eluwafundile, lungaki usesho elulwenzile nokuthi kuthathe isikhathi esingakanani, ngakho usesho olusheshayo alusakushiyi uzibuza ukuthi kukhona yini okweqiwe.\n\nUma usesho lubuya lungenazo nhlobo izikhangiso, isifinyezo manje sikusho lokho ngokucacile futhi sikuqondise kosesho lwakho nasendaweni yakho. Uma omunye wemithombo yakho yemisebenzi ungakwazanga ukufinyelelwa, nalokho siyakusho."
 }

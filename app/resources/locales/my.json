@@ -573,6 +573,7 @@
   "settings.subscribe_body": "Dawnlist ၏ အလုပ်အင်းဖိဒ်သည် App Store မှတစ်ဆင့် ဝယ်ယူရသော subscription တစ်ခုဖြစ်သည်။ ဤ Mac ပေါ်တွင် ရှိပြီးသားအရာအားလုံးမှာမူ အသုံးပြု၍ရနေဆဲဖြစ်ပါသည် — သင့် board၊ သင့် brief နှင့် သင့် tracker တို့ကို ဖတ်ရှုရန် subscription မလိုအပ်ပါ။",
   "settings.subscribe_button": "Subscribe ယူမည်",
   "settings.subscribe_deferred": "သင့်ဝယ်ယူမှုသည် အတည်ပြုချက်ကို စောင့်ဆိုင်းနေပါသည် — ဥပမာ Ask to Buy အောက်ရှိ family organizer ထံမှ။ အတည်ပြုပြီးသည်နှင့် Dawnlist က ၎င်းကို အလိုအလျောက် ရယူသွားမည်ဖြစ်ပြီး ထပ်မံဝယ်ယူရန် မလိုအပ်ပါ။",
+  "settings.subscribe_storefront_hint": "ဝယ်ယူမှု မပြုလုပ်ခဲ့ပါ။ သင့်အကောင့်သည် ဤစတိုးအတွက် မမှန်ကန်ကြောင်း Apple က ပြောခဲ့လျှင် သင့် Apple ID နိုင်ငံနှင့် ဤ Mac ၏ App Store ဒေသ မတူညီပါ။ ဝယ်ယူလိုသော Apple ID ဖြင့် App Store သို့ ဝင်ရောက်ပြီး စာရင်းသွင်းမည် ကို ထပ်နှိပ်ပါ။",
   "settings.subscribe_done": "စာရင်းသွင်းပြီးပါပြီ။ နောက်နေ့စဉ်လည်ပတ်မှုမှစ၍ ကြော်ငြာစာရင်းကို သင့်ကိုယ်စား ဖတ်ရှုပေးပါမည်။",
   "settings.subscribe_heading": "သင့် Subscription",
   "settings.subscribe_length": "၁ လ",

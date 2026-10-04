@@ -22,7 +22,6 @@
     "O'zingizning Anthropic kalitingizdan foydalanadi — u sizda, foydalanishni siz ko'rasiz"
   ],
   "short_description": "Dawnlist har kuni ertalab ish e'lonlari oqimlarini o'qiydi, har bir e'lonni sizning o'z rezyumelaringizdan siz bilan birgalikda tuzilgan talablarga nisbatan baholaydi va sabablari ko'rsatilgan holda darajalangan qisqa ro'yxatni taqdim etadi. Rad etilganlar ko'rinishda qoladi. U kuzatuv xabarlaringizni qoralama sifatida yozadi va hech qachon jo'natmaydi. O'zingizning Anthropic API kalitingiz orqali ishlaydi.",
-  "release_notes": "LinkedIn so'rov generatori bilan boolean qidiruv so'rovlarini tuzing — kalit so'zlar, lavozimlar va istisnolarni bitta ifodaga birlashtiring va uni to'g'ridan-to'g'ri LinkedIn'ga joylashtiring.\n\nIsh e'lonini uning LinkedIn URL manzilidan import qiling. Havolani joylashtiring va Dawnlist uni lavozim, kompaniya va tavsif to'ldirilgan holda kuzatuvchingizga qo'shadi.\n\nSahna ortida ko'proq ish manbalari. Dawnlist endi bir nechta oqimlardan foydalanadi va bir xil e'lon ikki marta paydo bo'lsa, boyroq versiyasini saqlaydi.\n\nQidiruvlaringizni jadval sifatida import va eksport qiling, shunday qilib siz CSV faylida to'plam tuzishingiz va har birini alohida yozish o'rniga hammasini birdaniga yuklashingiz mumkin.\n\nMos kelish mezonlaringizni formatlangan hujjat sifatida eksport qiling, uni ilovadan tashqarida tahrirlang va qayta import qiling — bu boshqa birov sizga nima qidirayotganingizni shakllantirish borasida yordam berayotganda foydali.\n\nErtalabki yurishni kutmasdan, Sozlamalar'dan ulanishingizni sinab ko'ring. Bitta tugma sizning API kalitingiz va oqimga kirishni tekshiradi va hamma narsa ishlab turganini darhol xabar beradi.\n\nQidiruvlar endi lavozim nomiga, tavsifga yoki ikkalasiga ham mos kelishi mumkin, va qaytariladigan natijalarni torайtirish uchun tavsif kalit so'zlarini qo'shishingiz mumkin.",
   "screenshot_captions": [
     "Sizning qisqa ro'yxatingiz, sabablari bilan — va rad etilganlar hali ham ko'rinishda",
     "Qoida haddan tashqari uzoqqa borsa, u sizga aytadi",
@@ -40,5 +39,6 @@
     "ish ogohlantirishlari",
     "ariza kuzatuvchisi",
     "ish izlash"
-  ]
+  ],
+  "release_notes": "Endi har bir qidiruvdan so'ng Dawnlist nechta e'lonni o'qiganini, nechta qidiruv bajarganini va bunga qancha vaqt ketganini ko'rsatadi — shu sababli tezkor qidiruvdan keyin biror narsa o'tkazib yuborildimi, degan savol qolmaydi.\n\nAgar qidiruv natijasida birorta ham e'lon topilmasa, xulosa buni ochiq aytadi va sizni qidiruvlaringiz hamda joylashuvingizga yo'naltiradi. Agar ish e'lonlari manbalaringizdan biriga ulanib bo'lmagan bo'lsa, bu ham aytiladi."
 }

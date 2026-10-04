@@ -22,7 +22,6 @@
     "Gebruikt uw eigen Anthropic-sleutel — u beheert deze, u ziet het gebruik"
   ],
   "short_description": "Dawnlist leest elke ochtend de vacaturefeeds, beoordeelt elke vacature aan de hand van een brief die de app samen met u opstelt op basis van uw eigen cv's, en overhandigt u een gerangschikte shortlist met vermelding van de redenen. Afwijzingen blijven zichtbaar. De app stelt uw vervolgberichten op als concept en verstuurt deze nooit. Werkt met uw eigen Anthropic API-sleutel.",
-  "release_notes": "Stel booleaanse zoekopdrachten samen met de LinkedIn-querygenerator — combineer zoekwoorden, functietitels en uitsluitingen tot één expressie en plak deze rechtstreeks in LinkedIn.\n\nImporteer een vacature vanaf de LinkedIn-URL. Plak de link en Dawnlist voegt deze toe aan uw tracker, met titel, bedrijf en omschrijving al ingevuld.\n\nMeer vacaturebronnen op de achtergrond. Dawnlist put nu uit meerdere feeds en behoudt de rijkere versie wanneer dezelfde vacature twee keer voorkomt.\n\nImporteer en exporteer uw zoekopdrachten als spreadsheet, zodat u een set kunt samenstellen in een CSV-bestand en deze in één keer kunt laden in plaats van elke afzonderlijk in te typen.\n\nExporteer uw geschiktheidscriteria als opgemaakt document, bewerk dit buiten de app en importeer het opnieuw — handig wanneer iemand anders u helpt bij het bepalen waar u naar op zoek bent.\n\nTest uw verbinding vanuit Instellingen, zonder te wachten op de ochtendrun. Eén knop controleert uw API-sleutel en feedtoegang en laat u direct weten of alles werkt.\n\nZoekopdrachten kunnen nu overeenkomen met de functietitel, de omschrijving of beide, en u kunt omschrijvingszoekwoorden toevoegen om de resultaten te versmallen.",
   "screenshot_captions": [
     "Uw shortlist, met de redenen — en de afwijzingen nog steeds zichtbaar",
     "Wanneer een regel te ver gaat, laat de app dat weten",
@@ -40,5 +39,6 @@
     "vacaturealerts",
     "sollicitaties bijhouden",
     "baan zoeken"
-  ]
+  ],
+  "release_notes": "Na elke zoekactie laat Dawnlist nu zien hoeveel vacatures er zijn gelezen, hoeveel zoekopdrachten er zijn uitgevoerd en hoe lang het duurde, zodat je je na een snelle run niet meer afvraagt of er iets is gemist.\n\nAls een run helemaal geen vacatures oplevert, zegt de samenvatting dat nu onomwonden en verwijst ze je naar je zoekopdrachten en locatie. Als een van je vacaturebronnen niet bereikbaar was, wordt dat er ook bij vermeld."
 }

@@ -22,7 +22,6 @@
     "Utilizza una tua chiave Anthropic personale — la detieni tu, vedi tu l'utilizzo"
   ],
   "short_description": "Ogni mattina Dawnlist legge i feed di lavoro, valuta ogni offerta rispetto a un profilo di ricerca costruito insieme a te a partire dai tuoi CV, e ti consegna una shortlist classificata con le motivazioni indicate. Gli scarti restano visibili. Redige le bozze dei tuoi follow-up e non le invia mai. Funziona con una tua chiave API Anthropic personale.",
-  "release_notes": "Crea query di ricerca booleane con il generatore di query per LinkedIn — combina parole chiave, titoli ed esclusioni in un'unica espressione e incollala direttamente in LinkedIn.\n\nImporta un'offerta di lavoro dal suo URL LinkedIn. Incolla il link e Dawnlist la aggiunge al tuo tracker con titolo, azienda e descrizione già compilati.\n\nPiù fonti di lavoro dietro le quinte. Dawnlist ora attinge da più feed e mantiene la versione più completa quando la stessa offerta compare due volte.\n\nImporta ed esporta le tue ricerche come foglio di calcolo, così puoi costruire un insieme in un file CSV e caricarle tutte insieme invece di digitarle una per una.\n\nEsporta i tuoi criteri di ricerca come documento formattato, modificalo al di fuori dell'app e reimportalo — utile quando qualcun altro ti aiuta a definire cosa stai cercando.\n\nTesta la tua connessione da Impostazioni senza attendere l'esecuzione mattutina. Un pulsante verifica la tua chiave API e l'accesso ai feed, dicendoti immediatamente se tutto funziona correttamente.\n\nLe ricerche ora possono corrispondere al titolo dell'offerta, alla descrizione o a entrambi, e puoi aggiungere parole chiave nella descrizione per restringere i risultati.",
   "screenshot_captions": [
     "La tua shortlist, con le motivazioni — e gli scarti ancora visibili",
     "Quando una regola va troppo oltre, te lo segnala",
@@ -40,5 +39,6 @@
     "avvisi di lavoro",
     "tracciamento candidature",
     "caccia al lavoro"
-  ]
+  ],
+  "release_notes": "Dopo ogni ricerca, Dawnlist ti indica quanti annunci ha letto, quante ricerche ha eseguito e quanto tempo ci ha messo, così un'esecuzione rapida non ti lascia più il dubbio che qualcosa sia sfuggito.\n\nQuando un'esecuzione non restituisce alcun annuncio, il riepilogo ora lo dice chiaramente e ti rimanda alle tue ricerche e alla tua località. Se una delle tue fonti di annunci non è stata raggiungibile, lo segnala anche."
 }

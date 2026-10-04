@@ -22,7 +22,6 @@
     "Menggunakan kunci Anthropic anda sendiri — anda memegangnya, anda melihat penggunaannya"
   ],
   "short_description": "Dawnlist membaca suapan pekerjaan setiap pagi, menilai setiap iklan berdasarkan brief yang dibina bersama anda daripada CV anda sendiri, dan memberikan anda senarai pendek berperingkat lengkap dengan sebab yang dinyatakan. Penolakan kekal kelihatan. Ia merangka susulan anda dan tidak pernah menghantarnya. Beroperasi menggunakan kunci API Anthropic anda sendiri.",
-  "release_notes": "Bina pertanyaan carian boolean dengan penjana pertanyaan LinkedIn — gabungkan kata kunci, jawatan dan pengecualian menjadi satu ungkapan dan tampalkannya terus ke dalam LinkedIn.\n\nImport iklan pekerjaan daripada URL LinkedIn-nya. Tampal pautan dan Dawnlist menambahkannya ke penjejak anda lengkap dengan jawatan, syarikat dan keterangan yang diisi.\n\nLebih banyak sumber pekerjaan di sebalik tabir. Dawnlist kini menarik daripada pelbagai suapan dan mengekalkan versi yang lebih lengkap apabila iklan yang sama muncul dua kali.\n\nImport dan eksport carian anda sebagai hamparan, supaya anda boleh membina satu set dalam fail CSV dan memuatkan kesemuanya sekali gus dan bukannya menaip setiap satu.\n\nEksport kriteria kesesuaian anda sebagai dokumen berformat, edit di luar aplikasi dan import semula — berguna apabila seseorang yang lain sedang membantu anda membentuk apa yang anda cari.\n\nUji sambungan anda daripada Tetapan tanpa menunggu larian pagi. Satu butang menyemak kunci API dan akses suapan anda dan memberitahu anda dengan segera sama ada semuanya berfungsi.\n\nCarian kini boleh dipadankan pada jawatan, keterangan atau kedua-duanya, dan anda boleh menambah kata kunci keterangan untuk mempersempitkan apa yang kembali.",
   "screenshot_captions": [
     "Senarai pendek anda, lengkap dengan sebab — dan penolakan masih kelihatan",
     "Apabila peraturan menjangkau terlalu jauh, ia memberitahu anda",
@@ -40,5 +39,6 @@
     "makluman kerja",
     "penjejak permohonan",
     "pemburuan kerja"
-  ]
+  ],
+  "release_notes": "Selepas setiap carian, Dawnlist kini memberitahu anda berapa banyak iklan pekerjaan yang dibacanya, berapa banyak carian yang dijalankannya dan berapa lama masa yang diambil, supaya larian pantas tidak lagi membuat anda tertanya-tanya sama ada ada sesuatu yang terlepas.\n\nApabila satu larian kembali tanpa sebarang iklan pekerjaan, ringkasan kini menyatakannya dengan jelas dan menunjukkan anda kepada carian dan lokasi anda. Apabila salah satu sumber pekerjaan anda tidak dapat dihubungi, ia turut menyatakannya."
 }

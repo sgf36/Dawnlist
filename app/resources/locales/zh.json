@@ -573,6 +573,7 @@
   "settings.subscribe_body": "Dawnlist 的职位动态是一项订阅服务，通过 App Store 购买。无论是否订阅，此 Mac 上现有的功能均可照常使用——您的看板、简报和追踪器无需订阅即可读取。",
   "settings.subscribe_button": "订阅",
   "settings.subscribe_deferred": "您的购买正在等待批准——例如由家庭组织者通过“购买请求”批准。一旦获得批准，Dawnlist 会自动识别，无需再次购买。",
+  "settings.subscribe_storefront_hint": "尚未购买任何内容。如果 Apple 提示你的账户不适用于此商店，说明你的 Apple ID 所属国家或地区与这台 Mac 的 App Store 地区不一致。请用你想用来购买的 Apple ID 登录 App Store，然后再次点按“订阅”。",
   "settings.subscribe_done": "订阅成功。从下一次每日运行开始，职位源将为您进行搜索。",
   "settings.subscribe_heading": "您的订阅",
   "settings.subscribe_length": "1 个月",

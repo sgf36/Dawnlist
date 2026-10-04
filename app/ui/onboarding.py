@@ -87,13 +87,40 @@ def _stage_for_reading(paths: list[Path]) -> tuple[list[Path], Path]:
         while dest.exists():
             dest = staging / f"{src.stem}_{n}{src.suffix}"
             n += 1
-        try:
-            shutil.copy2(src, dest)
-        except OSError:
+        if _copy_contents(shutil, src, dest):
+            staged.append(dest)
+        else:
             staged.append(src)
-            continue
-        staged.append(dest)
     return staged, staging
+
+
+def _copy_contents(shutil, src: Path, dest: Path) -> bool:
+    """Copy the BYTES of `src` and nothing else.
+
+    `shutil.copy2` also copies metadata, and on macOS that includes extended
+    attributes. A CV downloaded from a browser or Google Docs carries
+    `com.apple.quarantine` and `com.apple.provenance`, and writing those onto
+    a new file is refused inside the App Sandbox. The refusal arrives AFTER
+    the bytes were copied, as an OSError from `copystat`, so the old code threw
+    away a perfectly good staged copy, fell back to the original path, and the
+    worker thread (outside the drag-and-drop grant) then failed with
+    PermissionError on the PDF and PackageNotFoundError on the .docx.
+    Seen on a TestFlight build, 2026-10-04. `copyfile` copies content only, so
+    there is nothing for the sandbox to refuse. The second attempt reads the
+    bytes by hand for the case where even that is refused.
+    """
+    try:
+        shutil.copyfile(src, dest)
+        return True
+    except OSError:
+        pass
+    try:
+        with open(src, "rb") as fh:
+            data = fh.read()
+        dest.write_bytes(data)
+        return True
+    except OSError:
+        return False
 
 
 def _same_file(path) -> str:

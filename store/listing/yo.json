@@ -22,7 +22,6 @@
     "Ó lo kọ́kọ́rọ́ Anthropic tìrẹ — ìwọ ni ó ń mú un, ìwọ ni ó rí lílo náà"
   ],
   "short_description": "Dawnlist máa ń kà àwọn iṣẹ́-àkójọ ní àràárọ̀ ọjọ́ gbogbo, ó máa ń díwọ̀n olúkúlùkù ìpolówó lòdì sí ìlànà tí ó ń kọ́ pẹ̀lú rẹ láti inú àwọn CV rẹ, ó sì máa ń fún ọ ní àkójọ kúkúrú tí a ṣètò pẹ̀lú àwọn ìdí tí a sọ. Àwọn tí a kọ̀ máa ń jẹ́ hàn nígbà gbogbo. Ó máa ń kọ àwọn ìtẹ̀lé-ọ̀rọ̀ rẹ, kò sì rán wọn rí. Ó ń ṣiṣẹ́ lórí kọ́kọ́rọ́ API Anthropic tìrẹ.",
-  "release_notes": "Kọ́ àwọn ìbéèrè wíwá boolean pẹ̀lú olùdá-ìbéèrè LinkedIn — dàpọ̀ àwọn ọ̀rọ̀-kókó, orúkọ-iṣẹ́ àti àwọn ìyọ̀kúrò sí gbólóhùn kan ṣoṣo, kí o sì lẹ̀ ẹ́ tààrà sínú LinkedIn.\n\nGbé ìpolówó iṣẹ́ wọlé láti inú URL LinkedIn rẹ̀. Lẹ̀ ọ̀nà-ìjápọ̀ (link) náà, Dawnlist yóò sì fi kún olùtọpinpin rẹ pẹ̀lú orúkọ-iṣẹ́, iléeṣẹ́ àti àlàyé tí a ti kún.\n\nỌ̀pọ̀lọpọ̀ orísun iṣẹ́ ní ìdí. Dawnlist ń fa àwọn àkójọ púpọ̀ nísisìyí, ó sì ń pa ẹ̀dà tí ó ní ìsọfúnni jù mọ́ nígbà tí ìpolówó kan náà bá farahàn lẹ́ẹ̀mejì.\n\nGbé àwọn wíwá rẹ wọlé àti jáde gẹ́gẹ́ bí ìwé-ìṣirò (spreadsheet), kí o lè kọ́ àkójọ kan nínú fáìlì CSV kí o sì gbé gbogbo rẹ̀ wọlé lẹ́ẹ̀kan náà dípò kíkọ olúkúlùkù.\n\nGbé àwọn ìlànà ìbámu rẹ jáde gẹ́gẹ́ bí ìwé tí a ti ṣètò, ṣàtúnṣe rẹ̀ ní ìta app náà kí o sì tún gbé wọlé — èyí wúlò nígbà tí ẹlòmíràn bá ń ràn ọ́ lọ́wọ́ láti ṣe àgbékalẹ̀ ohun tí o ń wá.\n\nDán ìjápọ̀ rẹ wò láti Settings láìní láti dúró de eré àràárọ̀. Bọ́tìnnì kan ṣoṣo yóò dán kọ́kọ́rọ́ API rẹ àti ìwọlé àkójọ rẹ wò, yóò sì sọ fún ọ lẹ́sẹ̀kẹsẹ̀ bóyá ohun gbogbo ń ṣiṣẹ́.\n\nÀwọn wíwá lè bá orúkọ-iṣẹ́ mu nísisìyí, tàbí àlàyé náà, tàbí méjèèjì, ìwọ sì lè fi àwọn ọ̀rọ̀-kókó àlàyé kún un láti dín ohun tí ó dá padà kù.",
   "screenshot_captions": [
     "Àkójọ kúkúrú rẹ, pẹ̀lú àwọn ìdí — àti àwọn tí a kọ̀ tí ó ń jẹ́ hàn síbẹ̀",
     "Nígbà tí òfin kan bá ré kọjá àyè, ó máa ń sọ fún ọ",
@@ -40,5 +39,6 @@
     "ìkìlọ̀ iṣẹ́",
     "olùtọpinpin ìfisilẹ̀",
     "ọdẹ iṣẹ́"
-  ]
+  ],
+  "release_notes": "Lẹ́yìn ìwádìí kọ̀ọ̀kan, Dawnlist á sọ fún ọ nísinsìnyí iye ìkéde iṣẹ́ tó kà, iye ìwádìí tó ṣe, àti ìgbà tó gbà, kí ìṣiṣẹ́ kíákíá má baà fi ọ́ sílẹ̀ nínú àníàní bóyá ohun kan ṣẹ́ kù.\n\nNígbà tí ìṣiṣẹ́ kan bá padà láìsí ìkéde iṣẹ́ kankan rárá, àkópọ̀ náà yóò sọ bẹ́ẹ̀ kedere, yóò sì tọ́ ọ sí àwọn ìwádìí rẹ àti ipò rẹ. Nígbà tí a kò bá lè dé ọ̀kan nínú àwọn orísun iṣẹ́ rẹ, ó máa sọ ìyẹn pẹ̀lú."
 }
