@@ -22,7 +22,6 @@
     "Waxay isticmaashaa furahaaga Anthropic gaarka ah — adigaa haya, adigaana arka isticmaalka"
   ],
   "short_description": "Dawnlist waxay subax walba akhridaa feedka shaqooyinka, waxay xukuntaa shaqo-bixin kasta marka loo eego qeexitaan (brief) ay kula dhistay adigoo isticmaalaya CV-yadaada, waxayna kuu soo bandhigtaa liis-koobis heer sare loo kala saaray oo leh sababaha la sheegay. Diidmooyinku way muuqdaan. Waxay u qortaa raadraacyadaada qabyo-qoraallo, waligeedna ma dirto. Waxay ku shaqeysaa furahaaga API gaarka ah ee Anthropic.",
-  "release_notes": "Ku dhis su'aalaha raadinta boolean-ka adigoo adeegsanaya soo-saaraha su'aalaha ee LinkedIn — ku dar kelmadaha-furaha, cinwaannada, iyo ka reebitaannada hal weedh, kadibna ku dhaji si toos ah LinkedIn.\n\nKa soo dejiso shaqo-bixin URL-keeda LinkedIn. Ku dhaji linkiga, Dawnlist-na waxay ku darsan doontaa kormeeraahaaga iyada oo leh cinwaanka, shirkadda, iyo sharraxaadda oo la buuxiyay.\n\nIlo shaqooyin oo badan oo gadaal ka shaqeynaya. Dawnlist hadda waxay ka soo qaadataa dhowr feed, waxayna hayaan nooca ugu qanisan marka isla shaqo-bixintu labo jeer soo muuqato.\n\nKa soo dejiso oo dhoofi raadinnadaada iyada oo ah xaashi (spreadsheet), si aad u dhisto liis faylka CSV kuna soo rareyso dhammaantood mar keliya halkii aad mid kasta gali lahayd.\n\nDhoofi shuruudahaaga qabsanaya iyada oo ah dukumeenti qaabaysan, kaddibna ka wax ka beddel bannaanka aplikeeshanka oo dib u soo dejiso — waxaa faa'iido leh marka qof kale kaa caawinayo qaabaynta waxa aad raadinayso.\n\nBaar isku xidhkaaga Dejinta (Settings) adigoon sugin socodka subaxda. Hal badhan ayaa baaraya furahaaga API iyo gelitaanka feedka, wuxuuna kuu sheegayaa isla markiiba haddii wax walba ay shaqeynayaan.\n\nRaadinnadu hadda waxay la mid noqon karaan cinwaanka shaqada, sharraxaadda, ama labadaba, waxaadna ku dari kartaa kelmadaha-furaha sharraxaadda si aad u ciriirsiiso waxa soo laabta.",
   "screenshot_captions": [
     "Liis-koobiskaaga, oo leh sababaha — diidmooyinkuna weli way muuqdaan",
     "Marka xeer uu dhaafo xadka, waa kuu sheegtaa",
@@ -40,5 +39,6 @@
     "digniinaha shaqo",
     "kormeeraha codsiyada",
     "ugaadhsiga shaqo"
-  ]
+  ],
+  "release_notes": "Raadin kasta ka dib, Dawnlist hadda wuxuu kuu sheegayaa inta xayeysiis shaqo oo uu akhriyay, inta raadin oo uu sameeyay iyo muddadii ay qaadatay, sidaas awgeed socodsiin degdeg ahi kaama tagayso adigoo la yaaban in wax la seegay iyo in kale.\n\nMarka socodsiintu aysan soo celin wax xayeysiis ah oo gabi ahaanba la'aan tahay, soo koobidu hadda si cad ayay u sheegaysaa, waxayna ku tilmaamaysaa raadintaada iyo goobtaada. Marka mid ka mid ah ilaha shaqooyinkaaga aan la gaari karin, taasna way sheegaysaa."
 }

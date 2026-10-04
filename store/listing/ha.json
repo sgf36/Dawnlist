@@ -22,7 +22,6 @@
     "Yana amfani da key naku na Anthropic kanku — kuna riƙe shi, kuna ganin amfani"
   ],
   "short_description": "Dawnlist yana karanta jerin ayyukan yi kowace safiya, yana yin hukunci a kan kowace sanarwa bisa ga bukata da ya gina tare da ku daga CV ɗinku na kanku, kuma yana ba ku jerin zaɓaɓɓu masu tsari tare da dalilai da an bayyana. Ƴancewa suna nan a bayyane. Yana rubuta bibiyoyinku a matsayin zane-zane kuma ba ya taɓa aika su. Yana gudana ta amfani da API key naku na Anthropic.",
-  "release_notes": "Gina tambayoyin bincike na boolean tare da mai samar da tambaya na LinkedIn — haɗa kalmomin bincike, sunayen aiki, da abubuwan cire zuwa magana guda ɗaya kuma manna shi kai tsaye a cikin LinkedIn.\n\nShigo da sanarwar aikin yi daga URL ɗinta na LinkedIn. Manna hanyar haɗin kuma Dawnlist yana ƴara shi zuwa mai bin diddigin ku tare da sunan aiki, kamfani, da bayani da an cika.\n\nƗarin tushen aikin yi a bayan fage. Dawnlist yanzu yana zana daga jerin da yawa kuma yana riƴe sigar mafi cikakke lokacin da sanarwa ɗaya ya bayyana sau biyu.\n\nShigo da fitar da bincikenku a matsayin spreadsheet, don ku gina saiti a cikin fayil CSV kuma ku loda su duka a lokaci guda maimakon rubuta kowanne daban.\n\nFitar da ma'aunin dacewa naku a matsayin takarda mai tsari, gyara shi a wajen app ɗin sannan ku sake shigar da shi — mai amfani lokacin da wani dabam yake taimaka muku tsara abin da kuke nema.\n\nGwada haɗin ku daga Settings ba tare da jira gudu na safiya ba. Maɓalli guda yana bincika API key naku da samun jerin kuma yana gaya muku nan take ko duk komai yana aiki.\n\nBincike yanzu na iya dacewa da sunan aiki, bayani, ko dukkansu, kuma za ku iya ƴara kalmomin bincike na bayani don rage abin da ke dawowa.",
   "screenshot_captions": [
     "Jerin zaɓaɓɓunku, tare da dalilai — kuma ƴancewa har yanzu a bayyane",
     "Lokacin da wata doka ta kai nesa sosai, yana gaya muku",
@@ -40,5 +39,6 @@
     "sanarwar aiki",
     "mai bin diddigin aikace-aikace",
     "farautar aiki"
-  ]
+  ],
+  "release_notes": "Bayan kowane bincike, yanzu Dawnlist yana gaya maka adadin sanarwar ayyukan da ya karanta, adadin binciken da ya gudanar da kuma tsawon lokacin da ya ɗauka, don haka gudanarwa mai sauri ba za ta ƙara barin ka cikin shakkar ko an rasa wani abu ba.\n\nIdan gudanarwa ta dawo babu sanarwar aiki ko ɗaya, yanzu taƙaitawar tana faɗin haka a fili tana kuma nuna maka binciken da wurin da ka saita. Idan kuma ba a iya isa ga ɗaya daga cikin hanyoyin samun ayyukanka ba, tana faɗin haka ma."
 }

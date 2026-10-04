@@ -22,7 +22,6 @@
     "Utilise votre propre clé Anthropic — vous la détenez, vous voyez l'utilisation"
   ],
   "short_description": "Dawnlist lit les flux d'offres d'emploi chaque matin, évalue chaque offre par rapport à un brief qu'elle élabore avec vous à partir de vos propres CV, et vous remet une liste restreinte classée avec les raisons indiquées. Les refus restent visibles. Elle rédige vos relances et ne les envoie jamais. Fonctionne avec votre propre clé API Anthropic.",
-  "release_notes": "Créez des requêtes de recherche booléennes avec le générateur de requêtes LinkedIn — combinez mots-clés, titres et exclusions en une seule expression et collez-la directement dans LinkedIn.\n\nImportez une offre d'emploi depuis son URL LinkedIn. Collez le lien et Dawnlist l'ajoute à votre suivi avec le titre, l'entreprise et la description déjà remplis.\n\nDavantage de sources d'offres d'emploi en coulisses. Dawnlist puise désormais dans plusieurs flux et conserve la version la plus complète lorsqu'une même offre apparaît deux fois.\n\nImportez et exportez vos recherches sous forme de tableur, afin de pouvoir constituer un ensemble dans un fichier CSV et les charger toutes en une seule fois plutôt que de les saisir une par une.\n\nExportez vos critères de correspondance sous forme de document mis en forme, modifiez-le en dehors de l'application puis réimportez-le — pratique lorsque quelqu'un vous aide à définir ce que vous recherchez.\n\nTestez votre connexion depuis Paramètres sans attendre l'exécution du matin. Un seul bouton vérifie votre clé API et l'accès aux flux, et vous indique immédiatement si tout fonctionne.\n\nLes recherches peuvent désormais porter sur le titre du poste, la description, ou les deux, et vous pouvez ajouter des mots-clés de description pour affiner les résultats.",
   "screenshot_captions": [
     "Votre liste restreinte, avec les raisons — et les refus toujours visibles",
     "Lorsqu'une règle va trop loin, elle vous le signale",
@@ -40,5 +39,6 @@
     "alertes emploi",
     "suivi des candidatures",
     "chasse à l'emploi"
-  ]
+  ],
+  "release_notes": "Après chaque recherche, Dawnlist vous indique désormais combien d'offres il a lues, combien de recherches il a lancées et combien de temps cela a pris, pour qu'une exécution rapide ne vous laisse plus vous demander si quelque chose a été oublié.\n\nLorsqu'une exécution ne renvoie aucune offre, le résumé le dit maintenant clairement et vous renvoie à vos recherches et à votre localisation. Lorsque l'une de vos sources d'offres d'emploi n'a pas pu être jointe, il le signale aussi."
 }

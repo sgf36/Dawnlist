@@ -22,7 +22,6 @@
     "Koristi vaš vlastiti Anthropic ključ — vi ga posjedujete, vi vidite potrošnju"
   ],
   "short_description": "Dawnlist svako jutro čita oglasne servise za posao, ocjenjuje svaki oglas prema profilu koji gradi zajedno s vama na temelju vaših životopisa i predaje vam rangirani uži izbor s navedenim razlozima. Odbijeni oglasi ostaju vidljivi. Piše nacrte vaših naknadnih poruka i nikada ih ne šalje. Radi uz vaš vlastiti Anthropic API ključ.",
-  "release_notes": "Izradite Boolean pretrage pomoću generatora LinkedIn upita — kombinirajte ključne riječi, nazive radnih mjesta i isključenja u jedan izraz i zalijepite ga izravno u LinkedIn.\n\nUvezite oglas za posao s njegova LinkedIn URL-a. Zalijepite poveznicu i Dawnlist ga dodaje u vaš pratitelj s popunjenim nazivom, tvrtkom i opisom.\n\nViše izvora poslova u pozadini. Dawnlist sada crpi podatke iz više oglasnih servisa i zadržava bogatiju verziju kada se isti oglas pojavi dvaput.\n\nUvezite i izvezite svoje pretrage kao proračunsku tablicu, tako da možete izraditi skup u CSV datoteci i učitati ih sve odjednom umjesto da svaku upisujete zasebno.\n\nIzvezite svoje kriterije usklađenosti kao formatirani dokument, uredite ga izvan aplikacije i ponovno ga uvezite — korisno kada vam netko drugi pomaže oblikovati ono što tražite.\n\nTestirajte svoju vezu iz Postavki bez čekanja jutarnjeg pokretanja. Jedan gumb provjerava vaš API ključ i pristup oglasnom servisu te vam odmah javlja radi li sve ispravno.\n\nPretrage sada mogu podudarati naziv radnog mjesta, opis ili oboje, a možete dodati ključne riječi opisa kako biste suzili rezultate.",
   "screenshot_captions": [
     "Vaš uži izbor, s razlozima — odbijeni oglasi i dalje vidljivi",
     "Kada pravilo ide predaleko, javlja vam se",
@@ -40,5 +39,6 @@
     "obavijesti o poslu",
     "pratitelj prijava",
     "traženje posla"
-  ]
+  ],
+  "release_notes": "Nakon svakog pretraživanja Dawnlist vam sada kaže koliko je oglasa pročitao, koliko je pretraga pokrenuo i koliko je to trajalo, pa vas brzo pokretanje više ne ostavlja u nedoumici je li nešto propušteno.\n\nKada pokretanje ne vrati nijedan oglas, sažetak to sada jasno navodi i upućuje vas na vaše pretrage i lokaciju. Ako neki od vaših izvora oglasa nije bio dostupan, i to navodi."
 }

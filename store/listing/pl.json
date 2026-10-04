@@ -22,7 +22,6 @@
     "Wykorzystuje Twój własny klucz Anthropic — Ty go posiadasz, Ty widzisz wykorzystanie"
   ],
   "short_description": "Dawnlist każdego ranka przegląda kanały ofert pracy, ocenia każde ogłoszenie względem briefu stworzonego wspólnie z Tobą na podstawie Twoich CV i przekazuje uszeregowaną skróconą listę z podanymi powodami. Odrzucenia pozostają widoczne. Tworzy szkice wiadomości i nigdy ich nie wysyła. Działa na Twoim własnym kluczu API Anthropic.",
-  "release_notes": "Twórz boolowskie zapytania wyszukiwania za pomocą generatora zapytań LinkedIn — połącz słowa kluczowe, stanowiska i wykluczenia w jedno wyrażenie i wklej je bezpośrednio do LinkedIn.\n\nImportuj ogłoszenie o pracę z jego adresu URL na LinkedIn. Wklej link, a Dawnlist doda je do Twojego trackera z wypełnionym tytułem, firmą i opisem.\n\nWięcej źródeł ofert pracy w tle. Dawnlist czerpie teraz z wielu kanałów i zachowuje bogatszą wersję, gdy to samo ogłoszenie pojawia się dwukrotnie.\n\nImportuj i eksportuj swoje wyszukiwania jako arkusz kalkulacyjny, dzięki czemu możesz zbudować zestaw w pliku CSV i wczytać je wszystkie naraz zamiast wpisywać każde osobno.\n\nEksportuj swoje kryteria dopasowania jako sformatowany dokument, edytuj go poza aplikacją i zaimportuj ponownie — przydatne, gdy ktoś inny pomaga Ci doprecyzować to, czego szukasz.\n\nPrzetestuj połączenie z poziomu Ustawień, nie czekając na poranne uruchomienie. Jeden przycisk sprawdza Twój klucz API i dostęp do kanałów oraz natychmiast informuje, czy wszystko działa.\n\nWyszukiwania mogą teraz dopasowywać się do tytułu stanowiska, opisu lub obu naraz, a Ty możesz dodać słowa kluczowe opisu, by zawęzić wyniki.",
   "screenshot_captions": [
     "Twoja skrócona lista, z powodami — a odrzucenia wciąż widoczne",
     "Gdy reguła sięga za daleko, aplikacja Cię o tym informuje",
@@ -40,5 +39,6 @@
     "alerty o pracę",
     "tracker aplikacji",
     "poszukiwanie pracy"
-  ]
+  ],
+  "release_notes": "Po każdym wyszukiwaniu Dawnlist pokazuje teraz, ile ogłoszeń przeczytał, ile wyszukiwań wykonał i ile to zajęło, więc po szybkim uruchomieniu nie musisz się już zastanawiać, czy coś zostało pominięte.\n\nGdy uruchomienie nie zwróci żadnych ogłoszeń, podsumowanie mówi o tym wprost i wskazuje Twoje wyszukiwania oraz lokalizację. Jeśli nie udało się połączyć z jednym z Twoich źródeł ofert pracy, informuje również i o tym."
 }

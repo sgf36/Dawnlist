@@ -22,7 +22,6 @@
     "Používá váš vlastní klíč Anthropic – máte ho ve svých rukou a vidíte jeho využití"
   ],
   "short_description": "Dawnlist každé ráno prochází zdroje pracovních nabídek, posuzuje každou inzerci podle zadání, které si s vámi vytvoří z vašich vlastních CV, a předá vám seřazený shortlist s uvedenými důvody. Odmítnuté nabídky zůstávají viditelné. Vytváří návrhy navazujících zpráv, ale nikdy je neodesílá. Běží na vašem vlastním API klíči Anthropic.",
-  "release_notes": "Sestavujte booleovské vyhledávací dotazy pomocí generátoru dotazů pro LinkedIn – zkombinujte klíčová slova, pracovní pozice a vyloučení do jediného výrazu a vložte ho přímo do LinkedIn.\n\nImportujte pracovní nabídku z jejího odkazu na LinkedIn. Vložte odkaz a Dawnlist ji přidá do vašeho trackeru s vyplněným názvem pozice, firmou a popisem.\n\nVíce zdrojů pracovních nabídek v zákulisí. Dawnlist nyní čerpá z více zdrojů a při duplicitním výskytu stejné nabídky ponechává tu bohatší verzi.\n\nImportujte a exportujte svá vyhledávání jako tabulku, takže si můžete sestavit sadu v souboru CSV a načíst je všechny najednou, místo abyste je zadávali jednotlivě.\n\nExportujte svá kritéria vhodnosti jako formátovaný dokument, upravte ho mimo aplikaci a znovu ho importujte – užitečné ve chvíli, kdy vám někdo jiný pomáhá formulovat, co hledáte.\n\nOtestujte připojení přímo v Nastavení, aniž byste čekali na ranní běh. Jedno tlačítko zkontroluje váš API klíč a přístup ke zdrojům a okamžitě vám sdělí, zda vše funguje.\n\nVyhledávání nyní může porovnávat název pozice, popis, nebo obojí, a k zúžení výsledků můžete přidat klíčová slova z popisu.",
   "screenshot_captions": [
     "Váš shortlist s odůvodněním – a odmítnuté nabídky stále viditelné",
     "Když pravidlo zajde příliš daleko, dá vám to vědět",
@@ -40,5 +39,6 @@
     "upozornění na práci",
     "sledování žádostí",
     "hledání zaměstnání"
-  ]
+  ],
+  "release_notes": "Po každém hledání vám Dawnlist nyní sdělí, kolik inzerátů přečetl, kolik hledání provedl a jak dlouho to trvalo, takže po rychlém běhu už nezůstanete na pochybách, jestli něco nepřehlédl.\n\nKdyž běh nevrátí vůbec žádné inzeráty, souhrn to nyní řekne zcela jasně a odkáže vás na vaše hledání a lokalitu. Pokud se nepodařilo spojit s některým z vašich zdrojů nabídek, uvede i to."
 }

@@ -22,7 +22,6 @@
     "A saját Anthropic-kulcsodat használja – nálad van, te látod a felhasználást"
   ],
   "short_description": "A Dawnlist minden reggel beolvassa az álláshirdetéseket, mindegyiket a veled közösen, a saját önéletrajzaidból összeállított szempontrendszer alapján értékeli, és indoklással ellátott, rangsorolt rövidlistát ad. Az elutasítások láthatók maradnak. Elkészíti a követő üzeneteid piszkozatait, de soha nem küldi el őket. A saját Anthropic API-kulcsodon fut.",
-  "release_notes": "Építs boolean keresési lekérdezéseket a LinkedIn lekérdezés-generátorral – kombinálj kulcsszavakat, munkaköröket és kizárásokat egyetlen kifejezésbe, majd illeszd be közvetlenül a LinkedInbe.\n\nImportálj álláshirdetést a LinkedIn URL-jéből. Illeszd be a linket, és a Dawnlist hozzáadja a nyomon követődhöz a címmel, céggel és leírással kitöltve.\n\nTöbb álláshirdetés-forrás a háttérben. A Dawnlist mostantól több forrásból is merít, és a gazdagabb változatot tartja meg, ha ugyanaz a hirdetés kétszer jelenik meg.\n\nImportáld és exportáld a kereséseidet táblázatként, így egy CSV-fájlban állíthatsz össze egy csoportot, és egyszerre töltheted be az összeset, ahelyett hogy egyenként gépelnéd be őket.\n\nExportáld az illeszkedési szempontjaidat formázott dokumentumként, szerkeszd az alkalmazáson kívül, majd importáld vissza – hasznos, ha valaki más segít formába önteni, mit keresel.\n\nTeszteld a kapcsolatot a Beállításokból, anélkül hogy a reggeli futásra várnál. Egyetlen gomb ellenőrzi az API-kulcsodat és a forrás-hozzáférést, és azonnal jelzi, minden rendben működik-e.\n\nA keresések most már illeszkedhetnek a munkakörre, a leírásra vagy mindkettőre, és leírás-kulcsszavakat is hozzáadhatsz a találatok szűkítéséhez.",
   "screenshot_captions": [
     "A rövidlistád, indoklással – és az elutasítások is láthatók maradnak",
     "Ha egy szabály túl messzire nyúlik, jelzi neked",
@@ -40,5 +39,6 @@
     "állásértesítők",
     "jelentkezés-követő",
     "munkakeresés"
-  ]
+  ],
+  "release_notes": "Minden keresés után a Dawnlist mostantól megmutatja, hány hirdetést olvasott be, hány keresést futtatott le és mennyi ideig tartott, így egy gyors futtatás után már nem kell találgatni, hogy kimaradt-e valami.\n\nHa egy futtatás egyetlen hirdetést sem hoz vissza, az összegzés ezt mostantól egyértelműen közli, és a keresésekhez, valamint a megadott helyhez irányít. Ha valamelyik állásforrás nem volt elérhető, azt is jelzi."
 }

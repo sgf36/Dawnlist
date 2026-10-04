@@ -22,7 +22,6 @@
     "Sử dụng khóa Anthropic của riêng bạn — bạn giữ nó, bạn thấy mức sử dụng"
   ],
   "short_description": "Dawnlist đọc các nguồn tin tuyển dụng mỗi sáng, đánh giá từng tin đăng so với bản tóm tắt được xây dựng cùng bạn từ chính CV của bạn, và trao cho bạn một danh sách rút gọn đã xếp hạng kèm lý do rõ ràng. Các mục bị từ chối vẫn được hiển thị. Ứng dụng soạn thảo các thư theo dõi của bạn và không bao giờ gửi chúng. Chạy bằng khóa API Anthropic của riêng bạn.",
-  "release_notes": "Xây dựng truy vấn tìm kiếm boolean bằng công cụ tạo truy vấn LinkedIn — kết hợp từ khóa, chức danh và các loại trừ thành một biểu thức duy nhất và dán trực tiếp vào LinkedIn.\n\nNhập một tin tuyển dụng từ URL LinkedIn của nó. Dán liên kết và Dawnlist sẽ thêm nó vào trình theo dõi của bạn với chức danh, công ty và mô tả đã được điền sẵn.\n\nThêm nhiều nguồn tin tuyển dụng hoạt động phía sau. Dawnlist hiện lấy dữ liệu từ nhiều nguồn tin và giữ lại phiên bản đầy đủ hơn khi cùng một tin đăng xuất hiện hai lần.\n\nNhập và xuất các tìm kiếm của bạn dưới dạng bảng tính, để bạn có thể xây dựng một bộ tìm kiếm trong tệp CSV và tải tất cả cùng lúc thay vì phải gõ từng cái.\n\nXuất tiêu chí phù hợp của bạn dưới dạng tài liệu được định dạng, chỉnh sửa bên ngoài ứng dụng và nhập lại — hữu ích khi có ai đó khác đang giúp bạn định hình những gì bạn đang tìm kiếm.\n\nKiểm tra kết nối của bạn từ Cài đặt mà không cần chờ lần chạy buổi sáng. Một nút bấm kiểm tra khóa API và quyền truy cập nguồn tin của bạn và cho bạn biết ngay lập tức liệu mọi thứ có đang hoạt động hay không.\n\nCác tìm kiếm giờ đây có thể khớp theo chức danh công việc, mô tả hoặc cả hai, và bạn có thể thêm từ khóa mô tả để thu hẹp kết quả trả về.",
   "screenshot_captions": [
     "Danh sách rút gọn của bạn, kèm lý do — và các mục bị từ chối vẫn được hiển thị",
     "Khi một quy tắc vươn quá xa, nó sẽ cho bạn biết",
@@ -40,5 +39,6 @@
     "cảnh báo việc làm",
     "theo dõi đơn ứng tuyển",
     "săn việc làm"
-  ]
+  ],
+  "release_notes": "Sau mỗi lần tìm kiếm, Dawnlist giờ đây cho bạn biết đã đọc bao nhiêu tin tuyển dụng, đã chạy bao nhiêu lượt tìm kiếm và mất bao lâu, nhờ vậy một lần chạy nhanh không còn khiến bạn băn khoăn liệu có bỏ sót gì không.\n\nKhi một lần chạy không trả về tin tuyển dụng nào, phần tóm tắt giờ đây nói rõ điều đó và chỉ bạn xem lại các tìm kiếm cùng vị trí của mình. Khi không thể truy cập được một trong các nguồn việc làm của bạn, phần tóm tắt cũng cho biết điều đó."
 }

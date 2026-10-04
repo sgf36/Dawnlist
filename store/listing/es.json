@@ -22,7 +22,6 @@
     "Utiliza tu propia clave de Anthropic: tú la tienes, tú ves el uso"
   ],
   "short_description": "Dawnlist lee los feeds de empleo cada mañana, evalúa cada oferta frente a un perfil que construye contigo a partir de tus propios currículums, y te entrega una lista corta clasificada con los motivos indicados. Los descartes se mantienen visibles. Redacta tus seguimientos y nunca los envía. Funciona con tu propia clave API de Anthropic.",
-  "release_notes": "Genera consultas de búsqueda booleanas con el generador de consultas de LinkedIn: combina palabras clave, cargos y exclusiones en una sola expresión y pégala directamente en LinkedIn.\n\nImporta una oferta de empleo desde su URL de LinkedIn. Pega el enlace y Dawnlist la añade a tu seguimiento con el título, la empresa y la descripción ya completados.\n\nMás fuentes de empleo entre bastidores. Dawnlist ahora obtiene datos de múltiples feeds y conserva la versión más completa cuando la misma oferta aparece dos veces.\n\nImporta y exporta tus búsquedas como una hoja de cálculo, para que puedas crear un conjunto en un archivo CSV y cargarlas todas de una vez en lugar de escribir cada una.\n\nExporta tus criterios de idoneidad como un documento con formato, edítalo fuera de la aplicación y vuelve a importarlo, útil cuando alguien más te ayuda a definir lo que buscas.\n\nComprueba tu conexión desde Configuración sin esperar a la ejecución matutina. Un solo botón verifica tu clave API y el acceso al feed, y te indica de inmediato si todo funciona correctamente.\n\nLas búsquedas ahora pueden coincidir con el título del puesto, la descripción o ambos, y puedes añadir palabras clave de descripción para acotar los resultados.",
   "screenshot_captions": [
     "Tu lista corta, con los motivos, y los descartes siguen siendo visibles",
     "Cuando una regla se excede, te lo indica",
@@ -40,5 +39,6 @@
     "alertas de empleo",
     "seguimiento de solicitudes",
     "búsqueda de trabajo"
-  ]
+  ],
+  "release_notes": "Después de cada búsqueda, Dawnlist te indica ahora cuántas ofertas leyó, cuántas búsquedas realizó y cuánto tardó, de modo que una ejecución rápida ya no te deje con la duda de si se pasó algo por alto.\n\nCuando una ejecución no devuelve ninguna oferta, el resumen ahora lo dice claramente y te remite a tus búsquedas y a tu ubicación. Cuando no se ha podido acceder a una de tus fuentes de empleo, también lo indica."
 }

@@ -22,7 +22,6 @@
     "Använder din egen Anthropic-nyckel — du innehar den, du ser användningen"
   ],
   "short_description": "Dawnlist läser jobbflödena varje morgon, bedömer varje annons mot en brief som byggs tillsammans med dig utifrån dina egna CV:n, och överlämnar en rangordnad urvalslista med motiveringar. Avslag förblir synliga. Den skriver utkast till dina uppföljningar och skickar dem aldrig. Körs på din egen Anthropic-API-nyckel.",
-  "release_notes": "Bygg booleska sökfrågor med LinkedIn-frågegeneratorn — kombinera nyckelord, titlar och uteslutningar till ett enda uttryck och klistra in det direkt i LinkedIn.\n\nImportera en platsannons från dess LinkedIn-URL. Klistra in länken så lägger Dawnlist till den i din tracker med titel, företag och beskrivning ifyllda.\n\nFler jobbkällor i bakgrunden. Dawnlist hämtar nu från flera flöden och behåller den rikare versionen när samma annons dyker upp två gånger.\n\nImportera och exportera dina sökningar som ett kalkylblad, så att du kan bygga en uppsättning i en CSV-fil och läsa in alla på en gång istället för att skriva in varje sökning för sig.\n\nExportera dina matchningskriterier som ett formaterat dokument, redigera det utanför appen och importera det igen — praktiskt när någon annan hjälper dig forma vad du söker.\n\nTesta din anslutning från Inställningar utan att vänta på morgonkörningen. En knapp kontrollerar din API-nyckel och flödesåtkomst och talar omedelbart om för dig om allt fungerar.\n\nSökningar kan nu matcha mot jobbtiteln, beskrivningen eller båda, och du kan lägga till nyckelord för beskrivningen för att smalna av vad som kommer tillbaka.",
   "screenshot_captions": [
     "Din urvalslista, med motiveringarna — och avslagen fortfarande synliga",
     "När en regel sträcker sig för långt talar den om det",
@@ -40,5 +39,6 @@
     "jobbevakningar",
     "ansökningsspårare",
     "jobbjakt"
-  ]
+  ],
+  "release_notes": "Efter varje sökning visar Dawnlist nu hur många annonser som lästes, hur många sökningar som kördes och hur lång tid det tog, så att en snabb körning inte längre lämnar dig undrande om något missades.\n\nNär en körning inte ger några annonser alls säger sammanfattningen det rakt ut och hänvisar dig till dina sökningar och din plats. Om någon av dina jobbkällor inte kunde nås står det också där."
 }
