@@ -56,11 +56,6 @@
   // Secrets (wrangler secret put <NAME> — the command takes the secret's NAME,
   // never its value; the value goes at the interactive prompt only):
   //   THEIRSTACK_API_KEY      the feed credential. The ONLY place it lives.
-  //   LINKEDIN_ACCESS_TOKEN   3-legged OAuth member token for the Job Library
-  //                           API (Ad Library product, App ID 266550517).
-  //                           Expires in ~60 days, cannot be refreshed after
-  //                           expiry. Regenerate at developers.linkedin.com
-  //                           and re-push with `wrangler secret put`.
   //   PADDLE_WEBHOOK_SECRET   separate signing key from EasyPost's
   //   CLIENT_HASH_SECRET      keys the HMAC stored in code_attempts in place of
   //                           the connecting address. Optional. Unset, a
