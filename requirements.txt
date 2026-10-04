@@ -54,7 +54,7 @@ openpyxl>=3.1.0
 #
 # Found by the first CI run on a clean runner, which is exactly the class of
 # defect a second machine exists to catch.
-pypdf>=4.0.0
+pypdf>=6.19.0
 python-docx>=1.1.0
 
 # MSIX asset generation (packaging/build_msix.py resizes the 1024px source into
