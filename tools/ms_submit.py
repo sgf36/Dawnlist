@@ -64,6 +64,39 @@ def extract_release_notes(md_path: str) -> str:
     return parts[1].strip()
 
 
+def localised_release_notes(locales, english: str) -> tuple[dict, list]:
+    """Release notes per Partner Center locale, from store/listing/<lang>.json.
+
+    WHY: setting ONE string on every locale overwrote 48 translations with
+    English on each submission. The translated `release_notes` already exist
+    in store/listing/, so use them; a Partner Center locale with no catalogue
+    falls back to English and is REPORTED, never silently.
+    Returns ({locale: notes}, [locales that fell back]).
+    """
+    root = os.path.join(os.path.dirname(__file__), "..", "store", "listing")
+    cache: dict[str, str | None] = {}
+
+    def notes_for(lang: str):
+        if lang not in cache:
+            path = os.path.join(root, f"{lang}.json")
+            try:
+                with open(path, encoding="utf-8") as fh:
+                    cache[lang] = json.load(fh).get("release_notes") or None
+            except OSError:
+                cache[lang] = None
+        return cache[lang]
+
+    out, fell_back = {}, []
+    for loc in locales:
+        lang = loc.lower().split("-")[0]
+        text = english if lang == "en" else notes_for(lang)
+        if not text:
+            fell_back.append(loc)
+            text = english
+        out[loc] = text
+    return out, fell_back
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description=__doc__,
@@ -74,6 +107,10 @@ def main() -> int:
                     help="release notes text (inline)")
     ap.add_argument("--release-notes-file", "-f",
                     help="read release notes from a RELEASE-NOTES.md file")
+    ap.add_argument("--per-locale-notes", action="store_true",
+                    help="use each locale's translated release_notes from "
+                         "store/listing/<lang>.json instead of the English "
+                         "text on every locale")
     ap.add_argument("--dry-run", action="store_true",
                     help="build the payload but do not push or commit")
     args = ap.parse_args()
@@ -125,8 +162,14 @@ def main() -> int:
         "FileName": os.path.basename(msix),
         "FileStatus": "PendingUpload",
     })
+    per_locale, fell_back = (localised_release_notes(sub.get("Listings", {}), rn)
+                             if args.per_locale_notes else ({}, []))
     for locale in sub.get("Listings", {}):
-        sub["Listings"][locale]["BaseListing"]["ReleaseNotes"] = rn
+        sub["Listings"][locale]["BaseListing"]["ReleaseNotes"] = per_locale.get(locale, rn)
+    if args.per_locale_notes:
+        print(f"  Release notes: {len(per_locale) - len(fell_back)} translated, "
+              f"{len(fell_back)} fell back to English"
+              + (": " + ", ".join(sorted(fell_back)) if fell_back else ""))
     sub["PackageDeliveryOptions"] = {
         "PackageRollout": {
             "IsPackageRollout": False,
