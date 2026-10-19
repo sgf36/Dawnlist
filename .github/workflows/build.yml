@@ -369,7 +369,7 @@ jobs:
 
       # -------------------------------------------------------------- artefacts
       - name: Upload
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: dawnlist-${{ matrix.os }}-${{ matrix.variant }}${{ steps.label.outputs.suffix }}
           # `error` only when a package is genuinely expected. Both Windows
@@ -464,7 +464,7 @@ jobs:
               sys.exit("no screenshots were rendered")
           PY
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: mac-screenshots
           path: dist/mac-screenshots
@@ -503,7 +503,7 @@ jobs:
             python tools/render_store.py --locale "$loc" --out dist/windows-screenshots
           done
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: windows-screenshots
           path: dist/windows-screenshots
@@ -545,7 +545,7 @@ jobs:
           QT_QPA_PLATFORM: ""
         run: python tools/render_subscribe.py --price '$79.00' --out dist/review
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: subscription-review
           path: dist/review/*.png
@@ -660,7 +660,7 @@ jobs:
 
           security delete-keychain "$KEYCHAIN"
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         if: always()
         with:
           name: mas-pkg
